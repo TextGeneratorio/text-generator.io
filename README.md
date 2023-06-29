@@ -219,7 +219,9 @@ git clone https://huggingface.co/distilbert-base-uncased
 ### maintenence 
 
 #### run a discord bot
+```shell
 PYTHONPATH=$(pwd):$(pwd)/OFA python questions/disbot/disbot.py
+```
 
 #### remember to stretch!
 stretch your body every 30 mins with the say command...
