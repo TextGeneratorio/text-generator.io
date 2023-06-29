@@ -1,0 +1,112 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > 10x
+                OpenAI Cost Savings - One Line Change
+            </div>
+            <h3>10x OpenAI Savings - One Line Change</h3>
+            <p>We created an OpenAI compatible endpoint to make migrating simple!</p>
+            <h4>Step 1 - Get an API Key</h4>
+            <p><a href="/signup">Sign Up to Text-Generator.io</a> then get <a href="/playground" target="_blank">your
+                API key</a></p>
+            <h4>Step 2 - Change Your API Key + Base Url</h4>
+
+
+            <h5>Python OpenAI Library</h5>
+
+
+            <pre><code id="code-snippet-embed" class="language-diff">import os
+import openai
+
+# Load your API key from an environment variable or secret management service
+--openai.api_key = os.getenv("OPENAI_API_KEY")
+++openai.api_key = os.getenv("TEXTGENERATOR_API_KEY") # your key from Text-Generator.io
+++openai.api_base = "https://api.text-generator.io"
+
+response = openai.Completion.create(model="text-davinci-002", prompt="Say this is a test", temperature=0, max_tokens=6)
+print(response.choices[0].text)</code></pre>
+
+
+            <h5>Node OpenAI Library</h5>
+
+            <pre><code id="code-snippet-embed" class="language-diff">const { Configuration, OpenAIApi } = require("openai");
+const configuration = new Configuration({
+--  apiKey: process.env.OPENAI_API_KEY,
+++  apiKey: process.env.TEXTGENERATOR_API_KEY, // your key from Text-Generator.io
+++  basePath: "https://api.text-generator.io/v1"
+});
+const openai = new OpenAIApi(configuration);
+
+const completion = await openai.createCompletion({
+  model: "text-davinci-002",
+  prompt: "Hello world",
+  max_tokens: 10,
+});
+console.log(completion.data.choices[0].text);</code></pre>
+            <script>
+                $(document).ready(function () {
+                    hljs.highlightAll();
+                    window.setTimeout(function () {
+                          hljs.highlightAll();
+                    }, 3000);
+                });
+            </script>
+
+            <h5>Important differences</h5>
+
+            <p>There are some OpenAI concepts that are not implemented in the Text Generator API</p>
+            <ul>
+                <li>Only completion is implemented, other operations in OpenAI will no longer work</li>
+                <li>
+                    frequency/presence penalty not supported - Text-Generator.io uses a repetition_penalty only exposed
+                    in the HTTP JSON API
+                </li>
+                <li>
+                    Models are not exposed in TextGenerator.io so the model name doesn't make a difference - generating
+                    multiple languages and code still work.
+                </li>
+                <li>Editing api is not supported, (suffix param is ignored)</li>
+                <li>Log probabilities are not returned</li>
+                <li>tokenization counting in the response isn't implemented, you don't have to closely monitor
+                    tokenization anymore and are charged per request
+                </li>
+                <li>Our models are smaller than Davinci - some advanced instruction following such as language
+                    translation may not work as well.
+                </li>
+            </ul>
+            <h5>Features that OpenAI doesn't yet support</h5>
+
+            <p>There are more controls like min_probability to generate a short likely autocomplete as well as a
+                max_sentence parameter only supported in the Text Generator.io HTTP JSON API so consider switching to
+                that.</p>
+            <h5>Why?</h5>
+
+            <p>We think OpenAI is 10x too expensive right now, so we bet on it! If you send us your usage
+                (currie/babbage/davinci) this month and havn't seen 10x cost savings after switching for a month, we
+                will drop pricing for everyone to make sure it's a 10x cost savings.</p>
+            <p>We hope having 10x cheaper text generation will enable an order of magnitude more benefits from this new
+                technology.</p>
+            <h5>Plug</h5>
+            <p><a href="/" title="Text Generator">Text Generator</a> offers an API for text and code generation. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+
+            <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+
+</main>

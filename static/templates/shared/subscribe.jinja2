@@ -1,0 +1,362 @@
+<script type="text/javascript">
+    firebase.auth().onAuthStateChanged(function (user) {
+        if (user) {
+            // User is signed in.
+            var displayName = user.displayName;
+            var email = user.email;
+            var emailVerified = user.emailVerified;
+            var photoURL = user.photoURL;
+            var uid = user.uid;
+            var phoneNumber = user.phoneNumber;
+            var providerData = user.providerData;
+            //TODO err handler ?
+            window.user = user;
+        } else {
+            window.location.href = '/signup';
+            // User is signed out.
+        }
+    }, function (error) {
+        console.log(error);
+    });
+
+    function signup() {
+        var email = $('#username').val();
+        var password = $('#userpass').val();
+        var isSuccessful = true
+        firebase.auth().createUserWithEmailAndPassword(email, password).catch(function (error) {
+            // Handle Errors here.
+            var errorCode = error.code;
+            var errorMessage = error.message;
+            $('#signupFormError').html(errorMessage);
+            $('#signupFormError').show();
+            $('#signupFormError').css('visibility', 'visible');
+            isSuccessful = false
+        }).then(function (status) {
+            if (isSuccessful) {
+                saveUser();
+                $('#signupFormError').hide();
+            }
+        });
+    }
+</script>
+<script src="https://checkout.stripe.com/checkout.js"></script>
+<script defer>
+    function setupQuantityForm() {
+        jQuery('<div class="quantity-nav"><div class="quantity-button quantity-up">+</div><div class="quantity-button quantity-down">-</div></div>').insertAfter('.quantity input');
+        jQuery('.quantity').each(function () {
+            var spinner = jQuery(this),
+                input = spinner.find('input[type="number"]'),
+                btnUp = spinner.find('.quantity-up'),
+                btnDown = spinner.find('.quantity-down'),
+                min = input.attr('min'),
+                max = input.attr('max');
+
+            btnUp.click(function () {
+                var oldValue = parseFloat(input.val());
+                if (oldValue >= max) {
+                    var newVal = oldValue;
+                } else {
+                    var newVal = oldValue + 1;
+                }
+                spinner.find("input").val(newVal);
+                spinner.find("input").trigger("change");
+            });
+
+            btnDown.click(function () {
+                var oldValue = parseFloat(input.val());
+                if (oldValue <= min) {
+                    var newVal = oldValue;
+                } else {
+                    var newVal = oldValue - 1;
+                }
+                spinner.find("input").val(newVal);
+                spinner.find("input").trigger("change");
+            });
+
+        });
+    }
+
+    // no buy button
+    $('#buy').remove();
+    // Close Checkout on page navigation:
+    window.addEventListener('popstate', function () {
+        handler.close();
+    });
+    firebase.auth().onAuthStateChanged(function (user) {
+        if (user) {
+            window.user = user;
+            // open stripe straight away
+            getUser(user, function (userData) {
+
+                $('.subscribe-uid').val(userData.id)
+                $('.subscribe-secret').val(userData.secret)
+                $('.checkout-button').attr('disabled', false);
+                // keep number field positive
+            })
+        } else {
+            window.location.href = '/signup';
+            // User is signed out.
+        }
+    }, function (error) {
+        console.log(error);
+    });
+
+    $(document).ready(function () {
+        setupQuantityForm();
+    })
+</script>
+<style>
+    .mdl-tooltip {
+        font-size: 14px;
+        min-width: 300px;
+    }
+</style>
+<div id="firebaseui-auth-container"></div>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--4-col">
+            <i class="material-icons mdl-list__item-icon" style="
+    float: right;
+    height: 30px;
+    width: 43px;
+    font-size: 30px;
+">cloud</i>
+            <h4>Cloud Text Generator</h4>
+            <p>100 requests per month free tier.</p>
+
+            <p><b class="money-amount">$0.01 USD</b> per request</p>
+            <ul class="demo-list-icon mdl-list">
+                <li class="mdl-list__item" id="list-item-1">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">fast_forward</i>
+                    Quick Start
+                        <div class="mdl-tooltip" for="list-item-1">
+                        The fastest way to get started using the API
+                    </div>
+                </span>
+                </li>
+                <li class="mdl-list__item" id="list-item-2">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">language</i>
+                    Multi-lingual generation
+                  </span>
+                    <div class="mdl-tooltip" for="list-item-2">
+                        Instruction following, logic and creativity in almost all languages
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="list-item-3">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">code</i>
+                    Code generation
+                  </span>
+                    <div class="mdl-tooltip" for="list-item-3">
+                        Polyglot Code, Autocomplete, Translation, Explanation generation.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="list-item-4">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">lock</i>
+                    Complete data privacy
+                  </span>
+                    <!-- tooltip -->
+                    <div class="mdl-tooltip" for="list-item-4">
+                        We do not store any private data sent to the APIs.
+                    </div>
+                </li>
+            </ul>
+
+            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
+                <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
+                <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
+                <button type="submit" id="checkout-button"
+                        class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
+                        disabled="disabled">Subscribe
+                </button>
+            </form>
+        </div>
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
+
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--4-col">
+            <i class="material-icons mdl-list__item-icon" style="
+    float: right;
+    height: 30px;
+    width: 43px;
+    font-size: 30px;
+">construction</i>
+            <h4>Self Host - DIY</h4>
+            <p>All APIs Unlimited Access.</p>
+            <p><b class="money-amount">$99 USD</b> per instance per year
+            </p>
+            <ul class="demo-list-icon mdl-list">
+                <li class="mdl-list__item" id="self-list-item-1">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">gps_fixed</i>
+                    Advanced prediction engine
+                </span>
+                    <div class="mdl-tooltip" for="self-list-item-1">
+                        Same Cloud APIs you know, under your control.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="self-list-item-2">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">rocket_launch</i>
+                    Docker and Kubernetes builds
+                  </span>
+                    <div class="mdl-tooltip" for="self-list-item-2">
+                        Autoscaling best practice config and zero downtime deploys.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="self-list-item-3">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">hub</i>
+                    Embedding, Generation, Speech to text APIs
+                  </span>
+                    <div class="mdl-tooltip" for="self-list-item-3">
+                        Host all Text Generator services behind a single easy to operate service.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="self-list-item-4">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">lock</i>
+                    Network isolation
+                  </span>
+
+                    <div class="mdl-tooltip" for="self-list-item-4">
+                        No network requirements - Although text generator can download and analyze any input links to
+                        write better copy.
+                    </div>
+                </li>
+            </ul>
+
+            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
+                <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
+                <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
+                <input id="subscribe-type" type="hidden" name="type" value="self-hosted">
+
+                <div class="quantity">
+                    <input name="quantity" type="number" id="numberinstances" min="1" step="1" value="1">
+                </div>
+                <span class="mdl-list__item" id="instancecounter">
+                    Concurrent Instances
+                  </span>
+                <div class="mdl-tooltip" for="instancecounter">
+                    This is the amount of instances you can have running at the same time.
+                    Two or more instances are recommended for production workloads.
+                </div>
+
+                <br><br>
+
+                <br>
+                <button type="submit" id="checkout-button"
+                        class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
+                        disabled="disabled">Subscribe
+                </button>
+            </form>
+        </div>
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
+
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--4-col">
+            <i class="material-icons mdl-list__item-icon" style="
+    float: right;
+    height: 30px;
+    width: 43px;
+    font-size: 30px;
+">account_balance</i>
+            <h4>Self Host - Enterprise</h4>
+            <p>Text Generator API - Deeply customized setup and prompt tuning by us</p>
+            <p><b class="money-amount">25k USD</b> per year</p>
+
+            <ul class="demo-list-icon mdl-list">
+                <li class="mdl-list__item" id="enterprise-list-item-1">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">height</i>
+                    Autoscaling customized for your needs
+                        <div class="mdl-tooltip" for="enterprise-list-item-1">
+                        Expert hand tuned autoscaling for best cost savings and performance in your unique situation
+                    </div>
+                </span>
+                </li>
+                <li class="mdl-list__item" id="enterprise-list-item-2">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">dns</i>
+                    Custom hardware accelerators
+                  </span>
+                    <div class="mdl-tooltip" for="enterprise-list-item-2">
+                        Custom optimization and consulting for Gaudi/TPU/Nvidia/AMD and other custom hardware
+                    </div>
+
+                </li>
+                <li class="mdl-list__item" id="enterprise-list-item-3">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">moving</i>
+                        Metrics integration/dashboards
+                  </span>
+
+                    <div class="mdl-tooltip" for="enterprise-list-item-3">
+                        Defining and tracking custom metrics important for you
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="enterprise-list-item-4">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">tune</i>
+                    Prompt tuning
+                  </span>
+                    <div class="mdl-tooltip" for="enterprise-list-item-4">
+                        Expert hands on solutions for advanced AI - Like Logical, Long form and Factual content
+                        generation.
+                    </div>
+                </li>
+
+                <li class="mdl-list__item" id="enterprise-list-item-5">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">person</i>
+                    1 month consulting and integration
+                  </span>
+                    <div class="mdl-tooltip" for="enterprise-list-item-5">
+                        Leverage our expertise guiding the best in generative AI
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="enterprise-list-item-6">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">all_inclusive</i>
+                    Unlimited instances and usage
+                  </span>
+                    <div class="mdl-tooltip" for="enterprise-list-item-6">
+                        All APIs with unlimited instances and usage
+                    </div>
+                </li>
+            </ul>
+
+            {#            <p><i class="material-icons">check</i>Advanced prediction engine</p>#}
+            {#            <p><i class="material-icons">check</i>Multi-lingual</p>#}
+            {#            <p><i class="material-icons">code</i>code/structured data support</p>#}
+            {#            <p><i class="material-icons">lock</i>Complete data privacy</p>#}
+            {#            <div id="stripe-form">#}
+            {#                <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect"#}
+            {#                        onclick="return openStripe()">#}
+            {#                    Subscribe#}
+            {#                </button>#}
+            {#            </div>#}
+            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
+                <a
+                        href="mailto:lee.penkman@wordsmashing.com?subject=Self&20hosting%20text%20generator"
+                        target="_blank" id="checkout-button"
+                        class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect">
+                    Contact us</a>
+                <br>
+                <br>
+
+            </form>
+        </div>
+
+    </div>
+    {% import "templates/macros.jinja2" as macros with context %}
+
+    {{ macros.svgstyled() }}
+</main>

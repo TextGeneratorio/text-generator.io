@@ -1,0 +1,133 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > Many
+                Shots Are Better Than One
+            </div>
+            <h3>Many Shots Are Better Than One</h3>
+            <p>Wait what is a shot?</p>
+            <p>Here in Language Generation, by shots we mean inside a single prompt, how many times are you giving an
+                example of doing what you expect?</p>
+
+
+            <h4>0 shot</h4>
+            <p>(green is computer generated)</p>
+            <pre><code id="code-snippet-embed" class="language-diff">Plot Ideas:
+++A few ideas for the plots are:
+
+++Use a set of markers and colors to indicate your desired results. This would be helpful if you want some visual feedback as well.
+</code></pre>
+            <a href="https://text-generator.io/playground?text=Plot+Ideas%3A%0A&max_sentences=2">playground</a>
+            <p>Here we don't give any shots/examples of how to answer our particular question, we just ask it, it works
+                but results aren't Shakespeare.</p>
+
+            <p>Another example of 0 shots is summarization, here although we give a lot of input data we dont show an
+                example of what an answer looks like, so its 0 shot summarization</p>
+            <pre><code id="code-snippet-embed" class="language-diff">By far the worst of the crew was William who was unsufferably cruel to everyone around him all of the time, second was jake who was often called jake the snake for his ability to lie and steal without remorse, best was Jack who was indifferent to most of the suffering his crew caused as well as to most things in the world.
+In summary:
+
+++Jack is a nice guy
+++James' son Jake has been doing really bad stuff since he came back from space.
+++William's brother J.B., or rather father (he doesn't even know he's dead) James B. also had no interest whatsoever when it comes down to killing people.
+</code></pre>
+            <a href="https://text-generator.io/playground?text=By+far+the+worst+of+the+crew+was+William+who+was+unsufferably+cruel+to+everyone+around+him+all+of+the+time%2C+second+was+jake+who+was+often+called+jake+the+snake+for+his+ability+to+lie+and+steal+without+remorse%2C+best+was+Jack+who+was+indifferent+to+most+of+the+suffering+his+crew+caused+as+well+as+to+most+things+in+the+world.+%0AIn+summary%3A%0A%0AJack+is+a+nice+guy%0AJames%27+son+Jake+has+been+doing+really+bad+stuff+since+he+came+back+from+space.%0AWilliam%27s+brother+J.B.%2C+or+rather+father+%28he+doesn%27t+even+know+he%27s+dead%29+James+B.+also+had+no+interest+whatsoever+when+it+comes+down+to+killing+people.%0A&max_sentences=2"
+               target="_blank">playground</a>
+            <p>It does okay but introduces a bunch of new characters and confusing relationships between the characters,
+                that's often the case in human language summarization isn't a mathematical operation that excludes new
+                information being added and often details are invented.</p>
+
+            <h4>1 shot</h4>
+            <pre><code id="code-snippet-embed" class="language-diff">Plot Ideas:
+A woman after loosing her husband in a tragic accident she was blamed for by the community, in time returns to her home town, falls in love again with a bartender, later she finds out he was her husbands best friend.
+++Idealistic Plot: A young man is going through his life trying not to let himself be affected but when someone else touches him and then another one. The storyline would go on till it ends happily or tragically depending upon how you feel about that person being touched.
+</code></pre>
+            <a href="https://text-generator.io/playground?text=Plot+Ideas%3A%0AA+woman+after+loosing+her+husband+in+a+tragic+accident+she+was+blamed+for+by+the+community%2C+in+time+returns+to+her+home+town%2C+falls+in+love+again+with+a+bartender%2C+later+she+finds+out+he+was+her+husbands+best+friend.%0AIdealistic+Plot%3A+A+young+man+is+going+through+his+life+trying+not+to+let+himself+be+affected+but+when+someone+else+touches+him+and+then+another+one.+The+storyline+would+go+on+till+it+ends+happily+or+tragically+depending+upon+how+you+feel+about+that+person+being+touched.%0A&max_sentences=2"
+               target="_blank">playground</a>
+
+            <p>Its hard to know how to strip output relics like "Idealistic Plot:" if you're making a plot ideas
+                generator, also it's not clear if the one plot should just keep going further, so we can be clearer
+                about the output format</p>
+
+            <pre><code id="code-snippet-embed" class="language-diff">Plot Idea
+A woman after loosing her husband in a tragic accident she was blamed for by the community, in time returns to her home town, falls in love again with a bartender, later she finds out he was her husbands best friend.
+Plot Idea
+++The story of this movie revolves around two men who have become separated. One man decides that his wife will not return and starts making phone calls on an unknown number trying desperately find someone else but no one answers him. </code></pre>
+
+            <a href="https://text-generator.io/playground?text=Plot+Idea%0AA+woman+after+loosing+her+husband+in+a+tragic+accident+she+was+blamed+for+by+the+community%2C+in+time+returns+to+her+home+town%2C+falls+in+love+again+with+a+bartender%2C+later+she+finds+out+he+was+her+husbands+best+friend.%0APlot+Idea%0AThe+story+of+this+movie+revolves+around+two+men+who+have+become+separated.+One+man+decides+that+his+wife+will+not+return+and+starts+making+phone+calls+on+an+unknown+number+trying+desperately+find+someone+else+but+no+one+answers+him.+&max_sentences=2"
+               target="_blank">playground</a>
+            <p>Great results! It's important to note that the writing style and length matches the length of the first
+                example</p>
+            <p>Having more examples can be used to guide the generation to be more succinct or longer</p>
+            <pre><code id="code-snippet-embed" class="language-diff">Plot Idea
+A woman looses her husband, falls in love with her husbands best friend, she never knew.
+Plot Idea
+++The film is a comedy that features the story of two sisters who are friends and work as teachers. In order to get married they decide on getting pregnant but one day their mother comes home from college where he was teaching there for some time now so it would be difficult if not impossible just because his wife had left him before coming back here again or else how could we imagine something like this?
+</code></pre>
+            <a href="https://text-generator.io/playground?text=Plot+Idea%0AA+woman+looses+her+husband%2C+falls+in+love+with+her+husbands+best+friend%2C+she+never+knew.%0APlot+Idea%0AThe+film+is+a+comedy+that+features+the+story+of+two+sisters+who+are+friends+and+work+as+teachers.+In+order+to+get+married+they+decide+on+getting+pregnant+but+one+day+their+mother+comes+home+from+college+where+he+was+teaching+there+for+some+time+now+so+it+would+be+difficult+if+not+impossible+just+because+his+wife+had+left+him+before+coming+back+here+again+or+else+how+could+we+imagine+something+like+this%3F&max_sentences=2"
+               target="_blank">playground</a>
+            <p>Okay so that didn't work to make the language more succinct, it waffles at the end, this could be
+                controlled with the max_sentences parameter to only generate the first</p>
+            <p>Or we could keep going to add more succinct examples</p>
+            <h4>4 Shot</h4>
+            <pre><code id="code-snippet-embed" class="language-diff">Plot Idea
+A woman looses her husband, falls in love with her husbands best friend, she never knew.
+Plot Idea
+Two sisters are friends, work as teachers, fall in love with the same teacher who has a crazy ex wife.
+Plot Idea
+A woman gets trapped travelling overseas in the pandemic, on her way home she finds love and forgets where home is.
+Plot Idea
+A man realises his company is hurting people for increased profit and decides to become a whisleblower and fake his own death.
+Plot Idea
+++The two lovers go out together but realise they have no common ground. They end up staying apart when one of them learns he loves another person.
+            </code></pre>
+            <a href="https://text-generator.io/playground?text=Plot+Idea%0AA+woman+looses+her+husband%2C+falls+in+love+with+her+husbands+best+friend%2C+she+never+knew.%0APlot+Idea%0ATwo+sisters+are+friends%2C+work+as+teachers%2C+fall+in+love+with+the+same+teacher+who+has+a+crazy+ex+wife.%0APlot+Idea%0AA+woman+gets+trapped+travelling+overseas+in+the+pandemic%2C+on+her+way+home+she+finds+love+and+forgets+where+home+is.%0APlot+Idea%0AA+man+realises+his+company+is+hurting+people+for+increased+profit+and+decides+to+become+a+whisleblower+and+fake+his+own+death.%0APlot+Idea%0AThe+two+lovers+go+out+together+but+realise+they+have+no+common+ground.+They+end+up+staying+apart+when+one+of+them+learns+he+loves+another+person.%0A&max_sentences=2"
+               target="_blank">playground</a>
+            <p>More examples helps with harder to guess details like how long and terse language should be</p>
+
+            <h4>Caveats</h4>
+            <p>With zero and few shot examples, and simpler formatted prompts, it's less likely for the context of
+                unrelated prompts to spill over, keep the language+topic the same as the expected output, including too
+                much foreign language or code may cause the model to generate that language/code</p>
+            <h5>Plug</h5>
+
+            <p><a href="/" title="Text Generator" target="_blank">Text Generator</a> offers an API for text and code
+                generation. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+            <p>Note with Text Generator you aren't charged for tokens and can generate up to 100 examples in a single request which adds to diversity of results.</p>
+
+            <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+            <script>
+                $(document).ready(function () {
+                    hljs.highlightAll();
+                    // remove all double ++ characters
+                    $('.hljs-addition').each(function () {
+                        $(this).html($(this).html().replace(/\+\+/g, ''));
+                    });
+                    window.setTimeout(function () {
+                          hljs.highlightAll();
+                        $('.hljs-addition').each(function () {
+                            $(this).html($(this).html().replace(/\+\+/g, ''));
+                        });
+                    }, 3000);
+                });
+            </script>
+
+        </div>
+    </div>
+
+</main>

@@ -1,0 +1,71 @@
+{% macro cssheaders() -%}
+    <link type="text/css" rel="stylesheet" href="/gameon/static/bower_components/bootstrap/dist/css/bootstrap.min.css"/>
+    <link type="text/css" rel="stylesheet" href="/gameon/static/bower_components/font-awesome/css/font-awesome.min.css"/>
+
+    <link type="text/css" rel="stylesheet"
+          href="/gameon/static/js/lib/loopj-jquery-simple-slider-fa64f59/css/simple-slider.css"/>
+    <link type="text/css" rel="stylesheet"
+          href="/gameon/static/js/lib/loopj-jquery-simple-slider-fa64f59/css/simple-slider-volume.css"/>
+    <link type="text/css" rel="stylesheet" href="/gameon/static/css/gameon.css"/>
+{%- endmacro %}
+
+{% macro jsheaders() -%}
+    <script type="text/javascript" src="/gameon/static/js/jquery-1.9.1.min.js"></script>
+    <script type="text/javascript" src="/gameon/static/js/jquery.blockUI.js"></script>
+
+
+{%- endmacro %}
+
+{% macro volume() -%}
+    <div class="gameon-volume">
+        <button class="gameon-volume__mute btn btn-large btn-info" type="button" onclick="gameon.muteClick()"><span
+                class="glyphicon glyphicon-volume-off"></span></button>
+        <button class="gameon-volume__unmute btn btn-large btn-info" type="button" onclick="gameon.unmuteClick()"><span
+                class="glyphicon glyphicon-volume-up"></span></button>
+        <div class="gameon-volume__slider">
+            <input type="text" data-slider="true" value="0.4" data-slider-highlight="true" data-slider-theme="volume"/>
+        </div>
+        <div class="clear"></div>
+    </div>
+{%- endmacro %}
+
+{% macro starbar() -%}
+    <div class="gameon-starbar">
+        <div class="gameon-starbar__bar progress progress-striped">
+            <div class="gameon-starbar__stars">
+                <span class="fa fa-star-o gameon-starbar__star gameon-starbar__star--one"></span>
+                <span class="fa fa-star-o gameon-starbar__star gameon-starbar__star--two"></span>
+                <span class="fa fa-star-o gameon-starbar__star gameon-starbar__star--three"></span>
+            </div>
+            <p class="gameon-starbar__score">
+            </p>
+
+            <div class="gameon-starbar__track progress-bar" role="progressbar"
+                  style="width: 0%">
+            </div>
+        </div>
+        <p class="gameon-starbar__center-message">
+        </p>
+    </div>
+{%- endmacro %}
+
+
+{% macro templates() -%}
+{#    <div id="fb-root"></div>#}
+{#    <script>(function (d, s, id) {#}
+{#        var js, fjs = d.getElementsByTagName(s)[0];#}
+{#        if (d.getElementById(id)) return;#}
+{#        js = d.createElement(s);#}
+{#        js.id = id;#}
+{#        js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1&appId=138831849632195";#}
+{#        fjs.parentNode.insertBefore(js, fjs);#}
+{#    }(document, 'script', 'facebook-jssdk'));</script>#}
+
+    <div class="gameon-volume-template">
+        {{ volume() }}
+    </div>
+    <script class="gameon-starbar-template" type="text/html">
+        {{ starbar() }}
+    </script>
+{%- endmacro %}
+

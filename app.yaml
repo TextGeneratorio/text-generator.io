@@ -1,0 +1,138 @@
+runtime: python39
+entrypoint: gunicorn -k uvicorn.workers.UvicornWorker -b :$PORT main:app --timeout 180000 --workers 1 --threads 1
+default_expiration: "300d 5h"
+
+#runtime_config:
+#  python_version: 3.6
+
+handlers:
+- url: /manifest.webapp
+  static_files: manifest/manifest.json
+  upload: manifest/manifest.json
+  http_headers:
+    Content-Type: application/x-web-app-manifest+json
+
+- url: /manifest-noads.webapp
+  static_files: manifest/manifest-noads.json
+  upload: manifest/manifest-noads.json
+  http_headers:
+    Content-Type: application/x-web-app-manifest+json
+
+- url: /static/*
+  static_dir: static
+  http_headers:
+    Vary: Accept-Encoding
+- url: /transient/*
+  static_dir: transient
+  http_headers:
+    Vary: Accept-Encoding
+  expiration: "0d 1h"
+
+- url: /robots.txt
+  static_files: transient/robots.txt
+  upload: transient/robots.txt
+
+- url: /BingSiteAuth.xml
+  static_files: static/BingSiteAuth.xml
+  upload: static/BingSiteAuth.xml
+
+- url: /channel.html
+  static_files: static/channel.html
+  upload: static/channel.html
+
+- url: /gameon/static/*
+  static_dir: gameon/static
+  http_headers:
+    Vary: Accept-Encoding
+
+
+- url: /favic(.+)
+  static_files: static/icons/favic\1
+  upload: static/icons/favic(.*)
+  http_headers:
+    Vary: Accept-Encoding
+- url: /apple(.+)
+  static_files: static/icons/apple\1
+  upload: static/icons/apple(.*)
+  http_headers:
+    Vary: Accept-Encoding
+- url: /mstile(.+)
+  static_files: static/icons/mstile\1
+  upload: static/icons/mstile(.*)
+  http_headers:
+    Vary: Accept-Encoding
+- url: /android(.+)
+  static_files: static/icons/android\1
+  upload: static/icons/android(.*)
+  http_headers:
+    Vary: Accept-Encoding
+- url: /browserconfig.xml
+  static_files: static/icons/browserconfig.xml
+  upload: static/icons/browserconfig.xml
+  http_headers:
+    Vary: Accept-Encoding
+
+- url: .*
+  script: main.app
+
+instance_class: F1
+#resources:
+##  cpu: 2
+##  memory_gb: 12.5
+#  cpu: 4
+#  memory_gb: 20
+#  disk_size_gb: 20
+  # 4 16 if you want to be able to do code/full precison
+
+#
+#liveness_check:
+#  path: "/"
+#  check_interval_sec: 240
+#  timeout_sec: 220
+#  failure_threshold: 2
+#  success_threshold: 2
+#  initial_delay_sec: 600
+#
+#readiness_check:
+#  path: "/liveness_check"
+#  check_interval_sec: 300
+#  timeout_sec: 300
+#  failure_threshold: 6
+#  success_threshold: 1
+#  app_start_timeout_sec: 1800
+
+#automatic_scaling:
+#  max_pending_latency: 7.5s
+# automatic_scaling:
+#   min_idle_instances: 2
+#   max_pending_latency: 4.5s
+
+# YOLO cost saving autoscaling on gae flex
+automatic_scaling:
+  max_idle_instances: 1
+  target_cpu_utilization: .8
+  target_throughput_utilization: .6
+#  min_pending_latency: 300ms
+  max_pending_latency: 10000ms
+  max_concurrent_requests: 80
+
+
+#automatic_scaling:
+#  min_num_instances: 1
+#  max_num_instances: 15
+#  cool_down_period_sec: 480
+#  cpu_utilization:
+#    target_utilization: 0.5
+#  target_concurrent_requests: 100
+
+
+env_variables:
+  CLOUD_STORAGE_BUCKET: $CLOUD_STORAGE_BUCKET
+  IS_APP_ENGINE: 1
+
+inbound_services:
+- warmup
+
+builtins:
+- appstats: on
+

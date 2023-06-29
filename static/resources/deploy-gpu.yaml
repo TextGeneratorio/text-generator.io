@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-app
+spec:
+  replicas: 1 # Note that doing a zero downtime rolling deployment with 2 replicas would require subscribing to run 2 instances concurrently
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: prod-app
+  template:
+    metadata:
+      labels:
+        app: prod-app
+    spec:
+      # Necessary to have enough shared memory
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+      containers:
+        - name: prod-app
+          image: us.gcr.io/PROJECT/REPO/prod-app:v1 # todo use your image name here
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: API_KEY
+              value: "TEXT_GENERATOR_API_KEY"
+          # Ensure that the node has a GPU
+          resources:
+            requests:
+              cpu: 1500m
+              memory: 30G
+            limits:
+              nvidia.com/gpu: "1"
+          # Necessary to have enough shared memory
+          volumeMounts:
+            - mountPath: /models
+              name: dshm
+          livenessProbe:
+            failureThreshold: 3 # 2 min for recovering
+            httpGet:
+              scheme: HTTP
+              path: /liveness_check
+              port: 8080
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 240
+          readinessProbe:
+            failureThreshold: 10 # 10*30s = 5 min startup time
+            httpGet:
+              scheme: HTTP
+              path: /liveness_check
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10

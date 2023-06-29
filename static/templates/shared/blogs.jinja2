@@ -1,0 +1,36 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > {{ title }}
+            </div>
+            <h3>Blog Posts</h3>
+            <ul class="demo-list-item mdl-list">
+                {% for key, blog in blogs %}
+                    <li class="mdl-list__item">
+                    <!-- bullet point icon list-->
+                        <i class="material-icons mdl-list__item-icon" style="margin-right: 25px">fiber_manual_record</i>
+                        <div>
+
+                        <span class="mdl-list__item-primary-content">
+                            <a href="/blog/{{ key }}">{{ blog['title'] | replace(" - Text Generator API", "") }}</a></span><br>
+                            <span class="mdl-list__item-secondary-content">{{ blog['description'] }}
+                        </span>
+                        </div>
+
+                    </li>
+                {% endfor %}
+            </ul>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>

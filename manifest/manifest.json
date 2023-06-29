@@ -1,0 +1,25 @@
+{
+    "name": "reWord Game",
+    "short_name": "reWord Game - So Sentences Seem Sensible!",
+    "description": "Swap Words to Make Sense of Strangeness in this new word puzzle game! Play reWord Game Free Online!",
+    "version": "4",
+    "manifest_version": 2,
+    "app": {
+        "urls": [
+            "*://rewordgame.com/"
+        ],
+        "launch": {
+            "web_url": "http://rewordgame.com/"
+        }
+    },
+    "icons": {
+        "128": "/static/img/re-word-game-128.png",
+        "64": "/static/img/re-word-game-64.png",
+        "60": "/static/icons/re-word-game-60.png"
+    },
+    "fullscreen": "true",
+    "developer": {
+        "name": "reWord Game",
+        "url": "http://rewordgame.com"
+    }
+}

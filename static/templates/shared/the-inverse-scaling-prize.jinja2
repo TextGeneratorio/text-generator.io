@@ -1,0 +1,54 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog" title="Text Generator Blog">Blog</a> > Inverse Scaling Prize
+            </div>
+            <h3>Inverse Scaling prize - 250k of prizes for finding hard datasets</h3>
+            <p>Most tasks in nlp are now solved to a much better accuracy via using a larger language model trained for longer over more data</p>
+
+            <p>Some work has been done showing larger language models grow more capable of discriminating against race/gender/sexual orientation/gender identity/religion and age, normally perpetuating sociatal biases, or potentially historical biases as datasets can be very out of date.</p>
+
+            <p>
+
+                One such work is the TruthfulQA dataset: Lin, Hilton, and Evans. <a href="http://arxiv.org/abs/2109.07958" rel="nofollow">TruthfulQA: Measuring How Models Mimic Human Falsehoods</a>
+            </p>
+
+            <h4>Self conformational behaviour in ai</h4>
+            <p>Yannic Kilcher recently released the 4chan /pol/ model on the 4chan community demonstrating better performance on the TruthfulQA dataset, some say it invalidates the validity of the dataset, likely the dataset contains adverserial questions asked in ways that self confirm the belief in the answer.</p>
+            <p>
+                Self confirmational behaviour is a common problem in AI, and is a problem that is not solved by any model yet....
+                <br>
+                <br>
+                <img src="{{ static_url }}/img/confirm1.png" alt="self confirmational bias in AI">
+                <br>
+                <img src="{{ static_url }}/img/confirm2.png" alt="self confirmational bias in AI">
+                <br><br>
+                ^ Figure: Even google struggles with conformational bias, it gives people what they ask for instead of the truth.
+            </p>
+
+            <h4>Out of domain datasets</h4>
+            <p>Language models get much better via the modeling power to fit unusual complex functions and data distributions, lots of text is highly topical like different languages/fields of study, slang and unseen data formats</p>
+            <p>Large language models also have trouble gauging how confident they are about given predictions in out of domain tasks, likely because they are trained to predict perplexity of exact passages of text and not the distributions themselves, one thing that makes sudent teacher model training more successful and enables smaller teachers to bootstrap larger language models</p>
+
+            <p>Likewise datasets that suddenly change domains such as translating between multiple languages are difficult to model as normal text like the pile doesn't actually contain a lot of languages side by side in that way.</p>
+            <h4>Low bias domains</h4>
+            <p>Domains with high noise to signal ratio or high randomness can present problems for overfit or large models, overfit models generating text will often output exerpts as is from the training data, predicting outcomes from random chance games are going to be hindered by any biases humans or machines have going in and larger models are capable of more memory and thus bias</p>
+
+            <p>The prize can be entered by creating a dataset of 300+ examples that gets worse as models get larger and more capable <a href="https://github.com/inverse-scaling/prize" title="Text Generator" rel="nofollow" target="_blank">Github project details</a></p>
+
+            <p><a href="/" title="Text Generator">Text Generator</a> offers an API for text and code generation. Secure, affordable, flexible and accurate.</p>
+
+                        <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+
+</main>

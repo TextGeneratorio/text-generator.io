@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gke-tpu-pod
+  annotations:
+     # The Cloud TPUs that will be created for this Job will support
+     # Pytorch 1.11
+     cloud-tpus.google.com/pytorch-version: "1.11"
+     # TensorFlow 2.6.0. This version MUST match the
+     # TensorFlow version that your model is built on.
+     tf-version.cloud-tpus.google.com: "2.6.0"
+spec:
+  restartPolicy: Never
+  containers:
+  - name: gke-tpu-container
+    # The official TensorFlow 2.6.0 image.
+    # https://hub.docker.com/r/tensorflow/tensorflow
+    image: gus-central1-docker.pkg.dev/questions-346919/prod-repo/prod-app-xla:v1
+    command:
+      -  gunicorn -k uvicorn.workers.UvicornWorker -b :8080 main:app --timeout 180000 --workers 1
+
+    resources:
+      limits:
+        # Request a single Preemptible v3-8 Cloud TPU device to train the model.
+        cloud-tpus.google.com/preemptible-v3: "8"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gke-tpu-service
+  labels:
+    app: gke-tpu-pod
+spec:
+    type: LoadBalancer
+    ports:
+    - name: sentiment
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+    selector:
+        app: gke-tpu-pod

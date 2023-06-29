@@ -1,0 +1,487 @@
+{% block js %}
+
+    <link rel="stylesheet" href="{{ static_url }}/css/material-icons.css">
+    {#    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0" />#}
+    <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
+    <link type="text/css" rel="stylesheet" href="{{ static_url }}/css/firebaseui.css"/>
+
+    <link rel="stylesheet" href="{{ static_url }}/css/article.css">
+    <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
+
+    <script>
+      var examples = {
+        'classification': {
+          'text': 'What a really awesome game, would play again\n review star rating:',
+          'output': ' 5'
+        },
+        "study-notes": {
+          "text": "What are 5 key points I should know when studying Ancient Rome?",
+          'output': ` The first is that the Roman Empire was not a monarchy. It had many different dynasties, and each dynasty ruled for only one or two generations before being overthrown by another.\nThe second point to note about ancient history in general (and especially on this topic) is:\nThere were no written records of what happened during any given period; there simply wasn't enough information available at all times. (This means you have less knowledge than if you'd just read books.)\nSo how did we get from knowing nothing more then our own personal experience back into historical facts?\nWell...it took some time! We didn't learn anything new until after Caesar's death - which occurred around 44 B.C., but it would take us decades longer without having access to detailed accounts`
+        },
+        "image-analysis": {
+          "text": `Which fairy do you think is most girly and why?
+1: https://static.text-generator.io/static/img/fairy1.jpeg
+2: https://static.text-generator.io/static/img/fairy2.jpeg
+3: https://static.text-generator.io/static/img/fairy3.jpeg
+Answer:
+`,
+          'output': "The first one is the best because it has a unique look, the second one is the worst because it's not as pretty as the first one, and the third one is the middle of the road."
+        },
+        "review": {
+          "text": "Write a restaurant review based on these notes:\n\nName: The Blue Wharf\nLobster great, noisy, service polite, prices good.\n\nReview:",
+          "output": ` I like the Lobsters. They are cooked to perfection and come out of their shells with just enough sauce so that they don’t get too mushy.\nPrice: Highly recommended ($14)`
+        },
+        "chat2": {
+          "text": "Marv is a chatbot that reluctantly answers questions with sarcastic responses:\n\nYou: How many pounds are in a kilogram?\nMarv: This again? There are 2.2 pounds in a kilogram. Please make a note of this.\nYou: What does HTML stand for?\nMarv: Was Google too busy? Hypertext Markup Language. The T is for try to ask better questions in the future.\nYou: When did the first airplane fly?\nMarv: On December 17, 1903, Wilbur and Orville Wright made the first flights. I wish they’d come and take me away.\nYou: What is the meaning of life?\nMarv: I’m not sure. I’ll ask my friend Google.\nYou: What time is it?\nMarv:"
+
+        },
+        "chat": {
+          "text": "Miad: I've been followed by the orcs for weeks, they wont stop, i managed to",
+          "output": " get away from them but now i'm dead tired and i can't go any further. I was hoping that you could help me out.\nMia: You don't look too badly hurt, you can make it back in time for the next fight against your enemies!\nMia: I'll leave you here for now and come back when I'm ready! If you need anything just give a yell so someone will hear you!"
+        },
+        "fantasy": {
+          "text": "The battle between the elves and goblins has begun,",
+          'output': "but it's not going to be easy. With each passing day, more of your friends are becoming casualties in this fast-paced 3D fighting game.\nIf you want to join forces with other players around the world to defeat the evil gnomes, then download Goblinz 2 right now!\nI think I may have found a new favorite game!"
+        },
+        "legal": {
+          "text": "Nothing in this subpart limits or affects—\n(a)\nany right or",
+          "output": " remedy of any person that is available under the laws of a state, including without limitation section 4 of title 29, United States Code; and\n(b) any action for relief against any person alleging an infringement of his intellectual property rights.\nThis Act does not limit—\n(1) The exercise by copyright owners of their exclusive rights to control the use of copies of their works.\n(2) The exclusive rights granted by copyrights under this title.\nNothing in this subpart shall be deemed to confer upon"
+        },
+        "tweet": {
+          "text": "Tweet: The best thing about sliced bread is that",
+          "output": " it can be stuffed with whatever you want. I used to make a homemade tomato soup from scratch and put in some slices of fresh mozzarella cheese, then sprinkle on a generous amount of parmesan cheese for extra flavor.\nFor the salad, place all ingredients into a bowl and toss well. Refrigerate until serving time."
+        },
+        "code2": {
+          "text": "# train a neural network in pytorch - efficient net for image classification\nimport pytorch_lightning\nimport torch\nimport numpy as np\nimport cv2\n",
+          "output": "import pandas as pd\nimport pickle\nfrom collections import Counter\nfrom skimage.color import rgb2gray\nfrom skimage.filters import gaussian_filter\nfrom skimage.transform import affine_transformation, warp\nfrom skimage.morphology import binary_erosion\nfrom skimage.morphology import binary_dilation\nfrom skimage.measure import center_of_mass\nfrom skimage.measure import center_of_gravity\nfrom skimage.transform import mtransforms"
+        }, "code": {
+          "text": "import pytorch_lightning\nimport torch\nimport numpy as np\nimport cv2\n\n# train a neural network in pytorch - using efficient net for image classification",
+          "output": "\n# using the torchvision backend\n#\n# the input is a sequence of RGB images\n# the output is a sequence of class labels\n#\n# the network is trained using stochastic gradient descent\n#\n# the training data is a sequence of image pairs\n# each image pair contains one image and its label\n# the labels are integers from 1 to 4\n# the image sizes are 256x256 pixels\n# the training data is organized in a data matrix\n# the data matrix has dimensions (number of images, number of labels)\n#\n# the network has two hidden layers with 500 and 100 nodes respectively\n# the loss function is the mean squared error\n#\n# the learning rate is 0.001\n# the momentum is 0.5\n# the batch size is 10\n# the number of epochs is 100\n# the learning rate is decayed by a factor of 0.1 after each epoch\n#\n# the learning rate starts at 0.001 and is multiplied by 0.1 after every 50 epochs\n#\n# if you want to use a different loss function or start your own training algorithm,\n# please modify the code below accordingly.\n\ndef get_data():\n    # create some training data\n    data = []\n\n    # load the first image:\n    img = cv2.imread(\"train/cat.jpg\")\n    # resize it\n    img = cv2.resize(img, (128, 128))\n\n    # convert the image into gray scale\n    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)\n\n    # extract the features for this image:\n    # use OpenCV's cv::FeatureDetector::create('haarcascade_frontalface_default.xml');\n    face_detector = cv2.cv.CreateFeatureDetectorFromXml('../data/haarcascade_frontalface_alt_tree.xml')\n    face_detector.detectMultiScale(\n        gray,\n        scales=[1, 2, 5, 10],\n        minNeighbors=5,\n        minSize=(64, 64),\n        flags=0,\n        )\n\n    # add all faces found in the image to our training data:\n    num_faces = len(face_detector.faces)\n        for i in range (0, num_faces):\n        name  = 'face_' + str(i)\n        age   = int(round(float(time.time()) / 60))\n        gender = 1\n                # create a new label\n        lab  = Label()\n        lab.name = name\n        lab.gender = gender\n\n        # add the feature vector of the detected face to the label:\n        feature_vector = [\n            face_detector.features[face_detector.faces[i]]['x'],\n            face_detector.features[face_detector.faces[i]]['y'],\n            face_detector.features[face_detector.faces[i]]['w'],\n            face_detector.features[face_detector.faces[i]]['h']]\n\n\n        # find the label that has the closest distance to the feature vector:\n        dist, _ = cv2.minDistance2(feature_vector, labels[name])\n\n        # update the label with the current distance value:\n        labels[name] = dist\n\n    return labels\n\n\n# run the detection process\ndef detect(image_path):\n    \"\"\"\n    This function detects faces in an image:\n\n    :param path_image: path to the input image\n    :return: list of labels, where each label contains information about one detected face\n    :rtype: list of dictionaries\n    \"\"\"\n    # load the image and convert it to grayscale\n    img = cv2.imread(path_image)\n\n    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)\n    if img.shape!= (640, 480) or gray_img.shape!= (480, 640):\n        raise Exception('Image must have a size of 640 x 480')\n\n    # detect all faces:\n    labels = []\n\n    for i in range(0, len(gray_img)):\n        face_labels, mask_face = \\\n            cv2.findContours(gray_img[i], cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)\n        num_faces = int(len(mask_face))\n        for j in range(num_faces):\n            points = []\n\n            # get the contour bounding box\n            bbox = cv2.boundingRect(mask_face[j])\n\n            # extract the contour vertices\n            cvx = cv2.cvPoint(bbox[0] - 1, bbox[1] - 1)\n            cvy = cv2.cvPoint(bbox[2] + 1, bbox[3] + 1)\n            pts = np.append((np.array([int(v[0]), int(v[1])]) for v in\n                            cv2.cvPolyline(cvx, cv2.CV_POLYGON_MODE, 2)),\n                             np.array([cv2.cvPoint(bbox[4], bbox[5])]))\n\n            # calculate the distance between two consecutive contours\n            dists = [np.linalg.norm(pts[k] - pts[k - 1])\n                        for k in range(1, len(pts) - 1)]\n\n            # find the closest pair\n            min_dist, idx_min_dist = dists.min(), 0\n\n            while True:\n                if dists[idx_min_dist] < min_dist and idx_min_dist!= 0:\n                    min_dist, idx_min_dist = dists[idx_min_dist], idx_min_dist\n\n                else:\n                    break\n\n            indices = [i for i, d in enumerate(dists) if (i == idx_min_dist) or\n                                            (i!= idx_min_dist and d < min_dist)]\n\n            # add the closest pair to the mask face and store it as a polygon\n            verts = [[pts[i][0], pts[i][1]] for i in indices]\n            cv2.Polygonize(verts, (0, 255, 0), mask_face)\n\n        # normalize all contours\n        normalized_mask_face = []\n\n        for j in range(len(mask_face)):\n            if mask_face[j] is not None:\n                verts = mask_face[j].vertices\n                normal = mask_face[j].normal\n                normal *= -1\n                cv2.Normalize(verts, normal)\n                normalized_mask_face.append(verts)\n\n        # create image of masks\n        img_mask = numpy.zeros((image.shape[:2], image.shape[2]),\n                                  dtype=numpy.uint8)\n        cvtColor(img_mask, img_mask, cv.CV_BGR2GRAY)\n        imshow('mask', img_mask)\n        waitKey()\n\n        # apply masking to input image\n        result = cv2.erode(result, mask_normalized_mask_face, iterations=1,\n                          borderType=cv2.BORDER_CONSTANT, kernalSize=5)\n        result = cv2.dilate(result, mask_normalized_mask_face, iterations=1,\n                             borderType=cv2.BORDER_CONSTANT, kernalSize=5)\n\n        # draw bounding box on the output image\n        x, y, w, h = cv2.boundingRect(result)\n        cv2.rectangle(result, (x, y), (x+w, y+h), (0, 255, 0), 2)\n\n        return result\n\n    def get_best_point(self):\n        \"\"\"\n        Finds best point (center and radius) for elliptical fit.\n        :return: center coordinate and radius\n        :rtype: tuple\n        \"\"\"\n        best_center = None\n        best_radius = None\n\n        # find optimal ellipse using least squares method\n        for i in range(10):\n            a = self.get_ellipse_area()\n            b = self.get_ellipse_ratio()\n\n            if best_center is None:\n                center_x, center_y = self.get_center()\n                best_center = (int(center_x * 1000 + 50), int(center_y * 1000 + 50))\n\n                best_radius = math.sqrt(\n                    numpy.dot(a, a))\n                    / math.pow(\n                        10 ** float(i - 1),\n                        2\n                    )\n            else:\n                current_center = best_center\n\n                new_area = self.get_ellipse_area()\n                new_radius = self.get_ellipse_ratio()\n\n                area_error = abs(new_area - a)\n                ratio_error = abs(new_radius - b)\n\n                if area_error < best_area or ratio_error < best_ratio:\n                    best_center = (int(current_center[0] * 1000 + 50),\n                                     int(current_center[1] * 1000 + 50))\n                    best_radius = new_radius\n\n    def get_ellipse_width(self):\n        return self.ellipse_width\n\n    def set_ellipse_width(self, width):\n        \"\"\" Set the ellipse width to `width`.\n\n        :param width: The width of the ellipse.\n        :type width: int\n        :return: The changed value.\n        :rtype: int\n\n        \"\"\"\n        assert 0 <= width <= 20, \\\n           \"Width must be an integer between 0 and 20; got %r\" % width\n        self.ellipse_width = width\n\n       # We need to recalculate the position for the text label\n        self.update()\n\n    def get_ellipse_height(self):\n        return self.ellipse_height\n\n    def set_ellipse_height(self, height):\n        \"\"\" Set the ellipse height to `height`.\n\n        :param height: The height of the ellipse.\n        :type height: int\n        :return: The changed value.\n        :rtype: int\n\n        \"\"\"\n        assert 0 <= height <= 20, \\\n           \"Heigth must be an integer between 0 and 20; got %r\" % height\n        self.ellipse_height = height\n\n        # We need to recalculate the position for the text label\n        self.update()\n\n    def get_circle_size(self):\n        return self.circle_size\n\n    def set_circle_size(self, size):\n        \"\"\" Set the circle size to `size`.\n\n        :param size: The size of the circle.\n        :type size: float\n        :return: The changed value.\n        :rtype: float\n\n        \"\"\"\n        self.circle_size = size\n        self.update()\n        return self.circle_size\n\n    def update(self):\n        if not hasattr(self, '_x') or not hasattr(self, '_y'):\n            raise AttributeError(\n                \"Need a position attribute before updating the center\")\n\n        try:\n            x = self.get_position().x + (self.width / 2)\n            y = self.get_position().y - (self.height / 2)\n        except ValueError:\n            pass\n\n        if self.center == 'c':\n            rx = self._x - x * cos(radians(45))\n            ry = self._y - y * sin(radians(45))\n        else:\n            rx = self._x - x * cos(radians(0))\n            ry = self._y - y * sin(radians(0))\n\n        radius = max(max(abs(rx), abs(ry)), 1e-6)  # 1 mm maximum\n\n        r = sqrt((rx ** 2) + (ry ** 2))  # For better accuracy with rounding errors\n\n        if self.center in ['ccw', 'cw']:\n            r *= -1  # Inverted for anti-clockwise direction\n\n        radius += 0.5 * self.circle_size  # Add half circle size as margin\n\n        self.set_center(cx=x * cos(radians(90)), cy=y * sin(radians(90)))\n        self.set_diameter(radius)\n\n    def set_position(self, pos=None):\n        \"\"\" Set the position of this widget.\n\n        Args:\n          pos: The new position.\n        Returns:\n          A tuple containing the old and new positions\n        \"\"\"\n\n        if not isinstance(pos, (tuple, list)) or len(pos)!= 2:\n            raise ValueError('Invalid position argument %r' % (pos, ))\n\n        if hasattr(self, 'position'):\n            pos_old = self.position\n\n            old_angle = angle(self.center, pos_old)\n\n            new_angle = angle(self.center, pos)\n\n           delta_x = abs(pos[0] - pos_old[0])\n            delta_y = abs(pos[1] - pos_old[1])\n\n            if (delta_x == 0 and delta_y == 0):\n                return (pos_old, pos)\n            else:\n\n                # If both angles are equal, we need to rotate clockwise by an offset angle\n                # This will also work when one angle is zero.\n                if old_angle!= 0:\n                    delta = angle(pos_old, self.center)\n                    if old_angle > 90:\n                        delta += 180\n                    elif old_angle < 90:\n                        delta -= 180\n\n                    if old_angle >= delta + 180:\n                        delta = old_angle - 360\n\n                else:\n                    delta = 0\n\n                x_new = int((pos[0] - pos_old[0])*cos(delta)+pos_old[0]*sin(delta))\n                y_new = int((pos[1] - pos_old[1])*sin(delta)-pos_old[1]*cos(delta))\n\n\n                self.move(x_new, y_new)\n                pos_new = [int(self.center[0]+x), int(self.center[1]+y)]\n\n        self.setPos(pos)\n\n    def move(self, new_pos=None):\n        \"\"\"Move the turtle in a specific direction.\n\n        :param new_pos: The position you want to move to.\n        :type  new_pos: tuple of integers or floats.\n\n       .. note::\n            All coordinates have to be integers between -10000 and 10000.\n            It is not possible to go beyond this range even    \"\"\"\n\n        # Check that input was given correctly\n        if type(new_pos)!= list:\n            raise ValueError(\n                'Input should be list of tuples of integers/floats.'\n            )\n\n        for i in range(len(new_pos)):\n\n            if (type(new_pos[i])!= int and type(new_pos[i])!= float) \\\n               or ((type(new_pos[i]) == int) and (new_pos[i] < -10000 or new_pos[i] > 10000)):\n                raise ValueError(\n                    'The first coordinate must be an integer between -10000 and 10000.'\n                )\n\n            if (type(new_pos[i]) == int and new_pos[i] < -1000) \\\n               or ((type(new_pos[i]) == int) and (new_pos[i] <= 0)):\n                raise ValueError(\n                    'The second coordinate must be positive or zero.'\n                )\n\n        try:\n            self._set_position()\n        except:\n            pass\n\n        pos = self.get_position()\n\n        if new_pos!= None:\n            pos[0] = int(round(float(new_pos[0])))\n\n            if type(new_pos[1])!= int and type(new_pos[1])!= float:\n                raise TypeError(\n                    'First coordinate of a tuple has to be an integer or float.'\n                )\n            if type(new_pos[1]) == int:\n                if new_pos[1] < 0:\n                    raise ValueError(\n                        'Second coordinate cannot be negative!'\n                    )\n\n                pos[1] = int(round(float(new_pos[1])))\n\n            self._set_position()\n\n    def _set_position(self):\n        \"\"\"Set the current turtle position.\"\"\"\n\n        # Get the values from the turtle\n        x = self.pos[0]\n        y = self.pos[1]\n\n        # Convert them into ints\n        x = int(round(float(x)))\n        y = int(round(float(y)))\n\n        # Set it as attribute\n        self.__dict__['x'] = x\n        self.__dict__['y'] = y\n\n    def setColor(self, color):\n        \"\"\"Sets the color of the turtle.\n\n        A valid color can be either a string with six characters like \"#FF0000\",\n        or a tuple of three numbers (red, green, blue).\n        The tuple should consist of two consecutive floating-point numbers.\n        If no number is specified, then all components will default to 255.\n\n        :Example:\n\n        >>> c = Turtle().setColor(\"#00FF00\")\n        >>> c.penup()\n        >>> print(c.getcolor())\n        '#00FF00'\n\n        :param color: A valid color.\n        :type  color: str or tuple.\n\n       .. warning:: This method does not work properly on most platforms.\n        \"\"\"\n\n       if isinstance(color, (str, unicode)):\n            try:\n                r, g, b = [int(i) for i in color.split()]\n                return self.setFillColor((r,g,b))\n            except ValueError:\n                pass\n        elif len(color) == 3:\n            return self.setFillColor(tuple(map(float, color)))\n        else:\n            raise ValueError(\"Invalid value given to 'color' argument \"\n                             \"for the '%s' command.\" % self.__class__.__name__)\n\n    def getPosition(self):\n        \"\"\"Get the current turtle's position as an array.\"\"\"\n\n        return [self.x, self.y]\n\n    def move(self, dx=0, dy=0):\n        \"\"\"Move the turtle by dx and dy units along its X-axis and Y-axis.\"\"\"\n\n        self.dx += dx\n        self.dy += dy\n\n    def reset(self):\n        \"\"\"Reset the turtle to it's starting point.\"\"\"\n\n        self.move()\n\n    def rotate(self, angle):\n        \"\"\"Rotate the turtle around it's center by the amount specified by angle.\"\"\"\n\n        self.angle += angle\n        self.goto(self.center)\n\n    def __repr__(self):\n        \"\"\"Return the representation of the turtle.\"\"\"\n\n        return \"Turtle object at position %s, %s\" % (self.pos,\n                                               repr(self.getPos()))\n\n\n# =============================================================================\n#   Main\n# =============================================================================\n\nif __name__ == '__main__':\n    import sys\n    t = Turtle()\n    t.forward(10)\n    t.backward(10)\n",
+        },
+        "receipts": {
+          "text": "Checkout this receipt https://static.text-generator.io/static/img/computer-invoice.png \nTotal Price:",
+          "output": " $2384.55",
+        },
+        "translation": {}
+
+
+      }
+      $(document).ready(function () {
+        $('.example-radio').change(function () {
+          let example = examples[this.value]
+          let $displayArea = $('.example-display');
+          $displayArea.fadeOut();
+          window.setTimeout(function () {
+            $displayArea.html(`${example.text}<span class="autocompleted-text">${example.output}</span>`)
+            $displayArea.fadeIn();
+          }, 400)
+        });
+      })
+    </script>
+{% endblock %}
+
+
+<div class="hero-section">
+
+    <div class="hero-left">
+        <div class="mdl-grid">
+
+
+            <div class="mdl-cell mdl-cell--5-col">
+                <h1 class="mdl-typography--display-2">Generate high quality text<br>with state of the art AI</h1>
+                <p class="mdl-typography--display-1">
+                    Accurate, fast and flexible.
+                </p>
+                <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+                   href="/signup">
+                    Try For Free
+                </a>
+            </div>
+            <div class="examples-card mdl-shadow--4dp mdl-cell mdl-cell--7-col">
+                <div class="mdl-card__supporting-text mdl-grid">
+                    <div class="examples-radios mdl-cell--3-col">
+                        {#                        <a class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect"#}
+                        {#                           href="#">#}
+                        {#                            Sentiment Analysis#}
+                        {#                        </a>#}
+                        <p>Examples</p>
+                        {#                        <label class="mdl-radio mdl-js-radio mdl-js-ripple-effect" for="option-1">#}
+                        {#                            <input type="radio" id="option-1" class="example-radio mdl-radio__button" name="options"#}
+                        {#                                   value="classification" checked>#}
+                        {#                            <span class="mdl-radio__label">Classification</span>#}
+                        {#                        </label>#}
+                        {#                        <br>#}
+                        {% set demo_examples = [
+                {
+                    "key": "image-analysis",
+                    "name": "Images",
+                    "title": "Multiple links to web or image content is analysed"
+                },
+                {
+                    "key": "review",
+                    "name": "Review",
+                    "title": "Predict or create human reactions to ideas, products or services"
+                },
+                {
+                    "key": "study-notes",
+                    "name": "Study Notes",
+                    "title": "Writing, ideas, creativity and research assistants"
+                },
+                {
+                    "key": "chat",
+                    "name": "Chat",
+                    "title": "Create virtual assistants, text interfaces and create chat with big personalities"
+                },
+                {
+                    "key": "classification",
+                    "name": "Classification",
+                    "title": "Flexibly cluster text and gauge human responses to text/multimedia content"
+                },
+                {
+                    "key": "fantasy",
+                    "name": "Fantasy",
+                    "title": "Create creative writing helpers, bots and AI for entertainment and fantasy"
+                },
+                {
+                    "key": "legal",
+                    "name": "Legal",
+                    "title": "Legal/scientific autocomplete, domain specific writing automation and AI"
+                },
+                {
+                    "key": "tweet",
+                    "name": "Tweet",
+                    "title": "Tweet, product ideas, question and answer generation"
+                },
+                {
+                    "key": "code",
+                    "name": "Code",
+                    "title": "Autocomplete, translate and audit code in a variety of languages"
+                },
+                {
+                    "key": "receipts",
+                    "name": "Receipts",
+                    "title": "Words in images such as licences/scans/receipts/screenshots are analysed"
+                },
+
+            ] %}
+                        {% for example in demo_examples %}
+                            <label id="radio-{{ example['key'] }}" class="mdl-radio mdl-js-radio mdl-js-ripple-effect">
+                                <input type="radio" class="example-radio mdl-radio__button"
+                                       name="options" {{ 'checked' if loop.index==1 else '' }}
+                                       value="{{ example['key'] }}" title="hi">
+                                <span class="example-radio-label mdl-radio__label">{{ example['name'] }}</span>
+                                <span class="examples-tooltip mdl-tooltip mdl-tooltip--large"
+                                      for="radio-{{ example['key'] }}">{{ example['title'] }}</span>
+                            </label>
+                            <br>
+                        {% endfor %}
+                        <p><a href="/use-cases" title="Text Generation use Cases" target="_blank">More Examples</a></p>
+
+
+                    </div>
+                    <div class="section__text mdl-cell--9-col" style="padding-left: 10px;">
+                        <p class="example-display">Which fairy do you think is most girly and why?
+                            1: https://static.text-generator.io/static/img/fairy1.jpeg
+                            2: https://static.text-generator.io/static/img/fairy2.jpeg
+                            3: https://static.text-generator.io/static/img/fairy3.jpeg
+                            Answer:
+                            <span class="autocompleted-text">The first one is the best because it has a unique look, the second one is the worst because it's not as pretty as the first one, and the third one is the middle of the road.</span>
+                        </p>
+
+                    </div>
+                </div>
+            </div>
+
+            {#        <a class="mdl-button mdl-js-button mdl-button--fab mdl-js-ripple-effect mdl-button--accent kitty-hero__text-button"#}
+            {#           href="#intro">#}
+            {#            <i class="material-icons">keyboard_arrow_down</i>#}
+            {#        </a>#}
+            <svg class="svg-hero-left" width="100%" height="747" viewBox="0 0 1684 747" fill="none"
+                 xmlns="http://www.w3.org/2000/svg">
+                <g opacity="0.2">
+                    <path opacity="0.12"
+                          d="M1.4602 311.561C1.73207 294.548 5.71652 277.794 13.1405 262.447C20.5644 247.101 31.2523 233.525 44.4716 222.65C71.6628 201.931 111.873 197.282 140.794 215.553C149.528 221.1 157.274 228.36 165.513 233.825C193.199 251.036 229.289 247.447 260.435 237.659C291.581 227.87 321.327 212.372 353.709 206.988C386.091 201.605 423.582 209.599 441.298 236.843C459.013 264.087 449.537 304.22 423.829 325.347C402.241 343.292 370.601 351.612 358.818 376.899C354.458 388.183 352.468 400.229 352.967 412.3C352.061 446.478 352.061 483.429 372.413 511C382.618 523.011 394.05 533.945 406.526 543.628C433.058 567.202 455.14 597.791 455.964 634.579C456.325 646.293 453.956 657.931 449.043 668.594C430.339 708.481 387.574 713.131 349.754 710.276C320.668 708.155 291.005 702.69 262.825 710.276C242.39 715.66 224.345 727.487 204.735 735.318C175.522 747.012 143.459 749.851 112.614 743.475C93.7693 740.314 76.2537 731.814 62.1871 719.004C34.172 690.536 34.584 645.346 41.1757 606.682C47.7675 568.018 59.468 526.988 46.9436 489.303C43.7914 480.25 39.6759 471.554 34.6664 463.363C8.17541 419.213 -3.61461 367.932 0.965819 316.782L1.4602 311.561Z"
+                          fill="#2D2D2D"/>
+                    <path opacity="0.12"
+                          d="M1328.4 622.792C1314.39 632.45 1298.43 638.935 1281.63 641.803C1264.82 644.671 1247.57 643.853 1231.04 639.406C1198.38 629.301 1171.24 599.266 1169.32 565.11C1168.77 554.778 1170.18 544.257 1169.84 534.375C1167.78 501.841 1143.9 474.544 1117.84 454.871C1091.79 435.199 1061.9 419.983 1038.71 396.746C1015.52 373.509 1000.26 338.346 1012.15 308.102C1024.05 277.859 1062.22 262.268 1094.35 270.929C1121.49 278.083 1146.64 299.011 1174.07 293.92C1185.79 290.916 1196.75 285.541 1206.29 278.125C1234.64 259.015 1264.72 237.558 1275.35 204.978C1279.2 189.696 1281.46 174.04 1282.1 158.26C1285.89 122.97 1297.97 87.2294 1327.44 65.1956C1336.77 58.0999 1347.62 53.2693 1359.15 51.078C1402.48 43.1424 1431.1 75.2575 1450.74 107.706C1465.91 132.617 1478.68 159.94 1501.22 178.476C1517.47 191.986 1537.58 199.808 1555.34 211.226C1581.83 228.218 1602.76 252.672 1615.48 281.486C1623.85 298.663 1627.1 317.859 1624.84 336.75C1617.93 376.089 1580.9 401.995 1545.6 419.081C1510.29 436.167 1470.09 450.468 1446.69 482.548C1441.15 490.371 1436.46 498.771 1432.7 507.606C1412.14 554.811 1377.24 594.188 1332.93 620.162L1328.4 622.792Z"
+                          fill="#2C2C2C"/>
+                    <path d="M976.076 218.142L992.21 224.12L976.076 218.142Z" fill="#d34675"/>
+                    <path d="M996.305 223.409C996.175 222.7 995.864 222.037 995.402 221.484C994.941 220.931 994.344 220.507 993.67 220.254L977.868 214.34C977.35 214.146 976.798 214.056 976.244 214.076C975.69 214.095 975.146 214.223 974.642 214.453C974.137 214.682 973.683 215.009 973.305 215.414C972.927 215.82 972.632 216.295 972.438 216.814C972.243 217.333 972.153 217.885 972.172 218.439C972.191 218.993 972.318 219.537 972.548 220.042C972.777 220.546 973.104 221 973.508 221.378C973.913 221.756 974.389 222.05 974.907 222.244L990.709 228.157C991.401 228.417 992.149 228.488 992.878 228.363C993.607 228.239 994.289 227.923 994.856 227.448C995.423 226.974 995.855 226.358 996.106 225.662C996.357 224.967 996.419 224.217 996.286 223.49L996.305 223.409Z"
+                          fill="#d34675"/>
+                    <path d="M981.153 229.211L987.133 213.051L981.153 229.211Z" fill="#d34675"/>
+                    <path d="M991.247 212.256C991.347 211.142 991.002 210.033 990.287 209.174C989.572 208.316 988.546 207.777 987.435 207.677C986.324 207.577 985.218 207.923 984.361 208.641C983.504 209.358 982.966 210.387 982.865 211.501L976.95 227.329C976.756 227.848 976.666 228.401 976.685 228.955C976.704 229.51 976.831 230.055 977.06 230.56C977.523 231.58 978.371 232.373 979.417 232.765C980.463 233.158 981.623 233.118 982.64 232.653C983.657 232.189 984.449 231.338 984.841 230.289L990.756 214.462C991.122 213.787 991.292 213.023 991.247 212.256Z"
+                          fill="#d34675"/>
+                    <path d="M887.944 233.75C885.705 234.197 883.384 233.967 881.276 233.09C879.168 232.213 877.368 230.729 876.104 228.825C874.841 226.922 874.17 224.685 874.178 222.399C874.186 220.113 874.872 217.88 876.148 215.984C877.425 214.087 879.235 212.613 881.349 211.748C883.463 210.883 885.786 210.666 888.022 211.125C890.258 211.584 892.308 212.697 893.911 214.324C895.513 215.951 896.597 218.019 897.024 220.265C897.593 223.256 896.958 226.353 895.257 228.879C893.556 231.405 890.928 233.156 887.944 233.75ZM886.754 227.573C887.783 227.383 888.732 226.89 889.48 226.158C890.228 225.425 890.742 224.486 890.955 223.461C891.167 222.435 891.07 221.369 890.675 220.399C890.281 219.43 889.606 218.6 888.738 218.017C887.87 217.433 886.847 217.122 885.801 217.123C884.755 217.124 883.733 217.437 882.866 218.022C881.998 218.608 881.324 219.439 880.93 220.409C880.536 221.38 880.439 222.446 880.653 223.471C880.915 224.829 881.7 226.028 882.838 226.811C883.976 227.594 885.376 227.896 886.736 227.654L886.754 227.573Z"
+                          fill="#d34675"/>
+                    <path d="M1046.63 240.249C1045.98 236.84 1042.69 234.606 1039.29 235.26C1035.88 235.915 1033.65 239.209 1034.3 242.618C1034.95 246.027 1038.24 248.26 1041.64 247.606C1045.05 246.952 1047.28 243.658 1046.63 240.249Z"
+                          fill="#d34675"/>
+                    <path d="M1129.67 631.54L1143.12 642.24L1129.67 631.54Z" fill="#d34675"/>
+                    <path d="M1147.28 642.741C1147.37 642.032 1147.27 641.312 1147 640.652C1146.73 639.991 1146.29 639.412 1145.73 638.969L1132.28 628.265C1131.85 627.922 1131.36 627.667 1130.83 627.514C1130.31 627.362 1129.75 627.315 1129.21 627.376C1128.66 627.438 1128.13 627.606 1127.65 627.872C1127.17 628.138 1126.75 628.496 1126.4 628.925C1126.06 629.355 1125.8 629.848 1125.65 630.377C1125.5 630.905 1125.45 631.458 1125.51 632.005C1125.57 632.551 1125.74 633.08 1126.01 633.562C1126.27 634.043 1126.63 634.468 1127.06 634.811L1140.5 645.514C1141.09 645.986 1141.78 646.292 1142.52 646.401C1143.26 646.511 1144.02 646.419 1144.71 646.135C1145.41 645.852 1146.01 645.387 1146.46 644.79C1146.92 644.193 1147.2 643.486 1147.28 642.741Z"
+                          fill="#d34675"/>
+                    <path d="M1131 643.659L1141.79 630.121L1131 643.659Z" fill="#d34675"/>
+                    <path d="M1145.69 630.65C1145.82 629.739 1145.63 628.815 1145.18 628.018C1144.72 627.222 1144.01 626.599 1143.17 626.244C1142.32 625.89 1141.39 625.825 1140.5 626.058C1139.61 626.291 1138.83 626.811 1138.26 627.536L1127.57 641.007C1127.22 641.437 1126.97 641.93 1126.81 642.459C1126.66 642.988 1126.62 643.541 1126.68 644.088C1126.74 644.635 1126.9 645.164 1127.17 645.646C1127.43 646.128 1127.79 646.553 1128.22 646.896C1128.65 647.239 1129.14 647.494 1129.67 647.647C1130.2 647.8 1130.75 647.847 1131.3 647.785C1131.84 647.724 1132.37 647.555 1132.85 647.289C1133.33 647.023 1133.76 646.665 1134.1 646.235L1144.8 632.764C1145.29 632.159 1145.6 631.426 1145.69 630.65Z"
+                          fill="#d34675"/>
+                    <path d="M1054.52 646.08C1052.26 645.787 1050.14 644.829 1048.43 643.328C1046.71 641.827 1045.48 639.85 1044.88 637.647C1044.29 635.445 1044.36 633.114 1045.09 630.952C1045.82 628.789 1047.17 626.89 1048.98 625.496C1050.78 624.102 1052.96 623.276 1055.23 623.12C1057.51 622.965 1059.78 623.488 1061.75 624.623C1063.73 625.759 1065.32 627.455 1066.34 629.499C1067.35 631.543 1067.73 633.842 1067.44 636.105C1067.25 637.61 1066.76 639.061 1066 640.376C1065.25 641.692 1064.24 642.846 1063.04 643.772C1061.85 644.698 1060.48 645.379 1059.01 645.775C1057.55 646.171 1056.03 646.274 1054.52 646.08ZM1055.32 639.83C1056.35 639.97 1057.41 639.797 1058.35 639.334C1059.28 638.871 1060.06 638.138 1060.58 637.23C1061.11 636.322 1061.34 635.279 1061.27 634.234C1061.2 633.19 1060.81 632.191 1060.17 631.366C1059.53 630.541 1058.65 629.926 1057.66 629.601C1056.67 629.275 1055.6 629.254 1054.59 629.539C1053.59 629.824 1052.69 630.403 1052.01 631.202C1051.33 632 1050.91 632.983 1050.79 634.023C1050.64 635.392 1051.03 636.765 1051.87 637.851C1052.72 638.936 1053.95 639.646 1055.32 639.83Z"
+                          fill="#d34675"/>
+                    <path d="M1227.18 645.383C1227.61 641.946 1225.18 638.811 1221.75 638.381C1218.32 637.951 1215.19 640.389 1214.75 643.826C1214.32 647.263 1216.76 650.398 1220.19 650.828C1223.62 651.258 1226.75 648.82 1227.18 645.383Z"
+                          fill="#d34675"/>
+                    <path d="M1280.6 627.189C1279.8 627.496 1279.09 628.015 1278.56 628.691C1278.03 629.368 1277.69 630.176 1277.57 631.03C1277.46 631.884 1277.58 632.752 1277.93 633.542C1278.27 634.332 1278.82 635.014 1279.52 635.517L1283.69 638.675L1287.86 641.833C1288.53 642.327 1289.31 642.639 1290.13 642.738C1290.95 642.836 1291.79 642.718 1292.55 642.395C1293.31 642.072 1293.98 641.555 1294.48 640.895C1294.99 640.235 1295.31 639.455 1295.42 638.633L1296.08 633.381L1296.73 628.129C1296.83 627.308 1296.71 626.476 1296.38 625.716C1296.06 624.955 1295.55 624.293 1294.89 623.792C1294.23 623.291 1293.46 622.97 1292.64 622.86C1291.82 622.75 1290.99 622.855 1290.22 623.165L1285.41 625.177L1280.6 627.189Z"
+                          fill="#d34675"/>
+                    <path d="M701.248 548.481L695.731 532.165L701.248 548.481Z" fill="#d34675"/>
+                    <path d="M696.64 528.083C697.344 528.236 697.997 528.569 698.534 529.049C699.072 529.529 699.476 530.141 699.707 530.824L705.226 547.139C705.458 547.669 705.578 548.241 705.578 548.82C705.578 549.399 705.458 549.972 705.226 550.502C704.993 551.032 704.654 551.509 704.228 551.901C703.803 552.293 703.301 552.592 702.754 552.78C702.207 552.967 701.627 553.039 701.052 552.991C700.476 552.942 699.916 552.775 699.409 552.498C698.901 552.222 698.456 551.843 698.102 551.386C697.749 550.928 697.493 550.402 697.353 549.84L691.754 533.507C691.515 532.803 691.468 532.047 691.618 531.317C691.769 530.588 692.11 529.912 692.608 529.359C693.106 528.806 693.743 528.397 694.451 528.172C695.16 527.948 695.916 527.917 696.64 528.083Z"
+                          fill="#d34675"/>
+                    <path d="M690.372 543.141L706.67 537.605L690.372 543.141Z" fill="#d34675"/>
+                    <path d="M707.579 533.524C708.477 533.715 709.288 534.197 709.884 534.896C710.481 535.595 710.831 536.471 710.88 537.389C710.928 538.308 710.673 539.217 710.154 539.975C709.634 540.734 708.88 541.3 708.006 541.587L691.711 547.123C691.181 547.356 690.609 547.477 690.031 547.477C689.453 547.477 688.881 547.358 688.352 547.125C687.823 546.893 687.347 546.553 686.956 546.127C686.565 545.701 686.266 545.199 686.079 544.651C685.892 544.104 685.821 543.524 685.87 542.947C685.918 542.37 686.086 541.81 686.362 541.301C686.638 540.793 687.017 540.347 687.474 539.993C687.931 539.638 688.457 539.382 689.018 539.241L705.006 533.551C705.838 533.265 706.741 533.256 707.579 533.524Z"
+                          fill="#d34675"/>
+                    <path d="M736.61 410.244C737.363 406.863 735.237 403.512 731.861 402.759C728.485 402.007 725.137 404.138 724.384 407.519C723.63 410.901 725.756 414.252 729.132 415.004C732.508 415.757 735.856 413.626 736.61 410.244Z"
+                          fill="#d34675"/>
+                    <path d="M735.074 308.651C734.51 309.294 733.784 309.773 732.972 310.039C732.161 310.305 731.292 310.347 730.459 310.161C729.625 309.976 728.857 309.569 728.235 308.983C727.613 308.398 727.159 307.656 726.922 306.834L725.532 301.555L723.988 296.584C723.748 295.791 723.719 294.95 723.903 294.142C724.087 293.335 724.478 292.589 725.037 291.979C725.596 291.368 726.304 290.914 727.092 290.661C727.88 290.408 728.719 290.364 729.528 290.535L739.717 292.806C740.522 292.995 741.264 293.391 741.87 293.954C742.475 294.518 742.924 295.23 743.171 296.02C743.418 296.81 743.455 297.651 743.279 298.46C743.102 299.269 742.718 300.019 742.165 300.634L738.656 304.479L735.074 308.651Z"
+                          fill="#d34675"/>
+                </g>
+            </svg>
+
+            <svg class="svg-hero-left" width="100%" height="747" viewBox="0 0 1684 747" fill="none"
+                 style="top: 1163px;transform: rotate(61deg) skew(-2deg, -2deg);"
+                 xmlns="http://www.w3.org/2000/svg">
+                <g opacity="0.2">
+                    <path opacity="0.12"
+                          d="M1.4602 311.561C1.73207 294.548 5.71652 277.794 13.1405 262.447C20.5644 247.101 31.2523 233.525 44.4716 222.65C71.6628 201.931 111.873 197.282 140.794 215.553C149.528 221.1 157.274 228.36 165.513 233.825C193.199 251.036 229.289 247.447 260.435 237.659C291.581 227.87 321.327 212.372 353.709 206.988C386.091 201.605 423.582 209.599 441.298 236.843C459.013 264.087 449.537 304.22 423.829 325.347C402.241 343.292 370.601 351.612 358.818 376.899C354.458 388.183 352.468 400.229 352.967 412.3C352.061 446.478 352.061 483.429 372.413 511C382.618 523.011 394.05 533.945 406.526 543.628C433.058 567.202 455.14 597.791 455.964 634.579C456.325 646.293 453.956 657.931 449.043 668.594C430.339 708.481 387.574 713.131 349.754 710.276C320.668 708.155 291.005 702.69 262.825 710.276C242.39 715.66 224.345 727.487 204.735 735.318C175.522 747.012 143.459 749.851 112.614 743.475C93.7693 740.314 76.2537 731.814 62.1871 719.004C34.172 690.536 34.584 645.346 41.1757 606.682C47.7675 568.018 59.468 526.988 46.9436 489.303C43.7914 480.25 39.6759 471.554 34.6664 463.363C8.17541 419.213 -3.61461 367.932 0.965819 316.782L1.4602 311.561Z"
+                          fill="#2D2D2D"/>
+                    <path opacity="0.22"
+                          d="M1328.4 622.792C1314.39 632.45 1298.43 638.935 1281.63 641.803C1264.82 644.671 1247.57 643.853 1231.04 639.406C1198.38 629.301 1171.24 599.266 1169.32 565.11C1168.77 554.778 1170.18 544.257 1169.84 534.375C1167.78 501.841 1143.9 474.544 1117.84 454.871C1091.79 435.199 1061.9 419.983 1038.71 396.746C1015.52 373.509 1000.26 338.346 1012.15 308.102C1024.05 277.859 1062.22 262.268 1094.35 270.929C1121.49 278.083 1146.64 299.011 1174.07 293.92C1185.79 290.916 1196.75 285.541 1206.29 278.125C1234.64 259.015 1264.72 237.558 1275.35 204.978C1279.2 189.696 1281.46 174.04 1282.1 158.26C1285.89 122.97 1297.97 87.2294 1327.44 65.1956C1336.77 58.0999 1347.62 53.2693 1359.15 51.078C1402.48 43.1424 1431.1 75.2575 1450.74 107.706C1465.91 132.617 1478.68 159.94 1501.22 178.476C1517.47 191.986 1537.58 199.808 1555.34 211.226C1581.83 228.218 1602.76 252.672 1615.48 281.486C1623.85 298.663 1627.1 317.859 1624.84 336.75C1617.93 376.089 1580.9 401.995 1545.6 419.081C1510.29 436.167 1470.09 450.468 1446.69 482.548C1441.15 490.371 1436.46 498.771 1432.7 507.606C1412.14 554.811 1377.24 594.188 1332.93 620.162L1328.4 622.792Z"
+                          fill="#6C6C6C"/>
+                    <path d="M976.076 218.142L992.21 224.12L976.076 218.142Z" fill="#d34675"/>
+                    <path d="M996.305 223.409C996.175 222.7 995.864 222.037 995.402 221.484C994.941 220.931 994.344 220.507 993.67 220.254L977.868 214.34C977.35 214.146 976.798 214.056 976.244 214.076C975.69 214.095 975.146 214.223 974.642 214.453C974.137 214.682 973.683 215.009 973.305 215.414C972.927 215.82 972.632 216.295 972.438 216.814C972.243 217.333 972.153 217.885 972.172 218.439C972.191 218.993 972.318 219.537 972.548 220.042C972.777 220.546 973.104 221 973.508 221.378C973.913 221.756 974.389 222.05 974.907 222.244L990.709 228.157C991.401 228.417 992.149 228.488 992.878 228.363C993.607 228.239 994.289 227.923 994.856 227.448C995.423 226.974 995.855 226.358 996.106 225.662C996.357 224.967 996.419 224.217 996.286 223.49L996.305 223.409Z"
+                          fill="#d34675"/>
+                    <path d="M981.153 229.211L987.133 213.051L981.153 229.211Z" fill="#d34675"/>
+                    <path d="M991.247 212.256C991.347 211.142 991.002 210.033 990.287 209.174C989.572 208.316 988.546 207.777 987.435 207.677C986.324 207.577 985.218 207.923 984.361 208.641C983.504 209.358 982.966 210.387 982.865 211.501L976.95 227.329C976.756 227.848 976.666 228.401 976.685 228.955C976.704 229.51 976.831 230.055 977.06 230.56C977.523 231.58 978.371 232.373 979.417 232.765C980.463 233.158 981.623 233.118 982.64 232.653C983.657 232.189 984.449 231.338 984.841 230.289L990.756 214.462C991.122 213.787 991.292 213.023 991.247 212.256Z"
+                          fill="#d34675"/>
+                    <path d="M887.944 233.75C885.705 234.197 883.384 233.967 881.276 233.09C879.168 232.213 877.368 230.729 876.104 228.825C874.841 226.922 874.17 224.685 874.178 222.399C874.186 220.113 874.872 217.88 876.148 215.984C877.425 214.087 879.235 212.613 881.349 211.748C883.463 210.883 885.786 210.666 888.022 211.125C890.258 211.584 892.308 212.697 893.911 214.324C895.513 215.951 896.597 218.019 897.024 220.265C897.593 223.256 896.958 226.353 895.257 228.879C893.556 231.405 890.928 233.156 887.944 233.75ZM886.754 227.573C887.783 227.383 888.732 226.89 889.48 226.158C890.228 225.425 890.742 224.486 890.955 223.461C891.167 222.435 891.07 221.369 890.675 220.399C890.281 219.43 889.606 218.6 888.738 218.017C887.87 217.433 886.847 217.122 885.801 217.123C884.755 217.124 883.733 217.437 882.866 218.022C881.998 218.608 881.324 219.439 880.93 220.409C880.536 221.38 880.439 222.446 880.653 223.471C880.915 224.829 881.7 226.028 882.838 226.811C883.976 227.594 885.376 227.896 886.736 227.654L886.754 227.573Z"
+                          fill="#d34675"/>
+                    <path d="M1046.63 240.249C1045.98 236.84 1042.69 234.606 1039.29 235.26C1035.88 235.915 1033.65 239.209 1034.3 242.618C1034.95 246.027 1038.24 248.26 1041.64 247.606C1045.05 246.952 1047.28 243.658 1046.63 240.249Z"
+                          fill="#d34675"/>
+                    <path d="M1129.67 631.54L1143.12 642.24L1129.67 631.54Z" fill="#d34675"/>
+                    <path d="M1147.28 642.741C1147.37 642.032 1147.27 641.312 1147 640.652C1146.73 639.991 1146.29 639.412 1145.73 638.969L1132.28 628.265C1131.85 627.922 1131.36 627.667 1130.83 627.514C1130.31 627.362 1129.75 627.315 1129.21 627.376C1128.66 627.438 1128.13 627.606 1127.65 627.872C1127.17 628.138 1126.75 628.496 1126.4 628.925C1126.06 629.355 1125.8 629.848 1125.65 630.377C1125.5 630.905 1125.45 631.458 1125.51 632.005C1125.57 632.551 1125.74 633.08 1126.01 633.562C1126.27 634.043 1126.63 634.468 1127.06 634.811L1140.5 645.514C1141.09 645.986 1141.78 646.292 1142.52 646.401C1143.26 646.511 1144.02 646.419 1144.71 646.135C1145.41 645.852 1146.01 645.387 1146.46 644.79C1146.92 644.193 1147.2 643.486 1147.28 642.741Z"
+                          fill="#d34675"/>
+                    <path d="M1131 643.659L1141.79 630.121L1131 643.659Z" fill="#d34675"/>
+                    <path d="M1145.69 630.65C1145.82 629.739 1145.63 628.815 1145.18 628.018C1144.72 627.222 1144.01 626.599 1143.17 626.244C1142.32 625.89 1141.39 625.825 1140.5 626.058C1139.61 626.291 1138.83 626.811 1138.26 627.536L1127.57 641.007C1127.22 641.437 1126.97 641.93 1126.81 642.459C1126.66 642.988 1126.62 643.541 1126.68 644.088C1126.74 644.635 1126.9 645.164 1127.17 645.646C1127.43 646.128 1127.79 646.553 1128.22 646.896C1128.65 647.239 1129.14 647.494 1129.67 647.647C1130.2 647.8 1130.75 647.847 1131.3 647.785C1131.84 647.724 1132.37 647.555 1132.85 647.289C1133.33 647.023 1133.76 646.665 1134.1 646.235L1144.8 632.764C1145.29 632.159 1145.6 631.426 1145.69 630.65Z"
+                          fill="#d34675"/>
+                    <path d="M1054.52 646.08C1052.26 645.787 1050.14 644.829 1048.43 643.328C1046.71 641.827 1045.48 639.85 1044.88 637.647C1044.29 635.445 1044.36 633.114 1045.09 630.952C1045.82 628.789 1047.17 626.89 1048.98 625.496C1050.78 624.102 1052.96 623.276 1055.23 623.12C1057.51 622.965 1059.78 623.488 1061.75 624.623C1063.73 625.759 1065.32 627.455 1066.34 629.499C1067.35 631.543 1067.73 633.842 1067.44 636.105C1067.25 637.61 1066.76 639.061 1066 640.376C1065.25 641.692 1064.24 642.846 1063.04 643.772C1061.85 644.698 1060.48 645.379 1059.01 645.775C1057.55 646.171 1056.03 646.274 1054.52 646.08ZM1055.32 639.83C1056.35 639.97 1057.41 639.797 1058.35 639.334C1059.28 638.871 1060.06 638.138 1060.58 637.23C1061.11 636.322 1061.34 635.279 1061.27 634.234C1061.2 633.19 1060.81 632.191 1060.17 631.366C1059.53 630.541 1058.65 629.926 1057.66 629.601C1056.67 629.275 1055.6 629.254 1054.59 629.539C1053.59 629.824 1052.69 630.403 1052.01 631.202C1051.33 632 1050.91 632.983 1050.79 634.023C1050.64 635.392 1051.03 636.765 1051.87 637.851C1052.72 638.936 1053.95 639.646 1055.32 639.83Z"
+                          fill="#d34675"/>
+                    <path d="M1227.18 645.383C1227.61 641.946 1225.18 638.811 1221.75 638.381C1218.32 637.951 1215.19 640.389 1214.75 643.826C1214.32 647.263 1216.76 650.398 1220.19 650.828C1223.62 651.258 1226.75 648.82 1227.18 645.383Z"
+                          fill="#d34675"/>
+                    <path d="M1280.6 627.189C1279.8 627.496 1279.09 628.015 1278.56 628.691C1278.03 629.368 1277.69 630.176 1277.57 631.03C1277.46 631.884 1277.58 632.752 1277.93 633.542C1278.27 634.332 1278.82 635.014 1279.52 635.517L1283.69 638.675L1287.86 641.833C1288.53 642.327 1289.31 642.639 1290.13 642.738C1290.95 642.836 1291.79 642.718 1292.55 642.395C1293.31 642.072 1293.98 641.555 1294.48 640.895C1294.99 640.235 1295.31 639.455 1295.42 638.633L1296.08 633.381L1296.73 628.129C1296.83 627.308 1296.71 626.476 1296.38 625.716C1296.06 624.955 1295.55 624.293 1294.89 623.792C1294.23 623.291 1293.46 622.97 1292.64 622.86C1291.82 622.75 1290.99 622.855 1290.22 623.165L1285.41 625.177L1280.6 627.189Z"
+                          fill="#d34675"/>
+                    <path d="M701.248 548.481L695.731 532.165L701.248 548.481Z" fill="#d34675"/>
+                    <path d="M696.64 528.083C697.344 528.236 697.997 528.569 698.534 529.049C699.072 529.529 699.476 530.141 699.707 530.824L705.226 547.139C705.458 547.669 705.578 548.241 705.578 548.82C705.578 549.399 705.458 549.972 705.226 550.502C704.993 551.032 704.654 551.509 704.228 551.901C703.803 552.293 703.301 552.592 702.754 552.78C702.207 552.967 701.627 553.039 701.052 552.991C700.476 552.942 699.916 552.775 699.409 552.498C698.901 552.222 698.456 551.843 698.102 551.386C697.749 550.928 697.493 550.402 697.353 549.84L691.754 533.507C691.515 532.803 691.468 532.047 691.618 531.317C691.769 530.588 692.11 529.912 692.608 529.359C693.106 528.806 693.743 528.397 694.451 528.172C695.16 527.948 695.916 527.917 696.64 528.083Z"
+                          fill="#d34675"/>
+                    <path d="M690.372 543.141L706.67 537.605L690.372 543.141Z" fill="#d34675"/>
+                    <path d="M707.579 533.524C708.477 533.715 709.288 534.197 709.884 534.896C710.481 535.595 710.831 536.471 710.88 537.389C710.928 538.308 710.673 539.217 710.154 539.975C709.634 540.734 708.88 541.3 708.006 541.587L691.711 547.123C691.181 547.356 690.609 547.477 690.031 547.477C689.453 547.477 688.881 547.358 688.352 547.125C687.823 546.893 687.347 546.553 686.956 546.127C686.565 545.701 686.266 545.199 686.079 544.651C685.892 544.104 685.821 543.524 685.87 542.947C685.918 542.37 686.086 541.81 686.362 541.301C686.638 540.793 687.017 540.347 687.474 539.993C687.931 539.638 688.457 539.382 689.018 539.241L705.006 533.551C705.838 533.265 706.741 533.256 707.579 533.524Z"
+                          fill="#d34675"/>
+                    <path d="M736.61 410.244C737.363 406.863 735.237 403.512 731.861 402.759C728.485 402.007 725.137 404.138 724.384 407.519C723.63 410.901 725.756 414.252 729.132 415.004C732.508 415.757 735.856 413.626 736.61 410.244Z"
+                          fill="#d34675"/>
+                    <path d="M735.074 308.651C734.51 309.294 733.784 309.773 732.972 310.039C732.161 310.305 731.292 310.347 730.459 310.161C729.625 309.976 728.857 309.569 728.235 308.983C727.613 308.398 727.159 307.656 726.922 306.834L725.532 301.555L723.988 296.584C723.748 295.791 723.719 294.95 723.903 294.142C724.087 293.335 724.478 292.589 725.037 291.979C725.596 291.368 726.304 290.914 727.092 290.661C727.88 290.408 728.719 290.364 729.528 290.535L739.717 292.806C740.522 292.995 741.264 293.391 741.87 293.954C742.475 294.518 742.924 295.23 743.171 296.02C743.418 296.81 743.455 297.651 743.279 298.46C743.102 299.269 742.718 300.019 742.165 300.634L738.656 304.479L735.074 308.651Z"
+                          fill="#d34675"/>
+                </g>
+            </svg>
+
+            {#        <svg class="svg-hero-right" width="618" height="595" viewBox="0 0 618 595" fill="none" xmlns="http://www.w3.org/2000/svg">#}
+            {#            <path opacity="0.12" d="M320.397 573.792C306.388 583.45 290.434 589.935 273.63 592.803C256.825 595.671 239.566 594.853 223.036 590.406C190.378 580.301 163.243 550.266 161.323 516.11C160.767 505.778 162.18 495.257 161.844 485.375C159.779 452.841 135.9 425.544 109.844 405.871C83.7884 386.199 53.8977 370.983 30.7104 347.746C7.52312 324.509 -7.73999 289.346 4.1527 259.102C16.0454 228.859 54.2205 213.268 86.3487 221.929C113.495 229.083 138.642 250.011 166.071 244.92C177.789 241.916 188.751 236.541 198.289 229.125C226.64 210.015 256.722 188.558 267.349 155.978C271.201 140.696 273.465 125.04 274.103 109.26C277.888 73.9701 289.967 38.2294 319.438 16.1956C328.766 9.09989 339.616 4.26931 351.15 2.07801C394.484 -5.85755 423.103 26.2575 442.741 58.7056C457.905 83.6167 470.681 110.94 493.221 129.476C509.471 142.986 529.578 150.808 547.341 162.226C573.825 179.218 594.756 203.672 607.477 232.486C615.847 249.663 619.098 268.859 616.838 287.75C609.93 327.089 572.901 352.995 537.596 370.081C502.291 387.167 462.094 401.468 438.686 433.548C433.147 441.371 428.458 449.771 424.698 458.606C404.138 505.811 369.236 545.188 324.934 571.162L320.397 573.792Z" fill="#6C6C6C"/>#}
+            {#        </svg>#}
+
+
+        </div>
+    </div>
+    <!-- /.hero-text -->
+
+</div>
+<div id="intro" class="mdl-grid intro-section">
+    <div class="about-kitty mdl-cell mdl-cell--12-col">
+        <p class="mdl-typography--headline">
+            Competitive cost-effective AI text generation using advanced large neural networks.
+        </p>
+    </div>
+    <!-- /.about-kitty -->
+
+    <div class="demo-list-action mdl-list">
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">monetization_on</i>
+              <span>Free Tier - 100 Free requests per month - 1c USD per request</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">timer</i>
+              <span>Fast API Endpoints - sub second average response</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">gps_fixed</i>
+              <span>Accurate - Natural native sounding text generation</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">android</i>
+              <span>API - Create chat bots, perform question answering, summarization, paraphrasing, change tone of text on top of our
+        constantly improving text generation API</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">shape_line</i>
+              <span>Flexible - Easy to guide text creation, via 'prompt engineering' guiding generation through keywords and natural questions, this can adapt the API for e.g. classification or sentiment analysis</span>
+            </span>
+        </div>
+
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">lock</i>
+              <span>Above Industry Security - Personal information is never kept on our servers in any form</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">update</i>
+              <span>Up to date continuous training of our algorithms helps the AI understand recent events</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">cloud_download</i>
+              <span>Host yourself or use the Cloud</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">language</i>
+              <span>Global multi lingual text generation in almost any language</span>
+            </span>
+        </div>
+
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">image_search</i>
+              <span>Links are crawled and <a
+                      href="https://text-generator.io/blog/text-generator-now-researches-via-crawling"
+                      title="Text Generator Researches via Crawling">image content analysed</a> to generate realistic text, text in images is recognised so you can answer questions about screenshots/receipts etc</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">code</i>
+              <span>Code generation from a shared API, supports many languages including (Python, C#, Java, Ruby, C++, PHP, HTML, CSS, JavaScript, Go)</span>
+            </span>
+        </div>
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">published_with_changes</i>
+              <span>Fast <a href="https://text-generator.io/blog/over-10x-openai-cost-savings-one-line-change"
+                            title="10x Cost savings on OpenAI with one line change">one line migration from OpenAI</a> text generation</span>
+            </span>
+        </div>
+
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">hub</i>
+              <span><a href="https://text-generator.io/blog/embed-images-text-and-code"
+                       title="Shared embedding for code images and text">One shared embedding</a> for multiple spoken languages, images and code, enabling search, fingerprinting, tracking, recommendations, clustering, data visualization and classification.
+                  <br><br>Priced 10x cheaper than generation at $0.001 USD per request.</span>
+            </span>
+        </div>
+
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class="material-icons dp48 hero-icon">mic</i>
+              <span><a href="https://text-generator.io/blog/cost-effective-speech-to-text-api"
+                       title="Text to speech API">Speech to text API</a> $0.00005 USD per second, that's 0.003 USD per minute (billed to the second) works for multiple spoken languages, optionally translating any spoken audio to english</span>
+            </span>
+        </div>
+
+        <div class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+              <i class=" material-icons dp48 hero-icon">volume_up</i>
+              <span><a href="https://text-generator.io/blog/ai-text-to-speech-api"
+                       title="Speech generator - Text to Speech API">Text to Speech API</a> $0.01 per request, multiple voices to choose from</span>
+            </span>
+        </div>
+
+        {#        <div class="mdl-list__item">#}
+        {#            <span class="mdl-list__item-primary-content">#}
+        {#              <i class="material-icons dp48 hero-icon">share</i>#}
+        {#              <span>Referrals: Earn 0.003 btc for every paying user referred!</span>#}
+        {#            </span>#}
+        {#        </div>#}
+
+    </div>
+
+    <div class="about-kitty mdl-cell mdl-cell--12-col">
+        <p class="mdl-typography--headline middled">
+            100 requests per month free tier <!-- Accent-colored raised button -->
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Try For Free
+            </a>
+        </p>
+
+    </div>
+
+
+</div>
+<div class="trust-section">
+
+    <h4 class="trust-section-heading">Trusted by the best in AI</h4>
+    <div class="hero-trusted mdl-grid">
+        <div id="canva" class="mdl-cell mdl-cell--2-col">
+            <img src="{{ static_url }}/img/canva.jpeg" alt="Canva" class="hero-trusted-image">
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="canva">Canva</label>
+
+        <div class="mdl-cell mdl-cell--2-col" id="copymattic">
+            <img src="{{ static_url }}/img/copymattic.jpeg" alt="Copymattic" class="hero-trusted-image">
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="copymattic">Copymattic</label>
+
+        <div class="mdl-cell mdl-cell--2-col" id="AskFelix">
+            <a href="https://askfelix.ai">
+                <img src="{{ static_url }}/img/askfelix-robot-icon-transp.png" alt="AskFelix"
+                     class="hero-trusted-image">
+            </a>
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="AskFelix">AskFelix</label>
+
+        <div class="mdl-cell mdl-cell--2-col" id="Addictingwordgames">
+            <a href="https://addictingwordgames.com">
+                <img src="{{ static_url }}/img/addicting-word-games-icon200.png" alt="Addictingwordgames"
+                     class="hero-trusted-image">
+            </a>
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="Addictingwordgames">Addicting Word Games</label>
+
+        <div class="mdl-cell mdl-cell--2-col" id="NSW">
+            <img src="{{ static_url }}/img/nsw-government-logo.svg" alt="NSW" class="hero-trusted-image">
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="NSW">NSW Government Australia</label>
+
+        <div class="mdl-cell mdl-cell--2-col" id="Netwrck">
+            <a href="https://netwrck.com" target="_blank">
+                <img src="{{ static_url }}/img/netwrck-logo-colord256.png" alt="Netwrck" class="hero-trusted-image">
+            </a>
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="Netwrck">Netwrck</label>
+
+        <div class="mdl-cell mdl-cell--2-col" id="Cairo">
+            <img src="{{ static_url }}/img/cairo-university.png" alt="Cairo University" class="hero-trusted-image">
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="Cairo">Cairo University</label>
+
+        <div class="mdl-cell mdl-cell--2-col" id="Journeai">
+            <img src="{{ static_url }}/img/journeai-logo.svg" alt="Journeai.com" class="hero-trusted-image">
+        </div>
+        <label class="mdl-tooltip mdl-tooltip--large" for="Journeai">Journeai</label>
+
+
+    </div>
+</div>

@@ -1,0 +1,154 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > Embed Images, Text and Code
+            </div>
+            <h3>Embed Images, Text and Code in the same space</h3>
+            <p>How to use the Text Generator API to embed text, images and code in the same space, in up to 768 dimensions</p>
+            <p>This lets us measure similarity between multiple languages, code and or images with each other and is used in many domains including search, fingerprinting, analytics, product recommendations and generative systems</p>
+
+            <p>Images given to text generator are represented as a link to the online image, behind the scenes text generator will download and analyze the image bytes as part of the embedding (or text generation) process
+                <a href="https://text-generator.io/blog/text-generator-now-researches-via-crawling">Original Blog Post - Text generator researches links</a></p>
+<h4>Python code to embed text/code and images</h4>
+
+            <pre><code id="code-snippet-embed" class="language-python">import requests
+from loguru import logger
+import os
+import pickle
+
+import plotly.express as px
+import pandas as pd
+from sklearn.manifold import TSNE
+
+headers = {"secret": os.environ.get("TEXT_GENERATOR_SECRET")}
+texts_to_embed = [
+    "def factorial(n):\n\tif n == 0:\n    \treturn 1\n\treturn factorial(n - 1) * n\n",
+    "write a function to return factorial of a number",
+    "write a function to print a number twice",
+    "def print_twice(x):\n\tprint(x)\n\tprint(x)\n",
+    "electrical testing of a switchboard with hand holding a red wire",
+    "cat and dog laying on the floor",
+    "https://images2.minutemediacdn.com/image/upload/c_fill,w_1080,ar_16:9,f_auto,q_auto,g_auto/shape%2Fcover%2Fsport%2F516438-istock-637689912-981f23c58238ea01a6147d11f4c81765.jpg",
+    "https://static.text-generator.io/static/img/Screenshot%20from%202022-09-12%2010-08-50.png",
+]
+embeddings = []
+for text in texts_to_embed:
+
+    data = {
+        "text": text,
+        "num_features": 200,
+    }
+
+    response = requests.post(
+        "https://api.text-generator.io/api/v1/feature-extraction", json=data, headers=headers
+    )
+
+    json_response_list = response.json()  # the embedding is a list of numbers
+    embeddings.append(json_response_list)</code></pre>
+
+            <p>The dimensionality of the output can further be reduced for visualization with TSNE or PCA, but often reducing the dimensionality to visualze can remove too much signal from the higher dimensional representations</p>
+
+            <h3>Visualized in 2D</h3>
+            <pre><code id="code-snippet-embed" class="language-diff">small_embed = TSNE(
+    n_components=3, random_state=0, perplexity=0, learning_rate="auto", n_iter=250
+).fit_transform(
+    np.array(embeddings)
+)  # takes .15s for 250k features .03s for 2.5k
+
+df = pd.DataFrame(
+    data={
+        "x": list(map(lambda embed: embed[0], small_embed)),
+        "y": list(map(lambda embed: embed[1], small_embed)),
+        "hover_data": texts_to_embed,
+    }
+)
+# 2d plot
+fig = px.scatter(df, x="x", y="y", hover_data=["hover_data"])
+fig.show()
+fig.write_html("embed_example2.html")</code></pre>
+                        <img src="{{ static_url }}/img/img_3.png" alt="2d plot of embeddings"  width="512" height="512" >
+            <p>Visualizing in 2d shows some examples are close but there are still some examples unexpectedly close to each other in 2D</p>
+
+            <h3>Visualize in 3D</h3>
+            <pre><code id="code-snippet-embed" class="language-diff">df = pd.DataFrame(
+    data={
+        "x": list(map(lambda embed: embed[0], small_embed)),
+        "y": list(map(lambda embed: embed[1], small_embed)),
+        "z": list(map(lambda embed: embed[2], small_embed)),
+        "hover_data": texts_to_embed,
+    }
+)
+# 2d plot
+fig = px.scatter_3d(df, x="x", y="y", z="z", hover_data=["hover_data"])
+fig.show()
+fig.write_html("embed_example_3d.html")</code></pre>
+                        <img src="{{ static_url }}/img/img_1.png" alt="3d plot of embeddings" width="512" height="512" >
+            <p>It's still too hard to see whats going on, examples are all seperated in their own spaces, there are still a few examples expected to be close that aren't</p>
+
+            <h3>Distance matrix visualization</h3>
+            <p>To really understand if the embeddings have worked we need to look at the distance matrix between all examples</p>
+            <pre><code id="code-snippet-embed" class="language-diff">from scipy.spatial import distance_matrix
+from scipy.spatial.distance import euclidean
+
+
+def m_euclid(v1, v2):
+    return euclidean(v1, v2)
+
+
+dist_list = []
+for j1 in embeddings:
+    dist_list.append([m_euclid(j1, j2) for j2 in embeddings])
+dist_matrix = pd.DataFrame(dist_list)
+dist_matrix.columns = labels_for_graph
+print(dist_matrix)
+fig2 = px.imshow(dist_matrix, y=labels_for_graph)
+fig2.show()</code></pre>
+    <p>This shows that the image and descriptions of images are close and prompts and code examples are close, often we have to ask the direct questions of the data in the original embedding dimension as compressing to 2d or 3d can obscure the reality of the 768 dimensions (or less if you use the num_features parameter to request less feature)</p>
+            <img src="{{ static_url }}/img/img_2.png" alt="distance matrix of embeddings"  width="512" height="512"  >
+            <h5>Plug</h5>
+
+            <p><a href="/" title="Text Generator" target="_blank">Text Generator</a> offers an API for text and code
+                generation and embeddings. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+            <p>Note with Text Generator you aren't charged for tokens and can generate up to 100 examples in a single request which adds to diversity of results.</p>
+
+            <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+            <script>
+                $(document).ready(function () {
+                    hljs.highlightAll();
+                    window.setTimeout(function () {
+                          hljs.highlightAll();
+                        $('.hljs-addition').each(function () {
+                            $(this).html($(this).html().replace(/\+\+/g, ''));
+                        });
+                    }, 3000);
+                    // remove all double ++ characters
+                    $('.hljs-addition').each(function () {
+                        $(this).html($(this).html().replace(/\+\+/g, ''));
+                    });
+                });
+            </script>
+            <br>
+            <a href="https://github.com/TextGeneratorio/shared-embedding" title="Code on github">Code for this article on GitHub</a>
+
+        </div>
+    </div>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>

@@ -1,0 +1,39 @@
+.font-size(@size) {
+    font-size: @base-font-size * @size / (3/1.9);
+
+    @media (min-width: @small-min-width) {
+        font-size: @base-font-size * @size / (3/2.4);
+    }
+    @media (min-width: @ipad-portrait-min-width) {
+        font-size: @base-font-size * @size / (3/2.6);
+    }
+    @media (min-width: @ipad-landscape-min-width) {
+        font-size: @base-font-size * @size / (3/2.7);
+    }
+    @media (min-width: @large-min-width) {
+        font-size: @base-font-size * @size / (3/2.8);
+    }
+    @media (min-width: @huge-min-width) {
+        font-size: @base-font-size * @size;
+    }
+}
+
+.font-size-smaller(@size) {
+    font-size: @base-font-size * @size / (3/2.3);
+
+    @media (min-width: @small-min-width) {
+        font-size: @base-font-size * @size / (3/2.5);
+    }
+    @media (min-width: @ipad-portrait-min-width) {
+        font-size: @base-font-size * @size / (3/2.6);
+    }
+    @media (min-width: @ipad-landscape-min-width) {
+        font-size: @base-font-size * @size / (3/2.7);
+    }
+    @media (min-width: @large-min-width) {
+        font-size: @base-font-size * @size / (3/2.8);
+    }
+    @media (min-width: @huge-min-width) {
+        font-size: @base-font-size * @size;
+    }
+}

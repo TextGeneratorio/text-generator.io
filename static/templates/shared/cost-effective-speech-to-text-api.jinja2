@@ -1,0 +1,133 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > Cost Effective
+                Speech to text
+            </div>
+            <h3>New, competitive and affordable speech to text API</h3>
+            <p>The pricing is $0.00005 USD per second, that's 0.003 USD per minute or 0.18 per hour of audio (billed by the second so your not charged more)</p>
+            <p>There is a free tier of 5.5 hours of audio transcription per month</p>
+            <h3>Over 8x cheaper than Google</h3>
+            <p>Yep, as of today Google Cloud Speech to text costs 0.006 USD for each 15 seconds meaning at best you'll get $0.0004 a second and pay 8x on Google cloud speech to text.</p>
+            <p>It is 5x cheaper than Assembly AI with a much larger free tier too.</p>
+            <h4>Step 1 - Get an API Key</h4>
+            <p><a href="/signup">Sign Up to Text-Generator.io</a> then get <a href="/playground" target="_blank">your
+                API key</a></p>
+            <h4>Step 2 - Profit</h4>
+
+
+
+
+            <pre><code id="code-snippet-embed" class="language-python">import requests
+
+headers = {"secret": "YOUR_SECRET_HERE"}
+
+data = {
+  "audio_url": "http://www.fit.vutbr.cz/~motlicek/sympatex/f2bjrop1.0.wav",
+  "translate_to_english": False
+}
+response = requests.post(
+   "https://api4.text-generator.io/api/v1/audio-extraction",
+   json=data,
+   headers=headers
+)
+
+json_response = response.json()
+print(json_response)
+</code></pre>
+            <h5>Results</h5>
+            <p>The response is a object containing the text and "segments" the text in chunks broken down by second start/end timestamps </p>
+<pre><code id="code-snippet-embed" class="language-json">{
+  "text": "Wanted Chief Justice of the Massachusetts Supreme Court. In April, the SJC's current leader, Edward Hennessy, reaches the mandatory retirement age of 70, and a successor is expected.",
+  "segments": [
+    {
+      "id": 0,
+      "seek": 0,
+      "start": 0,
+      "end": 3.72,
+      "text": " Wanted Chief Justice of the Massachusetts Supreme Court.",
+      "temperature": 0,
+      "avg_logprob": -0.21680092811584473,
+      "compression_ratio": 1.2551724137931035,
+      "no_speech_prob": 0.06906628608703613
+    },
+    {
+      "id": 1,
+      "seek": 0,
+      "start": 3.72,
+      "end": 7.2,
+      "text": " In April, the SJC's current leader, Edward Hennessy,",
+      "temperature": 0,
+      "avg_logprob": -0.21680092811584473,
+      "compression_ratio": 1.2551724137931035,
+      "no_speech_prob": 0.06906628608703613
+    },
+    {
+      "id": 2,
+      "seek": 0,
+      "start": 7.2,
+      "end": 9.8,
+      "text": " reaches the mandatory retirement age of 70,",
+      "temperature": 0,
+      "avg_logprob": -0.21680092811584473,
+      "compression_ratio": 1.2551724137931035,
+      "no_speech_prob": 0.06906628608703613
+    },
+    {
+      "id": 3,
+      "seek": 980,
+      "start": 9.8,
+      "end": 30.8,
+      "text": " and a successor is expected.",
+      "temperature": 0,
+      "avg_logprob": -0.7248780992296007,
+      "compression_ratio": 0.7777777777777778,
+      "no_speech_prob": 0.005156728904694319
+    }
+  ],
+  "language": "en"
+}</code></pre>
+            <h5>Details</h5>
+            <p>mp3 and wav files are supported</p>
+            <p>You can also send a "translate_to_english" parameter to receive english text even for foreign spoken languages, with this set to false many languages are supported and returned as is, in the native spoken language.</p>
+
+            <h5>Under the hood</h5>
+
+            <p>Under the hood there is a large audio model and large language model which both analyse the audio at different resolutions to generate the transcribed text using a gpt-2 tokenization scheme, token by token via beam search.</p>
+            <p>We found a beam size of 4 to give sufficiently better results.</p>
+            <p>In future audio analysis will be integrated into our text generation API and crawler, allowing classification, question answering and analysis of conversations with embedded linked audio or video files.</p>
+
+            <h5>Plug</h5>
+            <p>We are on a mission to bring about affordable AI for everyone</p>
+            <p><a href="/" title="Text Generator">Text Generator</a> offers an API for text and code generation. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+            <script>
+                $(document).ready(function () {
+                    hljs.highlightAll();
+                    window.setTimeout(function () {
+                          hljs.highlightAll();
+                    }, 3000);
+                });
+            </script>
+            <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>

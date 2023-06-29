@@ -1,0 +1,224 @@
+
+div.mdl-card {
+    width: 440px;
+    margin: 0 auto;
+}
+
+.mdl-data-table {
+    overflow-x: scroll;
+    overflow-y: hidden;
+}
+
+.percent-profit {
+    /*color: #00ff00;*/
+}
+
+div.mdl-card__supporting-text {
+    font-size: 1.2em;
+}
+
+.best_bid_price {
+    border-left: 1px solid #909090;
+}
+
+.center {
+    margin: auto;
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.huge-spinner {
+    margin: auto;
+    display: block;
+    width: 100%;
+    vertical-align: middle;
+    min-width: 100%;
+    text-align: center;
+}
+
+.best_ask_price, .separator-left {
+    border-left: 1px solid #909090;
+}
+
+.mdl-data-table th {
+    padding: 0 0px 0px 0px;
+}
+
+.mdl-data-table td {
+    padding: 0 6px;
+}
+
+.mdl-data-table td:last-of-type, .mdl-data-table th:last-of-type {
+    padding: 0 2px;
+}
+
+.mdl-data-table {
+    font-size: 12px;
+    table-layout: fixed;
+}
+
+.mdl-data-table tbody tr {
+    height: 24px;
+}
+
+.mdl-data-table td {
+    height: 24px;
+}
+
+.mdl-data-table th {
+    /*padding: 0 5px;*/
+    height: 18px;
+    font-size: 12px;
+}
+
+.coin-link-btn {
+    padding: 0 20px;
+    font-size: 12px;
+    height: 20px;
+    line-height: 20px;
+}
+
+/* Table Sorting */
+input + table {
+    margin-top: 1em;
+}
+
+th.sort {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    min-width: 120px !important;
+    width: 120px !important;
+    max-width: 120px !important;
+}
+
+td {
+    min-width: 120px !important;
+    width: 120px !important;
+    max-width: 120px !important;
+}
+
+/*tr.sort {*/
+/*min-width: 100px !important;*/
+/*}*/
+
+th.percent-cell, td.percent-cell {
+    min-width: 80px !important;
+    width: 80px !important;
+    max-width: 80px !important;
+}
+
+th.sort:hover {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+th.sort:focus {
+    outline: none;
+}
+
+th.sort:after {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    content: "";
+    position: relative;
+    top: -10px;
+    right: -5px;
+}
+
+th.sort.asc:after {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #000;
+    content: "";
+    position: relative;
+    top: 4px;
+    right: -5px;
+}
+
+th.sort.desc:after {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid #000;
+    content: "";
+    position: relative;
+    top: -4px;
+    right: -5px;
+}
+
+.movement-arrow {
+    position: absolute;
+    left: 10px;
+    top: 0px;
+}
+
+.movement-arrow-up {
+    color: #14b314;
+}
+
+.movement-arrow-down {
+    color: #b31414;
+}
+
+/* ISOTOPE table sorting */
+.isotope,
+.isotope .isotope-item {
+    /* change duration value to whatever you like */
+    -webkit-transition-duration: 0.8s;
+    -moz-transition-duration: 0.8s;
+    -ms-transition-duration: 0.8s;
+    -o-transition-duration: 0.8s;
+    transition-duration: 0.8s;
+}
+
+.isotope {
+    -webkit-transition-property: height, width;
+    -moz-transition-property: height, width;
+    -ms-transition-property: height, width;
+    -o-transition-property: height, width;
+    transition-property: height, width;
+}
+
+.isotope .isotope-item {
+    -webkit-transition-property: -webkit-transform, opacity;
+    -moz-transition-property: -moz-transform, opacity;
+    -ms-transition-property: -ms-transform, opacity;
+    -o-transition-property: -o-transform, opacity;
+    transition-property: transform, opacity;
+}
+
+
+.hero-trusted {
+    text-align: center;
+}
+
+.hero-trusted .mdl-cell {
+    min-width: 200px;
+}
+
+.hero-trusted-image {
+    width: 200px;
+    height: 200px;
+}
+
+.trust-section {
+    padding: 0 20px;
+    background-color: #f5f5f5;
+    margin: 0 auto;
+}
+
+.trust-section-heading {
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: 500;
+    padding: 20px 0;
+}

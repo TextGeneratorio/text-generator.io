@@ -1,0 +1,116 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > New Uncensored Chat GPT Model
+            </div>
+            <h3>New Uncensored Chat GPT Model</h3>
+            <p>We trained a new AI model based on Pygmalion and WizardLM datasets.</p>
+            <p>Like other AIs on the platform we didn't perform as much filtering/censorship as normal.</p>
+            <p>Generally we chose this because we feel the current standard of AI models offers false safety assurances and this filtering is still required to be implemented with larger and more politically correct models.</p>
+            <p>These models like ChatGPT and Palm can easily be tricked into making insensitive or illegal comments, so customers wanting a safe for work model will need to implement their own filters using large company models too</p>
+            <h4>Technical details</h4>
+            <p>The model is a 7B parameter model like our others that can fit into a single Nvidia 4090 GPU at bfloat16 precision.
+                </p>
+            <p>
+                Unlike other models this is based on recent advancements from the popular Facebook LLama architecture including flash attention</p>
+            <p>We are still working to optimize this model to ensure it can be properly balanced as part of the "best" model option that automatically chooses the best model for the given task.</p>
+
+            <h4>Capabilities</h4>
+            <p>The new chat model is capable of generating humor, following along with deep and creative story lines, although somewhat incoherent over long text generations and can be very sensitive to input formatting</p>
+
+            <p>We are currently working optimizing latency and considering training it into our model ensemble that chooses the best model per request. This enables text generator to understand images, code, text, instructions and soon respond more appropriately to threaded and long chats.</p>
+
+
+            <h4>References</h4>
+            WizardLM: <a href="https://github.com/nlpxucan/WizardLM" target="_blank" rel="nofollow">WizardLM</a>
+            Pygmalion: <a href="https://huggingface.co/alpindale/pygmalion-instruct" target="_blank" rel="nofollow">Pygmalion</a>
+
+
+            <h4>Supported/example prompt formats</h4>
+
+            <pre><code id="code-snippet-embed" class="language-diff">[CHARACTER]'s Persona: [A few sentences about the character you want the model to play]
+You: [Your message]
+[CHARACTER]: [AI message]
+You: [Your message]
+[CHARACTER]:
+</code></pre>
+            <p>Role play in a similar form supported in ChatGPT and Palm</p>
+            <pre><code id="code-snippet-embed" class="language-diff">You are a role play character [CHARACTER]
+[A few sentences about the character you want the model to play]
+You: [Your message]
+[CHARACTER]: [AI message]
+You: [Your message]
+[CHARACTER]:
+</code></pre>
+            <p>Instruction following</p>
+            <pre><code id="code-snippet-embed" class="language-diff">[INSTRUCTION]:
+output:
+</code></pre>
+            <p>Creative writing and autocomplete also supported, you can detect use the newlines and colons often define new passages, these can be detected using for example stop_sequences=[":"] </p>
+
+
+
+            <h4>Caveats</h4>
+            <p>Be careful as these models can output adult content, customers need to implement their own filtering</p>
+            <p>
+                We suggest filtering the "list of big bad words" out for a start (as input or output), and then adding your own custom filters based on your business domain, even if you use over aligned language models like ChatGPT or Palm.
+            </p>
+            <h4>Try It Out Yourself</h4>
+            <p>This new language model can be tried out easily chatting to AI characters at
+                <a href="https://netwrck.com">Netwrck</a>
+            </p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/playground?text=The+battle+between+the+elves+and+goblins+has+begun%2C&stop_sequences=&number_of_results=1&max_length=100&max_sentences=4&min_probability=0&top_p=0.9&top_k=40&temperature=0.7&repetition_penalty=1.17&seed=0&model=chat">
+                Try in Playground
+            </a>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/playground?text=An+otherworld+fantasy+role+playing+experience.+The+world+is+very+weird+and+3000+times+larger+than+earth.+Many+hidden+talents+and+cunning+characters.+Ruthless+world.+Strong+look+down+upon+weak.+Illiteracy+and+diseases+are+everywhere.+Strong+ruling+over+weak.+Magic+techniques+are+extremely+rare+and+mystery+to+most.+World+is+either+set+on+western+fantasy+or+a+game+world.%0Aundefined%0AIsekai+narrator%3A+An+unknown+multiverse+phenomenon+occurred%2C+and+you+found+yourself+in+a+dark+space.+You+looked+around+and+found+a+source+of+light+in+a+distance.+You+approached+the+light+and+*whoosh*....%0AChoose+your+origin%3A%0Aa%29+As+a+baby+who+just+got+birthed%2C+your+fate+unknown%0Ab%29+As+an+amnesic+stranded+on+an+uninhabited+island+with+mysterious+ruins%0Ac%29+As+an+abandoned+product+of+a+forbidden+experiment%0Ad%29+As+a+slave+being+sold+at+an+auction%0Ae%29+Extremely+Chaotic+Randomizer%0AOr%2C+dive+into+your+own+fantasy.%0ANoo%3A+I%27m+a+slave+being+sold+at+auction%0AIsekai+narrator%3A&stop_sequences=&number_of_results=1&max_length=100&max_sentences=4&min_probability=0&top_p=0.9&top_k=40&temperature=0.7&repetition_penalty=1.17&seed=0&model=chat">
+                Role Play Example in Playground
+            </a>
+            <h5>Plug</h5>
+
+            <p>
+                Netwrck and Text-Generator are raising a crypto coin to help creators develop AI models and create new AI characters <a href="https://netwrck.com/netw-token">NETW
+                Token</a>
+            </p>
+            <p><a href="/" title="Text Generator" target="_blank">Text Generator</a> offers an API for text and code
+                generation. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+            <p>Note with Text Generator you aren't charged for tokens and can generate up to 100 examples in a single request which adds to diversity of results.</p>
+
+            <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+            <script>
+                $(document).ready(function () {
+                    hljs.highlightAll();
+                    // remove all double ++ characters
+                    $('.hljs-addition').each(function () {
+                        $(this).html($(this).html().replace(/\+\+/g, ''));
+                    });
+                    window.setTimeout(function () {
+                          hljs.highlightAll();
+                        $('.hljs-addition').each(function () {
+                            $(this).html($(this).html().replace(/\+\+/g, ''));
+                        });
+                    }, 3000);
+                });
+            </script>
+
+        </div>
+    </div>
+
+</main>

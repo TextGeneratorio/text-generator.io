@@ -1,0 +1,49 @@
+<!-- Uses a header that scrolls with the text, rather than staying
+  locked at the top -->
+<header class="mdl-layout__header mdl-layout__header--scroll">
+    <div class="mdl-layout__header-row">
+        <!-- Title -->
+        <a class="mdl-navigation__link" href="/">
+            <img class="brain-icon-header" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42"></img>
+            <span class="mdl-layout-title">Text Generator</span>
+        </a>
+        <!-- Add spacer, to align navigation to the right -->
+        <div class="mdl-layout-spacer"></div>
+        <!-- Navigation -->
+        <nav class="mdl-navigation">
+
+            <a class="mdl-navigation__link" href="/text-to-speech">Text To Speech</a>
+
+            <a class="mdl-navigation__link" href="/bulk-text-generator">Bulk Generator</a>
+            <a class="mdl-navigation__link" href="/playground">Playground</a>
+            <a class="mdl-navigation__link" href="/docs">Docs</a>
+            <a class="header-login-signup mdl-navigation__link" href="/login">Login</a>
+            <a class="header-login-signup mdl-navigation__link" href="/signup">Signup</a>
+            <a class="header-login-signout header-subscribe mdl-navigation__link" href="/subscribe"
+               style="display: none;">Subscribe</a>
+            <a class="header-login-signout mdl-navigation__link" id="log-out" href="/logout" onclick="signout()"
+            style="display: none;">Log out</a>
+            <a class="header-account mdl-navigation__link" href="/account">Account</a>
+        </nav>
+    </div>
+</header>
+<div class="mdl-layout__drawer">
+                <img class="brain-icon-header-draw" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42"></img>
+
+    <span class="mdl-layout-title">Text Generator</span>
+    <nav class="mdl-navigation">
+{#        <a class="mdl-navigation__link" href="/referrals"><i class="material-icons dp48">share</i> Referrals</a>#}
+
+{#        <a class="mdl-navigation__link" href="/api/v1/docs"><i class="material-icons dp48">monetization_on</i> Forecasts</a>#}
+{#        <a class="mdl-navigation__link" href="/accuracy"><i class="material-icons dp48">gps_fixed</i> Accuracy</a>#}
+{#        <a class="mdl-navigation__link" href="/data"><i class="material-icons dp48">cloud_download</i> Data</a>#}
+        <a class="mdl-navigation__link" href="/playground"><i class="material-icons dp48">play_arrow</i> Playground</a>
+        <a class="mdl-navigation__link" href="/text-to-speech"><i class="material-icons dp48">volume_up</i> Text To Speech</a>
+        <a class="mdl-navigation__link" href="/docs"><i class="material-icons dp48">android</i> Docs</a>
+        <a class="header-login-signup mdl-navigation__link" href="/login"><i class="material-icons dp48">login</i> Login</a>
+        <a class="header-subscribe mdl-navigation__link" href="/subscribe"><i class="material-icons dp48">payments</i> Subscribe</a>
+        <a class="header-login-signup mdl-navigation__link" href="/signup"><i class="material-icons dp48">draw</i> Signup</a>
+        <a class="header-account mdl-navigation__link" href="/account"><i class="material-icons dp48">person</i> Account</a>
+    </nav>
+</div>
+

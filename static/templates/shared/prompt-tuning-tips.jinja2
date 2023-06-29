@@ -1,0 +1,64 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog" title="Text Generator Blog">Blog</a> > Prompt tuning tips
+            </div>
+            <h3>Prompt Tuning tips</h3>
+            <h4>Autocomplete</h4>
+            <p>The `min_probability` setting from Text Generator can be turned up to only generate a short autocompletion that comes after the given text to help people get writing ideas/save time. This is not supported in many other text generators currently.</p>
+            <p>Text Generator employs blending to avoid users having to understand tokenization boundaries which can cause issues in some other text generation systems.</p>
+            <h4>Question answering</h4>
+            <p>Often with question answering you should make it clear you're looking for a question or an answer with a `A:` or `Q:` line</p>
+
+            <h4>Self conformational behaviour</h4>
+            <p>Prompts tend to stay on topic and questions can be asked in such was that enforce existing beliefs.</p>
+            <p>
+                Self conformational behaviour/bias is a common problem in AI, and is a problem that is not solved by any model yet....
+                <br>
+                <br>
+                <img src="{{ static_url }}/img/confirm1.png" alt="self confirmational bias in AI">
+                <br>
+                <img src="{{ static_url }}/img/confirm2.png" alt="self confirmational bias in AI">
+                <br><br>
+                ^ Figure: Even google struggles with conformational bias, it gives people what they ask for instead of the truth.
+            </p>
+            <h4>Out of domain datasets</h4>
+            <p>The model can adapt to other datasets but be sure to include more entity names and context about the domain to allow the model to have a chance at generating realistic text in context</p>
+            <p>Our models are trained on an extremely large (TBs) corpus of human language and open licenced code so a surprising amount of domains are covered</p>
+{#            <p>Doing math breaks down around adding tens/hundreds</p>#}
+
+            <h4>Bias sensitive domains</h4>
+            <p>You can normalize names and PII my mapping into the same names and addresses etc, this can help gender/ethnic bias but also these mitigations usually harm performance</p>
+            <p>Also including nice words like "polite","sensitive" or larger prompts such as "equality for all" can help the generation be more polite and sensitive.</p>
+
+            <h4>Toxicity</h4>
+            <p>The models <b>can</b> generate toxic content, this can be somewhat mitigated by ensuring the input prompt doesn't contain any profanity, also with a profanity filter on the output helps but is not currently supported. </p>
+
+            <h4>Repetition</h4>
+            <p>The models <b>can</b> repeat themselves, if your use case supports retries, then retrying requests with a higher repetition_penalty works and is employed in the wild for
+                <a href="https://www.addictingwordgames.com/play-game/20-questions-with-ai">20 Questions with AI</a> a game where you need to interrogate the mind of an AI and make it admit you know what its thinking. (based on the Text Generator API)</p>
+            <p>less long generation helps, input from random topics and tokens</p>
+            <p>You can leave the seed at 0 to make requests non deterministic to add randomness to a game, but it makes benchmarking different settings harder</p>
+            <p>input tokens that are not repetitive also help, repetitive inputs more likely result in repetitive generations, even subtle structure of language can be repeated, Creative writing helps to structuring your prompts to make them less structured/repetitive</p>
+
+            <h4>Use Cases</h4>
+            <p>Check out the many use cases/prompts tuned that work well in the text generator API <a href="/use-cases" title="Text Generator Use Cases">Text Generation Examples</a> This should help to get an idea of how </p>
+            <h4>Plug</h4>
+            <p><a href="/" title="Text Generator">Text Generator</a> offers an API for text and code generation. Secure, affordable, flexible and accurate.</p>
+
+                        <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>

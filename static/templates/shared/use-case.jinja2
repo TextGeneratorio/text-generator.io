@@ -1,0 +1,44 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/use-cases" title="Text Generator Examples">Use Cases</a> >{{ title }}
+            </div>
+            <h3>{{ title }}</h3>
+            <p>{{ description }}</p>
+            <h4>Example input</h4>
+                    <ul class="demo-list-item mdl-list">
+
+        <li class="mdl-list__item">
+                        <span class="mdl-list__item-primary-content">
+            <p class="example-text">{{ text }}</p>
+                        </span>
+        </li>
+    </ul>
+            <h4>Example real generated results</h4>
+            <ul class="demo-list-item mdl-list">
+
+                {% for result in results %}
+                    <li class="mdl-list__item">
+                    <!-- bullet point icon list-->
+                        <i class="material-icons mdl-list__item-icon" style="margin-right: 25px">star</i>
+
+                        <span class="mdl-list__item-primary-content">
+                            <p class="example-text">{{ result['generated_text'] }}</p>
+                        </span>
+                    </li>
+                {% endfor %}
+            </ul>
+            <p>try it yourself: <a href="https://text-generator.io/playground?{{ url_key }}">Text Generator
+                Playground - {{ title }}</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+
+</main>

@@ -1,0 +1,5 @@
+pylint==2.4.4
+pytest
+
+pytest-asyncio==0.18.3
+requests-futures==1.0.0

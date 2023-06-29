@@ -1,0 +1,260 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+
+<script>
+
+
+  initApp = function () {
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user) {
+        // User is signed in.
+        var displayName = user.displayName;
+        var email = user.email;
+        var emailVerified = user.emailVerified;
+        var photoURL = user.photoURL;
+        var uid = user.uid;
+        var phoneNumber = user.phoneNumber;
+        var providerData = user.providerData;
+        getUserWithStripe(user, function (data) {
+
+
+          var api_key = data['secret'];
+          var $gpuDeployYaml = $("#code-snippet-embed-deploy-gpu");
+          var currentHtml = $gpuDeployYaml.html();
+          var withAPIKey = currentHtml.replace("TEXT_GENERATOR_API_KEY", api_key);
+          $gpuDeployYaml.html(withAPIKey)
+
+        })
+      } else {
+
+        // User is signed out.
+        location.href = '/login'
+      }
+    }, function (error) {
+      console.log(error);
+    });
+  };
+
+  window.addEventListener('load', function () {
+    initApp()
+  });
+</script>
+
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/docs"
+                                                                           title="Text Generator Docs">Docs</a> >
+                Kubernetes
+            </div>
+            <h3>Host Text-Generator.io on Kubernetes</h3>
+            <p>Kubernetes is a convenient way to setup Text Generator to also provide autoscaling and zero downtime
+                deploys</p>
+            <h4>Requirements</h4>
+            <ul>
+                <li><a href="https://www.docker.com/" rel="nofollow" target="_blank">Docker</a></li>
+                <li><a href="https://developer.nvidia.com/cuda-toolkit" rel="nofollow" target="_blank">Cuda 11+</a></li>
+                <li><a href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+                       rel="nofollow" target="_blank">Nvidia Docker</a></li>
+                <li><a href="https://kubernetes.io/docs/tasks/tools/" rel="nofollow" target="_blank">Kubernetes and
+                    kubectl</a></li>
+                <li>Kubernetes cluster setup e.g. via AWS EKS or Google Cloud GKE</li>
+            </ul>
+            <h4>Quickstart</h4>
+
+            <p>Download the docker zip file from your <a href="/account" target="_blank">account</a>, this requires a
+                self hosted
+                <a href="/subscribe" target="_blank">subscription</a></p>
+            <h5>Load the container then tag and push to a registry</h5>
+            <p>Create a docker image registry you own e.g. AWS ECR or Google Container Registry, then push the image to
+                it</p>
+            <p>For example if your repository is
+            <pre>us.gcr.io/PROJECT/REPO/</pre>
+            </p>
+
+            <pre><code id="code-snippet-embed" class="language-bash">docker load -i text-generator.tar
+docker tag text-generator-customer:v1 us.gcr.io/PROJECT/REPO/prod-app:v1
+docker push us.gcr.io/PROJECT/REPO/prod-app:v1
+</code></pre>
+            <h5>Setup kubernetes infrastructure</h5>
+            <p>The service can run more cost effectively on AWS, via a g4dn.2xlarge or on a Google Cloud machine with a
+                NVIDIA A100 40GB GPU (as 24GB VRAM is the minimum)</p>
+            <p>Create a node with a GPU on it, ensure it has enough disk space for 40G of models. The storage location
+                should be ideally a fast disk (SSD)</p>
+
+            <p>Then create a pod to be scheduled on the node.</p>
+            <p>Example kubernetes service file <a href="{{ static_url }}/resources/deploy-gpu.yaml" target="_blank"><b>deploy-gpu.yaml</b></a>
+            </p>
+            <pre><code id="code-snippet-embed-deploy-gpu" class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-app
+spec:
+  replicas: 1 # Note that doing a zero downtime rolling deployment with 2 replicas would require subscribing to run 2 instances concurrently
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: prod-app
+  template:
+    metadata:
+      labels:
+        app: prod-app
+    spec:
+      # Necessary to have enough shared memory
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+      containers:
+        - name: prod-app
+          image: us.gcr.io/PROJECT/REPO/prod-app:v1 # todo use your image name here
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: API_KEY
+              value: "TEXT_GENERATOR_API_KEY"
+          # Ensure that the node has a GPU
+          resources:
+            requests:
+              cpu: 1500m
+              memory: 30G
+            limits:
+              nvidia.com/gpu: "1"
+          # Necessary to have enough shared memory
+          volumeMounts:
+            - mountPath: /models
+              name: dshm
+          livenessProbe:
+            failureThreshold: 3 # 2 min for recovering
+            httpGet:
+              scheme: HTTP
+              path: /liveness_check
+              port: 8080
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 240
+          readinessProbe:
+            failureThreshold: 10 # 10*30s = 5 min startup time
+            httpGet:
+              scheme: HTTP
+              path: /liveness_check
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+</code></pre>
+
+            <p>Apply the changes in kubernetes</p>
+            <pre><code id="code-snippet-embed" class="language-bash">kubectl apply -f deploy-gpu.yaml</code></pre>
+            <h5>Autoscaling</h5>
+            <p>Autoscaling can be setup via a kubernetes horizontal pod autoscaler, for example on AWS EKS</p>
+            <p>Example <a href="{{ static_url }}/resources/hpa.yaml" target="_blank"><b>hpa.yaml</b></a> file</p>
+            <pre><code id="code-snippet-embed" class="language-yaml">apiVersion: v1
+items:
+- apiVersion: autoscaling/v1
+  kind: HorizontalPodAutoscaler
+  metadata:
+    name: hello-app-hpa
+    namespace: default
+    resourceVersion: "664"
+  spec:
+    maxReplicas: 10
+    minReplicas: 1
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: hello-app
+    targetCPUUtilizationPercentage: 50 # tries to maintain 50 percent cpu usage, it scales up if it is consistently over and scales back down if under
+kind: List
+metadata: {}
+resourceVersion: ""
+selfLink: ""
+</code></pre>
+            <p>Apply the changes in kubernetes</p>
+            <pre><code id="code-snippet-embed" class="language-bash">kubectl apply -f hpa.yaml</code></pre>
+
+            <h5>Exposing the service to the web</h5>
+            <p>This example exposes a service running on GKE cluster to be able to query it from the outside world</p>
+            <p>This requires a service and in ingress (route to the service)</p>
+            <p>Example <a href="{{ static_url }}/resources/service.yaml" target="_blank"><b>service.yaml</b></a> file
+            </p>
+            <pre><code id="code-snippet-embed" class="language-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: gke-gpu-service2
+  labels:
+    app: prod-app
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+    type: LoadBalancer
+    ports:
+    - name: sentiment
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+    selector:
+        app: prod-app
+</code></pre>
+            <p>Example <a href="{{ static_url }}/resources/ingress.yaml" target="_blank"><b>ingress.yaml</b></a> file
+            </p>
+            <pre><code id="code-snippet-embed" class="language-yaml">apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prod-ingress
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: gke-gpu-service2 # this refers to the service name
+            port:
+              number: 80
+</code></pre>
+            <p>Apply the changes in kubernetes</p>
+            <pre><code id="code-snippet-embed" class="language-bash">kubectl apply -f service.yaml
+kubectl apply -f ingress.yaml</code></pre>
+            <h5>Guidance</h5>
+            <p>If your not sure about hosting your own Text Generator try the online playground to find use cases, prove
+                out the system and then transition later to hosting yourself to further save costs.</p>
+            <p>If your using another provider like OpenAI hosting yourself can provide large cost savings and changing
+                over the API is an
+                <a href="https://text-generator.io/blog/over-10x-openai-cost-savings-one-line-change"
+                   title="10x Cost savings on OpenAI with one line change">easy migration from OpenAI</a></p>
+            <p><a href="https://text-generator.io/playground" target="_blank">Text Generator Playground</a></p>
+
+            <script>
+              $(document).ready(function () {
+                hljs.highlightAll();
+                // remove all double ++ characters
+                $('.hljs-addition').each(function () {
+                  $(this).html($(this).html().replace(/\+\+/g, ''));
+                });
+                window.setTimeout(function () {
+                  hljs.highlightAll();
+                  $('.hljs-addition').each(function () {
+                    $(this).html($(this).html().replace(/\+\+/g, ''));
+                  });
+                }, 3000);
+              });
+            </script>
+
+        </div>
+    </div>
+    {% import "templates/macros.jinja2" as macros with context %}
+
+    {{ macros.svgstyled() }}
+</main>

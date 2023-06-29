@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-app
+  annotations:
+    # The Cloud TPUs that will be created for this Job will support
+    # Pytorch 1.11
+    cloud-tpus.google.com/pytorch-version: "1.11"
+    # TensorFlow 2.6.0. This version MUST match the
+    # TensorFlow version that your model is built on.
+    tf-version.cloud-tpus.google.com: "2.6.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-app
+  template:
+    metadata:
+      labels:
+        app: hello-app
+    spec:
+      # Necessary to have enough shared memory
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+      containers:
+        - name: prod-app
+          image: gcr.io/prod-repo/prod-app # todo tag
+          imagePullPolicy: IfNotPresent
+          command:
+            -  gunicorn -k uvicorn.workers.UvicornWorker -b :8080 main:app --timeout 180000 --workers 1
+
+
+          # Ensure that the node has a GPU
+#          resources:
+#            limits:
+#              nvidia.com/gpu: "1"
+#              cloud-tpus.google.com/preemptible-v3: "8"
+          # Necessary to have enough shared memory
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: dshm
+      terminationGracePeriodSeconds: 25
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+              matchExpressions:
+                - key: cloud.google.com/gke-spot
+                  operator: In
+                  values:
+                    - "true"
+              weight: 100
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: cloud.google.com/gke-spot
+#                    operator: In
+#                    values:
+#                      - "true"

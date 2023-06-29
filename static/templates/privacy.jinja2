@@ -1,0 +1,29 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'Privacy Policy Text Generator' -%}
+    {% set description = 'Privacy Policy - Text Generator API' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="text generator, secure text generator, privacy focused text generator">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="https://text-generator.io">
+    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="reWord Game">
+    <meta property="fb:admins" content="337972272904903">
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates/shared/privacy.jinja2" %}
+{% endblock %}
+
+

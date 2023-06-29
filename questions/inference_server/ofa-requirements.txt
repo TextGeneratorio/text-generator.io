@@ -1,0 +1,61 @@
+astroid==2.3.3
+Click==7.0
+colorama==0.4.3
+fastapi==0.75.1
+gunicorn==20.1.0
+h11==0.9.0
+isort==4.3.21
+lazy-object-proxy==1.4.3
+mccabe==0.6.1
+six==1.14.0
+uvicorn==0.17.0
+websockets==8.1
+wrapt==1.11.2
+transformers==4.20.0 # #not on gae python
+#transformers==4.18.0
+accelerate==0.10.0
+
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==1.11.0+cu113 #not on gae python
+#torch==1.11.0 #not on gae python
+#torch==1.10.2
+# we dont need torchvision-0.12.0+cu113
+
+
+google-api-python-client==2.43.0
+google-api-core==1.31.5
+google-cloud-storage==2.3.0 #not on gae python
+#google-cloud-storage==2.0.0
+
+google-cloud-ndb==1.11.1
+loguru==0.5.3
+pydantic==1.9.0
+jinja2==3.1.1 #not on gae python
+#jinja2==3.0.3
+
+nltk==3.7.0 #not on gae python
+#nltk==3.6.7
+stripe==3.4.0
+cachetools==4.2.4
+python-multipart==0.0.5
+
+# OFA link research
+#gradio==3.1.4
+bs4==0.0.1
+requests==2.27.1
+requests-futures==1.0.0
+
+-e ./OFA/fairseq/
+timm
+opencv-python==4.6.0.66
+ftfy==6.0.3
+#tensorboardX==2.4.1
+pycocotools==2.0.4
+#pycocoevalcap==1.2
+pytorch_lightning
+einops
+datasets
+Pillow==9.1.1
+
+# end OFA
+

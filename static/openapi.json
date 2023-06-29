@@ -1,0 +1,700 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Generate Text API",
+    "description": "Generate text, create chat bots, perform question answering, classification, language translation, prediction across a variety of domains via 'prompt engineering' asking questions in a familiar way to human conversation. \n Under the hood we use very large language models trained on broad human language.  \n * control stopping criteria and cost\n * `max_length` for a maximum amount of tokens \n * `max_sentences` for setting a max number of sentences, good for conversational agents or when you know how many sentences should be generated\n * `stopping_sequences` a list of sequences that once generated signal the end of text generation, give some examples of when these should appear in your prompt, these wont be output at the end if used to stop. \n * control the variety of results \n * get more results with `number_of_results`\n * higher `top_p`, lower `top_k` for high variety/creativity \n * low `top_p` and high `top_k` for consistency\n * low `temperature` for consistency, high for creativity\n * when generating shorter sequences you may want to choose settings that give higher consistency and are more likely, when generating long sequences you may want to use settings that are give more surprise/creativity, defaults should work well for both.",
+    "version": "1"
+  },
+  "paths": {
+    "/api/v1/feature-extraction": {
+      "post": {
+        "summary": "Feature Extraction",
+        "operationId": "feature_extraction_api_v1_feature_extraction_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureExtractParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/summarization": {
+      "post": {
+        "summary": "Feature Extraction",
+        "operationId": "feature_extraction_api_v1_summarization_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummarizationParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generate_speech": {
+      "post": {
+        "summary": "Generate Speech",
+        "operationId": "generate_speech_api_v1_generate_speech_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateSpeechParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audio-file-extraction": {
+      "post": {
+        "summary": "Audio File Extraction",
+        "operationId": "audio_file_extraction_api_v1_audio_file_extraction_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_audio_file_extraction_api_v1_audio_file_extraction_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audio-extraction": {
+      "post": {
+        "summary": "Audio Extraction",
+        "operationId": "audio_extraction_api_v1_audio_extraction_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generate": {
+      "post": {
+        "summary": "Generate text",
+        "operationId": "generate_route_api_v1_generate_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateResponse"
+                },
+                "example": [
+                  {
+                    "generated_text": "Hello world! How are you? I'm fine, Thanks for asking.",
+                    "stop_reason": "max_sentences"
+                  }
+                ]
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/engines/{engine_name}/completions": {
+      "post": {
+        "summary": "Openai Compatibility Route",
+        "operationId": "openai_route_named_v1_engines__engine_name__completions_post",
+        "parameters": [
+          {
+            "required": true,
+            "schema": {
+              "title": "Engine Name",
+              "type": "string"
+            },
+            "name": "engine_name",
+            "in": "path"
+          },
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenaiParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AudioParams": {
+        "title": "AudioParams",
+        "type": "object",
+        "properties": {
+          "audio_url": {
+            "title": "Audio Url",
+            "type": "string",
+            "default": "http://www.fit.vutbr.cz/~motlicek/sympatex/f2bjrop1.0.wav"
+          },
+          "translate_to_english": {
+            "title": "Translate To English",
+            "type": "boolean",
+            "default": false
+          },
+          "output_filetype": {
+            "title": "Output Filetype",
+            "type": "string",
+            "default": "txt",
+            "description": "can also generate srt files with 'srt'"
+          }
+        }
+      },
+      "Body_audio_file_extraction_api_v1_audio_file_extraction_post": {
+        "title": "Body_audio_file_extraction_api_v1_audio_file_extraction_post",
+        "type": "object",
+        "properties": {
+          "audio_file": {
+            "title": "Audio File",
+            "type": "string",
+            "description": "Audio file",
+            "format": "binary"
+          },
+          "translate_to_english": {
+            "title": "Translate To English",
+            "type": "boolean",
+            "default": false
+          },
+          "output_filetype": {
+            "title": "Output Filetype",
+            "type": "string",
+            "default": "txt"
+          }
+        }
+      },
+      "FeatureExtractParams": {
+        "title": "FeatureExtractParams",
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "num_features": {
+            "title": "Number Of Features to return",
+            "type": "integer",
+            "default": 256,
+            "description": "Number of features to return between 1 and 250k",
+            "example": 256
+          }
+        }
+      },
+      "GenerateParams": {
+        "title": "GenerateParams",
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string",
+            "description": "Text input, predicts what comes afterward",
+            "example": "Hello world! How are you? "
+          },
+          "number_of_results": {
+            "title": "Number Of Results",
+            "type": "integer",
+            "default": 1,
+            "description": "Number of results to return",
+            "example": 1
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer",
+            "default": 100,
+            "description": "Maximum length of generated text, in tokens"
+          },
+          "max_sentences": {
+            "title": "Num Sentences",
+            "type": "integer",
+            "default": 0,
+            "description": "Maximum number of sentences to generate, 0 for any amount of sentences"
+          },
+          "min_probability": {
+            "title": "Min Probability",
+            "type": "number",
+            "description": "Minimum probability required during generation, higher causes the output to stop sooner when it encounters a low probability token/phrase, used when you want the model to stop instead of going off topic or saying wrong things, useful for short generation like autocomplete",
+            "default": 0.0
+          },
+          "stop_sequences": {
+            "title": "Stop Sequences",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "   default": [
+              "?",
+              "!",
+              "."
+            ],
+            "description": "Sequences to stop generating text after seeing, these are not returned in the results"
+          },
+          "top_p": {
+            "title": "Top P",
+            "type": "number",
+            "default": 0.9,
+            "description": "Probability threshold for token selection, higher means higher diversity results"
+          },
+          "top_k": {
+            "title": "Top K",
+            "type": "integer",
+            "default": 40,
+            "description": "Number of top-probability tokens to keep when deciding which token to use, higher means higher diversity"
+          },
+          "temperature": {
+            "title": "Temperature",
+            "type": "number",
+            "default": 0.7,
+            "description": "Temperature of the generated text, higher means more diversity smoothing the probability distribution of choices"
+          },
+          "repetition_penalty": {
+            "title": "repetition_penalty",
+            "type": "number",
+            "default": 1.17,
+            "description": "Repetition penalty for tokens in the input text, higher means more diversity but higher values can loose the ability to stay on topic or recall previous entities"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer",
+            "default": 0,
+            "description": "Seed controlling randomness, set a seed for a reproducible result, otherwise results are not reproducible and can be different for the same input if you make multiple requests"
+          }
+        }
+      },
+      "GenerateSpeechParams": {
+        "title": "GenerateSpeechParams",
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "speaker": {
+            "title": "Speaker",
+            "type": "string",
+            "default": "Female 1"
+          }
+        }
+      },
+      "GenerateResponse": {
+        "title": "GenerateResponse",
+        "required": [
+          "text"
+        ],
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "generated_text": {
+              "title": "Text",
+              "type": "string",
+              "description": "Text input, predicts what comes afterward",
+              "example": "Hello world! How are you? "
+            },
+            "stop_reason": {
+              "title": "stop_reason",
+              "type": "string",
+              "default": 1,
+              "description": 'the stopping sequence seen that triggered stopping or a different stop reason "max_length" or "max_sentences" or "min_probability"',
+              "example": "max_length"
+            }
+          }
+        }
+      },
+      "HTTPValidationError": {
+        "title": "HTTPValidationError",
+        "type": "object",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            }
+          }
+        }
+      },
+      "OpenaiParams": {
+        "title": "OpenaiParams",
+        "required": [
+          "prompt"
+        ],
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer",
+            "default": 1
+          },
+          "best_of": {
+            "title": "Best Of",
+            "type": "integer",
+            "default": 1
+          },
+          "echo": {
+            "title": "Echo",
+            "type": "boolean",
+            "default": false
+          },
+          "max_tokens": {
+            "title": "Max Tokens",
+            "type": "integer",
+            "default": 100
+          },
+          "min_length": {
+            "title": "Min Length",
+            "type": "integer",
+            "default": 1
+          },
+          "max_sentences": {
+            "title": "Max Sentences",
+            "type": "integer"
+          },
+          "min_probability": {
+            "title": "Min Probability",
+            "type": "number",
+            "default": 0.0
+          },
+          "stop": {
+            "title": "Stop",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "stream": {
+            "title": "Stream",
+            "type": "boolean",
+            "default": false
+          },
+          "suffix": {
+            "title": "Suffix",
+            "type": "string",
+            "default": false
+          },
+          "top_p": {
+            "title": "Top P",
+            "type": "number",
+            "default": 0.9
+          },
+          "top_k": {
+            "title": "Top K",
+            "type": "integer",
+            "default": 40
+          },
+          "temperature": {
+            "title": "Temperature",
+            "type": "number",
+            "default": 0.7
+          },
+          "repetition_penalty": {
+            "title": "Repetition Penalty",
+            "type": "number",
+            "default": 1.2
+          },
+          "frequency_penalty": {
+            "title": "Frequency Penalty",
+            "type": "number",
+            "default": 1.2
+          },
+          "presense_penalty": {
+            "title": "Presense Penalty",
+            "type": "number",
+            "default": 1.2
+          }
+        }
+      },
+      "SummarizationParams": {
+        "title": "SummarizationParams",
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          }
+        }
+      },
+      "ValidationError": {
+        "title": "ValidationError",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "loc": {
+            "title": "Location",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+text,number_of_results,max_length,max_sentences,min_probability,stop_sequences,top_p,top_k,temperature,repetition_penalty,seed
+"The top 10 best things about this year...
+
+",1,100,0,0,".,?,!",0.9,35,0.8,1.15,0
+"The 10 worst things about this year...
+
+",1,100,0,0,,0.9,35,0.8,1.15,0

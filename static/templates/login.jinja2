@@ -1,0 +1,67 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'Login - Text Generator ' -%}
+    {% set description = 'Login to Text Generator Machine Learning/AI account' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="language generation, text generation, text generator, login">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="https://text-generator.io">
+    <meta property="og:image" content="{{ static_url }}/img/bitbank-icon128.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:site_name" content="text generator">
+    <meta property="fb:admins" content="337972272904903">
+
+
+{% endblock %}
+
+{% block mainbody %}
+    <script type="text/javascript">
+      // FirebaseUI config.
+      var uiConfig = {
+        signInSuccessUrl: '/',
+        signInOptions: [
+          // Leave the lines as is for the providers you want to offer your users.
+          {
+            provider: firebase.auth.EmailAuthProvider.PROVIDER_ID,
+            requireDisplayName: false
+          }
+        ],
+        credentialHelper: firebaseui.auth.CredentialHelper.NONE,
+
+        // Terms of service url.
+        tosUrl: '/terms'
+      };
+
+      // Initialize the FirebaseUI Widget using Firebase.
+      var ui = new firebaseui.auth.AuthUI(firebase.auth());
+      // The start method will wait until the DOM is loaded.
+      ui.start('#firebaseui-auth-container', uiConfig);
+    </script>
+
+    <div
+    style="padding: 40px">
+        <div id="firebaseui-auth-container"></div>
+    </div>
+{##}
+{#    <div class="demo-ribbon"></div>#}
+{#    <main class="demo-main mdl-layout__content">#}
+{#        <div class="demo-container mdl-grid">#}
+{#            <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>#}
+{#            <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">#}
+{##}
+{#                <h3>Login</h3>#}
+{#                <hr>#}
+{#            </div>#}
+{#        </div>#}
+{##}
+{#    </main>#}
+
+{% endblock %}

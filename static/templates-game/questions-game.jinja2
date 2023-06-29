@@ -1,0 +1,40 @@
+{% extends 'templates-game/base.jinja2' %}
+
+{% block js %}
+    <script type="text/javascript" src="/gameon/static/bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript" src="/gameon/static/js/lib/soundmanager/script/soundmanager2.js"></script>
+    <script type="text/javascript"
+            src="/gameon/static/js/lib/loopj-jquery-simple-slider-fa64f59/js/simple-slider.min.js"></script>
+    <script type="text/javascript" src="/gameon/static/js/Queue.js"></script>
+    <script type="text/javascript" src="/gameon/static/js/utils.js"></script>
+    <script type="text/javascript" src="/gameon/static/js/wordutils.js"></script>
+    <script type="text/javascript" src="/gameon/static/js/gameon.js"></script>
+{% endblock %}
+
+{% block headers %}
+
+    {% set title = '20 Questions Game - Guess what AI is thinking!' -%}
+    {% set description = 'Guess what a computer is thinking in this tricky game of chat!' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="questions game, word game, word games">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="https://text-generator.io">
+    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="game">
+    <meta property="og:site_name" content="Questions Game">
+    <meta property="fb:admins" content="337972272904903">
+
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates-game/shared/game.jinja2" %}
+{% endblock %}

@@ -1,0 +1,49 @@
+.env
+.git
+models
+OFA/checkpoints
+
+*.py[cod]
+models
+
+# C extensions
+*.so
+
+# Packages
+*.egg
+*.egg-info
+eggs
+sdist
+develop-eggs
+.installed.cfg
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+.idea
+.DS_STORE
+.DS_Store
+sellerinfo.py
+static/js/templates.js
+
+node_modules
+secrets
+customersecrets
+config.json
+ddns/config.json
+__pycache__
+flagged
+

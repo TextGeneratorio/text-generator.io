@@ -1,0 +1,29 @@
+{% extends 'templates-game/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'Privacy Policy reWord Game - Massive Chess Game' -%}
+    {% set description = 'Privacy Policy - reWord Game! 6+ Player Massive Multiplayer Chess Board!' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="puzzle games, reWord Game privacy, online chess, game, multiplayer chess game">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="https://text-generator.io">
+    <meta property="og:image" content="/img/big-multiplayer-chess-logo256.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="game">
+    <meta property="og:site_name" content="reWord Game">
+    <meta property="fb:admins" content="337972272904903">
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates-game/shared/privacy.jinja2" %}
+{% endblock %}
+
+

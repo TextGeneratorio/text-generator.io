@@ -1,0 +1,134 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Generate Text API",
+    "description": "Generate text, control stopping criteria like max_length/max_sentences",
+    "version": "1"
+  },
+  "paths": {
+    "/api/v1/audio-extraction": {
+      "post": {
+        "summary": "Audio Extraction",
+        "operationId": "audio_extraction_api_v1_audio_extraction_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AudioParams": {
+        "title": "AudioParams",
+        "type": "object",
+        "properties": {
+          "audio_url": {
+            "title": "Audio Url",
+            "type": "string",
+            "default": "http://www.fit.vutbr.cz/~motlicek/sympatex/f2bjrop1.0.wav"
+          },
+          "translate_to_english": {
+            "title": "Translate To English",
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "GetUserRequest": {
+        "title": "GetUserRequest",
+        "required": [
+          "uid",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "uid": {
+            "title": "Uid",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          }
+        }
+      },
+      "HTTPValidationError": {
+        "title": "HTTPValidationError",
+        "type": "object",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "title": "ValidationError",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "loc": {
+            "title": "Location",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

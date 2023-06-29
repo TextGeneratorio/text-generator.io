@@ -1,0 +1,141 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > Text Generator Researches via Crawling
+            </div>
+            <h2>Text Generator Researches via Crawling</h2>
+
+            <p>Text Generator now includes a large neural network capable of crawling the web for any input links, understanding the world wide web to better generate text.</p>
+            <p>
+                Any linked html pages or image content is downloaded and analysed to help text generation improve
+            </p>
+            <h4>What does that mean?</h4>
+            <p>Previously unsolved inputs had not enough context for a machine to be able to make an informed decision on what text to generate</p>
+            <p>example:</p>
+            <pre><code id="code-snippet-embed" class="language-diff">What is this about https://t3.ftcdn.net/jpg/02/44/02/20/360_F_244022052_Ev9kjmGn1VWl58TMoNAdVerpR6iFPJrU.jpg ?
+++A: This image has been used for many years by the Fictional Fairies.  It was created to be included on their book \"The Magic Circle\" (a collection containing all sorts of magical items from various fandoms) which they published with Artifact Press.
+</code></pre>
+
+
+            <h4>Why Web Crawling?</h4>
+
+            <p>To generate text you need enough context to understand the intent/patterns to follow, not enough context and generated text can go off topic, regurgitate training data or produce other surprising outputs</p>
+            <p>Many links provide rich context for how to respond to questions but need deeper analysis, images and gifs posted during discussions are important to deeply understand before replying.</p>
+
+            <h4>How does this work?</h4>
+            <p>If there isn't enough information in a prompt, the content of any linked images or web pages is analysed with neural networks to determine how the link is relevant to the text/code to be generated</p>
+
+            <h2>New Use Cases</h2>
+            <h3>Multimedia conversation/chat understanding</h3>
+            <p>Links posted in web chat can be followed, text generator responds in appropriate ways given understanding of emojis posted</p>
+            <p>emoji posted was a happy emoji</p>
+            <img src="https://static.text-generator.io/static/img/h.png" width="128" height="128" title="pic.jpeg">
+
+            <pre><code id="code-snippet-embed" class="language-diff">feeling https://static.text-generator.io/static/img/h.png because
+++they feel like it was made by someone who is very nice.</code></pre>
+            <p>emoji posted was a sad emoji</p>
+                        <img src="https://static.text-generator.io/static/img/s.png" width="128" height="128" title="pic.jpeg">
+
+            <pre><code id="code-snippet-embed" class="language-diff">feeling https://static.text-generator.io/static/img/s.png because
+++you have to click on the button for each frame and then select the image which appears in this place, but I don't know how many frames there are or where it is located.
+</code></pre>
+            <h3>Code Autocomplete based on image content</h3>
+            <p>Code autocomplete is relevant to the images content being worked on</p>
+            <img src="https://static.text-generator.io/static/img/pic.jpg" width="128" height="128" title="pic.jpeg">
+
+            <pre><code id="code-snippet-embed" class="language-diff">&lt;img src=&quot;https://static.text-generator.io/static/img/pic.jpg&quot; title=&quot;
+++a man and woman sitting on a tree branch\&quot;&gt;</code></pre>
+
+            <h3>Link understanding</h3>
+            <pre><code id="code-snippet-embed" class="language-diff">Bill: Checkout http://meta.stackoverflow.com/q/332386/497418 WDYT?
+Martin:
+++I think it would be better to have a tag for each language, and we could then use a language tag on the question, and a language tag on the answers. This would avoid some of the confusion about the language used in a question or answer, and allow us to have the same tags in the questions and answers.
+++Martin: I would like to see an extension to the question/answer system that would allow you to have multiple languages in your question or answer, and then link to the language tag
+</code></pre>
+
+            <h3>Image captioning</h3>
+            <pre><code id="code-snippet-embed" class="language-diff">https://static.text-generator.io/static/img/science-background-dark.png captions for this image are:
+++1. A network with spheres and dots on a black background
+</code></pre>
+            <h3>Multiple image understanding</h3>
+                        <img src="https://static.text-generator.io/static/img/fairy1.jpeg" width="128" height="128" title="fairy1.jpeg">
+                        <img src="https://static.text-generator.io/static/img/fairy2.jpeg" width="128" height="128" title="fairy2.jpeg">
+                        <img src="https://static.text-generator.io/static/img/fairy3.jpeg" width="128" height="128" title="fairy3.jpeg">
+
+                <pre><code id="code-snippet-embed" class="language-diff">Which fairy do you think is most feminine?
+1: https://static.text-generator.io/static/img/fairy1.jpeg
+2: https://static.text-generator.io/static/img/fairy2.jpeg
+3: https://static.text-generator.io/static/img/fairy3.jpeg
+++A: A pink fairy in a pink dress with blue wings.
+</code></pre>
+<h3>Autocomplete for technical and artistic discussions</h3>
+            <img src="https://static.text-generator.io/static/img/fairy1.jpeg" width="128" height="128" title="fairy1.jpeg">
+
+            <pre><code id="code-snippet-embed" class="language-diff">
+Do you you think this should be a good or bad character in a kids movie and why?
+https://static.text-generator.io/static/img/fairy1.jpeg
+++A: It should be a good character because in the movie, the fairy helps the little girl to get away from the bad people.
+++B: I don't think it's a good character because it can make the girl fall in love with the fairy.
+++C: I think it's a good character because it is a good character to have in a movie.
+</code></pre>
+            <img src="https://static.text-generator.io/static/img/fairy3.jpeg" width="128" height="128" title="fairy3.jpeg">
+
+            <pre><code id="code-snippet-embed" class="language-diff">Do you you think this should be a good or bad character in a kids movie and why?
+https://static.text-generator.io/static/img/fairy3.jpeg
+++A: It can be a good or bad character. It depends on the movie.
+++B: I think the gargoyle figurine in a blue outfit with a gold crown on its head is a good character.
+</code></pre>
+            <h3>And much more!</h3>
+            <h4>Future work</h4>
+            <p>In future other content types like video and audio will be researched as well as other entities than just links e.g. people, places, organisations, topics. </p>
+            <p>Link research is not yet enabled for embeddings, but it can be enabled so multiple links, images, multilingual text and code can be embedded in the same space, then searched and analysed.</p>
+            <p>Our crawler will get more advanced to execute javascript to better understand web pages as well as login to understand gated communities</p>
+            <h4>Distant future</h4>
+            <p>In general in future a lot of prompt engineering inputs and interpretation of outputs will be automated and improved to make the text generation process less error prone</p>
+            <p>General AI systems will do whatever it takes to answer questions including researching, crawling, training new networks or inventing new ideas</p>
+            <p>Theres lots more to go but for now combining image and link understanding and text generation is an important step towards AGI</p>
+            <h4>Caveats</h4>
+            <p>Crawling and image analysis adds processing time to your request, if you wish to turn this off remove the input http(s) protocol from links, so we can not detect any images in the text </p>
+            <h5>Plug</h5>
+
+            <p><a href="/" title="Text Generator" target="_blank">Text Generator</a> offers an API for text and code
+                generation. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+            <p>Note with Text Generator you aren't charged for tokens and can generate up to 100 examples in a single request which adds to diversity of results.</p>
+
+            <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+            <script>
+                $(document).ready(function () {
+                    hljs.highlightAll();
+                    // remove all double ++ characters
+                    $('.hljs-addition').each(function () {
+                        $(this).html($(this).html().replace(/\+\+/g, ''));
+                    });
+                    window.setTimeout(function () {
+                          hljs.highlightAll();
+                        $('.hljs-addition').each(function () {
+                            $(this).html($(this).html().replace(/\+\+/g, ''));
+                        });
+                    }, 3000);
+                });
+            </script>
+
+        </div>
+    </div>
+
+</main>

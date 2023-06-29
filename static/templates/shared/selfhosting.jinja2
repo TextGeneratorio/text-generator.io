@@ -1,0 +1,95 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > Self Hosting
+            </div>
+            <h3>Self Hosting Docs</h3>
+            <p>Text Generator is hostable, ideally on a GPU accelerated device with 24G VRAM or more</p>
+            <p>Self hosting requires a <a href="/subscribe">Subscription</a></p>
+            <h4>Hosting guides</h4>
+            <ul class="demo-list-item mdl-list">
+                <li class="mdl-list__item">
+                    <a href="/docs/kubernetes">
+                        <i class="material-icons mdl-list__item-icon" style="margin-right: 25px;width:52px;height:52px"><img
+                                src="/static/img/Kubernetes-icon-color.svg.png" alt="kubernetes" width="52" height="52"></i>
+                    </a>
+                    <div>
+
+                    <span class="mdl-list__item-primary-content">
+                                    <a href="/docs/kubernetes">Kubernetes</a>
+
+                    </span>
+                    </div>
+                </li>
+                <li class="mdl-list__item">
+                    <a href="/docs/docker">
+                        <i class="material-icons mdl-list__item-icon" style="margin-right: 25px;width:52px;height:52px"><img
+                                src="/static/img/docker-icon.webp" alt="docker" width="52" height="52"></i>
+                    </a>
+                    <div>
+
+                    <span class="mdl-list__item-primary-content">
+                                    <a href="/docs/docker">Docker</a>
+
+                    </span>
+                    </div>
+                </li>
+{#                <li class="mdl-list__item">#}
+{#                    <a href="/docs/linux">#}
+{#                        <i class="material-icons mdl-list__item-icon" style="margin-right: 25px;width:52px;height:52px"><img#}
+{#                                src="/static/img/linux-icon.png" alt="linux" width="52" height="52"></i>#}
+{#                    </a>#}
+{#                    <div>#}
+{##}
+{#                    <span class="mdl-list__item-primary-content">#}
+{#                                    <a href="/docs/linux">Linux</a>#}
+{##}
+{#                    </span>#}
+{#                    </div>#}
+{#                </li>#}
+            </ul>
+
+            <h4>Recommended System Requirements</h4>
+            <div class="demo-list-action mdl-list">
+                <div class="mdl-list__item">
+                <span class="mdl-list__item-primary-content">
+                  <b>CPU</b>
+                </span>
+                    <span class="mdl-list__item-secondary-action" href="#" title="More is not important unless you are running without a GPU which is not recommended">1+ CPU</span>
+                </div>
+                <div class="mdl-list__item">
+                <span class="mdl-list__item-primary-content">
+                  <b>GPU</b>
+                </span>
+                    <span class="mdl-list__item-secondary-action" href="#">1+ Nvidia (CUDA 11+ Capable) GPU</span>
+                </div>
+                <div class="mdl-list__item">
+                <span class="mdl-list__item-primary-content">
+                  <b>GPU VRAM</b>
+                </span>
+                    <span class="mdl-list__item-secondary-action" href="#">24G </span>
+                </div>
+                <div class="mdl-list__item">
+                <span class="mdl-list__item-primary-content">
+                  <b>Disk space</b>
+                </span>
+                    <span class="mdl-list__item-secondary-action" href="#">40G </span>
+                </div>
+                <div class="mdl-list__item">
+                <span class="mdl-list__item-primary-content">
+                  <b>RAM</b>
+                </span>
+                    <span class="mdl-list__item-secondary-action" href="#">22G</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>

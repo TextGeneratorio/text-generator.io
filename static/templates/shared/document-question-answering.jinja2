@@ -1,0 +1,79 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > Document Question Answering
+            </div>
+            <h2>Linked images with text are analyzed</h2>
+            <p>Text Generator <a href="https://text-generator.io/blog/text-generator-now-researches-via-crawling">researches input links via Crawling</a> and now also analyses written documents to support answering questions, checking tone, document contents and making realistic responses during document conversations are now possible</p>
+
+            <h4>What kinds of things can you do mean?</h4>
+            <p>With text generator you can answer questions about text based images, including what the content is about, how users would respond, gauges intent/feelings/contents making advanced analytics workflows easier than ever before</p>
+            <h4>Example Invoice question answering</h4>
+            <img src="https://static.text-generator.io/static/img/computer-invoice.png" alt="Computer Invoice" width="450" height="782">
+            <h5>Price analysis</h5>
+            <pre><code id="code-snippet-embed" class="language-diff">Checkout this receipt https://static.text-generator.io/static/img/computer-invoice.png
+Total Price:
+++$2,623.00</code></pre>
+            <a href="https://text-generator.io/playground?text=Checkout+this+receipt+https%3A%2F%2Fstatic.text-generator.io%2Fstatic%2Fimg%2Fcomputer-invoice.png+%0ATotal+Price%3A+&stop_sequences=&number_of_results=1&max_length=100&max_sentences=1&min_probability=0&top_p=0.9&top_k=40&temperature=0.6&repetition_penalty=1&seed=0">playground link</a>
+            <h5>Summarization</h5>
+            <pre><code id="code-snippet-embed" class="language-diff">Checkout this receipt https://static.text-generator.io/static/img/computer-invoice.png
+Overall what was this for?
+++The invoice was for the purchase of a computer with a warranty.</code></pre>
+            <a href="https://text-generator.io/playground?text=Checkout+this+receipt+https%3A%2F%2Fstatic.text-generator.io%2Fstatic%2Fimg%2Fcomputer-invoice.png+%0AOverall+what+was+this+for%3F+The+invoice+was+for+the+purchase+of+a+computer+with+a+warranty.&stop_sequences=&number_of_results=1&max_length=100&max_sentences=1&min_probability=0&top_p=0.9&top_k=40&temperature=0.6&repetition_penalty=1&seed=0">playground link</a>
+            <h5>Specific details analysis</h5>
+            <pre><code id="code-snippet-embed" class="language-diff">Checkout this receipt https://static.text-generator.io/static/img/computer-invoice.png
+Bank Details for payment:
+++BSB: 012401
+++Account: 348260858
+</code></pre>
+            <a href="https://text-generator.io/playground?text=Checkout+this+receipt+https%3A%2F%2Fstatic.text-generator.io%2Fstatic%2Fimg%2Fcomputer-invoice.png+%0ABank+Details+for+payment%3A%0ABSB%3A+&stop_sequences=&number_of_results=1&max_length=34&max_sentences=1&min_probability=0&top_p=0.9&top_k=40&temperature=0.6&repetition_penalty=1.07&seed=0">playground link</a>
+
+
+            <h4>What else?</h4>
+
+            <p>It also recognises and answers questions about documents/books/licences and other textual documents</p>
+            <h5>Plug</h5>
+
+            <p><a href="/" title="Text Generator" target="_blank">Text Generator</a> offers an API for text and code
+                generation. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+            <p>Note with Text Generator you aren't charged for tokens and can generate up to 100 examples in a single request which adds to diversity of results.</p>
+
+            <p>Try examples yourself at: <a href="https://text-generator.io/playground">Text Generator
+                Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+            <script>
+                $(document).ready(function () {
+                    hljs.highlightAll();
+                    // remove all double ++ characters
+                    $('.hljs-addition').each(function () {
+                        $(this).html($(this).html().replace(/\+\+/g, ''));
+                    });
+                    window.setTimeout(function () {
+                          hljs.highlightAll();
+                        $('.hljs-addition').each(function () {
+                            $(this).html($(this).html().replace(/\+\+/g, ''));
+                        });
+                    }, 3000);
+                });
+            </script>
+
+        </div>
+    </div>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>

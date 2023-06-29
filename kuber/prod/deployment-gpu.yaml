@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-app
+#  annotations:
+#    # The Cloud TPUs that will be created for this Job will support
+#    # Pytorch 1.11
+#    cloud-tpus.google.com/pytorch-version: "1.11"
+#    # TensorFlow 2.6.0. This version MUST match the
+#    # TensorFlow version that your model is built on.
+#    tf-version.cloud-tpus.google.com: "2.6.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prod-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: prod-app
+    spec:
+      # Necessary to have enough shared memory
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+      containers:
+        - name: prod-app
+          image: us.gcr.io/questions-346919/prod-repo/prod-app-xla # todo tag
+          imagePullPolicy: IfNotPresent
+
+
+          # Ensure that the node has a GPU
+          resources:
+            requests:
+              cpu: 1500m
+              memory: 22G
+            limits:
+              nvidia.com/gpu: "1"
+#              cloud-tpus.google.com/preemptible-v3: "8"
+          # Necessary to have enough shared memory
+          volumeMounts:
+            - mountPath: /models
+              name: dshm
+          livenessProbe:
+            failureThreshold: 3 # 2 min for recovering
+            httpGet:
+              scheme: HTTP
+              path: /liveness_check
+              port: 8080
+            initialDelaySeconds: 10
+            timeoutSeconds: 10
+            periodSeconds: 240
+          readinessProbe:
+            failureThreshold: 10 # 10*30s = 5 min startup time
+            httpGet:
+              scheme: HTTP
+              path: /liveness_check
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+#      terminationGracePeriodSeconds: 25
+#      affinity:
+#        nodeAffinity:
+#          preferredDuringSchedulingIgnoredDuringExecution:
+#          - weight: .5
+#            preference:
+#              matchExpressions:
+#                - key: cloud.google.com/gke-spot
+#                  operator: In
+#                  values:
+#                  - "true"
+#      initContainers:
+#        - name: volume-mount-init
+#          image: us.gcr.io/questions-346919/us.gcr.io/prod-app-xla
+#          command: [ "sh", "-c", "gsutil -m rsync -r gs://20-questions/models/tg-1b3 /models/tg-1b3" ]
+#          volumeMounts:
+#            - name: models
+#              mountPath: /models
+---
+

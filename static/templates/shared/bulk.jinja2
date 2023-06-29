@@ -1,0 +1,244 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<link rel="stylesheet"
+      href="{{ static_url }}/libs/select2/dist/css/select2.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+<script src="{{ static_url }}/libs/select2/dist/js/select2.min.js"></script>
+<script src="{{ static_url }}/bower_components/papaparse/papaparse.js"></script>
+<script src="{{ static_url }}/js/bulk.js"></script>
+
+<script></script>
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <form id="playground-form" action="" method="post" onsubmit="event.preventDefault();submitForm()">
+
+        <div class="demo-container mdl-grid">
+            <div class="playground-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+                {#            <div class="demo-crumbs mdl-color-text--grey-500">#}
+                {#                <a href="/" title="Text Generator">Text Generator</a> > Playground#}
+                {#            </div>#}
+                {#                <span>Example: </span><select name="preset" id="preset"#}
+                {#            ></select>#}
+                <div id="drop-area"><p>Drag and Drop a CSV with the <a
+                        href="{{ static_url }}/sample-text-generator-format.csv">following format</a>
+                </p>
+                    <p style="font-size: 11px;">Your data is not stored on our servers.</p>
+                    <p id="upload-success-message" class="success"></p>
+                    <input type="file" id="fileElem" accept="text/csv">
+                    <label class="button" for="fileElem">Select csv file</label>
+                </div>
+                {#                <div class="mdl-textfield mdl-js-textfield" style="">#}
+                {##}
+                {#                    <textarea name="text" id="playground-text" class="mdl-textfield__input playground-textarea"#}
+                {##}
+                {#                              cols="30" rows="10" autofocus#}
+                {##}
+                {#                              onchange="setTextData(this.value)"#}
+                {#                              oninput="setTextData(this.value)"></textarea>#}
+                {#                    <label class="mdl-textfield__label" for="playground-text">Enter text and submit (Ctrl + Enter or ⌘ +#}
+                {#                        Return) to get a completion.</label>#}
+                {##}
+                {#                </div>#}
+                <button id="playground-play"
+                        class="playground-play mdl-button mdl-js-button mdl-button--fab mdl-js-ripple-effect mdl-button--colored"
+                        type="submit" disabled>
+                    <i class="material-icons">play_arrow</i>
+                </button>
+                {#                <button id="open-code-button"#}
+                {#                        class="playground-play mdl-button mdl-js-button mdl-button--fab mdl-js-ripple-effect"#}
+                {#                        onclick="showCode()">#}
+                {#                    <i class="material-icons">code</i>#}
+                {#                </button>#}
+                <p></p>
+                <div id="loading-progress" class="mdl-progress mdl-js-progress mdl-progress__indeterminate"
+                     style="display: none"></div>
+                <dialog class="mdl-dialog">
+                    <button class="mdl-chip mdl-chip--contact" onclick="displayTextGenerationCode()">
+                        <span class="mdl-chip__contact mdl-color--teal mdl-color-text--white">A</span>
+                        <span class="mdl-chip__text">Text Generation</span>
+                    </button>
+                    <button class="mdl-chip mdl-chip--contact" onclick="displayEmbedCode()">
+                        <span class="mdl-chip__contact mdl-color--teal mdl-color-text--white"><i
+                                class="material-icons" style="padding-top: 4px;">hub</i></span>
+                        <span class="mdl-chip__text">Embedding</span>
+                    </button>
+                    {#                <h4 class="mdl-dialog__title">Allow data collection?</h4>#}
+                    <div class="mdl-dialog__content">
+                        <pre><code id="code-snippet" class="language-python"></code></pre>
+                        <pre><code id="code-snippet-embed" class="language-python" style="display: none"></code></pre>
+                    </div>
+                    <div class="mdl-dialog__actions">
+                        <button type="button" class="mdl-button close">Close</button>
+                    </div>
+                </dialog>
+                <div id="playground-results">
+                    <br>
+                    <h4>Response</h4>
+                    <div id="response-results">
+                        <a id="download-csv"
+                        class="playground-play mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--colored"
+                                disabled>Download result CSV</a>
+                    </div>
+                </div>
+            </div>
+            <div
+                    class="playground-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--4-col">
+                <p>Defaults when csv is missing values</p>
+                <p class="playground-label">
+                    <label id="slider-number-of-results-tooltip" for="slider-number-of-results">Number Of Results:
+                        1</label>
+                </p>
+                <input id="slider-number-of-results"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="1" max="4" value="1" tabindex="0" step="1" onchange="setNumberOfResults(this.value)"
+                       oninput="setNumberOfResults(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-number-of-results-tooltip">How many results should be generated</div>
+
+                <p class="playground-label">
+                    <label id="slider-max-length-tooltip" for="slider-max-length">Max Length:
+                        40</label>
+                </p>
+                <input id="slider-max-length"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="1" max="700" value="40" tabindex="0" step="1" onchange="setMaxLength(this.value)"
+                       oninput="setMaxLength(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-max-length-tooltip">The maximum amount of tokens to generate.
+
+tokens are pieces of text around 4 letters each.
+                </div>
+
+                <p class="playground-label">
+                    <label id="slider-max-sentences-tooltip" for="slider-max-sentences">Max Sentences:
+                        0</label>
+                </p>
+                <input id="slider-max-sentences"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="0" max="100" value="0" tabindex="0" step="1" onchange="setMaxSentences(this.value)"
+                       oninput="setMaxSentences(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-max-sentences-tooltip">Stops generation once it has generated a number of sentences.
+
+stop_reason: max_sentences will be returned if generation stops because of the max sentences setting</div>
+
+                <p class="playground-label">
+                    <label id="slider-min-probability-tooltip" for="slider-min-probability">Min Probability:
+                        0</label>
+                </p>
+                <input id="slider-min-probability"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="0" max="1" value="0" tabindex="0" step="0.01" onchange="setMinProbability(this.value)"
+                       oninput="setMinProbability(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-min-probability-tooltip">The minimum probability of a token to be generated.
+
+0 turns this off, small values let generation go longer.
+
+large values stop sooner when unlikely text is generated
+
+stop_reason: min_probability will be returned if generation stops because of the min probability
+setting</div>
+
+                <p class="playground-label">
+                    <label id="slider-stop-sequences-tooltip" for="slider-stop-sequences">Stop Sequences:
+                    </label>
+                </p>
+                <select multiple="multiple" id="select-stop-sequences"
+                        class="mdl-textfield__input playground-textarea"
+                        onchange="setStopSequences(this.value)"
+                        oninput="setStopSequences(this.value)">
+                    <option value=".">.</option>
+                    <option value="?">?</option>
+                    <option value="##">##</option>
+                    <option value="--">--</option>
+                    <option value="!">!</option>
+                </select>
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-stop-sequences-tooltip">A list of sequences that will stop generation.
+
+stop_reason: SEQUENCE will be returned if generation stops because the given SEQUENCE was generated
+
+this sequence is not included in the generated results</div>
+
+                <p class="playground-label">
+                    <label id="slider-top-p-tooltip" for="slider-top-p">Top P:
+                        0.9</label>
+                </p>
+                <input id="slider-top-p"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="0" max="1" value="0.9" tabindex="0" step="0.01" onchange="setTopP(this.value)"
+                       oninput="setTopP(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-top-p-tooltip">Probability threshold for token selection, higher means higher diversity results</div>
+
+                <p class="playground-label">
+                    <label id="slider-top-k-tooltip" for="slider-top-k">Top K:
+                        10</label>
+                </p>
+                <input id="slider-top-k"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="1" max="100" value="10" tabindex="0" step="1" onchange="setTopK(this.value)"
+                       oninput="setTopK(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-top-k-tooltip">Number of top-probability tokens to keep when deciding which token to use
+
+higher means higher diversity.</div>
+
+                <p class="playground-label">
+                    <label id="slider-temperature-tooltip" for="slider-temperature">Temperature:
+                        1</label>
+                </p>
+                <input id="slider-temperature"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="0" max="10" value="1" tabindex="0" step="0.1" onchange="setTemperature(this.value)"
+                       oninput="setTemperature(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-temperature-tooltip">Higher means more diversity smoothing the probability distribution of choices made
+
+Smaller warps the distribution to be sharper and generates more likely/consistent results</div>
+
+
+                <p class="playground-label">
+                    <label id="slider-repetition-penalty-tooltip" for="slider-repetition-penalty">Repetition
+                        Penalty:
+                        1.00</label>
+                </p>
+                <input id="slider-repetition-penalty"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="1" max="6" value="1" tabindex="0" step="0.01"
+                       onchange="setRepetitionPenalty(this.value)"
+                       oninput="setRepetitionPenalty(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-repetition-penalty-tooltip">Stops the network repeating previously seen tokens.
+
+Higher values cause more creative writing, taking the conversation in new
+directions.
+
+Too high values may cause rambling, hard to understand text and forgetting
+previous important details.</div>
+
+                <p class="playground-label">
+                    <label id="slider-seed-tooltip" for="seed">Seed: 0
+                    </label>
+                </p>
+                <input id="slider-seed"
+                       class="mdl-slider mdl-js-slider" type="range"
+                       min="0" max="100" value="0" tabindex="0" step="1"
+                       onchange="setSeed(this.value)"
+                       oninput="setSeed(this.value)">
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="slider-seed-tooltip">A seed for the random number generator.
+
+This makes the results reproducible.
+
+0 will not make results reproducible but will be slightly faster</div>
+
+            </div>
+        </div>
+    </form>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>

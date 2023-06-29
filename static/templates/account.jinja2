@@ -1,0 +1,215 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'About Text Generator - Create Text Experiences and bots' -%}
+    {% set description = 'All About Text Generator! How do we generate realistic text!' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="ai bot, text generator, OpenAI, GPT">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="https://text-generator.io">
+    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+    <meta property="fb:admins" content="337972272904903">
+
+{% endblock %}
+
+{% block mainbody %}
+    <script src="https://cdn.plot.ly/plotly-2.13.2.min.js"></script>
+    <script>
+        function displayDates() {
+            $.each($('.moment-date'), function (idx, el) {
+                var dateUnix = $(el).html()
+                var momenttime = moment.unix(dateUnix);
+                var dateText = momenttime.fromNow()
+                $(el).html(dateText);
+                $(el).attr('title', momenttime.format('MMMM Do YYYY, h:mm:ss a'))
+            });
+        }
+
+        initApp = function () {
+            firebase.auth().onAuthStateChanged(function (user) {
+                if (user) {
+                    // User is signed in.
+                    var displayName = user.displayName;
+                    var email = user.email;
+                    var emailVerified = user.emailVerified;
+                    var photoURL = user.photoURL;
+                    var uid = user.uid;
+                    var phoneNumber = user.phoneNumber;
+                    var providerData = user.providerData;
+                    getUserWithStripe(user, function (data) {
+
+                        var email = data['email'];
+                        $('.email').html(email);
+
+                        var api_key = data['secret'];
+                        $('.api_key').html(api_key);
+
+                        {#var referral_url_key = data['referral_url_key'];#}
+                        {#$('.referral_url_key').html('https://bitbank.nz?r=' + referral_url_key)#}
+                        $('#manage-subscriptions-link').html(`<a href="/portal?customer_id=${data['stripe_id']}" target="_blank" class="mdl-button mdl-js-button">Manage Subscriptions</a>`)
+                        if (data['stripe_usage']) {
+                            plotPlotlyGraph(data['stripe_usage']);
+                        }
+
+                        if (data['num_self_hosted_instances'] > 0) {
+                            $('#self-hosting').html("Self hosted instances: " + data['num_self_hosted_instances'] + "<br><br> <a href=\"https://text-generator.io/subscribe\">buy more instances</a><h4>Download Self Hosted Server</h4> <h5>Direct Docker Image Download</h5><p> <a href='https://storage.googleapis.com/questions-346919/text-generator.tar'>Docker Container .tar Download</a></p>" +
+                              "<h5>Container download script</h5><p> <pre><code>curl https://static.text-generator.io/static/resources/download_container.sh | bash</code></pre></p>" +
+                              "<p>After downloading the container with either method, proceed to follow the <a href='/self-hosting'>self host instructions</a> available for <a href='/docs/kubernetes'>Kubernetes</a>, <a href='/docs/docker'>Docker</a></p>" );
+                        } else {
+                            $('#self-hosting').html('No self hosted plan, <a href="https://text-generator.io/subscribe">subscribe to self host</a>');
+                        }
+
+                    })
+                } else {
+
+                    // User is signed out.
+                    location.href = '/login'
+                }
+            }, function (error) {
+                console.log(error);
+            });
+        };
+
+        /**
+         * @param usages an object of the form
+         * [
+         {
+                    "id": "sis_0LPEYiDtz2XsjQRO94CnJwB6",
+                    "object": "usage_record_summary",
+                    "invoice": null,
+                    "livemode": true,
+                    "period": {
+                        "end": null,
+                        "start": null
+                    },
+                    "subscription_item": "si_M5dQCs7soUlTER",
+                    "total_usage": 7
+                }
+         ]
+         * graphs total usages over 12 months in a bar chart in plotly
+         */
+        function plotPlotlyGraph(usages) {
+            var monthName = new Array("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December");
+            var d = new Date();
+            d.setDate(1);
+            var months = [];
+            for (var i = 0; i <= 11; i++) {
+                months.push(monthName[d.getMonth()] + ' ' + d.getFullYear());
+                d.setMonth(d.getMonth() - 1);
+            }
+            var total_monthly_usages = [];
+            for (var i = 0; i < usages.length; i++) {
+                let total_monthly = usages[i]['total_usage'];
+                total_monthly = Math.round(total_monthly);
+                total_monthly_usages.push(total_monthly)
+            }
+            // plotly bar chart
+
+            Plotly.newPlot("usage-graph", {
+                "data": [{
+                    "y": total_monthly_usages, x: months, "type": "bar",
+                    marker: {
+                        color: 'rgba(64,219,85,0.7)',
+                        line: {
+                            color: 'rgba(64,219,85,1)',
+                            width: 2
+                        }
+                    }
+                }],
+                // put a marker at 100 on the y-axis to show free tier
+
+                "layout": {
+                    "width": 600, "height": 400,
+                    // y axis cant go below 0
+                    yaxis: {
+                        autorange: false,
+                        range: [0, Math.max(...total_monthly_usages, 100) * 1.1],
+                        "title": "Requests"
+                    },
+                },
+
+
+            }, {barmode: 'stack'})
+            var costs = []
+            for (var i = 0; i < usages.length; i++) {
+
+                let usages_above_100 = Math.max(usages[i]['total_usage'] - 100, 0);
+                let total_monthly = usages_above_100 * 0.01;
+                costs.push(total_monthly)
+            }
+            Plotly.newPlot("cost-graph", {
+                "type": "bar",
+                "data": [{
+                    "y": costs, x: months, "type": "bar",
+                    marker: {
+                        color: 'rgba(64,219,85,0.7)',
+                        line: {
+                            color: 'rgba(64,219,85,1)',
+                            width: 2
+                        }
+                    }
+                }],
+                //USD formatting
+                // y axis cant go below 0
+
+                "layout": {
+                    "width": 600, "height": 400, "yaxis": {
+
+                        "title": "USD",
+                        autorange: false,
+                        range: [0, Math.max(...costs) * 1.1]
+                    }
+                },
+
+            }, {barmode: 'stack'})
+        }
+
+        window.addEventListener('load', function () {
+            initApp()
+        });
+    </script>
+    <div class="demo-ribbon"></div>
+    <main class="demo-main mdl-layout__content">
+        <div class="demo-container mdl-grid">
+            <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+            <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+                <h3>Account Info</h3>
+                {#                <p>Your unique bitcoin address for payment:</p>#}
+                {#                <code><p class="btc-address"></p></code>#}
+
+                <p>Email: <span class="email"></span></p>
+
+
+                {#                <p>Your referral url: <span class="referral_url_key"></span></p>#}
+                <p>Your API key: <code><span class="api_key"></span></code></p>
+
+                <h3>Usage</h3>
+                <div id="usage-graph"></div>
+                <h3>Estimated Cost</h3>
+
+                <div id="cost-graph"></div>
+                <h4>Settings</h4>
+                <p id="manage-subscriptions-link"></p>
+                <h4>Self Hosting</h4>
+                <div id="self-hosting"></div>
+
+                <button class="mdl-button mdl-js-button mdl-button--raised" onclick="signout()">Log out</button>
+            </div>
+        </div>
+
+    </main>
+
+{% endblock %}
+
+

@@ -1,0 +1,76 @@
+# Core autocomplete model docker file,
+# when running it can be acssed via /autocomplete?prefix=test
+
+FROM nvidia/cuda:11.1-base-ubuntu18.04 as base
+RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub && apt-get -y update
+
+RUN apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa
+
+RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get -y update && apt-get install \
+  -y --no-install-recommends python3.9
+
+RUN apt-get install python3-venv python3-pip python3.9-distutils -y
+#RUN --mount=type=cache,target=/root/.cache/pip python3.9 -m pip install -U pip && python3 --version && pip3 --version
+RUN python3.9 -m pip install -U pip && python3 --version && pip3 --version
+
+RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get -y update && apt install -y libsm6 libxext6 libxrender-dev python3.9-dev gcc autoconf
+
+WORKDIR /code
+
+SHELL ["/bin/bash", "-c"]
+
+# Install pip-tools and compilation dependencies
+#RUN --mount=type=cache,target=/root/.cache/pip python3.9 -m pip install -U setuptools pip-tools
+RUN python3.9 -m pip install -U setuptools pip-tools
+
+FROM base AS python-deps
+
+
+# Install python dependencies in /.venv
+COPY requirements.txt requirements.txt
+#RUN --mount=type=cache,target=/root/.cache/pip python3.9 -m pip install -r requirements.txt
+RUN python3.9 -m pip install -r requirements.txt
+
+
+ENV PYTHONPATH=.
+## nltk download punkt
+RUN python3.9 -m nltk.downloader punkt
+
+FROM python-deps as test
+COPY dev-requirements.txt dev-requirements.txt
+#RUN --mount=type=cache,target=/root/.cache/pip pip install -r dev-requirements.txt
+RUN pip install -r dev-requirements.txt
+
+COPY main.py main.py
+COPY sellerinfo.py sellerinfo.py
+COPY static/ static/
+RUN ln -s static/templates/ templates
+RUN ln -s static/templates-game/ templates-game
+
+COPY questions/ questions/
+COPY gameon/ gameon/
+
+COPY tests/ tests/
+
+CMD ["pytest", "-v", "tests/unit"]
+# Uncomment to get a shell for debugging "test" build target
+#CMD ["bash"]
+
+FROM python-deps as release
+
+COPY appengine_config.py appengine_config.py
+COPY main.py main.py
+COPY sellerinfo.py sellerinfo.py
+COPY static/ static/
+RUN ln -s static/templates/ templates
+RUN ln -s static/templates-game/ templates-game
+COPY questions/ questions/
+COPY gameon/ gameon/
+
+
+ENV PROCESS_COUNT=1
+ENV PORT=8080
+ENV LOG_LEVEL=DEBUG
+ENV SERVER_SOFTWARE=PRODUCTION
+
+ENTRYPOINT gunicorn -k uvicorn.workers.UvicornWorker -b :$PORT main:app --timeout 180000 --workers $PROCESS_COUNT

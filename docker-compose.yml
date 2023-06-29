@@ -1,0 +1,32 @@
+version: "3.8"
+services:
+  inference_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+#    environment:
+    ports:
+      - "9000:8080"
+#    volumes:
+#    - models/:/models
+    volumes:
+      - type: volume
+        source: models
+        target: /models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+
+volumes:
+  models:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /dev/nvme0n1p2

@@ -1,0 +1,12 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'bash'
+  args: ['-c', 'docker pull us.gcr.io/questions-346919/prod-repo/prod-app-xla:release-ofa || exit 0']
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+            'build',
+            '-t', 'us.gcr.io/questions-346919/prod-repo/prod-app-xla:release-ofa',
+            '--cache-from', 'us.gcr.io/questions-346919/prod-repo/prod-app-xla:release-ofa',
+            '.'
+        ]
+images: ['us.gcr.io/questions-346919/prod-repo/prod-app-xla:release-ofa']

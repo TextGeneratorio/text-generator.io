@@ -1,0 +1,426 @@
+/* ===========   Clock ======== */
+.gameon-clock {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 16px;
+}
+
+@media (min-width: 961px) {
+    .gameon-clock {
+        font-weight: bold;
+        font-size: 18px;
+    }
+}
+
+/* ===========    Board ======== */
+
+.gameon-board table {
+    border: 1px solid #808080;
+    margin: 0 auto;
+    overflow: hidden;
+    position: relative;
+}
+
+.gameon-board-popups {
+    position: relative;
+    margin: 0 auto;
+    width: 1px;
+
+}
+
+.gameon-board-popups__popup {
+    position: absolute;
+    z-index: 100;
+    height: 0;
+
+}
+
+.gameon-board td {
+    width: 60px;
+    height: 60px;
+    border: 1px solid white;
+    text-align: center;
+}
+
+.gameon-board .btn-lg {
+    width: 50px;
+    height: 50px;
+    padding: 0;
+}
+
+.gameon-board--small-tiles td {
+    width: 0;
+    height: 0;
+}
+
+@media (min-width: 275px) {
+    .gameon-board--small-tiles td {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+.gameon-board--small-tiles .btn-lg {
+    width: 30px;
+    height: 30px;
+}
+
+.gameon-btn-extra {
+    position: absolute;
+    font-size: 13px;
+    top: 13px;
+    left: 0;
+}
+
+.gameon-level-controls {
+    margin: 0 auto;
+    max-width: 5*60px;
+}
+
+.gameon-level-controls--small-tiles {
+    max-width: 9*40px;
+}
+
+@media (min-width: 861px)
+and (min-height: 650px) {
+    .gameon-board--small-tiles td {
+        width: 50px;
+        height: 50px;
+    }
+
+    .gameon-board--small-tiles .btn-lg {
+        width: 40px;
+        height: 40px;
+    }
+
+    .gameon-level-controls--small-tiles {
+        max-width: 9*50px;
+    }
+
+    .gameon-btn-extra {
+        font-size: 14px;
+        top: 19px;
+        left: 2px;
+    }
+}
+
+@media (min-width: 961px)
+and (min-height: 750px) {
+    .gameon-board td {
+        width: 80px;
+        height: 80px;
+    }
+
+    .gameon-board .btn-lg {
+        width: 70px;
+        height: 70px;
+        font-size: 36px;
+        padding: 0;
+    }
+
+    .gameon-level-controls {
+        max-width: 5*80px;
+    }
+
+    .gameon-level-controls--small-tiles {
+        max-width: 9*60px;
+    }
+
+    .gameon-board--small-tiles td {
+        width: 60px;
+        height: 60px;
+    }
+
+    .gameon-board--small-tiles .btn-lg {
+        width: 50px;
+        height: 50px;
+    }
+
+    .gameon-btn-extra {
+        font-size: 15px;
+        top: 29px;
+        left: 2px;
+    }
+}
+
+@media (min-width: 1080px) and (min-height: 800px) {
+    .gameon-board td {
+        width: 100px;
+        height: 100px;
+    }
+
+    .gameon-board .btn-lg {
+        width: 80px;
+        height: 80px;
+        font-size: 46px;
+        padding: 0;
+    }
+
+    .gameon-level-controls {
+        max-width: 5*100px;
+    }
+
+    .gameon-level-controls--small-tiles {
+        max-width: 9*70px;
+    }
+
+    .gameon-board--small-tiles td {
+        width: 70px;
+        height: 70px;
+    }
+
+    .gameon-board--small-tiles .btn-lg {
+        width: 60px;
+        height: 60px;
+    }
+
+    .gameon-board--small-tiles .btn-sm {
+        width: 40px;
+        height: 40px;
+        font-size: 19px;
+    }
+
+    .gameon-btn-extra {
+        font-size: 15px;
+        top: 38px;
+        left: 2px;
+    }
+
+}
+
+@media (min-width: 1280px) and (min-height: 961px) {
+    .gameon-board td {
+        width: 120px;
+        height: 120px;
+    }
+
+    .gameon-board .btn-lg {
+        width: 100px;
+        height: 100px;
+        font-size: 60px;
+        padding: 0;
+    }
+
+    .gameon-level-controls {
+        max-width: 5*120px;
+    }
+
+    .gameon-level-controls--small-tiles {
+        max-width: 9*70px;
+    }
+
+    .gameon-board--small-tiles td {
+        width: 70px;
+        height: 70px;
+    }
+
+    .gameon-board--small-tiles .btn-lg {
+        width: 60px;
+        height: 60px;
+        font-size: 46px;
+    }
+}
+
+.gameon-board .even {
+    background-color: #5bc0de;
+}
+
+.gameon-board .odd {
+    background-color: rgb(147, 204, 204);
+}
+
+/* =======    Volume Control ======== */
+.slider-volume {
+    width: 130px;
+}
+
+.gameon-volume__unmute {
+    display: none;
+    float: left;
+}
+
+.gameon-volume__mute {
+    display: none;
+    float: left;
+}
+
+.gameon-volume__slider {
+    display: block;
+    margin: 10px 0 0 0;
+    float: left;
+}
+
+.gameon-volume-template {
+    display: none;
+}
+
+.clear {
+    clear: both;
+}
+
+/* =======    bootstrap overrides ======== */
+
+.gameon-btn-hg {
+    font-size: 18px;
+}
+@media (min-width: 310px) and (min-height: 380px) {
+    .gameon-btn-hg {
+        font-size: 28px;
+    }
+}
+/* Star rating slider overrides */
+
+.slider > .track, .slider > .highlight-track {
+    height: 30px;
+}
+
+.slider .dragger {
+    display: none;
+}
+
+/* ===============        star bar      =================  */
+
+.gameon-starbar {
+    position: relative;
+
+}
+
+.gameon-starbar {
+
+}
+
+.gameon-starbar__score {
+    font-size: 18px;
+    margin-left: 10px;
+    font-weight: bold;
+    position: absolute;
+    top: -3px;
+}
+
+.gameon-starbar__center-message {
+    font-size: 18px;
+    font-weight: bold;
+    position: relative;
+    height: 0;
+    top: -20px;
+}
+
+.gameon-starbar__stars {
+    padding: 2px;
+    position: absolute;
+    z-index: 10;
+    top: -18px;
+    width: 100%;
+}
+
+.gameon-starbar__star {
+    color: #808080;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: default;
+    text-decoration: none;
+    line-height: 50px;
+    position: absolute;
+    pointer-events: none;
+}
+
+.gameon-starbar__star:before {
+    content: "\f006";
+}
+
+.gameon-starbar__bar {
+    width: 100%;
+}
+
+.gameon-stars {
+    padding: 2px;
+    position: absolute;
+    z-index: 10;
+}
+
+.gameon-star {
+    color: #808080;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: default;
+    text-decoration: none;
+    line-height: 40px;
+    position: absolute;
+    top: -13px;
+    text-shadow: 0 0 gold, 1px -1px 0 gold, -1px 1px 0 gold, 1px 1px 0 gold;
+    pointer-events: none;
+}
+
+.gameon-star--0 {
+    left: -5px;
+}
+
+.gameon-star--1 {
+    left: 2px;
+}
+
+.gameon-star--2 {
+    left: 9px;
+}
+
+@media (min-width: 961px) and (min-height: 750px) {
+    .gameon-star {
+        font-size: 38px;
+        top: -23px;
+    }
+
+    .gameon-star--0 {
+        left: -5px;
+    }
+
+    .gameon-star--1 {
+        left: 8px;
+    }
+
+    .gameon-star--2 {
+        left: 21px;
+    }
+}
+
+@media (min-width: 1280px) and (min-height: 961px) {
+
+    .gameon-star {
+        font-size: 40px;
+        top: -23px;
+    }
+
+    .gameon-star--0 {
+        left: -5px;
+    }
+
+    .gameon-star--1 {
+        left: 15px;
+    }
+
+    .gameon-star--2 {
+        left: 35px;
+    }
+}
+
+.gameon-star {
+    &:before {
+        content: "\f006"
+    }
+}
+
+.gameon-star--shiny {
+    color: #FFEF35;
+    text-shadow: 0 0 gold, 1px -1px 0 gold, -1px 1px 0 gold, 1px 1px 0 gold;
+
+    //from .fa-star
+    &:before {
+        content: "\f005"
+    }
+}
+
+.right {
+    float: right;
+}
+
+.left {
+    float: left;
+}

@@ -1,0 +1,123 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > New AI
+                Text To Speech API
+            </div>
+            <h3>Text Generator.io now can talk!</h3>
+            <h4>Finally Affordable Text to Speech API</h4>
+            <p>The pricing is <b>1c USD per request</b>, The API supports speaking up to around 500 words in a single request
+                and will soon be raised</p>
+            <p>There is a <b>free tier of 100 requests per month</b></p>
+            <h4>Wildly affordable, better than the rest</h4>
+            <p>Will be available in the self hosted version</p>
+            <h4>Step 1 - Get an API Key</h4>
+            <p><a href="/signup">Sign Up to Text-Generator.io</a> then get <a href="/playground" target="_blank">your
+                API key</a></p>
+            <h4>Step 2 - Profit</h4>
+
+
+            <pre><code id="code-snippet-embed" class="language-python">import requests
+import os
+
+API_KEY = os.getenv("TEXT_GENERATOR_API_KEY")
+if API_KEY is None:
+    raise Exception(
+        "Please set TEXT_GENERATOR_API_KEY environment variable, login to https://text-generator.io to get your API key")
+headers = {"secret": API_KEY}
+
+
+def create_speech(text, output_file):
+    audio_params = {
+        "text": text,
+        "speaker": "Male fast",
+    }
+    response = requests.post("https://api.text-generator.io/api/v1/generate_speech", json=audio_params, headers=headers)
+    binary_file_response = response.content
+    with open(output_file, "wb") as f:
+        f.write(binary_file_response)
+
+create_speech("Text-Generator.io is bringing the cost of intelligence toward zero.", "test.wav")
+</code></pre>
+            <h5>Results</h5>
+            <audio controls>
+                <source src="/static/audio/test.wav" type="audio/wav">
+                Your browser does not support the audio element.
+            </audio>
+            <h5>Details</h5>
+            <p>There are also other voices and more on their way! Try them out!</p>
+            <p>Full list:</p>
+            <li class="mdl-list">
+                <ul class="mdl-list__item">Male fast
+                    <audio controls>
+                        <source src="/static/audio/test-Male-fast.wav" type="audio/wav">
+                    </audio>
+                </ul>
+                <ul class="mdl-list__item">Male default
+                    <audio controls>
+                        <source src="/static/audio/test-Male-default.wav" type="audio/wav">
+                    </audio></ul>
+                <ul class="mdl-list__item">Male slower
+                    <audio controls>
+                        <source src="/static/audio/test-Male-slower.wav" type="audio/wav">
+                    </audio></ul>
+                <ul class="mdl-list__item">Female 1
+                    <audio controls>
+                        <source src="/static/audio/test-Female-1.wav" type="audio/wav">
+                    </audio></ul>
+                <ul class="mdl-list__item">Female 2
+                    <audio controls>
+                        <source src="/static/audio/test-Female-2.wav" type="audio/wav">
+                    </audio></ul>
+            </li>
+
+            <h5>Under the hood</h5>
+
+            <p>Under the hood there is a large audio model and large language model which both analyse the audio at
+                different resolutions to generate the transcribed text using a gpt-2 tokenization scheme, token by token
+                via beam search.</p>
+            <p>They have been jointly trained on speech to text, text to text and text to speech, as well as other
+                domains like our web crawler and image understanding modules to enable Text-Generator to unify the
+                understanding of images/text/code/speech.</p>
+            <p>In future audio feature analysis will be integrated into our text generation API and crawler, allowing
+                classification, question answering and analysis of conversations with embedded linked audio or video
+                files, as well as transcribing and anonymising existing audio (already possible by using text
+                generator.io to translate to text then back to speech, but soon this will be possible without doing two
+                API calls and having the timestamps match up).</p>
+
+
+            <h5>Plug</h5>
+            <p>We are on a mission to bring about affordable AI for everyone</p>
+            <p><a href="/" title="Text Generator">Text Generator</a> offers an API for text, speech and code generation.
+                With rich content understanding built in. Secure
+                (no PII is stored on our servers),
+                affordable, flexible and accurate.</p>
+            <script>
+              $(document).ready(function () {
+                hljs.highlightAll();
+                window.setTimeout(function () {
+                          hljs.highlightAll();
+                    }, 3000);
+              });
+            </script>
+            <p>Try examples yourself at: <a href="https://text-generator.io/docs">Text Generator
+                Docs</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+    {% import "templates/macros.jinja2" as macros with context %}
+
+    {{ macros.svgstyled() }}
+</main>

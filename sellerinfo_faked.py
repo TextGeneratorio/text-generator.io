@@ -1,0 +1,11 @@
+SELLER_ID = "toset"
+SELLER_SECRET = "toset"
+STRIPE_TEST_KEY = "toset"
+STRIPE_LIVE_KEY = "toset"
+STRIPE_TEST_SECRET = "toset"
+STRIPE_LIVE_SECRET = "toset"
+session_secret = dict(secret_key="toset")
+discord_token = "toset"
+discord_client_secret = "toset"
+discord_client_id = "toset"
+TEXT_GENERATOR_SECRET = "toset"

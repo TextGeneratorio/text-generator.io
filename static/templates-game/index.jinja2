@@ -1,0 +1,28 @@
+{% extends 'templates-game/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'reWord Game - So Sentences Seem Sensible!' -%}
+    {% set description = 'Swap Words to Make Sense of Strangeness in this new word puzzle game! Play reWord Game Free Online!' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="re word game, word game, word games">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="http://rewordgame.com">
+    <meta property="og:image" content="http://rewordgame.com/static/img/reword-game-logo512.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="game">
+    <meta property="og:site_name" content="reWord Game">
+    <meta property="fb:admins" content="337972272904903">
+
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates-game/shared/index.jinja2" %}
+{% endblock %}

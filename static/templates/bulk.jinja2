@@ -1,0 +1,30 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'Bulk Text Generator - Generate Realistic Text in Bulk' -%}
+    {% set description = 'Advanced AI Text Bulk Generator' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="ai bot, bulk text generator, OpenAI, generate content">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="https://text-generator.io/bulk-text-generator">
+    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+    <meta property="fb:admins" content="337972272904903">
+    <link rel="canonical" href="https://text-generator.io/bulk-text-generator">
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates/shared/bulk.jinja2" %}
+{% endblock %}
+
+

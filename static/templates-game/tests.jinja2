@@ -1,0 +1,39 @@
+{% extends 'templates-game/base.jinja2' %}
+
+{% block headers %}
+    <title>Jasmine Spec Runner v2.0.0</title>
+    {% set description = 'Evangeler Helps Companies Create Viral Marketing Campaigns! Evangelers compete on Evangeler.com to win prizes! See Terms' -%}
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords"
+          content="crowdsourcing marketing, viral marketing, facebook marketing, marketing, social marketing, terms evangeler">
+    <meta property="og:title" content="Evangeler Social Marketing For The Masses! - Terms">
+    <meta property="og:url" content="{{ url }}">
+    <meta property="og:image"
+          content="http://www.evangeler.com/static/img/evangeler-logo128.png">
+    <meta property="og:description"
+          content="{{ description }}">
+{% endblock %}
+
+{% block css %}
+    <link rel="shortcut icon" type="image/png" href="/gameon/static/js/lib/jasmine-2.0.0/jasmine_favicon.png">
+    <link rel="stylesheet" type="text/css" href="/gameon/static/js/lib/jasmine-2.0.0/jasmine.css">
+{% endblock %}
+
+{% block js %}
+    <script type="text/javascript" src="/gameon/static/js/lib/jasmine-2.0.0/jasmine.js"></script>
+    <script type="text/javascript" src="/gameon/static/js/lib/jasmine-2.0.0/jasmine-html.js"></script>
+    <script type="text/javascript" src="/gameon/static/js/lib/jasmine-2.0.0/boot.js"></script>
+
+    <script type="text/javascript" src="/gameon/static/js/tests/SpecHelper.js"></script>
+    <script type="text/javascript" src="/static/js/tests/setup.js"></script>
+    <script type="text/javascript" src="/static/js/tests/tests.js"></script>
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates-game/shared/game.jinja2" %}
+{% endblock %}
+
+

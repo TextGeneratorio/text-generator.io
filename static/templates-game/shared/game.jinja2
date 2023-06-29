@@ -1,0 +1,58 @@
+{% block js %}
+{% endblock %}
+<div class="main-game-wrapper">
+    <div class="mm-level">
+        <!-- boostrap based grid and chat interface -->
+        <div>
+            <div class="col-md-6">
+                <div class="mm-game-wrapper">
+                    <div class="mm-game-header">
+                        <div class="mm-game-header-title">
+                            <h1></h1>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="main">
+                <div class="container ">
+                    <div class="chat-log">
+                        <div class="chat-log__item">
+                            <h3 class="chat-log__author">Alfred Bottington</h3>
+                            <div class="chat-log__message"> <span class="typer" id="typer-one"
+                                                                  data-words="Try to guess what I'm thinking of! You can ask me yes or no questions, or just say whatever you like." data-delay="50"
+                                                                  data-loop="1" data-delim="-------"
+                            ></span></div>
+                        </div>
+
+{#                        <div class="chat-log__item chat-log__item--own">#}
+{#                            <div id="loading-bubble" class="rotated">#}
+{#                                <div class="spinner">#}
+{#                                    <div class="bounce1"></div>#}
+{#                                    <div class="bounce2"></div>#}
+{#                                    <div class="bounce3"></div>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                            <div class="chat-log__message">#}
+{#                                hi#}
+{#                            </div>#}
+{#                        </div>#}
+                    </div>
+                </div>
+                <div class="chat-form">
+                    <div class="container ">
+                        <form class="form-horizontal">
+                            <div class="row">
+                                <div class="col-sm-10 col-xs-8">
+                                    <input type="text" class="form-control question-text" id="" placeholder="Question" autofocus/>
+                                </div>
+                                <div class="col-sm-2 col-xs-4">
+                                    <button type="submit" class="btn btn-success btn-block">Send</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
