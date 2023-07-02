@@ -408,14 +408,10 @@ var setStopSequences = function (value) {
     setUrl(generationSettings)
 }
 var setModel = function (value) {
-  var value = $('#setModelDropdown').select2('data');
-  if(value.length > 0) {
-    value = value[0].text;
-  } else {
-    value = 'best';
-  }
-  generationSettings['model'] = value.toLowerCase();
-  setModel(value);
+  value = $('#select-model').val();
+  $('#model-tooltip').html(`Model: ${value}`);
+  generationSettings['model'] = value
+  setUrl(generationSettings)
 }
 var setTopP = function (value) {
     var value = parseFloat(value);

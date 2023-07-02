@@ -328,9 +328,7 @@
         setUrl(generationSettings)
     }
     var setModel = function (value) {
-
         value = $('#select-model').val();
-        generationSettings['stop_sequences'] = values
         $('#model-tooltip').html(`Model: ${value}`);
         generationSettings['model'] = value
         setUrl(generationSettings)
