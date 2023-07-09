@@ -703,7 +703,10 @@ $.event.special.keydown._default = function (evt){
       if (user) {
         // User is signed in.
         getUserWithStripe(user, function (data) {
-
+            // if users not subscribed redirect to subscribe page
+            if (!data['is_subscribed']) {
+                location.href = '/subscribe'
+            }
             //set cookie
           var api_key = data['secret'];
 

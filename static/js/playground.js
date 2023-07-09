@@ -577,12 +577,15 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 var uid = user.uid;
                 var phoneNumber = user.phoneNumber;
                 var providerData = user.providerData;
-                getUser(user, function (data) {
+                getUserWithStripe(user, function (data) {
 
                     secret = data['secret'];
                     // enable submit form
                     $('#playground-play').removeAttr('disabled');
-
+                    // if users not subscribed redirect to subscribe page
+                    if (!data['is_subscribed']) {
+                        location.href = '/subscribe'
+                    }
 
                 })
             } else {
