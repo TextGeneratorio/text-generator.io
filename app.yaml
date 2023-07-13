@@ -71,6 +71,11 @@ handlers:
   upload: static/icons/browserconfig.xml
   http_headers:
     Vary: Accept-Encoding
+- url: /ads.txt
+  static_files: static/ads.txt
+  upload: static/ads.txt
+  http_headers:
+    Vary: Accept-Encoding
 
 - url: .*
   script: main.app
