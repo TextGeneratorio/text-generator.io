@@ -66,6 +66,12 @@ handlers:
   upload: static/icons/android(.*)
   http_headers:
     Vary: Accept-Encoding
+- url: /ads.txt
+  static_files: static/ads.txt
+  upload: static/ads.txt
+  http_headers:
+    Vary: Accept-Encoding
+  expiration: "0d 1h"
 - url: /browserconfig.xml
   static_files: static/icons/browserconfig.xml
   upload: static/icons/browserconfig.xml
