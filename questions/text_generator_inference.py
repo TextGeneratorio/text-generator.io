@@ -542,7 +542,7 @@ def fast_inference(generate_params: GenerateParams, model_cache=None):
                     weights_to_model[weights_path_tg] = None
                     weights_to_generator[weights_path_tgz] = None
                     weights_to_generator[weights_path_tg] = None
-                if generate_params.model == "any" or generate_params.model == "fastest":
+                if generate_params.model == "any" or generate_params.model == "fastest" or generate_params.model == "best":
                     # any is allways what's loaded in memory to be the fastest
                     if model_cache.most_recent_name:
                         best_weights_path = name_key_to_weights.get(model_cache.most_recent_name, weights_path_tgz)
