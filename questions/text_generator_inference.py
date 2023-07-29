@@ -26,6 +26,8 @@ from questions.constants import weights_path_tg, weights_path_tgz, weights_path_
 from questions.download_utils import download_model
 from questions.fixtures import set_stop_reason, get_stop_reason
 from questions.models import GenerateParams, FeatureExtractParams
+from questions.nlp_utils import is_google_nerfed
+from questions.palm import predict_palm
 from questions.perplexity import get_perplexity
 from questions.post_process_results import post_process_results
 from questions.stopping_criteria import SentenceCriteria, MinProbCriteria, StopSequencesCriteria
@@ -524,9 +526,22 @@ def ensure_best_model_loaded(generate_params, model_cache) -> str:
 # ttl cache with 10min expiration
 prefix_cache = TTLCache(maxsize=10000, ttl=600)
 
+
+def palm_inference(generate_params):
+
+    return predict_palm(generate_params.text) # currently temperature etc disabled for palm? todo pass those through too
+
+
 def fast_inference(generate_params: GenerateParams, model_cache=None):
     with torch.no_grad():
         with log_time("inference"):
+            if generate_params.model == "palm":
+                palm_result = palm_inference(generate_params)
+                if not palm_result or is_google_nerfed(palm_result):
+                    generate_params.model = "any"
+                    logger.error("palm failed/nerfed by Google, falling back to any model")
+                else:
+                    return palm_result
             best_weights_path = weights_path_tgz
             if model_cache is not None:
                 prefix = generate_params.text[:6]
