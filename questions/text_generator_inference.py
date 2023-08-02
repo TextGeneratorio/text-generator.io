@@ -534,14 +534,16 @@ def fast_inference(generate_params: GenerateParams, model_cache=None):
                 if generate_params.min_probability is not None and generate_params.min_probability > .05:
                     # if the min probability is less than 50% we want to use the non instruct model for autocomplete allways
                     best_weights_path = weights_path_tg
-                if generate_params.model == "chat":
-                    # chat is always tgc model
-                    best_weights_path = weights_path_tgc
-                    # unload all the other models?
-                    weights_to_model[weights_path_tgz] = None
-                    weights_to_model[weights_path_tg] = None
-                    weights_to_generator[weights_path_tgz] = None
-                    weights_to_generator[weights_path_tg] = None
+                # if generate_params.model == "chat":
+                #     # chat is always tgc model
+                #     best_weights_path = weights_path_tgc
+                #     # unload all the other models?
+                #     weights_to_model[weights_path_tgz] = None
+                #     weights_to_model[weights_path_tg] = None
+                #     weights_to_generator[weights_path_tgz] = None
+                #     weights_to_generator[weights_path_tg] = None
+                if generate_params.model == 'chat': # tmp fix tmp issues with chat model
+                    generate_params.model = 'multilingual'
                 if generate_params.model == "any" or generate_params.model == "fastest" or generate_params.model == "best":
                     # any is allways what's loaded in memory to be the fastest
                     if model_cache.most_recent_name:
