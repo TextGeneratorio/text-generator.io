@@ -93,11 +93,13 @@
     }
 
     APP.refresh = function () {
-        APP.footer.path = location.pathname;
-        APP.header.path = location.pathname;
-        $('#headerbody').html(APP.header.render().el);
-        $('#footerbody').html(APP.footer.render().el);
-        $.ajax({ url: 'http://platform.twitter.com/widgets.js', dataType: 'script', cache: true});
+        //do we ever change? this
+        //
+        // APP.footer.path = location.pathname;
+        // APP.header.path = location.pathname;
+        // $('#headerbody').html(APP.header.render().el);
+        // $('#footerbody').html(APP.footer.render().el);
+        // $.ajax({ url: 'http://platform.twitter.com/widgets.js', dataType: 'script', cache: true});
     };
 
 

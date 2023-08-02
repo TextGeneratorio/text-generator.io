@@ -9,12 +9,27 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "secrets/google-credentials.json"
 
 from fastapi.testclient import TestClient
 
-from questions.inference_server.inference_server import app, audio_process
+from questions.inference_server.inference_server import app, audio_process, fast_inference
 from questions.post_process_results import post_process_results
 from questions.models import GenerateParams, create_generate_params, AudioParams
 
 client = TestClient(app)
 
+
+def test_palm_generate():
+    params = GenerateParams(
+        text="What is the meaning of life?",
+        number_of_results=1,
+        max_length=100,
+        min_length=1,
+        max_sentences=None,
+        min_probability=0.0,
+        model="palm",
+        stop_sequences=[],
+    )
+    params = create_generate_params(params)
+    completions = fast_inference(params)
+    print(completions)
 
 def test_audio_extraction_audio_file():
     audio_file = "tests/integ/data/f2bjrop1.0.wav"
