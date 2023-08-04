@@ -1,0 +1,29 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'AI Art Generator Create Unreal AI Art - Text Generator' -%}
+    {% set description = 'Make AI Art with the best AI Art Generators, Realistic AI Art is now possible.' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="ai art generator, ai image generator, ai art, art, text to image">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="{{ url }}">
+    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+    <meta property="fb:admins" content="337972272904903">
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates/shared/ai-art-generator.jinja2" %}
+{% endblock %}
+
+

@@ -498,6 +498,16 @@ async def about(request: Request):
         "templates/about.jinja2", base_vars,
     )
 
+
+@app.get("/ai-art-generator")
+async def ai_art_generator(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
+    return templates.TemplateResponse(
+        "templates/ai-art-generator.jinja2", base_vars,
+    )
+
 @app.get("/self-hosting")
 async def selfhosting(request: Request):
     base_vars = get_base_template_vars(request)
