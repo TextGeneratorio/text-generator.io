@@ -186,11 +186,12 @@ class SummarizationParams(BaseModel):
 
 
 class CreateUserRequest(BaseModel):
-    email: str
+    email: str = None
     # emailVerified: str
     uid: str
     photoURL: str = None
     token: str
+    name: str = None
 
 
 class GetUserRequest(BaseModel):

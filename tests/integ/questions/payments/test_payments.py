@@ -19,8 +19,9 @@ def test_get_sub():
     assert subscription_count == 0
 
 
-def test_get_sub_nic():
-    customer = "cus_NHhzgHTQr8pQIv"
+
+def test_get_sub_nic_payed():
+    customer = "cus_OXDLI00rD3Brrk"
     subscription = get_subscription_item_id_for_user(customer)
     assert subscription != None
     print(subscription)

@@ -311,6 +311,7 @@ async def create_user(create_user_request: CreateUserRequest):
     user.id = uid
     user.email = email
     user.token = token
+    user.name = create_user_request.name
     user.photoURL = photoURL
     # user.emailVerified = emailVerified
     if not existing_user:  # never change secret
