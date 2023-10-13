@@ -62,14 +62,14 @@ PYTHONPATH=$HOME/code/20-questions:$HOME/code/20-questions/OFA
 ###### install requirements
 
 ```shell
-sudo apt install ffmpeg
-sudo apt install tesseract-ocr
-sudo apt install python3.9-distutils
+sudo apt install -y ffmpeg
+sudo apt install -y tesseract-ocr
+sudo apt install -y python3.9-distutils
 ```
 
 ```shell
 pip install -r requirements.txt
-pip install -r inference_server/model-requirements.txt
+pip install -r questions/inference_server/model-requirements.txt
 pip install -r dev-requirements.txt
 ```
 
@@ -161,7 +161,7 @@ gunicorn -k uvicorn.workers.UvicornWorker -b :3030 main:app
 # inference server run
 
 ```
-gunicorn -k uvicorn.workers.UvicornWorker -b :3030 questions.inference_server.inference_server:app
+ PYTHONPATH=$(pwd):$PYTHONPATH:$(pwd)/OFA gunicorn -k uvicorn.workers.UvicornWorker -b :3030 questions.inference_server.inference_server:app
 ```
 
 #### inference server run no docker with web server
