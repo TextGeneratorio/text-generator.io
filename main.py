@@ -46,7 +46,7 @@ app = FastAPI(
     redoc_url="/redoc",
     title="Generate Text API",
     description="Generate text, control stopping criteria like max_length/max_sentences",
-    root_path="https://api.text-generator.io",
+    # root_path="https://api.text-generator.io",
     version="1",
 )
 
@@ -89,7 +89,7 @@ if debug:
         "secret_key": sellerinfo.STRIPE_LIVE_SECRET,
         "publishable_key": sellerinfo.STRIPE_LIVE_KEY,
     }
-    GCLOUD_STATIC_BUCKET_URL = ""
+    GCLOUD_STATIC_BUCKET_URL = "/static"
 else:
     stripe_keys = {
         "secret_key": sellerinfo.STRIPE_LIVE_SECRET,
@@ -101,24 +101,21 @@ stripe.api_key = stripe_keys["secret_key"]
 
 @app.get("/")
 async def index(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/index.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
-        },
+        "templates/index.jinja2", base_vars,
     )
 
 
 @app.get("/subscribe")
 async def subscribe(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/subscribe.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
-            "stripe_publishable_key": stripe_keys["publishable_key"],
-        },
+        "templates/subscribe.jinja2", base_vars,
     )
 
 YOUR_DOMAIN = "https://text-generator.io"
@@ -240,38 +237,53 @@ def create_checkout_session(uid: str = Form(default=""), secret: str = Form(defa
 
 @app.get("/questions-game")
 async def questions_game(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates-game/questions-game.jinja2",
-        {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL},
+        "templates-game/questions-game.jinja2", base_vars,
+
     )
 
 
 @app.get("/signup")
 async def signup(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/signup.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/signup.jinja2", base_vars,
     )
 
 
 @app.get("/where-is-ai-game")
 async def signup(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/where-is-ai-game.jinja2",
-        {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL},
+        "templates/where-is-ai-game.jinja2", base_vars,
+
     )
 
 
 @app.get("/login")
 async def login(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/login.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/login.jinja2", base_vars,
     )
 
 
 @app.get("/success")
 async def success(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/success.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/success.jinja2", base_vars,
     )
 
 
@@ -423,91 +435,134 @@ def track_stripe_request_usage(secret, quantity: int):
         # timestamp=int(time.time()),
     )
 
+def get_base_template_vars(request: Request):
+
+    is_mac = request.headers.get("User-Agent").lower().find("mac") != -1
+
+    return {
+        "request": request,
+        "url": request.url,
+        "static_url": GCLOUD_STATIC_BUCKET_URL,
+        "fixtures": json.dumps({
+                                "is_mac": is_mac,
+                                }),
+        "stripe_publishable_key": stripe_keys["publishable_key"],
+    }
 
 @app.get("/privacy")
 async def privacy(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/privacy.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/privacy.jinja2", base_vars,
     )
 
 
 @app.get("/account")
 async def account(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/account.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/account.jinja2", base_vars,
     )
 
 
 @app.get("/terms")
 async def terms(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/terms.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/terms.jinja2", base_vars,
     )
 
 
 @app.get("/contact")
 async def contact(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/contact.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/contact.jinja2", base_vars,
     )
 
 
 @app.get("/about")
 async def about(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/about.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/about.jinja2", base_vars,
     )
 
 @app.get("/self-hosting")
 async def selfhosting(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/selfhosting.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/selfhosting.jinja2", base_vars,
     )
 
 @app.get("/success")
 async def success(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/success.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/success.jinja2", base_vars,
     )
 
 
 @app.get("/how-it-works")
 async def howitworks(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/howitworks.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/howitworks.jinja2", base_vars,
     )
 
 
 @app.get("/playground")
 async def playground(request: Request):
-    is_mac = request.headers.get("User-Agent").lower().find("mac") != -1
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/playground.jinja2",
-        {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL,
-         'fixtures': json.dumps({
-             "is_mac": is_mac,
-         })
-         },
+        "templates/playground.jinja2", base_vars,
     )
 
 
 @app.get("/sitemap")
 async def sitemap(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/sitemap.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/sitemap.jinja2", base_vars,
     )
 
 
 @app.get("/docs")
 async def docs(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/docs.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/docs.jinja2", base_vars,
     )
 
 @app.get("/text-to-speech")
 async def text_to_speech(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/text-to-speech.jinja2", {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL}
+        "templates/text-to-speech.jinja2", base_vars,
     )
 
 @app.get("/use-cases/{usecase}")
@@ -519,18 +574,17 @@ async def use_case_route(request: Request, usecase: str):
     results = use_case["results"]
     for result in results:
         result["generated_text"] = result["generated_text"][len(input_text) :]
-    return templates.TemplateResponse(
-        "templates/use-case.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
             "description": use_case["description"],
             "title": use_case["title"],
             "results": results,
             "text": input_text,
             "use_case": use_case,
             "url_key": url_key,
-        },
+        })
+    return templates.TemplateResponse(
+        "templates/use-case.jinja2", base_vars,
     )
 
 
@@ -538,73 +592,64 @@ async def use_case_route(request: Request, usecase: str):
 async def use_cases(request: Request):
     use_cases = deepcopy(fixtures.use_cases).items()
 
-    return templates.TemplateResponse(
-        "templates/use-cases.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
             "use_cases": use_cases,
-        },
+        })
+    return templates.TemplateResponse(
+        "templates/use-cases.jinja2", base_vars,
     )
 
 
 @app.get("/blog/{name}")
 async def blog_name(request: Request, name: str):
     blog = deepcopy(blog_fixtures.blogs.get(name))
-    return templates.TemplateResponse(
-        "templates/blog.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
-            "stripe_publishable_key": stripe_keys["publishable_key"],
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
             "blog": blog,
             "description": blog["description"],
             "title": blog["title"],
             "keywords": blog["keywords"],
             "blogtemplate": "/templates/shared/" + name + ".jinja2",
-        },
+        })
+    return templates.TemplateResponse(
+        "templates/blog.jinja2", base_vars,
     )
 
 
 @app.get("/blog")
 async def blog(request: Request):
-    return templates.TemplateResponse(
-        "templates/blogs.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
-            "stripe_publishable_key": stripe_keys["publishable_key"],
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
             "blogs": blog_fixtures.blogs.items(),
-        },
+        })
+    return templates.TemplateResponse(
+        "templates/blogs.jinja2", base_vars,
     )
 
 
 @app.get("/docs/{name}")
 async def doc_name(request: Request, name: str):
     doc = deepcopy(doc_fixtures.docs.get(name))
-    return templates.TemplateResponse(
-        "templates/doc.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
-            "stripe_publishable_key": stripe_keys["publishable_key"],
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
             "doc": doc,
             "description": doc["description"],
             "title": doc["title"],
             "keywords": doc["keywords"],
             "blogtemplate": "/templates/shared/" + name + ".jinja2",
-        },
+        })
+    return templates.TemplateResponse(
+        "templates/doc.jinja2", base_vars,
     )
 
 @app.get("/bulk-text-generator")
 async def bulk_text_generator(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/bulk.jinja2",
-        {
-            "request": request,
-            "static_url": GCLOUD_STATIC_BUCKET_URL,
-            "stripe_publishable_key": stripe_keys["publishable_key"],
-        },
+        "templates/bulk.jinja2", base_vars,
     )
 
 
@@ -612,9 +657,11 @@ async def bulk_text_generator(request: Request):
 async def sitemap_xml(request: Request, response: Response):
     response.headers["Content-Type"] = "text/xml; charset=utf-8"
 
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
     return templates.TemplateResponse(
-        "templates/sitemap.xml.jinja2",
-        {"request": request, "static_url": GCLOUD_STATIC_BUCKET_URL},
+        "templates/sitemap.xml.jinja2", base_vars,
     )
 
 
