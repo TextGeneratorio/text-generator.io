@@ -133,11 +133,20 @@ def create_checkout_session(uid: str = Form(default=""), secret: str = Form(defa
     else:
         stripe_id = user.stripe_id
 
-    subscription_price = "price_0MWaBRDtz2XsjQRO51QQkAGs"
+    subscription_price = "price_0O2kLNDtz2XsjQRONTHx7Dcl"
     success_url = YOUR_DOMAIN + "/playground"
     line_item = {
         "price": subscription_price,
+        'quantity': quantity,
     }
+
+    if type and type == "annual":
+        subscription_price = "price_0O2kDNDtz2XsjQRO0MCJdkeR"
+
+        line_item = {
+            "price": subscription_price,
+            'quantity': quantity,
+        }
     if type and type == "self-hosted":
         subscription_price = 'price_0MuAuxDtz2XsjQROz3Hp5Tcx'
         success_url = YOUR_DOMAIN + "/account"

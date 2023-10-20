@@ -110,6 +110,18 @@ WEIGHTS_PATH_TGC=decapoda-research/llama-7b-hf
 WEIGHTS_PATH=bigscience/bloom
 ```
 
+### Other Models
+
+The embedding model is a smaller model.
+
+```shell
+cd models
+git clone https://huggingface.co/distilbert-base-uncased
+```
+
+whisper and STT models will be loaded on demand and placed in the huggingface cache.
+
+
 #### Run
 
 run the UI
@@ -213,6 +225,7 @@ docker run -i -t -u root -v $(pwd)/models:/models --entrypoint=/bin/bash questio
 clone from huggingface
 
 ```
+cd models
 git clone https://huggingface.co/distilbert-base-uncased
 ```
 

@@ -126,9 +126,16 @@
     font-size: 30px;
 ">cloud</i>
             <h4>Cloud Text Generator</h4>
-            <p>100 requests per month free tier.</p>
 
-            <p><b class="money-amount">$0.01 USD</b> per request</p>
+            <p><b class="money-amount">$6.99 USD</b> Per Month</p>
+            <p>Or</p>
+            <p><b class="money-amount">$41.99 USD</b> Per Year
+
+            <span class="mdl-chip discount-chip">
+                        <span class="mdl-chip__text">Half Price Special Offer</span>
+                    </span>
+            </p>
+
             <ul class="demo-list-icon mdl-list">
                 <li class="mdl-list__item" id="list-item-1">
                     <span class="mdl-list__item-primary-content">
@@ -167,6 +174,17 @@
                         We do not store any private data sent to the APIs.
                     </div>
                 </li>
+
+                <li class="mdl-list__item" id="list-item-5">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">money</i>
+                    7 Day Money Back Guarantee
+                  </span>
+                    <!-- tooltip -->
+                    <div class="mdl-tooltip" for="list-item-5">
+                        Full refund any time within 7 days.
+                    </div>
+                </li>
             </ul>
 
             <form class="centered-cta-form" action="/create-checkout-session" method="POST">
@@ -174,7 +192,18 @@
                 <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
                 <button type="submit" id="checkout-button"
                         class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
-                        disabled="disabled">Subscribe
+                        disabled="disabled">Subscribe Monthly
+                </button>
+            </form>
+            <br>
+            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
+                <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
+                <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
+                <input id="subscribe-type" type="hidden" name="type" value="annual">
+
+                <button type="submit" id="checkout-button"
+                        class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
+                        disabled="disabled">Subscribe Annually
                 </button>
             </form>
         </div>

@@ -752,3 +752,12 @@ footer a {
     border: solid #f17d34 1px !important;
     outline: 0;
 }
+
+
+.discount-chip {
+    overflow: visible;
+    display: inline !important;
+    transform: translate(-43px, -28px);
+    position: absolute;
+    text-align: left;
+}
