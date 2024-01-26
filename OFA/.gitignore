@@ -2,3 +2,8 @@
 .DS_Store
 .env
 checkpoints
+*.pyc
+**/*.pyc
+models/**/*.pyc
+__pycache__
+
