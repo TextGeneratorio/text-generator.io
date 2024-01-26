@@ -728,6 +728,7 @@ footer a {
 
 .mdl-button--raised.mdl-button--colored {
     background: linear-gradient(45deg, #f17d34 0%, #d34675 100%) !important;
+    color: white !important;
 }
 .firebaseui-textfield.mdl-textfield .firebaseui-label::after {
 

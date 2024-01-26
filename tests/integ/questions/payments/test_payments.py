@@ -26,6 +26,12 @@ def test_get_sub_nic():
     print(subscription)
 
 
+def test_get_sub_nic2():
+    customer = "cus_LvDjjvSIblFAn9"
+    subscription = get_subscription_item_id_for_user(customer)
+    assert subscription != None
+    print(subscription)
+
 def test_create_subscription():
     customer  = "cus_NJRDGwDIP6ced1"
     subscription = create_subscription_for_user(customer)

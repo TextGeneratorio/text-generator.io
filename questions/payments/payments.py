@@ -17,8 +17,8 @@ debug = (
 )
 if debug:
     stripe_keys = {
-        "secret_key": sellerinfo.STRIPE_TEST_SECRET,
-        "publishable_key": sellerinfo.STRIPE_TEST_KEY,
+        "secret_key": sellerinfo.STRIPE_LIVE_SECRET,
+        "publishable_key": sellerinfo.STRIPE_LIVE_KEY,
     }
     GCLOUD_STATIC_BUCKET_URL = ""
 else:
@@ -60,7 +60,7 @@ def create_subscription_for_user(stripe_id, price="price_0MWaBRDtz2XsjQRO51QQkAG
 
 
 def get_self_hosted_subscription_item_id_for_user(stripe_id):
-    subscriptions = get_subscription_data()
+    subscriptions = get_subscription_data_for(stripe_id)
     for (i, subscription) in enumerate(subscriptions):
         if subscription["customer"] == stripe_id:
             if subscription["plan"]["name"] == "Text Generator - Self Hosted - Per Instance":
@@ -73,7 +73,7 @@ def get_self_hosted_subscription_item_id_for_user(stripe_id):
 
 
 def get_self_hosted_subscription_count_for_user(stripe_id):
-    subscriptions = get_subscription_data()
+    subscriptions = get_subscription_data_for(stripe_id)
     count = 0
     for (i, subscription) in enumerate(subscriptions):
         if subscription["customer"] == stripe_id:
@@ -90,5 +90,33 @@ def get_self_hosted_subscription_count_for_user(stripe_id):
 
 @cached(cachetools.TTLCache(maxsize=10000, ttl=60))  # 60 seconds
 def get_subscription_data():
-    subscriptions = stripe.Subscription.list(limit=100000)["data"]
+    subscriptions = []
+    starting_after = None
+    has_more = True
+
+    while has_more:
+        params = {
+            "limit": 100,
+            "starting_after": starting_after,
+        }
+        response = stripe.Subscription.list(**params)
+        subscriptions.extend(response["data"])
+        has_more = response["has_more"]
+        if has_more:
+            starting_after = response["data"][-1]["id"]
+
     return subscriptions
+
+
+@cached(cachetools.TTLCache(maxsize=10000, ttl=60))  # 60 seconds
+def get_subscription_data_for(stripe_id=None):
+    subscriptions = []
+    starting_after = None
+
+    params = {
+        "limit": 100,
+        "starting_after": starting_after,
+        "customer": stripe_id
+    }
+    response = stripe.Subscription.list(**params)
+    return response["data"]
