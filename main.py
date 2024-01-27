@@ -444,9 +444,12 @@ def track_stripe_request_usage(secret, quantity: int):
         # timestamp=int(time.time()),
     )
 
-def get_base_template_vars(request: Request):
 
-    is_mac = request.headers.get("User-Agent").lower().find("mac") != -1
+def get_base_template_vars(request: Request):
+    try:
+        is_mac = request.headers.get("User-Agent").lower().find("mac") != -1
+    except Exception as e:
+        is_mac = False
 
     return {
         "request": request,
