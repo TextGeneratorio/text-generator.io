@@ -110,7 +110,6 @@ def get_subscription_data():
 
 @cached(cachetools.TTLCache(maxsize=10000, ttl=60))  # 60 seconds
 def get_subscription_data_for(stripe_id=None):
-    subscriptions = []
     starting_after = None
 
     params = {
