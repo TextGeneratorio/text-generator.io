@@ -62,7 +62,7 @@ class GenerateParams(BaseModel):
     top_k: Optional[int] = 40
     temperature: Optional[float] = 0.7
     seed: Optional[int] = None
-    repetition_penalty = 1.2
+    repetition_penalty: Optional[float] = 1.2
 
     model: Optional[str] = None
 
@@ -108,10 +108,10 @@ class OpenaiParams(BaseModel):
     top_p: Optional[float] = 0.9
     top_k: Optional[int] = 40
     temperature: Optional[float] = 0.7
-    repetition_penalty = 1.2
+    repetition_penalty: Optional[float]  = 1.2
 
-    frequency_penalty = 1.2  # unused
-    presense_penalty = 1.2  # unused
+    frequency_penalty: Optional[float]  = 1.2  # unused
+    presense_penalty: Optional[float]  = 1.2  # unused
 
 
 def map_to_generate_params(openai_params: OpenaiParams) -> GenerateParams:

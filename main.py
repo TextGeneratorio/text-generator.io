@@ -121,7 +121,7 @@ async def subscribe(request: Request):
 YOUR_DOMAIN = "https://text-generator.io"
 
 @app.post("/create-checkout-session")
-def create_checkout_session(uid: str = Form(default=""), secret: str = Form(default=""), type: str = Form(default=""), quantity: int = Form(default=1)):
+async def create_checkout_session(uid: str = Form(default=""), secret: str = Form(default=""), type: str = Form(default=""), quantity: int = Form(default=1)):
     quantity = quantity if quantity else 1
     user = session_dict.get(secret)
     stripe_id = None

@@ -11,20 +11,21 @@ Text Generator is a system for;
 
 Text generator can be used via API or self hosted.
 
-Note self hosting for commercial use costs $99 annually (please support us)
-
-
 Text generator balances multiple 7B models to generate text.
 
 Text generator also enriches web links with text summaries.
 
 If a prompt contains links to images they are converted to text using captioning and if necessary OCR.
 
-You can also support us by purchasing [NETW Tokens](https://netwrck.com/netw-token) which will be a supported currency within the app.  
+Please support us!
+
+You can support us by purchasing [NETW Tokens](https://netwrck.com/netw-token) which will be a supported currency within the app.
+
+Also checkout [AIArt-Generator.art](https://AIArt-Generator.art) and [Netwrck.com](https://netwrck.com)
 
 Coming soon:
 
-* Add support for other models and modalities like stable diffusion
+* Add support for other models and modalities like stable diffusion (done in https://github.com/netwrck/stable-diffusion-server)
 * Train a classifier to first detect which model is best to use for a given piece of text.
 * Add support/passthroughs to other models like ChatGPT and Palm.
 
