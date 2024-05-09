@@ -33,7 +33,7 @@ stripe.api_key = stripe_keys["secret_key"]
 # todo refactor to get all data in 1 call
 # @cached(cachetools.TTLCache(maxsize=10000, ttl=60))
 def get_subscription_item_id_for_user(stripe_id):
-    subscriptions = get_subscription_data()
+    subscriptions = get_subscription_data_for(stripe_id)
     for (i, subscription) in enumerate(subscriptions):
         if subscription["customer"] == stripe_id:
             if subscription["plan"]["name"] == "Text Generator - Self Hosted - Per Instance":
@@ -44,6 +44,15 @@ def get_subscription_item_id_for_user(stripe_id):
                 # currently, there's only one other subscription
                 return subscription_item_id
 
+
+def get_subscription_item_id_for_user_email(email):
+    subscriptions = get_subscription_data_for_email(email)
+    for (i, subscription) in enumerate(subscriptions):
+        # if subscription["customer"] == stripe_id:
+        subscription_item_id = subscription["items"].data[0]["id"]
+        logger.info(subscription)
+        # currently, there's only one other subscription
+        return subscription_item_id
 
 def create_subscription_for_user(stripe_id, price="price_0MWaBRDtz2XsjQRO51QQkAGs"):
     subscription = stripe.Subscription.create(
@@ -96,7 +105,7 @@ def get_subscription_data():
 
     while has_more:
         params = {
-            "limit": 100,
+            "limit": 10000,
             "starting_after": starting_after,
         }
         response = stripe.Subscription.list(**params)
@@ -119,3 +128,27 @@ def get_subscription_data_for(stripe_id=None):
     }
     response = stripe.Subscription.list(**params)
     return response["data"]
+
+
+@cached(cachetools.TTLCache(maxsize=10000, ttl=60))  # 60 seconds
+def get_subscription_data_for_email(email):
+    starting_after = None
+
+    params = {
+        "limit": 100,
+        "starting_after": starting_after,
+    }
+    #all customers with email
+    customers = stripe.Customer.list(email=email)
+    all_subscriptions = []
+    for (i, customer) in enumerate(customers):
+        if customer["email"] == email:
+            stripe_id = customer["id"]
+            subscriptions = get_subscription_data_for(stripe_id)
+            if subscriptions:
+                all_subscriptions.append(subscriptions)
+            if len(all_subscriptions) > 0:
+                return all_subscriptions[0]
+    return []
+    # response = stripe.Subscription.list(**params)
+    # return response["data"]
