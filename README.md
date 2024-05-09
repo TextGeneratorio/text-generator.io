@@ -198,6 +198,22 @@ PYTHONPATH=$(pwd):$(pwd)/OFA GOOGLE_APPLICATION_CREDENTIALS=secrets/google-crede
 GOOGLE_APPLICATION_CREDENTIALS=secrets/google-credentials.json;PYTHONPATH=$HOME/code/20-questions:$HOME/code/20-questions/OFA pytest
 ```
 
+#### Docker
+
+#### Download Self Hosted Server
+
+##### Direct Docker Image Download
+
+[Docker Container .tar Download](https://storage.googleapis.com/questions-346919/text-generator.tar)
+
+##### Container download script
+
+```
+curl https://static.text-generator.io/static/resources/download_container.sh | bash
+```
+
+After downloading the container with either method, proceed to follow the [self host instructions](https://text-generator.io/self-hosting) available for [Kubernetes](https://text-generator.io/docs/kubernetes), [Docker](https://text-generator.io/docs/docker)
+
 ### Kubernetes Deployment
 
 See https://text-generator.io/self-hosting
