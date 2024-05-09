@@ -61,13 +61,9 @@
                             plotPlotlyGraph(data['stripe_usage']);
                         }
 
-                        if (data['num_self_hosted_instances'] > 0) {
-                            $('#self-hosting').html("Self hosted instances: " + data['num_self_hosted_instances'] + "<br><br> <a href=\"https://text-generator.io/subscribe\">buy more instances</a><h4>Download Self Hosted Server</h4> <h5>Direct Docker Image Download</h5><p> <a href='https://storage.googleapis.com/questions-346919/text-generator.tar'>Docker Container .tar Download</a></p>" +
-                              "<h5>Container download script</h5><p> <pre><code>curl https://static.text-generator.io/static/resources/download_container.sh | bash</code></pre></p>" +
-                              "<p>After downloading the container with either method, proceed to follow the <a href='/self-hosting'>self host instructions</a> available for <a href='/docs/kubernetes'>Kubernetes</a>, <a href='/docs/docker'>Docker</a></p>" );
-                        } else {
-                            $('#self-hosting').html('No self hosted plan, <a href="https://text-generator.io/subscribe">subscribe to self host</a>');
-                        }
+                        $('#self-hosting').html("<h4>Download Self Hosted Server</h4> <h5>Direct Docker Image Download</h5><p> <a href='https://storage.googleapis.com/questions-346919/text-generator.tar'>Docker Container .tar Download</a></p>" +
+                          "<h5>Container download script</h5><p> <pre><code>curl https://static.text-generator.io/static/resources/download_container.sh | bash</code></pre></p>" +
+                          "<p>After downloading the container with either method, proceed to follow the <a href='/self-hosting'>self host instructions</a> available for <a href='/docs/kubernetes'>Kubernetes</a>, <a href='/docs/docker'>Docker</a></p>" );
 
                     })
                 } else {
