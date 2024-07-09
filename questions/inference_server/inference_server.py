@@ -27,7 +27,7 @@ from questions.models import (
     map_to_openai_response, AudioParams, GenerateSpeechParams, AudioParamsOrAudioFile, SummarizationParams,
 )
 from questions.payments.payments import get_subscription_item_id_for_user, \
-    create_subscription_for_user
+    create_subscription_for_user, get_subscription_item_id_for_user_email
 from questions.perplexity import DEVICE
 from questions.summarization import get_extractive_summary
 from questions.text_gen_pipeline import TextGenPipeline
@@ -221,7 +221,7 @@ def track_stripe_request_usage(secret, quantity: int):
 
     existing_user = existing_user or db_user
 
-    subscription_item_id = get_subscription_item_id_for_user(existing_user.stripe_id)
+    subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
     if not subscription_item_id:
         logger.info(
             f"no subscription item id for user: {existing_user.email} {existing_user.stripe_id}"

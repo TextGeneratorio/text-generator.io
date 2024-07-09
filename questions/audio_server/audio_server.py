@@ -20,7 +20,7 @@ from questions.models import (
     GetUserRequest,
     AudioParams,
 )
-from questions.payments.payments import get_subscription_item_id_for_user
+from questions.payments.payments import get_subscription_item_id_for_user_email
 from questions.text_gen_pipeline import TextGenPipeline
 from questions.utils import log_time
 
@@ -162,7 +162,7 @@ async def get_user(get_user_request: GetUserRequest, response: Response):
     set_session_for_user(user)
 
     # get if the user is subscribed to a plan in stripe
-    subscription_item_id = get_subscription_item_id_for_user(user.stripe_id)
+    subscription_item_id = get_subscription_item_id_for_user_email(user.email)
     user.is_subscribed = subscription_item_id is not None
     return JSONResponse(json.loads(json.dumps(user.to_dict(), cls=GameOnUtils.MyEncoder)))
 
@@ -186,7 +186,7 @@ def track_stripe_request_usage(secret, quantity: int):
 
     existing_user = existing_user or db_user
 
-    subscription_item_id = get_subscription_item_id_for_user(existing_user.stripe_id)
+    subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
     if not subscription_item_id:
         logger.info(
             f"no subscription item id for user: {existing_user.email} {existing_user.stripe_id}"
@@ -274,7 +274,7 @@ def user_authorized(secret):
 
     existing_user = existing_user or db_user
 
-    subscription_item_id = get_subscription_item_id_for_user(existing_user.stripe_id)
+    subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
     return subscription_item_id
 
 

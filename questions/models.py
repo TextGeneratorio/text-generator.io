@@ -189,7 +189,7 @@ class CreateUserRequest(BaseModel):
     email: str
     # emailVerified: str
     uid: str
-    photoURL: str = None
+    photoURL: Optional[str] = None
     token: str
 
 

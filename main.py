@@ -18,8 +18,7 @@ from questions import blog_fixtures
 from questions.db_models import User
 from questions.gameon_utils import GameOnUtils
 from questions.models import CreateUserRequest, GetUserRequest
-from questions.payments.payments import get_subscription_item_id_for_user, \
-    get_self_hosted_subscription_item_id_for_user, get_self_hosted_subscription_count_for_user
+from questions.payments.payments import get_self_hosted_subscription_count_for_user, get_subscription_item_id_for_user_email
 from questions.utils import random_string
 
 # pip install google-api-python-client google-cloud-storage google-auth-httplib2 google-auth-oauthlib
@@ -339,13 +338,14 @@ async def create_user(create_user_request: CreateUserRequest):
         set_session_for_user(user)
 
     # send_signup_email(email, referral_url_key)
-    # subscription_item_id = get_subscription_item_id_for_user(user.stripe_id)
+    # subscription_item_id = get_subscription_item_id_for_user_email(user.email)
     # user.is_subscribed = subscription_item_id is not None
     return JSONResponse(json.loads(json.dumps(user.to_dict(), cls=GameOnUtils.MyEncoder)))
 
 
 def set_session_for_user(user):
-    session_dict[user.secret] = user
+    if user != None:
+        session_dict[user.secret] = user
 
 
 @app.get("/portal")
@@ -366,7 +366,7 @@ async def get_user(get_user_request: GetUserRequest, response: Response):
     set_session_for_user(user)
 
     # get if the user is subscribed to a plan in stripe
-    subscription_item_id = get_subscription_item_id_for_user(user.stripe_id)
+    subscription_item_id = get_subscription_item_id_for_user_email(user.email)
     user.is_subscribed = subscription_item_id is not None
     num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
     user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
@@ -403,7 +403,7 @@ async def get_user_stripe_usage(get_user_request: GetUserRequest, response: Resp
     set_session_for_user(user)
 
     # get if the user is subscribed to a plan in stripe
-    subscription_item_id = get_subscription_item_id_for_user(user.stripe_id)
+    subscription_item_id = get_subscription_item_id_for_user_email(user.email)
     user.is_subscribed = subscription_item_id is not None
     if not user.is_subscribed:
         # recreate stripe customer if required - remediates users being created in test mode
