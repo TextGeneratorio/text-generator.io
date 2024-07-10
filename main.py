@@ -435,7 +435,7 @@ def track_stripe_request_usage(secret, quantity: int):
         existing_user = User.bySecret(secret)
         set_session_for_user(existing_user)
 
-    subscription_item_id = get_subscription_item_id_for_user(existing_user.stripe_id)
+    subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
     # TODO batching
     # todo block if none
     stripe.SubscriptionItem.create_usage_record(
