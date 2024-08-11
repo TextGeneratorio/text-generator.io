@@ -1,0 +1,19 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+    <meta charset="utf-8">
+    <title>{{ tool_name }} - Text Generator Tools</title>
+    <meta name="description" content="{{ tool_description }}">
+
+    <meta name="keywords" content="{{ tool_keywords }}">
+    <meta property="og:title" content="{{ tool_name }} - Text Generator Tools">
+    <meta property="og:url" content="{{ tool_url }}">
+    <meta property="og:image" content="{{ static_url }}/{{ tool_image }}">
+    <meta property="og:description" content="{{ tool_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator Tools">
+{% endblock %}
+
+{% block mainbody %}
+    {% include tooltemplate %}
+{% endblock %}

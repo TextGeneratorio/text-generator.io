@@ -1,0 +1,27 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'Text Generator Tools - AI-Powered Text Generation Tools' -%}
+    {% set description = 'Explore our collection of AI-powered text generation tools for various writing and content creation tasks.' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="ai tools, text generator, content creation, writing tools">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="{{ url }}">
+    <meta property="og:image" content="{{ static_url }}/img/tools-icon.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+    <meta property="fb:admins" content="337972272904903">
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates/shared/tools.jinja2" %}
+{% endblock %}

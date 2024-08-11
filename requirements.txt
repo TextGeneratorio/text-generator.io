@@ -28,7 +28,7 @@ google-cloud-ndb==1.11.1
 loguru==0.5.3
 #pydantic==1.9.0
 #jinja2==3.1.1 #not on gae python
-jinja2==3.0.3
+jinja2==3.1.4
 websockets==12.0
 #nltk==3.7.0 #not on gae python
 nltk==3.6.7

@@ -1,0 +1,77 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/tools" title="Tools">Tools</a> > Domain Name Generator
+            </div>
+            <h3>Domain Name Generator</h3>
+            <p>Generate creative domain names and check their availability instantly.</p>
+
+            <div class="iframe-container" style="position: relative; overflow: hidden; padding-top: 56.25%;">
+                <iframe src="https://domains.netwrck.com" 
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" 
+                        allowfullscreen>
+                </iframe>
+            </div>
+
+            <h5>About this tool</h5>
+            <p>Our Domain Name Generator helps you brainstorm and find available domain names for your next project. Simply enter your keywords, and the tool will suggest creative domain names and check their availability in real-time.</p>
+
+            <h5>How to use</h5>
+            <ol>
+                <li>Enter keywords related to your project or business in the input field.</li>
+                <li>Click the "Generate" button to see a list of domain suggestions.</li>
+                <li>Browse through the suggestions and check their availability.</li>
+                <li>Click on a domain name you like to proceed with registration.</li>
+            </ol>
+
+            <p>Need help generating creative content for your new domain? Try our <a href="/playground">Text Generator Playground</a> to create unique and engaging website copy!</p>
+
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up for Text Generator
+            </a>
+        </div>
+    </div>
+</main>
+<script>
+    // Initialize Firebase (make sure to replace with your actual Firebase config)
+    var firebaseConfig = {
+        // Your Firebase configuration object here
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    function initApp() {
+        firebase.auth().onAuthStateChanged(function (user) {
+            if (user) {
+                // User is signed in.
+                var displayName = user.displayName;
+                var email = user.email;
+                var emailVerified = user.emailVerified;
+                var photoURL = user.photoURL;
+                var uid = user.uid;
+                var phoneNumber = user.phoneNumber;
+                var providerData = user.providerData;
+                getUserWithStripe(user, function (data) {
+
+                    secret = data['secret'];
+                    // if users not subscribed redirect to subscribe page
+                    if (!data['is_subscribed']) {
+                        location.href = '/subscribe'
+                    }
+
+                })
+            } else {
+                // User is signed out.
+                location.href = '/login'
+            }
+        }, function (error) {
+            console.log(error);
+        });
+    }
+
+    window.addEventListener('load', initApp);
+</script>

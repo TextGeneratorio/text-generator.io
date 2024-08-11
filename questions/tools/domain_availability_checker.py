@@ -1,5 +1,6 @@
 import gradio as gr
 import subprocess
+from loguru import logger
 import requests
 import re
 
@@ -12,14 +13,14 @@ def check_domain_availability(domain):
     return "Available" if whois_output.returncode == 0 else "Taken"
 
 def generate_domains(business_name, api_key):
-    headers = {"secret": api_key}
+    headers = {"secret": api_key, "Content-Type": "application/json"}
     input_text = f"###\nName: {business_name}\nDomains available:\n"
     data = {
         "text": input_text,
         "stop_sequences": ["\\n\\n", "A:", "###", "/"],
-        "number_of_results": 40,
+        "number_of_results": 1,
         "max_length": 30,
-        "max_sentences": 4,
+        "max_sentences": 10,
         "min_probability": 0,
         "top_p": 1,
         "top_k": 60,
@@ -33,6 +34,7 @@ def generate_domains(business_name, api_key):
         json=data,
         headers=headers
     )
+    logger.info(f"Response from Text-Generator.io: {res.text}")
 
     json_response = res.json()
     domains = set()
@@ -45,9 +47,31 @@ def generate_domains(business_name, api_key):
                 domains.add(domain)
 
     return list(domains)
+import asyncio
+from questions.ai_wrapper import generate_with_claude
 
-def create_domain_spreadsheet(business_name, api_key):
-    domains = generate_domains(business_name, api_key)
+async def generate_domains_new(business_name):
+    prompt = f"""Generate a list of 10 creative domain name suggestions for a business named "{business_name}". 
+    Each domain name should be on a new line and include only the domain name itself (e.g., example.com).
+    Be creative and consider different TLDs (Top Level Domains) beyond just .com.
+    Ensure each suggestion is a valid domain name format."""
+
+    response = await generate_with_claude(prompt)
+    
+    # Process the response to extract valid domain names
+    domains = set()
+    for line in response.split('\n'):
+        domain = line.strip()
+        if is_domain_name(domain):
+            domains.add(domain)
+
+    return list(domains)
+
+# Update the create_domain_spreadsheet function to use generate_domains_new
+async def create_domain_spreadsheet_new(business_name):
+    domains = await generate_domains_new(business_name)
+    logger.info(f"Generated {len(domains)} domains for {business_name}")
+    logger.info(f"Domains: {domains}")
     results = []
     for domain in domains:
         availability = check_domain_availability(domain)
@@ -55,16 +79,15 @@ def create_domain_spreadsheet(business_name, api_key):
     
     return results
 
+# Update the Gradio interface to use the new async function
 iface = gr.Interface(
-    fn=create_domain_spreadsheet,
-    inputs=[
-        gr.Textbox(label="Business Name"),
-        gr.Textbox(label="Text-Generator.io API Key", type="password")
-    ],
+    fn=lambda business_name: asyncio.run(create_domain_spreadsheet_new(business_name)),
+    inputs=[gr.Textbox(label="Business Name")],
     outputs=gr.Dataframe(headers=["Domain", "Availability"]),
     title="Domain Availability Checker",
-    description="Enter your business name and API key to generate and check domain availability."
+    description="Enter your business name to generate and check domain availability."
 )
+
 
 if __name__ == "__main__":
     iface.launch()

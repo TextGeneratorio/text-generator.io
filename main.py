@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from urllib.parse import urlencode, quote_plus
 
-from fastapi import Form
+from fastapi import Form, HTTPException
 from fastapi import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -13,7 +13,7 @@ from loguru import logger
 from starlette.responses import JSONResponse, Response, RedirectResponse
 from starlette.routing import Route
 
-from questions import fixtures, doc_fixtures
+from questions import fixtures, doc_fixtures, tool_fixtures
 from questions import blog_fixtures
 from questions.db_models import User
 from questions.gameon_utils import GameOnUtils
@@ -106,6 +106,38 @@ async def index(request: Request):
     return templates.TemplateResponse(
         "templates/index.jinja2", base_vars,
     )
+
+@app.get("/tools")
+async def tools(request: Request):
+    base_vars = get_base_template_vars(request)
+    tools_list = list(tool_fixtures.tools_fixtures.values())
+    base_vars.update({
+        "tools": tools_list,
+    })
+    return templates.TemplateResponse(
+        "templates/tools.jinja2", base_vars,
+    )
+
+@app.get("/tools/{tool_name}")
+async def tool_page(request: Request, tool_name: str):
+    base_vars = get_base_template_vars(request)
+    
+    # Define a dictionary of available tools and their details
+    tool_info = tool_fixtures.tools_fixtures.get(tool_name, {})
+    
+    base_vars.update({
+        "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
+        "tool_description": tool_info.get("description", ""),
+        "tool_keywords": tool_info.get("keywords", ""),
+        "tool_url": f"/tools/{tool_name}",
+        "tool_image": tool_info.get("image", ""),
+        "tooltemplate": f"templates/tools/{tool_name}.jinja2"
+    })
+
+    return templates.TemplateResponse(
+        "templates/tool.jinja2", base_vars,
+    )
+    
 
 
 @app.get("/subscribe")

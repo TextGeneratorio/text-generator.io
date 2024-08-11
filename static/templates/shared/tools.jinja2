@@ -1,0 +1,33 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > {{ title }}
+            </div>
+            <h3>AI-Powered Text Generation Tools</h3>
+            <ul class="demo-list-item mdl-list">
+                {% for tool in tools %}
+                    <li class="mdl-list__item">
+                        <i class="material-icons mdl-list__item-icon" style="margin-right: 25px">build</i>
+                        <div>
+                            <span class="mdl-list__item-primary-content">
+                                <a href="{{ tool.url }}">{{ tool.name }}</a>
+                            </span><br>
+                            <span class="mdl-list__item-secondary-content">{{ tool.description }}</span>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Try Our Tools
+            </a>
+        </div>
+    </div>
+{% import "templates/macros.jinja2" as macros with context %}
+
+{{ macros.svgstyled() }}
+</main>
