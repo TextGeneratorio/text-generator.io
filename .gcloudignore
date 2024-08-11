@@ -90,3 +90,59 @@ Thumbs.db
 *.pclprof
 .aider*
 .cursor
+
+
+# Ignore additional directories and files
+chromews/
+ddns/
+flagged/
+jwt/
+kuber/
+OFA/
+scripts/
+transient/
+
+# Ignore Docker-related files
+*.Dockerfile
+docker-compose.yml
+
+# Ignore deployment and configuration files
+cloudbuild*.yaml
+deploy.sh
+index.yaml
+
+# Ignore documentation and setup files
+initialsetup.md
+README.md
+owners.md
+
+# Ignore manifest files
+manifest/
+
+
+# Ignore specific JavaScript files
+static/js/templates.js
+
+# Ignore specific configuration files
+config.json
+ddns
+
+
+# Ignore specific test files
+pytest.ini
+
+# Ignore specific package management files
+dev-requirements.txt
+
+# Ignore specific build artifacts
+*.egg-info/
+
+
+static/img
+static/js
+static/css
+static/less
+static/audio
+static/fonts
+static/jsbuild
+static/cssbuild
