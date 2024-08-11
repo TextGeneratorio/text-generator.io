@@ -50,13 +50,13 @@ def generate_domains(business_name, api_key):
 import asyncio
 from questions.ai_wrapper import generate_with_claude
 
-async def generate_domains_new(business_name):
+async def generate_domains_new(business_name, current_ideas):
     prompt = f"""Generate a list of 10 creative domain name suggestions for a business named "{business_name}". 
     Each domain name should be on a new line and include only the domain name itself (e.g., example.com).
     Be creative and consider different TLDs (Top Level Domains) beyond just .com.
     Ensure each suggestion is a valid domain name format."""
 
-    response = await generate_with_claude(prompt)
+    response = await generate_with_claude(prompt, prefill=current_ideas)
     
     # Process the response to extract valid domain names
     domains = set()
@@ -68,8 +68,8 @@ async def generate_domains_new(business_name):
     return list(domains)
 
 # Update the create_domain_spreadsheet function to use generate_domains_new
-async def create_domain_spreadsheet_new(business_name):
-    domains = await generate_domains_new(business_name)
+async def create_domain_spreadsheet_new(business_name, current_ideas):
+    domains = await generate_domains_new(business_name, current_ideas)
     logger.info(f"Generated {len(domains)} domains for {business_name}")
     logger.info(f"Domains: {domains}")
     results = []
@@ -81,13 +81,16 @@ async def create_domain_spreadsheet_new(business_name):
 
 # Update the Gradio interface to use the new async function
 iface = gr.Interface(
-    fn=lambda business_name: asyncio.run(create_domain_spreadsheet_new(business_name)),
-    inputs=[gr.Textbox(label="Business Name")],
+    fn=lambda business_name, current_ideas: asyncio.run(create_domain_spreadsheet_new(business_name, current_ideas)),
+    inputs=[
+        gr.Textbox(label="Business Description"),
+        gr.Textbox(label="Current Domain Ideas", placeholder="Enter your current domain name ideas, on one line")
+    ],
     outputs=gr.Dataframe(headers=["Domain", "Availability"]),
     title="Domain Availability Checker",
-    description="Enter your business name to generate and check domain availability."
+    description="Enter your business description and any current domain name ideas on new lines, to generate names + check domain availability."
 )
 
 
 if __name__ == "__main__":
-    iface.launch()
+    iface.launch(server_port=7652)
