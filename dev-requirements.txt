@@ -3,3 +3,4 @@ pytest
 
 pytest-asyncio==0.18.3
 requests-futures==1.0.0
+gradio
