@@ -27,3 +27,66 @@ kuber
 ddns
 .pytest_cache
 .mypy_cache
+
+# Additional files and directories to ignore
+cloudbuild2.yaml
+cloudbuild.yaml
+customers.Dockerfile
+Dockerfile
+Dockerfile.old
+flagged
+initialsetup.md
+jwt
+owners.md
+package.json
+package-lock.json
+pytest.ini
+README.md
+reqs-all.txt
+sellerinfo_faked.py
+sellerinfo.pyc
+setup.py
+terms.txt
+
+# Ignore all Python cache directories
+**/__pycache__
+
+
+
+# Ignore test directories
+tests/
+
+
+# Ignore development and build files
+package.json
+package-lock.json
+Gruntfile.js
+
+# Ignore version control files for other systems
+.svn/
+.hg/
+
+# Ignore log files
+*.log
+
+# Ignore database files
+*.sqlite
+*.db
+
+# Ignore compiled Python files
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+*.pclprof
+.aider*
+.cursor
