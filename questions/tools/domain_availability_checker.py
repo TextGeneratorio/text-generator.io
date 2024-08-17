@@ -134,7 +134,8 @@ iface = gr.Interface(
     examples=[
         ["A tech startup focusing on AI-powered personal assistants", "aibuddy.com\nsmarthelper.ai"],
         ["An eco-friendly clothing brand", "greenthreads.com\nearthwear.org"],
-    ]
+    ],
+    allow_flagging="never"
 )
 
 
