@@ -3,6 +3,9 @@ import subprocess
 from loguru import logger
 import requests
 import re
+import asyncio
+import aiohttp
+from questions.ai_wrapper import generate_with_claude
 
 
 def is_domain_name(domain):
@@ -14,7 +17,10 @@ def check_domain_availability(domain):
     whois_output = subprocess.run(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True
     )
-    return "Available" if "No Objects" in whois_output.stdout or "No Data Found" in whois_output.stdout else "Taken"
+    if "No Object" in whois_output.stdout or "No Objects" in whois_output.stdout or "No Data Found" in whois_output.stdout:
+        return "Available"
+    else:
+        return "Taken"
 
 
 def generate_domains(business_name, api_key):
@@ -51,9 +57,27 @@ def generate_domains(business_name, api_key):
 
     return list(domains)
 
+available_indicators = [
+    "No Objects",
+    "No Data Found",
+    "No Object",
+    "NOT FOUND",
+    "not exist",
+    "No match for domain",
+    "No entries found",
+]
 
-import asyncio
-from questions.ai_wrapper import generate_with_claude
+async def check_domain_availability_async(domain, session):
+    command = f"whois {domain}"
+    proc = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await proc.communicate()
+    output = stdout.decode().lower()
+    logger.info(f"{domain} - Output from whois: {output}")
+    return "Available" if any(indicator.lower() in output for indicator in available_indicators) else "Taken"
 
 
 async def generate_domains_new(business_name, current_ideas):
@@ -74,16 +98,17 @@ async def generate_domains_new(business_name, current_ideas):
     return list(domains)
 
 
-# Update the create_domain_spreadsheet function to use generate_domains_new
+# Update the create_domain_spreadsheet_new function
 async def create_domain_spreadsheet_new(business_name, current_ideas):
     domains = await generate_domains_new(business_name, current_ideas)
     logger.info(f"Generated {len(domains)} domains for {business_name}")
     logger.info(f"Domains: {domains}")
-    results = []
-    for domain in domains:
-        availability = check_domain_availability(domain)
-        results.append([domain, availability])
-
+    
+    async with aiohttp.ClientSession() as session:
+        tasks = [check_domain_availability_async(domain, session) for domain in domains]
+        availabilities = await asyncio.gather(*tasks)
+    
+    results = list(zip(domains, availabilities))
     return results
 
 
@@ -93,16 +118,23 @@ iface = gr.Interface(
         create_domain_spreadsheet_new(business_name, current_ideas)
     ),
     inputs=[
-        gr.Textbox(label="Business Description"),
+        gr.Textbox(
+            label="Business Description",
+            placeholder="e.g., A coffee shop that specializes in artisanal roasts"
+        ),
         gr.Textbox(
             label="Current Domain Ideas",
-            placeholder="Enter your current domain name ideas, on one line",
+            placeholder="e.g., artisanbrews.com\ncoffeecraft.net\nroastmaster.io",
         ),
     ],
     outputs=gr.Dataframe(headers=["Domain", "Availability"]),
     title="Domain Availability Checker",
-    description="Enter your business description and any current domain name ideas on new lines, to generate names + check domain availability.",
+    description="Enter your business description and any current domain name ideas (one per line) to generate names and check domain availability.",
     css="footer{display:none !important}",
+    examples=[
+        ["A tech startup focusing on AI-powered personal assistants", "aibuddy.com\nsmarthelper.ai"],
+        ["An eco-friendly clothing brand", "greenthreads.com\nearthwear.org"],
+    ]
 )
 
 
