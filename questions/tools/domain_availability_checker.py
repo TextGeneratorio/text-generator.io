@@ -10,11 +10,11 @@ def is_domain_name(domain):
 
 
 def check_domain_availability(domain):
-    command = f"whois {domain} | grep 'This query returned 0 objects'"
+    command = f"whois {domain}"
     whois_output = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True
     )
-    return "Available" if whois_output.returncode == 0 else "Taken"
+    return "Available" if "No Objects" in whois_output.stdout or "No Data Found" in whois_output.stdout else "Taken"
 
 
 def generate_domains(business_name, api_key):
