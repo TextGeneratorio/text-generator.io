@@ -118,8 +118,8 @@ iface = gr.Interface(
     ),
     inputs=[
         gr.Textbox(
-            label="Business Description",
-            placeholder="e.g., A coffee shop that specializes in artisanal roasts"
+            label="Business Description + search criteria etc",
+            placeholder="A coffee shop that specializes in artisanal roasts, short catchy names two words or less .com ideally"
         ),
         gr.Textbox(
             label="Current Domain Ideas",
@@ -133,6 +133,7 @@ iface = gr.Interface(
     examples=[
         ["A tech startup focusing on AI-powered personal assistants", "aibuddy.com\nsmarthelper.ai"],
         ["An eco-friendly clothing brand", "greenthreads.com\nearthwear.org"],
+        ["Architecture company, .com ideally, short ish but bold names", "architecturaly.com\narchitech.com"],
     ],
     allow_flagging="never"
 )
