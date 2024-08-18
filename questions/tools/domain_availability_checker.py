@@ -81,20 +81,19 @@ async def check_domain_availability_async(domain, session):
 
 
 async def generate_domains_new(business_name, current_ideas):
-    prompt = f"""Generate a list of 10 creative domain name suggestions for a business named "{business_name}". 
-    Each domain name should be on a new line and include only the domain name itself (e.g., example.com).
-    Be creative and consider different TLDs (Top Level Domains) beyond just .com.
-    Ensure each suggestion is a valid domain name format."""
+    prompt = f"""list of 10 creative domain name suggestions for a business named "{business_name}". 
+Each domain name should be on a new line and include only the domain name itself (e.g., example.com).
+Be creative and consider different TLDs (Top Level Domains) beyond just .com.
+Ensure each suggestion is a valid domain name format."""
 
     response = await generate_with_claude(prompt, prefill=current_ideas)
 
     # Process the response to extract valid domain names
     domains = set()
-    for line in response.split("\n"):
-        domain = line.strip()
+    for word in response.split():
+        domain = word.strip()
         if is_domain_name(domain):
             domains.add(domain)
-
     return list(domains)
 
 
