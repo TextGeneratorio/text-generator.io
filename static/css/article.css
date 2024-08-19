@@ -22,6 +22,87 @@
     font-size: 20px;
 }
 
+
+.hero-trusted-carousel {
+    position: relative;
+    overflow: hidden;
+    padding: 20px 20px;
+    height: 200px;
+}
+
+.carousel-container {
+    width: 100%;
+    overflow: hidden;
+    height: 200px;
+}
+
+.carousel-track {
+    display: flex;
+    transition: transform 0.5s ease;
+}
+
+.carousel-slide {
+    flex: 0 0 auto;
+    width: 150px;
+    height: 150px;
+    margin: 0 10px;
+    text-align: center;
+    position: relative;
+}
+
+.hero-trusted-image {
+    /* max-width: 100%; */
+    height: auto;
+    filter: grayscale(100%);
+    transition: filter 0.3s ease;
+}
+
+.hero-trusted-image:hover {
+    filter: grayscale(0%);
+}
+
+.carousel-tooltip {
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.carousel-slide:hover .carousel-tooltip {
+    opacity: 1;
+}
+
+.carousel-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(255, 255, 255, 0.7);
+    border: none;
+    font-size: 24px;
+    padding: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.carousel-button:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+.carousel-button.prev {
+    left: 10px;
+}
+
+.carousel-button.next {
+    right: 10px;
+}
+
 .centered-cta-form {
     text-align: center;
 }
