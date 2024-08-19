@@ -103,12 +103,74 @@
 
     $(document).ready(function () {
         setupQuantityForm();
+        setupSubscriptionToggle();
     })
+
+    function setupSubscriptionToggle() {
+        $('.subscription-toggle').change(function() {
+            if ($(this).is(':checked')) {
+                $('.subscription-period').text('Annually');
+                $('.money-amount').text('$41.99 USD');
+                $('.discount-chip').show();
+                $('input[name="type"]').val('annual');
+            } else {
+                $('.subscription-period').text('Monthly');
+                $('.money-amount').text('$6.99 USD');
+                $('.discount-chip').hide();
+                $('input[name="type"]').val('monthly');
+            }
+        });
+    }
 </script>
 <style>
     .mdl-tooltip {
         font-size: 14px;
         min-width: 300px;
+    }
+
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    input:checked + .slider {
+        background-color: #f39121;
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(26px);
     }
 </style>
 <div id="firebaseui-auth-container"></div>
@@ -127,14 +189,12 @@
 ">cloud</i>
             <h4>Cloud Text Generator</h4>
 
-            <p><b class="money-amount">$6.99 USD</b> Per Month</p>
-            <p>Or</p>
-            <p><b class="money-amount">$41.99 USD</b> Per Year
+            <p><b class="money-amount">$41.99 USD</b> <span class="subscription-period">Annually</span></p>
 
-            <span class="mdl-chip discount-chip">
-                        <span class="mdl-chip__text">Half Price Special Offer</span>
-                    </span>
-            </p>
+            <label class="switch">
+                <input type="checkbox" class="subscription-toggle" checked>
+                <span class="slider"></span>
+            </label>
 
             <ul class="demo-list-icon mdl-list">
                 <li class="mdl-list__item" id="list-item-1">
@@ -190,20 +250,11 @@
             <form class="centered-cta-form" action="/create-checkout-session" method="POST">
                 <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
                 <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
-                <button type="submit" id="checkout-button"
-                        class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
-                        disabled="disabled">Subscribe Monthly
-                </button>
-            </form>
-            <br>
-            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
-                <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
-                <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
                 <input id="subscribe-type" type="hidden" name="type" value="annual">
 
                 <button type="submit" id="checkout-button"
                         class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
-                        disabled="disabled">Subscribe Annually
+                        disabled="disabled">Subscribe Now
                 </button>
             </form>
         </div>
@@ -217,9 +268,8 @@
     width: 43px;
     font-size: 30px;
 ">construction</i>
-            <h4>Self Host - DIY</h4>
+            <h4>Self Host - DIY Free</h4>
             <p>All APIs Unlimited Access.</p>
-            <p><b class="money-amount">$0 USD</b> Free as in Freedom.</p>
             <ul class="demo-list-icon mdl-list">
                 <li class="mdl-list__item" id="self-list-item-1">
                     <span class="mdl-list__item-primary-content">
@@ -233,7 +283,7 @@
                 <li class="mdl-list__item" id="self-list-item-2">
                     <span class="mdl-list__item-primary-content">
                     <i class="material-icons mdl-list__item-icon">rocket_launch</i>
-                    Docker and Kubernetes builds
+                    Docker build and Kubernetes deployment
                   </span>
                     <div class="mdl-tooltip" for="self-list-item-2">
                         Autoscaling best practice config and zero downtime deploys.
