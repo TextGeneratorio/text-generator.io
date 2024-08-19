@@ -164,7 +164,7 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
     else:
         stripe_id = user.stripe_id
 
-    subscription_price = "price_0O2kLNDtz2XsjQRONTHx7Dcl"
+    subscription_price = "price_0PpIzNDtz2XsjQROUZgNOTaF"  # Updated to new monthly price
     success_url = YOUR_DOMAIN + "/playground"
     line_item = {
         "price": subscription_price,
@@ -172,7 +172,7 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
     }
 
     if type and type == "annual":
-        subscription_price = "price_0O2kDNDtz2XsjQRO0MCJdkeR"
+        subscription_price = "price_0PpJ10Dtz2XsjQROADWTSIBr"  # Updated to new annual price
 
         line_item = {
             "price": subscription_price,
