@@ -9,6 +9,9 @@
     -ms-flex-negative: 0;
     flex-shrink: 0;
 }
+.mdl-layout__drawer-button i {
+    color: #000000 !important; /* Change to black */
+}
 
 .mdl-layout__header {
     background: linear-gradient(90deg,rgb(241, 125, 52) 0%,#d34675 30%,#d34675 100%);

@@ -5,7 +5,7 @@
         <!-- Title -->
         <a class="mdl-navigation__link" href="/">
             <img class="brain-icon-header" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42"></img>
-            <span class="mdl-layout-title">Text Generator</span>
+            <a href="/" class="mdl-layout-title" title="Text Generator" style="color: white; text-decoration: none;">Text Generator</a>
         </a>
         <!-- Add spacer, to align navigation to the right -->
         <div class="mdl-layout-spacer"></div>
@@ -29,15 +29,10 @@
     </div>
 </header>
 <div class="mdl-layout__drawer">
-                <img class="brain-icon-header-draw" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42"></img>
+    <img class="brain-icon-header-draw" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42">
 
-    <span class="mdl-layout-title">Text Generator</span>
+    <a href="/" class="mdl-layout-title" title="Text Generator">Text Generator</a>
     <nav class="mdl-navigation">
-{#        <a class="mdl-navigation__link" href="/referrals"><i class="material-icons dp48">share</i> Referrals</a>#}
-
-{#        <a class="mdl-navigation__link" href="/api/v1/docs"><i class="material-icons dp48">monetization_on</i> Forecasts</a>#}
-{#        <a class="mdl-navigation__link" href="/accuracy"><i class="material-icons dp48">gps_fixed</i> Accuracy</a>#}
-{#        <a class="mdl-navigation__link" href="/data"><i class="material-icons dp48">cloud_download</i> Data</a>#}
         <a class="mdl-navigation__link" href="/tools"><i class="material-icons dp48">build</i> Tools</a>
         <a class="mdl-navigation__link" href="/playground"><i class="material-icons dp48">play_arrow</i> Playground</a>
         <a class="mdl-navigation__link" href="/text-to-speech"><i class="material-icons dp48">volume_up</i> Text To Speech</a>
