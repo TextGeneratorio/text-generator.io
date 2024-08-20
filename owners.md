@@ -89,7 +89,7 @@ gcloud auth print-access-token   --impersonate-service-account  lee-821@question
     us.gcr.io/questions-346919/quickstart-docker-repo/quickstart-image:tag1
 gcloud auth activate-service-account leepenkman@questions-346919.iam.gserviceaccount.com --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
 
-finallly actually works ===
+finally actually works ===
  gcloud builds submit -t us.gcr.io/questions-346919/prod-repo/prod-app-xla:v1 .
  gcloud builds submit -t us.gcr.io/questions-346919/prod-repo/prod-app-xla . --timeout 2h
  # doesnt work
