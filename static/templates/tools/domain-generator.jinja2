@@ -38,11 +38,6 @@
     </div>
 </main>
 <script>
-    // Initialize Firebase (make sure to replace with your actual Firebase config)
-    var firebaseConfig = {
-        // Your Firebase configuration object here
-    };
-    firebase.initializeApp(firebaseConfig);
 
     function initApp() {
         firebase.auth().onAuthStateChanged(function (user) {

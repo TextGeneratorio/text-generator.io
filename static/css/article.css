@@ -122,6 +122,28 @@
 
 }
 
+.centered-section {
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    position: relative;
+}
+
+.centered-section::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.2); /* Adjust the opacity as needed */
+    z-index: 1;
+}
+
+.centered-section > * {
+    position: relative;
+    z-index: 2;
+}
 .mdl-dialog {
     width: 554px
 }
@@ -785,7 +807,9 @@ input[type=number]
 a {
     color: #f17d34 !important;
     font-weight: 500;
+    display: contents;
 }
+
 footer a {
     color: #e0e0e0 !important;
 }
