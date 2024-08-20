@@ -102,9 +102,9 @@ models/tgc a chat model accessible with model=chat
 
 model=best is configured to figure out which model to use based on the prompt being scored based on perplexity of each model.
 
-This needs tuning for the avg and std deviation of the perplexity as each model has different ideas about how confidenti it is. Overtrained models are more confident about all text being in the dataset (tend to generate text verbatim from the dataset).
+This needs tuning for the avg and std deviation of the perplexity as each model has different ideas about how confident it is. Overtrained models are more confident about all text being in the dataset (tend to generate text verbatim from the dataset).
 
-models can be pointed to using environment variables, e.g. using models from hugginface instead for testing
+models can be pointed to using environment variables, e.g. using models from huggingface instead for testing
 ```
 WEIGHTS_PATH_TGZ=bigscience/bloomz
 WEIGHTS_PATH_TGC=decapoda-research/llama-7b-hf
@@ -246,7 +246,7 @@ cd models
 git clone https://huggingface.co/distilbert-base-uncased
 ```
 
-### maintenence 
+### maintenance 
 
 #### run a discord bot
 ```shell
