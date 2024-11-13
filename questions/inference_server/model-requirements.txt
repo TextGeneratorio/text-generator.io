@@ -25,10 +25,6 @@ asgiref==3.8.1
     # via uvicorn
 astroid==2.3.3
     # via -r questions/inference_server/model-requirements.in
-async-timeout==4.0.3
-    # via
-    #   aiohttp
-    #   redis
 attrs==24.2.0
     # via
     #   aiohttp
@@ -73,11 +69,7 @@ dill==0.3.7
     #   multiprocess
 einops==0.8.0
     # via -r questions/inference_server/model-requirements.in
-exceptiongroup==1.2.2
-    # via
-    #   anyio
-    #   pytest
-fastapi==0.75.1
+fastapi==0.95.2
     # via
     #   -r questions/inference_server/model-requirements.in
     #   gradio
@@ -187,10 +179,6 @@ idna==3.10
     #   httpx
     #   requests
     #   yarl
-importlib-metadata==8.5.0
-    # via markdown
-importlib-resources==6.4.5
-    # via matplotlib
 iniconfig==2.0.0
     # via pytest
 isort==4.3.21
@@ -267,7 +255,7 @@ numba==0.60.0
     # via
     #   librosa
     #   resampy
-numpy==1.22.4
+numpy==1.24.3
     # via
     #   -r questions/inference_server/model-requirements.in
     #   accelerate
@@ -344,8 +332,9 @@ packaging==24.1
     #   pytorch-lightning
     #   torchmetrics
     #   transformers
-pandas==1.5.1
+pandas==2.0.3
     # via
+    #   -r questions/inference_server/model-requirements.in
     #   datasets
     #   gradio
 pillow==9.1.1
@@ -381,7 +370,7 @@ pyasn1-modules==0.4.1
     # via google-auth
 pycparser==2.22
     # via cffi
-pydantic==1.9.0
+pydantic==1.10.7
     # via
     #   -r questions/inference_server/model-requirements.in
     #   fastapi
@@ -501,8 +490,10 @@ soundfile==0.12.1
     # via librosa
 soupsieve==2.6
     # via beautifulsoup4
-starlette==0.17.1
-    # via fastapi
+starlette==0.27.0
+    # via
+    #   -r questions/inference_server/model-requirements.in
+    #   fastapi
 stripe==3.4.0
     # via -r questions/inference_server/model-requirements.in
 sympy==1.13.1
@@ -519,8 +510,6 @@ tokenizers==0.20.3
     # via
     #   -r questions/inference_server/model-requirements.in
     #   transformers
-tomli==2.1.0
-    # via pytest
 torch==2.5.1
     # via
     #   -r questions/inference_server/model-requirements.in
@@ -555,17 +544,16 @@ triton==3.1.0
 typing-extensions==4.12.2
     # via
     #   altair
-    #   asgiref
     #   gradio
     #   gradio-client
     #   huggingface-hub
     #   lightning-utilities
-    #   multidict
     #   omegaconf
     #   pydantic
-    #   pypdf2
     #   pytorch-lightning
     #   torch
+tzdata==2024.2
+    # via pandas
 uc-micro-py==1.0.3
     # via linkify-it-py
 uritemplate==4.1.1
@@ -598,7 +586,3 @@ yarl==1.17.1
     # via aiohttp
 youtube-dl==2021.12.17
     # via -r questions/inference_server/model-requirements.in
-zipp==3.21.0
-    # via
-    #   importlib-metadata
-    #   importlib-resources

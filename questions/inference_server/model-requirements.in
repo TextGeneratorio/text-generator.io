@@ -1,7 +1,11 @@
 astroid==2.3.3
 Click
 colorama==0.4.3
-fastapi
+
+fastapi==0.95.2
+pydantic==1.10.7
+starlette
+
 gunicorn==20.1.0
 h11==0.9.0
 isort==4.3.21
@@ -34,7 +38,7 @@ google-cloud-storage==2.3.0 #not on gae python
 
 google-cloud-ndb==1.11.1
 loguru==0.5.3
-pydantic==1.9.0
+#pydantic==1.9.0
 jinja2==3.1.1 #not on gae python
 #jinja2==3.0.3
 
@@ -62,12 +66,15 @@ einops
 datasets
 Pillow==9.1.1
 
-numpy==1.22.4
+numpy==1.24.3
+pandas==2.0.3
+youtube_dl
+loguru
 # end OFA
 
 # OCR/pdf processing
 pypdf2==2.10.9
-pytesseract==0.3.10
+pytesseract
 setuptools==59.5.0
 
 whisper @ git+https://github.com/openai/whisper.git@15ab54826343c27cfaf44ce31e9c8fb63d0aa775

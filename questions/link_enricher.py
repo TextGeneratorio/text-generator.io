@@ -11,23 +11,14 @@ from PIL import Image
 from cachetools import cached
 from loguru import logger
 from requests_futures.sessions import FuturesSession
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from questions.inference_server.model_cache import ModelCache
 
 # change into OFA dir
 from questions.image_utils.scaler import scale_down
 from questions.ocr_tess import ocr_tess
 from questions.utils import log_time, debug
 
-working_dir_path = Path(__file__).parent.parent
-ofa_path = working_dir_path / "OFA"
-# change into OFA dir
-os.chdir(path=ofa_path)
-from OFA.app import image_caption  # loads a model
-
-# move OFA back to cpu
-# if torch.cuda.is_available():
-#     model.cpu()
-# os.system('cd ..;')
-os.chdir(path=working_dir_path)
 
 session = FuturesSession(max_workers=10)
 
@@ -99,42 +90,51 @@ audio_mime_types = [
 
 ocr_tags = ["receipt", 'screenshot', 'licence', 'document', 'paper', 'sign', 'advert', 'book', 'logo', 'screen']
 
-def get_caption_for_image_response(response):
-    # global model_to_swap
-    # if torch.cuda.is_available():
-    #     with log_time("gpu swap in"):
-    #         if model_to_swap:
-    #             # todo swapping with accelerate
-    #             model_to_swap.cpu()
-    #         model.cuda()
-    # TODO make this involve less copying
+LINK_MODEL_CACHE = ModelCache()
+
+def load_moondream_model():
+    """Load the Moondream model for image captioning"""
+    model_path = "models/moondream2"
+    model_id = "vikhyatk/moondream2"
+    revision = "2024-08-26"
+    
+    if not os.path.exists(model_path):
+        os.makedirs(model_path, exist_ok=True)
+        
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        trust_remote_code=True,
+        revision=revision,
+        cache_dir=model_path
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_id,
+        revision=revision,
+        cache_dir=model_path
+    )
+    return model, tokenizer
+
+def get_caption_for_image_response(response, prompt="Describe this image in detail."):
+    """Get image caption using Moondream model"""
     response.raw.decode_content = True
     image_bytes = response.content
-
-    # convert to rgb
-    # img = cv2.imdecode(np.asarray(bytearray(response.content), np.uint8), cv2.IMREAD_COLOR)
-
-    # load response.content as PIL image
+    
     bytes_io = BytesIO(image_bytes)
-    img_full = Image.open(bytes_io)
-    with (log_time("image scaling")):
-        img = scale_down(img_full)
-
-    with (log_time("image captioning")):
-        caption = image_caption(img)
+    img = Image.open(bytes_io)
+    
+    with log_time("image captioning"):
+        model, tokenizer = LINK_MODEL_CACHE.add_or_get("moondream_model", load_moondream_model)
+        enc_image = model.encode_image(img)
+        caption = model.answer_question(enc_image, prompt, tokenizer)
+        
         if debug:
             logger.info(caption)
-        # if torch.cuda.is_available():
-        #     with log_time("gpu swap back"):
-        #         model.cpu()
-        #         if model_to_swap:
-        #             # todo swapping with accelerate
-        #             model_to_swap.cuda()
-    if any(ocr_tag in caption for ocr_tag in ocr_tags):
+            
+    if any(ocr_tag in caption.lower() for ocr_tag in ocr_tags):
         with log_time("OCR"):
-            ocr_data = ocr_tess(img_full)
-            # logger.info(ocr_data)
-            caption += ocr_data
+            ocr_data = ocr_tess(img)
+            caption += " " + ocr_data
+            
     return caption
 
 

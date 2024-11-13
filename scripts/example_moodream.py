@@ -25,15 +25,17 @@ def main():
     
     print("Loading model and tokenizer...")
     model = AutoModelForCausalLM.from_pretrained(
-        model_id, 
-        trust_remote_code=True, 
+        model_id,
+        trust_remote_code=True,
         revision=revision,
-        cache_dir=model_path
+        cache_dir=model_path,
+        force_download=True
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_id, 
         revision=revision,
-        cache_dir=model_path
+        cache_dir=model_path,
+        force_download=True
     )
 
     # Load and process image

@@ -65,3 +65,23 @@ def test_enrich_links_cache_():
     assert titles == titles2
 
     # assert titles == [""]
+
+
+def test_get_caption_with_custom_prompt():
+    textimg = """https://static.text-generator.io/static/img/fairy3.jpeg"""
+    result = enrich_links(textimg)
+    assert "fairy" in result.lower()  # Basic check that it found a fairy
+
+
+def test_get_caption_with_specific_prompt():
+    textimg = """https://static.text-generator.io/static/img/fairy3.jpeg"""
+    urls = get_urls(textimg)
+    from questions.link_enricher import get_caption_for_image_response
+    import requests
+    
+    response = requests.get(urls[0])
+    caption = get_caption_for_image_response(
+        response, 
+        prompt="What colors are most prominent in this image?"
+    )
+    assert any(color in caption.lower() for color in ['blue', 'red', 'green', 'white', 'black'])
