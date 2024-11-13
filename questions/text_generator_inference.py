@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from accelerate import Accelerator, infer_auto_device_map, dispatch_model
-from accelerate.utils import is_tpu_available
+# from accelerate.utils import is_tpu_available
 from cachetools import TTLCache
 from loguru import logger
 from transformers import (
@@ -65,10 +65,10 @@ weights_to_name_key = {
 }
 name_key_to_weights = {v: k for k, v in weights_to_name_key.items()}
 
-if is_tpu_available():
-    import torch_xla.core.xla_model as xm
+# if is_tpu_available():
+#     import torch_xla.core.xla_model as xm
 
-DEVICE = "tpu" if is_tpu_available() else DEVICE
+# DEVICE = "tpu" if is_tpu_available() else DEVICE
 
 # weights_path = "models/tg-1b3/"
 # weights_path = "models/tg-2b5/"

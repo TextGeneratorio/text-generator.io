@@ -92,6 +92,8 @@ pytest
 torch>=2.2.0
 torchvision>=0.17.0  
 torchaudio>=2.2.0
-httpx
-gradio
+httpx==0.24.1
+gradio==3.33.1
 httpcore
+
+# warning PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python and pip install "httpx==0.24.1" "httpcore==0.17.0" "gradio==3.33.1" might be required 

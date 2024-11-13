@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer
 
 from questions.models import GenerateParams
-from questions.post_process_results import post_process_results, post_process_results_fix_bad_starting_bug
+from questions.post_process_results import post_process_results
 
 
 def test_post_process_results():

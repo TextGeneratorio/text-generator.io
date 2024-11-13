@@ -31,7 +31,7 @@ class FeatureExtractModel(nn.Module):
         return mean_pool
 
 
-checkpoint = "/models/distilbert-base-uncased"
+checkpoint = "models/distilbert-base-uncased"
 distilbert = None
 def get_distilbert():
     global distilbert
