@@ -1,0 +1,19 @@
+
+## Install dependencies
+
+system dependencies:
+
+```
+sudo apt-get update
+sudo apt-get install gcc make python3-dev libjpeg-dev zlib1g-dev
+```
+
+python dependencies:
+
+```shell
+uv pip compile model-requirements.in --universal -o model-requirements.txt
+```
+
+```shell
+uv pip sync model-requirements.txt
+```

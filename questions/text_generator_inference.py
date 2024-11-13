@@ -101,6 +101,7 @@ def load_model(weights_path):
 
     logger.info(f"loading model from {weights_path}")
 
+
     low_mem = True
     # model = GPT2LMHeadModel.from_pretrained('gpt2', low_cpu_mem_usage=low_mem, pad_token_id=tokenizer.eos_token_id)
     if "gpt-neo" in weights_path:
@@ -119,6 +120,10 @@ def load_model(weights_path):
         model = BloomForCausalLM.from_pretrained(
             weights_path, low_cpu_mem_usage=low_mem, pad_token_id=tokenizer.eos_token_id
         )
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(weights_path, )
+        model = AutoModelForCausalLM.from_pretrained(weights_path, device_map="auto", torch_dtype=torch.bfloat16)
+
 
     full_vocab_tokens = list(range(tokenizer.vocab_size))
     # dont generate the pad token which is the eos_token_id which causes stopping!

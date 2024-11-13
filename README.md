@@ -88,6 +88,12 @@ mv sellerinfo_faked.py sellerinfo.py
 
 ### Models
 
+Download models from huggingface.
+
+```shell
+huggingface-cli download HuggingFaceTB/SmolLM-1.7B --local-dir models/SmolLM-1.7B
+```
+
 Text Generator models are not open source yet.
 
 [please support us to get the models](https://text-generator.io/subscribe)
@@ -252,6 +258,18 @@ git clone https://huggingface.co/distilbert-base-uncased
 ```shell
 PYTHONPATH=$(pwd):$(pwd)/OFA python questions/disbot/disbot.py
 ```
+
+#### compile dependencies
+use uv pip to compile the dependencies
+
+```shell
+uv pip compile questions/inference_server/model-requirements.in    --universal -o questions/inference_server/model-requirements.txt
+```
+
+```shell
+uv pip sync questions/inference_server/model-requirements.txt
+```
+
 
 #### remember to stretch!
 stretch your body every 30 mins with the say command...
