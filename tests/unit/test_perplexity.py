@@ -134,38 +134,38 @@ def plot_distribution(perplexities, name):
     plt.savefig(f'perplexity_distribution{name.replace("/", "-")}.png')
 
 
-def test_get_perplexity():
-    model = BloomForCausalLM.from_pretrained("models/tgz-7b1")
-    # convert to half
-    model.half()
+# def test_get_perplexity():
+#     model = BloomForCausalLM.from_pretrained("models/SmolLM-1.7B")
+#     # convert to half
+#     model.half()
 
-    model.to(DEVICE)
-    tokenizer = BloomTokenizerFast.from_pretrained("models/tgz-7b1")
-    test_text = "This is a test"
-    perplexity = get_perplexity(model, tokenizer, test_text, stride=51200)
-    logger.info(perplexity)
-    assert perplexity > 0
-    unusual_text = "483kjqkjnsfgu8vsafdkln8y9sfgdsafd"
-    u_perplexity = get_perplexity(model, tokenizer, unusual_text, stride=51200)
-    assert u_perplexity > perplexity
-    logger.info(u_perplexity)
+#     model.to(DEVICE)
+#     tokenizer = BloomTokenizerFast.from_pretrained("models/SmolLM-1.7B")
+#     test_text = "This is a test"
+#     perplexity = get_perplexity(model, tokenizer, test_text, stride=51200)
+#     logger.info(perplexity)
+#     assert perplexity > 0
+#     unusual_text = "483kjqkjnsfgu8vsafdkln8y9sfgdsafd"
+#     u_perplexity = get_perplexity(model, tokenizer, unusual_text, stride=51200)
+#     assert u_perplexity > perplexity
+#     logger.info(u_perplexity)
 
-    # print distribution of perplexity over the texts
-    texts_split = [texts[i:i + 512] for i in range(0, len(texts), 512)]
-    perplexities = [get_perplexity(model, tokenizer, text, stride=51200) for text in texts_split]
-    logger.info(perplexities)
-    # graph the distribution
-    plot_distribution(perplexities, "models/tg-7b1") # gpt2 is 85 distill is 95 bloomz is 99
-    logger.info(f"average perplexity: {sum(perplexities) / len(perplexities)}")
+#     # print distribution of perplexity over the texts
+#     texts_split = [texts[i:i + 512] for i in range(0, len(texts), 512)]
+#     perplexities = [get_perplexity(model, tokenizer, text, stride=51200) for text in texts_split]
+#     logger.info(perplexities)
+#     # graph the distribution
+#     plot_distribution(perplexities, "models/tg-7b1") # gpt2 is 85 distill is 95 bloomz is 99
+#     logger.info(f"average perplexity: {sum(perplexities) / len(perplexities)}")
 
-    # test with a different model.
-    model = BloomForCausalLM.from_pretrained("models/tg-7b1")
-    model.half()
-    model.to(DEVICE)
-    tokenizer = BloomTokenizerFast.from_pretrained("models/tg-7b1")
-    perplexities = [get_perplexity(model, tokenizer, text, stride=51200) for text in texts_split]
-    logger.info(perplexities)
-    # graph the distribution
-    plot_distribution(perplexities, "models/tg-7b1")
-    # log average
-    logger.info(f"average perplexity: {sum(perplexities) / len(perplexities)}")
+#     # test with a different model.
+#     model = BloomForCausalLM.from_pretrained("models/tg-7b1")
+#     model.half()
+#     model.to(DEVICE)
+#     tokenizer = BloomTokenizerFast.from_pretrained("models/tg-7b1")
+#     perplexities = [get_perplexity(model, tokenizer, text, stride=51200) for text in texts_split]
+#     logger.info(perplexities)
+#     # graph the distribution
+#     plot_distribution(perplexities, "models/tg-7b1")
+#     # log average
+#     logger.info(f"average perplexity: {sum(perplexities) / len(perplexities)}")

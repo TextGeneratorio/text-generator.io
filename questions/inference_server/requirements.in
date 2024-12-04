@@ -1,0 +1,100 @@
+astroid
+Click
+colorama
+
+fastapi
+pydantic
+starlette
+
+gunicorn
+h11
+isort
+lazy-object-proxy
+mccabe
+six
+uvicorn
+wrapt
+#transformers
+#git+https://github.com/huggingface/transformers.git
+transformers
+tokenizers
+#transformers
+accelerate
+
+triton
+# --find-links https://download.pytorch.org/whl/torch_stable.html
+# pip3 install --pre torch torchvision torchaudio --find-links https://download.pytorch.org/whl/nightly/cu121
+# torch
+# torchaudio
+#torch
+#torch
+# we dont need torchvision-0.12.0+cu113
+
+
+google-api-python-client
+google-api-core
+google-cloud-storage
+#google-cloud-storage
+
+google-cloud-ndb
+loguru
+#pydantic
+jinja2
+#jinja2
+
+nltk
+#nltk
+stripe
+cachetools
+python-multipart
+
+# docs hosting
+gradio
+# OFA link research
+bs4
+requests
+requests-futures
+
+
+opencv-python
+ftfy
+#tensorboardX
+
+#pycocoevalcap
+pytorch_lightning
+einops
+datasets
+Pillow
+
+numpy
+pandas
+youtube_dl
+loguru
+# end OFA
+
+# OCR/pdf processing
+pypdf2
+pytesseract
+setuptools
+
+# whisper @ git+https://github.com/openai/whisper.git@15ab54826343c27cfaf44ce31e9c8fb63d0aa775
+whisper
+ffmpeg-python
+tensorboard
+# download video/audio extract
+youtube_dl
+# adding audio/generation
+librosa
+sentencepiece
+omegaconf
+pytest
+
+--find-links https://download.pytorch.org/whl/cu121
+torch>=2.2.0
+torchvision>=0.17.0  
+torchaudio>=2.2.0
+httpx
+gradio
+httpcore
+
+# warning PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python and pip install "httpx
