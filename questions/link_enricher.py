@@ -11,6 +11,7 @@ from PIL import Image
 from cachetools import cached
 from loguru import logger
 from requests_futures.sessions import FuturesSession
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from questions.inference_server.model_cache import ModelCache
 
@@ -105,7 +106,10 @@ def load_moondream_model():
         model_id,
         trust_remote_code=True,
         revision=revision,
-        cache_dir=model_path
+        cache_dir=model_path,
+        # gpu suppoer
+        torch_dtype=torch.float16,
+        attn_implementation="flash_attention_2"
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_id,
