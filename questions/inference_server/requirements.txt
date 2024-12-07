@@ -254,7 +254,7 @@ numba==0.60.0
     # via
     #   librosa
     #   resampy
-numpy==1.22.4
+numpy==1.26.4
     # via
     #   -r requirements.in
     #   accelerate
@@ -471,6 +471,7 @@ setuptools==59.5.0
     #   gunicorn
     #   lightning-utilities
     #   tensorboard
+    #   torch
 six==1.14.0
     # via
     #   -r requirements.in

@@ -1,4 +1,6 @@
 .env
+.venv
+*.venv
 .git
 models
 OFA/checkpoints

@@ -10,10 +10,11 @@ sudo apt-get install gcc make python3-dev libjpeg-dev zlib1g-dev
 
 python dependencies:
 
+
 ```shell
-uv pip compile model-requirements.in --universal -o model-requirements.txt
+uv pip compile requirements.in --universal -o requirements.txt && uv pip install -r requirements.txt  --python .venv/bin/python
 ```
 
 ```shell
-uv pip sync model-requirements.txt
+uv pip sync requirements.txt
 ```
