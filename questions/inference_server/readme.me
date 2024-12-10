@@ -18,3 +18,7 @@ uv pip compile requirements.in --universal -o requirements.txt && uv pip install
 ```shell
 uv pip sync requirements.txt
 ```
+
+
+
+PYTHONPATH=$(pwd) GOOGLE_APPLICATION_CREDENTIALS=secrets/google-credentials.json uvicorn questions.inference_server.inference_server:app --host 0.0.0.0 --port 9080 --workers 1 --timeout-keep-alive 180000

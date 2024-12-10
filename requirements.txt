@@ -21,7 +21,7 @@ click==7.0
     #   uvicorn
 colorama==0.4.3
     # via -r requirements.in
-fastapi==0.110.3
+fastapi==0.109.2
     # via -r requirements.in
 google-api-core==1.31.5
     # via
@@ -104,9 +104,11 @@ pyasn1==0.6.1
     #   rsa
 pyasn1-modules==0.4.1
     # via google-auth
-pydantic==2.10.3
-    # via fastapi
-pydantic-core==2.27.1
+pydantic==2.6.1
+    # via
+    #   -r requirements.in
+    #   fastapi
+pydantic-core==2.16.2
     # via pydantic
 pymemcache==4.0.0
     # via google-cloud-ndb
@@ -145,7 +147,7 @@ six==1.14.0
     #   python-multipart
 sniffio==1.3.1
     # via anyio
-starlette==0.37.2
+starlette==0.36.3
     # via fastapi
 stripe==3.4.0
     # via -r requirements.in

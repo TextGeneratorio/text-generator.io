@@ -1,27 +1,22 @@
-astroid
-Click
+astroid>=3.0.0  # Updated for Python 3.12+ compatibility
+Click>=8.0.0
 colorama
 
-fastapi
-pydantic
-starlette
+starlette>=0.36.0
 
 gunicorn
 h11
-isort
+isort>=5.13.0
 lazy-object-proxy
 mccabe
 six
 uvicorn
-wrapt
-#transformers
-#git+https://github.com/huggingface/transformers.git
-transformers
+wrapt>=1.16.0
+transformers>=4.38.0
 tokenizers
-#transformers
 accelerate
 
-triton
+triton>=2.2.0
 # --find-links https://download.pytorch.org/whl/torch_stable.html
 # pip3 install --pre torch torchvision torchaudio --find-links https://download.pytorch.org/whl/nightly/cu121
 # torch
@@ -30,71 +25,66 @@ triton
 #torch
 # we dont need torchvision-0.12.0+cu113
 
+google-api-python-client>=2.0.0
+google-api-core>=2.0.0
+google-cloud-storage>=2.0.0
 
-google-api-python-client
-google-api-core
-google-cloud-storage
-#google-cloud-storage
+google-cloud-ndb>=2.3.0
+loguru>=0.7.0
+jinja2>=3.0.0
 
-google-cloud-ndb
-loguru
-#pydantic
-jinja2
-#jinja2
-
-nltk
-#nltk
-stripe
-cachetools
-python-multipart
+nltk>=3.8.0
+stripe>=7.0.0
+cachetools>=5.0.0
+python-multipart>=0.0.9
 
 # docs hosting
-gradio
+gradio>=4.0.0
 # OFA link research
 bs4
 requests
 requests-futures
 
+opencv-python>=4.9.0
+ftfy>=6.1.0
 
-opencv-python
-ftfy
-#tensorboardX
+pytorch_lightning>=2.2.0
+einops>=0.7.0
+datasets>=2.16.0
+Pillow>=10.0.0
 
-#pycocoevalcap
-pytorch_lightning
-einops
-datasets
-Pillow
+numpy>=1.26.0,<2
 
-numpy>1.22.4,<2
-pandas
+pandas>=2.2.3
+
 youtube_dl
 loguru
 # end OFA
 
 # OCR/pdf processing
-pypdf2
-pytesseract
-setuptools
+pypdf2>=3.0.0
+pytesseract>=0.3.10
+setuptools>=69.0.0
 
-# whisper @ git+https://github.com/openai/whisper.git@15ab54826343c27cfaf44ce31e9c8fb63d0aa775
-whisper
-ffmpeg-python
-tensorboard
+whisper>=1.1.0
+ffmpeg-python>=0.2.0
+tensorboard>=2.15.0
 # download video/audio extract
 youtube_dl
 # adding audio/generation
-librosa
-sentencepiece
-omegaconf
-pytest
+librosa>=0.10.0
+sentencepiece>=0.2.0
+omegaconf>=2.3.0
+pytest>=8.0.0
 
 --find-links https://download.pytorch.org/whl/cu121
 torch>=2.2.0
 torchvision>=0.17.0  
 torchaudio>=2.2.0
-httpx
-gradio
-httpcore
+httpx>=0.27.0
+gradio>=4.0.0
+httpcore>=1.0.0
 
-# warning PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python and pip install "httpx
+fastapi>=0.109.2
+pydantic>=2.6.1
+# warning PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python and pip install "httpx"

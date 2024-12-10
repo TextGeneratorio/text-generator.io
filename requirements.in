@@ -1,7 +1,6 @@
 astroid
 Click
 colorama
-fastapi
 gunicorn
 h11
 isort
@@ -26,7 +25,6 @@ google-cloud-storage
 
 google-cloud-ndb
 loguru
-#pydantic
 #jinja2
 jinja2
 websockets
@@ -36,3 +34,6 @@ stripe
 cachetools
 python-multipart
 rsa
+
+fastapi==0.109.2
+pydantic==2.6.1
