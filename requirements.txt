@@ -93,6 +93,8 @@ nltk==3.6.7
     # via -r requirements.in
 packaging==24.2
     # via google-api-core
+pillow==10.2.0
+    # via -r requirements.in
 protobuf==5.29.1
     # via
     #   google-api-core
@@ -153,6 +155,8 @@ stripe==3.4.0
     # via -r requirements.in
 tqdm==4.67.1
     # via nltk
+transformers==4.38.2
+    # via -r requirements.in
 typing-extensions==4.12.2
     # via
     #   anyio

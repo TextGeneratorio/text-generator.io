@@ -109,20 +109,22 @@ def load_model(weights_path):
         model = GPTNeoForCausalLM.from_pretrained(
             weights_path, pad_token_id=tokenizer.eos_token_id, low_cpu_mem_usage=low_mem
         )
-    elif "tgc" in weights_path:
-        tokenizer = AutoTokenizer.from_pretrained(weights_path, padding_side='left')
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(weights_path, padding_side='left',trust_remote_code=True)
 
         model = AutoModelForCausalLM.from_pretrained(weights_path, low_cpu_mem_usage=low_mem,
+                                                     device_map="auto", #torch_dtype=torch.bfloat16,
+                                                     trust_remote_code=True,
                                                      pad_token_id=tokenizer.eos_token_id)
-    elif "tg" in weights_path:
-        tokenizer = BloomTokenizerFast.from_pretrained(weights_path)
+    # elif "tg" in weights_path:
+    #     tokenizer = BloomTokenizerFast.from_pretrained(weights_path)
 
-        model = BloomForCausalLM.from_pretrained(
-            weights_path, low_cpu_mem_usage=low_mem, pad_token_id=tokenizer.eos_token_id
-        )
-    else:
-        tokenizer = AutoTokenizer.from_pretrained(weights_path, )
-        model = AutoModelForCausalLM.from_pretrained(weights_path, device_map="auto", torch_dtype=torch.bfloat16)
+    #     model = BloomForCausalLM.from_pretrained(
+    #         weights_path, low_cpu_mem_usage=low_mem, pad_token_id=tokenizer.eos_token_id
+    #     )
+    # else:
+    #     tokenizer = AutoTokenizer.from_pretrained(weights_path, )
+    #     model = AutoModelForCausalLM.from_pretrained(weights_path, device_map="auto", torch_dtype=torch.bfloat16)
 
 
     full_vocab_tokens = list(range(tokenizer.vocab_size))
@@ -461,8 +463,10 @@ def load_pipelines_and_model(weights_path):
 
     weights_to_model[weights_path] = model
     weights_to_generator[weights_path] = pipeline(
-        "text-generation", model=model, tokenizer=tokenizer, device=pipeline_device
+        "text-generation", model=model, tokenizer=tokenizer,# device=pipeline_device
     )
+    # move pipeline to gpu
+    # weights_to_generator[weights_path].to(DEVICE)
     weights_to_tokenizer[weights_path] = tokenizer
     # feature_extractor = pipeline(
     #     "feature-extraction", model=model, tokenizer=tokenizer, device=pipeline_device

@@ -65,7 +65,9 @@ dill==0.3.7
     #   datasets
     #   multiprocess
 einops==0.8.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   flash-attn
 fastapi==0.109.2
     # via
     #   -r requirements.in
@@ -81,6 +83,8 @@ filelock==3.16.1
     #   torch
     #   transformers
     #   triton
+flash-attn==2.7.2.post1
+    # via -r requirements.in
 frozenlist==1.5.0
     # via
     #   aiohttp
@@ -376,7 +380,9 @@ pytesseract==0.3.10
 pytest==8.3.4
     # via -r requirements.in
 python-dateutil==2.9.0.post0
-    # via pandas
+    # via
+    #   -r requirements.in
+    #   pandas
 python-multipart==0.0.19
     # via
     #   -r requirements.in
@@ -444,7 +450,7 @@ setuptools==75.6.0
     #   torch
 shellingham==1.5.4
     # via typer
-six==1.14.0
+six==1.17.0
     # via
     #   -r requirements.in
     #   python-dateutil
@@ -472,7 +478,7 @@ tensorboard-data-server==0.7.2
     # via tensorboard
 threadpoolctl==3.5.0
     # via scikit-learn
-tokenizers==0.20.3
+tokenizers==0.21.0
     # via
     #   -r requirements.in
     #   transformers
@@ -482,6 +488,7 @@ torch==2.5.1
     # via
     #   -r requirements.in
     #   accelerate
+    #   flash-attn
     #   pytorch-lightning
     #   torchaudio
     #   torchmetrics
@@ -499,7 +506,7 @@ tqdm==4.66.6
     #   nltk
     #   pytorch-lightning
     #   transformers
-transformers==4.46.2
+transformers==4.47.0
     # via -r requirements.in
 triton==3.1.0
     # via

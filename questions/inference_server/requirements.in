@@ -9,19 +9,23 @@ h11
 isort>=5.13.0
 lazy-object-proxy
 mccabe
-six
+six>=1.16.0
 uvicorn
 wrapt>=1.16.0
-transformers>=4.38.0
+transformers>=4.47.0
 tokenizers
 accelerate
+flash_attn
 
 triton>=2.2.0
 # --find-links https://download.pytorch.org/whl/torch_stable.html
 # pip3 install --pre torch torchvision torchaudio --find-links https://download.pytorch.org/whl/nightly/cu121
 # torch
 # torchaudio
-#torch
+--find-links https://download.pytorch.org/whl/nightly/cu121
+torch
+torchvision
+
 #torch
 # we dont need torchvision-0.12.0+cu113
 
@@ -56,7 +60,7 @@ Pillow>=10.0.0
 numpy>=1.26.0,<2
 
 pandas>=2.2.3
-
+python-dateutil>=2.9.0.post0
 youtube_dl
 loguru
 # end OFA

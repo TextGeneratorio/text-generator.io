@@ -95,36 +95,26 @@ LINK_MODEL_CACHE = ModelCache()
 
 def load_moondream_model():
     """Load the Moondream model for image captioning"""
-    model_path = "models/moondream2"
     model_id = "vikhyatk/moondream2"
     revision = "2024-08-26"
     
-    if not os.path.exists(model_path):
-        os.makedirs(model_path, exist_ok=True)
-        
     model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        trust_remote_code=True,
-        revision=revision,
-        cache_dir=model_path,
-        # gpu suppoer
-        torch_dtype=torch.float16,
-        attn_implementation="flash_attention_2"
+        model_id, 
+        trust_remote_code=True, 
+        revision=revision
     )
     tokenizer = AutoTokenizer.from_pretrained(
-        model_id,
-        revision=revision,
-        cache_dir=model_path
+        model_id, 
+        revision=revision
     )
     return model, tokenizer
 
-def get_caption_for_image_response(response, prompt="Describe this image in detail."):
+def get_caption_for_image_response(response, prompt="Describe this image."):
     """Get image caption using Moondream model"""
     response.raw.decode_content = True
     image_bytes = response.content
     
-    bytes_io = BytesIO(image_bytes)
-    img = Image.open(bytes_io)
+    img = Image.open(BytesIO(image_bytes))
     
     with log_time("image captioning"):
         model, tokenizer = LINK_MODEL_CACHE.add_or_get("moondream_model", load_moondream_model)
@@ -132,13 +122,13 @@ def get_caption_for_image_response(response, prompt="Describe this image in deta
         caption = model.answer_question(enc_image, prompt, tokenizer)
         
         if debug:
-            logger.info(caption)
+            logger.info(f"Image description: {caption}")
             
-    if any(ocr_tag in caption.lower() for ocr_tag in ocr_tags):
-        with log_time("OCR"):
-            ocr_data = ocr_tess(img)
-            caption += " " + ocr_data
-            
+        if any(ocr_tag in caption.lower() for ocr_tag in ocr_tags):
+            with log_time("OCR"):
+                ocr_data = ocr_tess(img)
+                caption += " " + ocr_data
+                
     return caption
 
 
