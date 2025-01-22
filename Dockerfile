@@ -93,4 +93,4 @@ ENV TPU_IP_ADDRESS=10.2.2.2
 ENV XRT_TPU_CONFIG="tpu_worker;0;$TPU_IP_ADDRESS:8470"
 ENV XLA_USE_BF16=1
 
-ENTRYPOINT PYTHONPATH=/code:/code/OFA:/code/OFA:/code/OFA/fairseq gunicorn -k uvicorn.workers.UvicornWorker -b :$PORT questions.inference_server.inference_server:app --timeout 180000 --workers $PROCESS_COUNT
+ENTRYPOINT gunicorn -k uvicorn.workers.UvicornWorker -b :$PORT questions.inference_server.inference_server:app --timeout 180000 --workers $PROCESS_COUNT

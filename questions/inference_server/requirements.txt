@@ -12,6 +12,7 @@ aiohttp==3.10.10
     # via
     #   datasets
     #   fsspec
+    #   runpod
 aiosignal==1.3.1
     # via aiohttp
 annotated-types==0.7.0
@@ -33,6 +34,12 @@ audioread==3.0.1
     # via librosa
 beautifulsoup4==4.12.3
     # via bs4
+boto3==1.35.86
+    # via runpod
+botocore==1.35.86
+    # via
+    #   boto3
+    #   s3transfer
 bs4==0.0.1
     # via -r requirements.in
 cachetools==5.5.0
@@ -164,6 +171,8 @@ httplib2==0.22.0
     # via
     #   google-api-python-client
     #   google-auth-httplib2
+httptools==0.6.4
+    # via -r requirements.in
 httpx==0.28.1
     # via
     #   -r requirements.in
@@ -192,6 +201,10 @@ jinja2==3.1.1
     #   -r requirements.in
     #   gradio
     #   torch
+jmespath==1.0.1
+    # via
+    #   boto3
+    #   botocore
 joblib==1.4.2
     # via
     #   librosa
@@ -321,6 +334,7 @@ pillow==10.4.0
     #   -r requirements.in
     #   gradio
     #   pytesseract
+    #   runpod
     #   torchvision
 platformdirs==4.3.6
     # via pooch
@@ -382,7 +396,10 @@ pytest==8.3.4
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.in
+    #   botocore
     #   pandas
+python-dotenv==1.0.1
+    # via runpod
 python-multipart==0.0.19
     # via
     #   -r requirements.in
@@ -408,7 +425,7 @@ regex==2024.9.11
     # via
     #   nltk
     #   transformers
-requests==2.27.1
+requests==2.32.3
     # via
     #   -r requirements.in
     #   datasets
@@ -417,6 +434,7 @@ requests==2.27.1
     #   huggingface-hub
     #   pooch
     #   requests-futures
+    #   runpod
     #   stripe
     #   transformers
 requests-futures==1.0.0
@@ -427,6 +445,10 @@ rsa==4.9
     # via google-auth
 ruff==0.8.2
     # via gradio
+runpod==0.7.6
+    # via -r requirements.in
+s3transfer==0.10.4
+    # via boto3
 safetensors==0.4.5
     # via
     #   accelerate
@@ -533,7 +555,9 @@ tzdata==2024.2
 uritemplate==4.1.1
     # via google-api-python-client
 urllib3==1.26.20
-    # via requests
+    # via
+    #   botocore
+    #   requests
 uvicorn==0.17.0
     # via
     #   -r requirements.in
