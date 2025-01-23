@@ -43,7 +43,6 @@ static/js/templates.js
 node_modules
 secrets
 customersecrets
-config.json
 ddns/config.json
 __pycache__
 flagged
