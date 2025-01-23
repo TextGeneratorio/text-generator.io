@@ -36,7 +36,7 @@ def get_subscription_item_id_for_user(stripe_id):
     subscriptions = get_subscription_data_for(stripe_id)
     for (i, subscription) in enumerate(subscriptions):
         if subscription["customer"] == stripe_id:
-            if subscription["plan"]["name"] == "Text Generator - Self Hosted - Per Instance":
+            if subscription["plan"].get("name") == "Text Generator - Self Hosted - Per Instance":
                 pass
             else:
                 subscription_item_id = subscription["items"].data[0]["id"]
@@ -72,7 +72,7 @@ def get_self_hosted_subscription_item_id_for_user(stripe_id):
     subscriptions = get_subscription_data_for(stripe_id)
     for (i, subscription) in enumerate(subscriptions):
         if subscription["customer"] == stripe_id:
-            if subscription["plan"]["name"] == "Text Generator - Self Hosted - Per Instance":
+            if subscription["plan"].get("name") == "Text Generator - Self Hosted - Per Instance":
                 subscription_item_id = subscription["items"].data[0]["id"]
                 logger.info(subscription)
                 # currently, there's only one subscription
@@ -86,7 +86,7 @@ def get_self_hosted_subscription_count_for_user(stripe_id):
     count = 0
     for (i, subscription) in enumerate(subscriptions):
         if subscription["customer"] == stripe_id:
-            if subscription["plan"]["name"] == "Text Generator - Self Hosted - Per Instance":
+            if subscription["plan"].get("name") == "Text Generator - Self Hosted - Per Instance":
                 # check if active or not
                 if subscription["status"] == "active" or subscription["status"] == "trialing":
                     count += 1
