@@ -93,7 +93,7 @@ einops==0.8.0
     # via
     #   -r requirements.in
     #   flash-attn
-fastapi==0.109.2
+fastapi==0.115.7
     # via
     #   -r requirements.in
     #   gradio
@@ -163,9 +163,9 @@ googleapis-common-protos==1.65.0
     # via
     #   google-api-core
     #   grpcio-status
-gradio==5.1.0
+gradio==5.13.0
     # via -r requirements.in
-gradio-client==1.4.0
+gradio-client==1.6.0
     # via gradio
 grpcio==1.67.1
     # via
@@ -196,6 +196,7 @@ httpx==0.28.1
     #   -r requirements.in
     #   gradio
     #   gradio-client
+    #   safehttpx
 huggingface-hub==0.26.2
     # via
     #   accelerate
@@ -505,6 +506,8 @@ runpod==0.7.6
     # via -r requirements.in
 s3transfer==0.10.4
     # via boto3
+safehttpx==0.1.6
+    # via gradio
 safetensors==0.4.5
     # via
     #   accelerate
@@ -544,10 +547,11 @@ soupsieve==2.6
     # via beautifulsoup4
 soxr==0.5.0.post1
     # via librosa
-starlette==0.36.3
+starlette==0.45.2
     # via
     #   -r requirements.in
     #   fastapi
+    #   gradio
 stripe==11.3.0
     # via -r requirements.in
 sympy==1.13.1

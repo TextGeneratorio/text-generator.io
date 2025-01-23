@@ -590,18 +590,16 @@ async def generate_speech(
     # return Response(wav, media_type="audio/wav")
 
 
-def gradio_audio_process(request: gr.Request, text, speaker, secret=None, cookies=None):
+def gradio_audio_process(request: gr.Request, text, speaker, speed=1, secret=None, cookies=None):
     if cookies and cookies.get('secret'):
         secret = cookies.get('secret')
     if not request_authorized(request, secret):
         return HTTPException(
             status_code=401,
-            detail="Invalid Secret, please use the secret found in /account also subscribe at https://text-generator.io/subscribe first, also make sure there is an up to date credit card saved in your account"
+            detail="Invalid Secret, please subscribe at https://text-generator.io/subscribe first and ensure you have an up-to-date credit card on file."
         )
-    text = text
 
-    speaker = speaker
-    rate, processed_np_speech = audio_process(text, speaker)
+    rate, processed_np_speech = audio_process(text, speaker, speed)
     return rate, processed_np_speech
 
 
@@ -694,24 +692,27 @@ def get_cookies(request: gr.Request):
 #
 #     demo.load(get_cookies, inputs=None, outputs=sec)
 #     # demo.load(get_token, inputs=None, outputs=cookies)
-
 audio_app = gr.Interface(
     fn=gradio_audio_process,
     inputs=[
         gr.Text(label="Input Text", value="It was the best of times, it was the worst of times."),
-        gr.Radio(label="Speaker", choices=[
-            "Female 1",
-            "Male fast",
-            "Male default",
-            "Male slower",
-            "Female 2",
-            # "Surprise Me!"
+        gr.Radio(label="Voice", choices=[
+            "af",
+            "af_bella", 
+            "af_sarah",
+            "am_adam",
+            "am_michael",
+            "bf_emma",
+            "bf_isabella", 
+            "bm_george",
+            "bm_lewis",
+            "af_nicole",
+            "af_sky"
         ],
-                 value="Female 1"),
-        # auth header
-        gr.Text(label="Secret Key"),
-        # cookies
-
+        value="af"),
+        gr.Slider(label="Speed", minimum=0.5, maximum=2.0, step=0.1, value=1.0),
+        gr.Text(label="Secret Key"),  # auth header
+        # cookies can stay the same if needed
     ],
     outputs=[
         gr.Audio(label="Generated Speech", type="numpy"),
