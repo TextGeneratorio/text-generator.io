@@ -1,4 +1,4 @@
-runtime: python311
+runtime: python312
 entrypoint: gunicorn -k uvicorn.workers.UvicornWorker -b :$PORT main:app --timeout 15 --workers 1 --threads 6
 default_expiration: "300d 5h"
 

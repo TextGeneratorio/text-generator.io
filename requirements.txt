@@ -55,7 +55,7 @@ google-crc32c==1.6.0
     # via google-resumable-media
 google-resumable-media==2.7.2
     # via google-cloud-storage
-googleapis-common-protos==1.66.0
+googleapis-common-protos==1.56.4
     # via google-api-core
 grpcio==1.68.1
     # via google-api-core
@@ -93,10 +93,9 @@ nltk==3.6.7
     # via -r requirements.in
 packaging==24.2
     # via google-api-core
-pillow==10.2.0
-    # via -r requirements.in
-protobuf==5.29.1
+protobuf==3.20.0
     # via
+    #   -r requirements.in
     #   google-api-core
     #   google-cloud-storage
     #   googleapis-common-protos
@@ -140,7 +139,7 @@ setuptools==75.6.0
     #   google-api-core
     #   google-auth
     #   gunicorn
-six==1.14.0
+six==1.17.0
     # via
     #   -r requirements.in
     #   astroid
@@ -155,8 +154,6 @@ stripe==3.4.0
     # via -r requirements.in
 tqdm==4.67.1
     # via nltk
-transformers==4.38.2
-    # via -r requirements.in
 typing-extensions==4.12.2
     # via
     #   anyio
