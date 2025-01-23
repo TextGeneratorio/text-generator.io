@@ -13,7 +13,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 from starlette.responses import JSONResponse, RedirectResponse, Response, StreamingResponse, HTMLResponse
-import gradio as gr
 
 from questions.audio_server.audio_dl import request_get
 from questions.constants import weights_path_tgz
@@ -511,9 +510,7 @@ def request_authorized(request: Request, secret):
 
 
 import soundfile as sf
-from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
 
-checkpoint = "microsoft/speecht5_tts"
 
 speech_processor = None
 speechgen_model = None
@@ -590,17 +587,20 @@ async def generate_speech(
     # return Response(wav, media_type="audio/wav")
 
 
-def gradio_audio_process(request: gr.Request, text, speaker, speed=1, secret=None, cookies=None):
-    if cookies and cookies.get('secret'):
-        secret = cookies.get('secret')
-    if not request_authorized(request, secret):
-        return HTTPException(
-            status_code=401,
-            detail="Invalid Secret, please subscribe at https://text-generator.io/subscribe first and ensure you have an up-to-date credit card on file."
-        )
+def gradio_audio_process(text, voice, speed=1.0):
+    """Simplified function that only takes the required parameters"""
+    if len(text.strip()) == 0:
+        return (24000, np.zeros(0).astype(np.int16))
 
-    rate, processed_np_speech = audio_process(text, speaker, speed)
-    return rate, processed_np_speech
+    model, voicepacks = MODEL_CACHE.add_or_get("speech_model", load_speechgen_model)
+    
+    # Get the voicepack
+    voicepack = voicepacks.get(voice, voicepacks['af_nicole'])
+    
+    # Generate audio using Kokoro
+    audio, phonemes = generate(model, text, voicepack, lang=voice[0], speed=speed)
+    
+    return (24000, audio)
 
 
 speaker_ui_name_to_code_name = {
@@ -685,128 +685,141 @@ def get_token(request: gr.Request):
 
 def get_cookies(request: gr.Request):
     return request.cookies.get('secret')
-#
-# with gr.Blocks() as demo:
-#     # cookies = gr.JSON(visible=False, label="Cookies", default={})
-#     sec = gr.Text(label="Secret Key"),
-#
-#     demo.load(get_cookies, inputs=None, outputs=sec)
-#     # demo.load(get_token, inputs=None, outputs=cookies)
-audio_app = gr.Interface(
-    fn=gradio_audio_process,
-    inputs=[
-        gr.Text(label="Input Text", value="It was the best of times, it was the worst of times."),
-        gr.Radio(label="Voice", choices=[
-            "af",
-            "af_bella", 
-            "af_sarah",
-            "am_adam",
-            "am_michael",
-            "bf_emma",
-            "bf_isabella", 
-            "bm_george",
-            "bm_lewis",
-            "af_nicole",
-            "af_sky"
-        ],
-        value="af"),
-        gr.Slider(label="Speed", minimum=0.5, maximum=2.0, step=0.1, value=1.0),
-        gr.Text(label="Secret Key"),  # auth header
-        # cookies can stay the same if needed
-    ],
-    outputs=[
-        gr.Audio(label="Generated Speech", type="numpy"),
-    ],
-    title=title,
-    description=description,
-    article=article,
-    examples=examples,
-    css="""
-.lg.primary {
-    background-color: rgba(0,188,212,1) !important;
-    background:linear-gradient(177deg, #d79f2a 0%, #d34675 150%) !important;
-    color: #fff !important;
-    outline: none !important;
-    border: none !important;
-}
-.lg.primary:hover, .lg.primary:focus, {
-    background-color: rgb(241, 125, 52) !important;
-}
-"""
-)  # no launch() here
-audio_app = gr.routes.App.create_app(audio_app)
-# audio_app.blocks.config["dev_mode"] = False
-audio_app.blocks.config["show_errors"] = True
-audio_app.blocks.config["debug"] = True
-audio_app.blocks.config["local_url"] = "https://text-generator.io/gradio_tts"
-audio_app.blocks.config["cors_allowed_origins"] = ["*"]
 
-# change request/response so it thinks its running from a domain/subdomain
-# @audio_app.middleware("http")
-# async def add_process_request(request: Request, call_next):
-#     # base path should be /gradio_tts
-#     # request.url.path = "/gradio_tts" + request.url.path
-#     request._headers["Host"] = "text-generator.io"
-#     request._headers["Origin"] = "https://text-generator.io"
-#     request._headers["Referer"] = "https://text-generator.io/gradio_tts"
-#     response = await call_next(request)
-#     return response
+# Comment out or remove the old Gradio interface block if not needed:
+# audio_app = gr.Interface(
+#     fn=gradio_audio_process,
+#     inputs=[
+#         gr.Text(label="Input Text", value="It was the best of times, it was the worst of times."),
+#         gr.Radio(
+#             label="Voice",
+#             choices=[
+#                 "af", "af_bella", "af_sarah",
+#                 "am_adam", "am_michael", "bf_emma",
+#                 "bf_isabella", "bm_george", "bm_lewis",
+#                 "af_nicole", "af_sky"
+#             ],
+#             value="af"
+#         ),
+#         gr.Slider(label="Speed", minimum=0.5, maximum=2.0, step=0.1, value=1.0),
+#     ],
+#     outputs=[
+#         gr.Audio(label="Generated Speech", type="numpy"),
+#     ],
+#     title=title,
+#     description=description,
+#     article=article,
+#     examples=examples,
+#     css="""
+#     .lg.primary {
+#         background-color: rgba(0,188,212,1) !important;
+#         background: linear-gradient(177deg, #d79f2a 0%, #d34675 150%) !important;
+#         color: #fff !important;
+#         outline: none !important;
+#         border: none !important;
+#     }
+#     .lg.primary:hover, .lg.primary:focus {
+#         background-color: rgb(241, 125, 52) !important;
+#     }
+#     """,
+#     queue=False
+# )
+# audio_app = gr.routes.App.create_app(audio_app)
+# app.mount("/gradio_tts", audio_app)
 
+########################################
+# New custom Gradio Blocks with JS/CSS #
+########################################
 
-# add middleware to inject js code
-# @audio_app.middleware("http")
-# async def add_js(request: Request, call_next):
-#     response: StreamingResponse = await call_next(request)
-#     if response.status_code == 200:
-#         # streaming response to response
-#         # if response.media_type == "text/html":
-#         # inject js
-#         html = await response.body()
-#         html = html.decode("utf-8")
-#         html = html.replace(b"</body>", b"""
+# audio_custom_blocks = gr.Blocks()
+
+# with audio_custom_blocks:
+#     # Minimal HTML/JS example to call our /api/v1/generate_speech endpoint.
+#     # The fetch returns a WAV file; we convert to a blob for the audio player.
+#     gr.HTML("""
+#     <h2>Custom TTS Interface</h2>
+#     <textarea id="tts_input" style="width:80%; height:60px;" placeholder="Enter some text here"></textarea>
+#     <br/>
+#     <label for="voice">Voice:</label>
+#     <select id="voice">
+#         <option value="af_nicole">af_nicole</option>
+#         <option value="af_bella">af_bella</option>
+#         <option value="af_sarah">af_sarah</option>
+#         <option value="am_adam">am_adam</option>
+#         <option value="am_michael">am_michael</option>
+#         <option value="bf_emma">bf_emma</option>
+#         <option value="bf_isabella">bf_isabella</option>
+#         <option value="bm_george">bm_george</option>
+#         <option value="bm_lewis">bm_lewis</option>
+#         <option value="af_sky">af_sky</option>
+#     </select>
+#     <br/><br/>
+#     <label for="speed">Speed:</label>
+#     <input type="range" id="speed" min="0.5" max="2.0" step="0.1" value="1.0" style="width:30%;">
+#     <span id="speed_value">1.0</span>
+#     <br/>
+#     <button id="generate_btn">Generate Speech</button>
+#     <br/><br/>
+#     <audio id="result_audio" controls></audio>
+
 #     <script>
-#
-#     initApp = function () {
-#         firebase.auth().onAuthStateChanged(function (user) {
-#             if (user) {
-#                 // User is signed in.
-#                 var displayName = user.displayName;
-#                 var email = user.email;
-#                 var emailVerified = user.emailVerified;
-#                 var photoURL = user.photoURL;
-#                 var uid = user.uid;
-#                 var phoneNumber = user.phoneNumber;
-#                 var providerData = user.providerData;
-#                 getUserWithStripe(user, function (data) {
-#
-#
-#                     var api_key = data['secret'];
-#                     $('#component-2 > label > textarea').val(api_key);
-#                 })
-#             } else {
-#
-#                 // User is signed out.
-#                 location.href = '/login'
-#             }
-#         }, function (error) {
-#             console.log(error);
-#         });
-#     };
-#
-#
-#
-#     window.addEventListener('load', function () {
-#         initApp()
+#     // Dynamically display the speed value
+#     const speedSlider = document.getElementById("speed");
+#     const speedValueSpan = document.getElementById("speed_value");
+#     speedSlider.addEventListener("input", () => {
+#       speedValueSpan.textContent = speedSlider.value;
 #     });
+
+#     async function generateSpeech() {
+#       const text = document.getElementById("tts_input").value;
+#       const voice = document.getElementById("voice").value;
+#       const speed = document.getElementById("speed").value;
+
+#       if (!text.trim()) {
+#         alert("Please enter some text first.");
+#         return;
+#       }
+
+#       try {
+#         const response = await fetch("/api/v1/generate_speech", {
+#           method: "POST",
+#           headers: { "Content-Type": "application/json" },
+#           body: JSON.stringify({ text, voice, speed })
+#         });
+
+#         if (!response.ok) {
+#           alert("Speech generation failed!");
+#           return;
+#         }
+
+#         // Convert response wav data to blob and set audio source
+#         const blob = await response.blob();
+#         const audioUrl = URL.createObjectURL(blob);
+#         const audioElement = document.getElementById("result_audio");
+#         audioElement.src = audioUrl;
+#         audioElement.load();
+#         audioElement.play();
+#       } catch (err) {
+#         console.error(err);
+#         alert("An error occurred while generating speech.");
+#       }
+#     }
+
+#     document.getElementById("generate_btn").addEventListener("click", generateSpeech);
 #     </script>
-#     </body>
 #     """)
-#         response.body = html.encode("utf-8")
-#         # response.body = response.body
-#     return response
 
+# # Turn off queue, just like before
+# # audio_custom_blocks.queue = False
 
-app.mount("/gradio_tts", audio_app)
+# # Create the Gradio app from custom blocks
+# # audio_custom_app = gr.routes.App.create_app(audio_custom_blocks)
+# # audio_custom_app.blocks.config["show_errors"] = True
+# # audio_custom_app.blocks.config["debug"] = True
+# # audio_custom_app.blocks.config["cors_allowed_origins"] = ["*"]
+
+# # Mount the new custom app on /gradio_tts or whichever endpoint is desired
+# # app.mount("/gradio_tts", audio_custom_app)
 
 # @app.get("/config")
 # async def config_route():
@@ -1024,3 +1037,13 @@ Let me know how it goes and if you have any questions or feedback, please reach 
 
 Downloading models may take a long time on the first run.
 """)
+
+@app.get("/text-to-speech-demo")
+def tts_demo(request: Request):
+    return templates.TemplateResponse(
+        "shared/text-to-speech.jinja2",
+        {
+            "request": request,
+            "title": "Custom Text-to-Speech Demo",
+        },
+    )
