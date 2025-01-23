@@ -68,20 +68,11 @@ class GenerateParams(BaseModel):
 
 class GenerateSpeechParams(BaseModel):
     text: str
-    # language: str = "en-US"
-    speaker: str = "Female 1"
-    # speed: float = 1.0
-    # pitch: float = 1.0
-    # volume: float = 1.0
-    # audio_format: str = "mp3"
-    # audio_bitrate: int = 128
-    # audio_sample_rate: int = 22050
-    # audio_channels: int = 1
-    # audio_codec: str = "libmp3lame"
-    # audio_filter: str = "volume=1.0"
-    # audio_filter_complex: str = ""
-    # audio_filter_complex_channels: int = 1
-    # audio_filter_complex_volume: float = 1.0
+    voice: str = "af"  # Default voice (50-50 mix of Bella & Sarah)
+    language: str = "en-us"  # Default to US English
+    speed: float = 1.0
+    volume: float = 1.0
+    sample_rate: int = 24000  # Kokoro outputs 24kHz audio
 
 
 class OpenaiParams(BaseModel):

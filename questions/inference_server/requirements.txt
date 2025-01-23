@@ -29,9 +29,17 @@ asgiref==3.8.1
 astroid==3.3.6
     # via -r requirements.in
 attrs==24.2.0
-    # via aiohttp
+    # via
+    #   aiohttp
+    #   clldutils
+    #   csvw
+    #   jsonschema
+    #   phonemizer
+    #   referencing
 audioread==3.0.1
     # via librosa
+babel==2.16.0
+    # via csvw
 beautifulsoup4==4.12.3
     # via bs4
 boto3==1.35.86
@@ -61,8 +69,16 @@ click==8.1.7
     #   nltk
     #   typer
     #   uvicorn
+clldutils==3.21.0
+    # via segments
 colorama==0.4.3
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   csvw
+colorlog==6.9.0
+    # via clldutils
+csvw==3.5.1
+    # via segments
 datasets==2.19.1
     # via -r requirements.in
 decorator==5.1.1
@@ -71,6 +87,8 @@ dill==0.3.7
     # via
     #   datasets
     #   multiprocess
+dlinfo==2.0.0
+    # via phonemizer
 einops==0.8.0
     # via
     #   -r requirements.in
@@ -194,6 +212,8 @@ idna==3.10
     #   yarl
 iniconfig==2.0.0
     # via pytest
+isodate==0.7.2
+    # via csvw
 isort==5.13.2
     # via -r requirements.in
 jinja2==3.1.1
@@ -209,7 +229,14 @@ joblib==1.4.2
     # via
     #   librosa
     #   nltk
+    #   phonemizer
     #   scikit-learn
+jsonschema==4.23.0
+    # via csvw
+jsonschema-specifications==2024.10.1
+    # via jsonschema
+language-tags==1.2.0
+    # via csvw
 lazy-loader==0.4
     # via librosa
 lazy-object-proxy==1.4.3
@@ -224,12 +251,17 @@ llvmlite==0.43.0
     # via numba
 loguru==0.7.3
     # via -r requirements.in
+lxml==5.3.0
+    # via clldutils
 markdown==3.7
-    # via tensorboard
+    # via
+    #   clldutils
+    #   tensorboard
 markdown-it-py==2.2.0
     # via rich
 markupsafe==2.1.5
     # via
+    #   clldutils
     #   gradio
     #   jinja2
     #   werkzeug
@@ -247,6 +279,8 @@ multidict==6.1.0
     #   yarl
 multiprocess==0.70.15
     # via datasets
+munch==4.0.0
+    # via -r requirements.in
 networkx==3.4.2
     # via torch
 nltk==3.9.1
@@ -329,6 +363,8 @@ pandas==2.2.3
     #   -r requirements.in
     #   datasets
     #   gradio
+phonemizer==3.3.0
+    # via -r requirements.in
 pillow==10.4.0
     # via
     #   -r requirements.in
@@ -383,10 +419,14 @@ pydub==0.25.1
     # via gradio
 pygments==2.18.0
     # via rich
+pylatexenc==2.10
+    # via clldutils
 pymemcache==4.0.0
     # via google-cloud-ndb
 pyparsing==3.2.0
-    # via httplib2
+    # via
+    #   httplib2
+    #   rdflib
 pypdf2==3.0.1
     # via -r requirements.in
 pytesseract==0.3.10
@@ -397,6 +437,8 @@ python-dateutil==2.9.0.post0
     # via
     #   -r requirements.in
     #   botocore
+    #   clldutils
+    #   csvw
     #   pandas
 python-dotenv==1.0.1
     # via runpod
@@ -419,15 +461,23 @@ pyyaml==6.0.2
     #   omegaconf
     #   pytorch-lightning
     #   transformers
+rdflib==7.1.3
+    # via csvw
 redis==5.2.0
     # via google-cloud-ndb
+referencing==0.36.1
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
 regex==2024.9.11
     # via
     #   nltk
+    #   segments
     #   transformers
 requests==2.32.3
     # via
     #   -r requirements.in
+    #   csvw
     #   datasets
     #   google-api-core
     #   google-cloud-storage
@@ -439,8 +489,14 @@ requests==2.32.3
     #   transformers
 requests-futures==1.0.0
     # via -r requirements.in
+rfc3986==1.5.0
+    # via csvw
 rich==13.9.4
     # via typer
+rpds-py==0.22.3
+    # via
+    #   jsonschema
+    #   referencing
 rsa==4.9
     # via google-auth
 ruff==0.8.2
@@ -459,6 +515,8 @@ scipy==1.13.1
     # via
     #   librosa
     #   scikit-learn
+segments==2.2.1
+    # via phonemizer
 semantic-version==2.10.0
     # via gradio
 sentencepiece==0.2.0
@@ -494,6 +552,8 @@ stripe==11.3.0
     # via -r requirements.in
 sympy==1.13.1
     # via torch
+tabulate==0.9.0
+    # via clldutils
 tensorboard==2.18.0
     # via -r requirements.in
 tensorboard-data-server==0.7.2
@@ -544,16 +604,20 @@ typing-extensions==4.12.2
     #   huggingface-hub
     #   librosa
     #   lightning-utilities
+    #   phonemizer
     #   pydantic
     #   pydantic-core
     #   pytorch-lightning
+    #   referencing
     #   stripe
     #   torch
     #   typer
 tzdata==2024.2
     # via pandas
 uritemplate==4.1.1
-    # via google-api-python-client
+    # via
+    #   csvw
+    #   google-api-python-client
 urllib3==1.26.20
     # via
     #   botocore

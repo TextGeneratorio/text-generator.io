@@ -38,6 +38,10 @@ from questions.text_generator_inference import (
 )
 from questions.utils import log_time
 from sellerinfo import session_secret
+from .models import build_model
+from .kokoro import generate
+
+import librosa
 
 assert TextGenPipeline is not None  # needed to override
 
@@ -520,19 +524,20 @@ def load_speechgen_model():
     global speech_vocoder
 
     if not speechgen_model:
-        speechgen_model = SpeechT5ForTextToSpeech.from_pretrained(checkpoint)
-        speechgen_model.eval()
-
-    if not speech_processor:
-        speech_processor = SpeechT5Processor.from_pretrained(checkpoint)
-
-    if not speech_vocoder:
-        speech_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
-        speech_vocoder.eval()
-
-    speechgen_model.to(DEVICE)
-    speech_vocoder.to(DEVICE)
-    return speechgen_model, speech_vocoder, speech_processor
+        # Load Kokoro model
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        speechgen_model = build_model('models/kokoro-v0_19.pth', device)
+        
+        # Load voice packs
+        voicepacks = {}
+        voice_names = ['af', 'af_bella', 'af_sarah', 'am_adam', 'am_michael',
+                      'bf_emma', 'bf_isabella', 'bm_george', 'bm_lewis',
+                      'af_nicole', 'af_sky']
+        
+        for voice in voice_names:
+            voicepacks[voice] = torch.load(f'models/voices/{voice}.pt', weights_only=True).to(device)
+    
+    return speechgen_model, voicepacks
 
 
 speaker_embeddings = {
@@ -568,8 +573,9 @@ async def generate_speech(
         )
     text = generate_speech_params.text
 
-    speaker = generate_speech_params.speaker
-    rate, processed_np_speech = audio_process(text, speaker)
+    voice = generate_speech_params.voice
+    speed = generate_speech_params.speed
+    rate, processed_np_speech = audio_process(text, voice, speed)
     # write audio to response file
     response.headers["Content-Disposition"] = "attachment; filename=audio.wav"
     # (16000, speech)
@@ -622,25 +628,29 @@ for ui_name, code_name in speaker_ui_name_to_code_name.items():
     speaker_embeddings_loaded[ui_name] = load_speaker_embedding(code_name)
 
 
-def audio_process(text, speaker):
-    speechgen_model, vocoder, processor = MODEL_CACHE.add_or_get("speech_model", load_speechgen_model)
-    # just blindly move to gpu again? to fix bug?
-    speaker_code_name = speaker_ui_name_to_code_name.get(speaker, speaker)  # todo default to Female 1 instead of dieing
-    speaker_embedding = speaker_embeddings_loaded[speaker]
-
+def audio_process(text, voice="af_nicole", speed=1.0):
+    model, voicepacks = MODEL_CACHE.add_or_get("speech_model", load_speechgen_model)
+    
     if len(text.strip()) == 0:
-        return (16000, np.zeros(0).astype(np.int16))
+        return (24000, np.zeros(0).astype(np.int16))
 
-    inputs = processor(text=text, return_tensors="pt")
+    # Get the voicepack
+    voicepack = voicepacks.get(voice, voicepacks['af_nicole'])
+    
+    # Generate audio using Kokoro
+    audio, phonemes = generate(model, text, voicepack, lang=voice[0], speed=speed)
+    
+    # we could do this but use speed instead
+    # Convert to float32 for time-stretch
+    # audio_float = audio.astype(np.float32) / 32767.0
+    # # Apply time stretch based on 'speed' param (e.g. 2.0 = 2x faster)
+    # # if speed != 1.0:
+    # #     audio_float = librosa.effects.time_stretch(audio_float, rate=speed)
 
-    # limit input length
-    input_ids = inputs["input_ids"]
-    input_ids = input_ids[..., :speechgen_model.config.max_text_positions]  # max 450 tokens todo fix?
+    # # Convert back to int16
+    # audio_stretched = (audio_float * 32767.0).astype(np.int16)
 
-    speech = speechgen_model.generate_speech(input_ids.to(DEVICE), speaker_embedding, vocoder=vocoder)
-
-    speech = (speech.cpu().numpy() * 32767).astype(np.int16)
-    return (16000, speech)
+    return (24000, audio)
 
 
 def get_secret(request: gr.Request):

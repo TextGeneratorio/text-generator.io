@@ -96,3 +96,7 @@ httpcore>=1.0.0
 fastapi>=0.109.2
 pydantic>=2.6.1
 # warning PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python and pip install "httpx"
+
+# Text-to-speech requirements
+phonemizer>=3.0.0
+munch>=4.0.0
