@@ -651,10 +651,6 @@ def audio_process(text, voice="af_nicole", speed=1.0):
     return (24000, audio)
 
 
-def get_secret(request: gr.Request):
-    # read cookie
-    secret = request.cookies.get("tg_secret")
-    return secret
 
 
 
@@ -677,14 +673,14 @@ article = """
 <p>Checkout the API docs at <a target="_blank" href="https://text-generator.io/docs">/docs</a></p>
 """
 
-def get_token(request: gr.Request):
-    headers = request.kwargs.get("headers") or {}
-    raw_cookie = headers.get("cookie") or ""
-    cookies = dict(i.split("=", 1) for i in raw_cookie.split("; "))
-    return cookies.get("access-token") or cookies.get("access-token-unsecure")
+# def get_token(request: gr.Request):
+#     headers = request.kwargs.get("headers") or {}
+#     raw_cookie = headers.get("cookie") or ""
+#     cookies = dict(i.split("=", 1) for i in raw_cookie.split("; "))
+#     return cookies.get("access-token") or cookies.get("access-token-unsecure")
 
-def get_cookies(request: gr.Request):
-    return request.cookies.get('secret')
+# def get_cookies(request: gr.Request):
+#     return request.cookies.get('secret')
 
 # Comment out or remove the old Gradio interface block if not needed:
 # audio_app = gr.Interface(
