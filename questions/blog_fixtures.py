@@ -48,5 +48,10 @@ blogs = {
         "title": "Generate Speech with Text-Generator.io",
         "description": "Text Generator can understand speech, images, code, it can reply and now can talk too",
         "keywords": "speech to text, speech recognition, text generation, Machine Learning"
-    }
+    },
+    "summarization-api-with-max-length": {
+        "title": "Summarization API Now Accepts Max Length Parameter",
+        "description": "Control summary length precisely by specifying maximum characters in the summarization API",
+        "keywords": "text summarization, API, natural language processing, text generation, Machine Learning"
+    },
 }
