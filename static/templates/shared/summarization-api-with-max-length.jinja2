@@ -1,0 +1,123 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > New Summarization API with Max Length Control
+            </div>
+            <h3>Precise Control Over Summary Length</h3>
+            <h4>New Parameter: max_length</h4>
+            <p>We're excited to announce a new feature in our summarization API that gives you precise control over the length of your summaries. 
+               The API now accepts a <code>max_length</code> parameter, allowing you to specify the maximum number of characters in the generated summary.</p>
+            
+            <h4>Key Features</h4>
+            <ul>
+                <li>Control summary length up to 15,000 characters</li>
+                <li>Maintain coherence and key information density</li>
+                <li>Perfect for content adaptation across different platforms</li>
+            </ul>
+
+            <h4>Step 1 - Get an API Key</h4>
+            <p><a href="/signup">Sign Up to Text-Generator.io</a> then get <a href="/playground" target="_blank">your
+                API key</a></p>
+            
+            <h4>Step 2 - Start Summarizing</h4>
+
+            <pre><code id="code-snippet-embed" class="language-python">import requests
+import os
+
+API_KEY = os.getenv("TEXT_GENERATOR_API_KEY")
+if API_KEY is None:
+    raise Exception(
+        "Please set TEXT_GENERATOR_API_KEY environment variable, login to https://text-generator.io to get your API key")
+headers = {"secret": API_KEY}
+
+def generate_summary(text, max_length=1000):
+    params = {
+        "text": text,
+        "max_length": max_length
+    }
+    response = requests.post(
+        "https://api.text-generator.io/api/v1/summarization",
+        json=params,
+        headers=headers
+    )
+    return response.json()["summary"]
+
+# Example usage
+long_text = """
+Climate change is one of the most pressing challenges facing our world today. 
+It affects everything from weather patterns to agriculture, from sea levels to biodiversity. 
+Scientists have observed numerous indicators of climate change, including rising global temperatures,
+melting ice caps, and increasing frequency of extreme weather events. These changes have far-reaching
+implications for human society, ecosystems, and the planet's future...
+"""
+
+# Generate a brief summary (300 characters)
+short_summary = generate_summary(long_text, max_length=300)
+print("Short summary:", short_summary)
+
+# Generate a detailed summary (1000 characters)
+detailed_summary = generate_summary(long_text, max_length=1000)
+print("Detailed summary:", detailed_summary)</code></pre>
+
+            <h5>Use Cases</h5>
+            <ul>
+                <li>Social media content adaptation (Twitter, LinkedIn, etc.)</li>
+                <li>News article summarization</li>
+                <li>Document abstract generation</li>
+                <li>Content briefs and executive summaries</li>
+            </ul>
+
+            <h5>Under the Hood</h5>
+            <p>Our summarization API uses advanced natural language processing techniques to:
+            <ul>
+                <li>Identify key information and main topics</li>
+                <li>Maintain context and coherence while reducing length</li>
+                <li>Adapt the summary style based on the target length</li>
+                <li>Ensure grammatical correctness and readability</li>
+            </ul>
+            </p>
+
+            <h5>Pricing</h5>
+            <p>Access to the summarization API is included in all our standard plans. Start summarizing today with our
+                flexible pricing options.</p>
+
+            <h5>Future Developments</h5>
+            <p>We're continuously working on improving our summarization capabilities. Upcoming features include:
+            <ul>
+                <li>Multi-language support</li>
+                <li>Topic-focused summarization</li>
+                <li>Customizable summary styles</li>
+                <li>Batch processing capabilities</li>
+            </ul>
+            </p>
+
+            <script>
+              $(document).ready(function () {
+                hljs.highlightAll();
+                window.setTimeout(function () {
+                          hljs.highlightAll();
+                    }, 3000);
+              });
+            </script>
+            
+            <p>Try examples yourself at: <a href="https://text-generator.io/docs">Text Generator
+                Docs</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+    {% import "templates/macros.jinja2" as macros with context %}
+
+    {{ macros.svgstyled() }}
+</main> 
