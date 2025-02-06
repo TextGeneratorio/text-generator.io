@@ -92,6 +92,8 @@ Download models from huggingface.
 
 ```shell
 huggingface-cli download HuggingFaceTB/SmolLM2-1.7B-Instruct --local-dir models/SmolLM-1.7B
+wget -P models https://huggingface.co/geneing/Kokoro/resolve/f610f07c62f8baa30d4ed731530e490230e4ee83/kokoro-v0_19.pth
+
 ```
 
 Text Generator models are not open source yet.
