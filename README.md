@@ -91,7 +91,7 @@ mv sellerinfo_faked.py sellerinfo.py
 Download models from huggingface.
 
 ```shell
-huggingface-cli download HuggingFaceTB/SmolLM-1.7B --local-dir models/SmolLM-1.7B
+huggingface-cli download HuggingFaceTB/SmolLM2-1.7B-Instruct --local-dir models/SmolLM-1.7B
 ```
 
 Text Generator models are not open source yet.
