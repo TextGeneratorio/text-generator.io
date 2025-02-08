@@ -6,7 +6,7 @@ from questions.utils import log_time
 os.environ["API_KEY"] = "AIzaSyDQX"  # not testing the stripe stuff
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "secrets/google-credentials.json"
 
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
 from questions.inference_server.inference_server import app, audio_process
 from questions.models import GenerateSpeechParams

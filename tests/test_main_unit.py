@@ -1,5 +1,5 @@
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
 from questions.inference_server.inference_server import app, generate_route, openai_route
 from questions.models import create_generate_params, GenerateParams, OpenaiParams

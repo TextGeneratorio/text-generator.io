@@ -7,7 +7,7 @@ from fastapi import UploadFile
 os.environ["API_KEY"] = "AIzaSyDQX"  # not testing the stripe stuff
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "secrets/google-credentials.json"
 
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
 from questions.inference_server.inference_server import app, audio_process
 from questions.post_process_results import post_process_results

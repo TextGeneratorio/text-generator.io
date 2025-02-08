@@ -19,9 +19,11 @@ If a prompt contains links to images they are converted to text using captioning
 
 Please support us!
 
-You can support us by purchasing [NETW Tokens](https://netwrck.com/netw-token) which will be a supported currency within the app.
+You can support us by purchasing [Netwrck](https://netwrck.com/).
 
 Also checkout [AIArt-Generator.art](https://AIArt-Generator.art) and [Netwrck.com](https://netwrck.com)
+Also checkout [Helix.app.nz](https://helix.app.nz)
+
 
 Coming soon:
 
@@ -96,13 +98,7 @@ wget -P models https://huggingface.co/geneing/Kokoro/resolve/f610f07c62f8baa30d4
 
 ```
 
-Text Generator models are not open source yet.
-
-[please support us to get the models](https://text-generator.io/subscribe)
-
-Download models and place them in the models folder.
-
-there should be three models placed:
+there CAN be three models placed:
 
 models/tg a general model accessible with model=multilingual
 models/tgz an instruct model accessible with model=instruct
@@ -112,7 +108,10 @@ model=best is configured to figure out which model to use based on the prompt be
 
 This needs tuning for the avg and std deviation of the perplexity as each model has different ideas about how confidenti it is. Overtrained models are more confident about all text being in the dataset (tend to generate text verbatim from the dataset).
 
+This model based choosing is legacy now and superceeded by MoE models which are reccomended instead.
+
 models can be pointed to using environment variables, e.g. using models from hugginface instead for testing
+
 ```
 WEIGHTS_PATH_TGZ=bigscience/bloomz
 WEIGHTS_PATH_TGC=decapoda-research/llama-7b-hf
