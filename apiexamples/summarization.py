@@ -1,10 +1,10 @@
 import requests
 import os
 
-API_KEY = os.getenv("TEXT_GENERATOR_API_KEY")
+API_KEY = os.getenv("TEXTGENERATOR_API_KEY")
 if API_KEY is None:
     raise Exception(
-        "Please set TEXT_GENERATOR_API_KEY environment variable, login to https://text-generator.io to get your API key")
+        "Please set TEXTGENERATOR_API_KEY environment variable, login to https://text-generator.io to get your API key")
 headers = {"secret": API_KEY}
 
 def generate_summary(text, max_length=1000):
@@ -17,21 +17,15 @@ def generate_summary(text, max_length=1000):
         json=params,
         headers=headers
     )
-    return response.json()["summary"]
+    return response.json()
 
 # Example usage
-long_text = """
-Climate change is one of the most pressing challenges facing our world today.
-It affects everything from weather patterns to agriculture, from sea levels to biodiversity.
-Scientists have observed numerous indicators of climate change, including rising global temperatures,
-melting ice caps, and increasing frequency of extreme weather events. These changes have far-reaching
-implications for human society, ecosystems, and the planet's future...
-"""
+long_text = requests.get("https://paste.sh/687a2a81-4e9c-45f8-b3f7-7682b42f5bb5").text
 
 # Generate a brief summary (300 characters)
-short_summary = generate_summary(long_text, max_length=300)
+short_summary = generate_summary(long_text, max_length=15000)
 print("Short summary:", short_summary)
 
 # Generate a detailed summary (1000 characters)
-detailed_summary = generate_summary(long_text, max_length=1000)
-print("Detailed summary:", detailed_summary)
+# detailed_summary = generate_summary(long_text, max_length=1000)
+# print("Detailed summary:", detailed_summary)

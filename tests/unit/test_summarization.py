@@ -1,3 +1,4 @@
+import requests
 from questions.inference_server.inference_server import MODEL_CACHE
 from questions.summarization import get_extractive_summary
 from questions.utils import log_time
@@ -25,3 +26,9 @@ def test_summarization():
 def test_summarization_max_length():
     print(get_extractive_summary(text *
                                  145, MODEL_CACHE, max_length=1024))
+
+def test_summarization_15000():
+    with open("tests/unit/zigdoc.txt", "r", encoding="utf-8") as f:
+        text_to_compress = f.read()
+    # Summarize text (multiplied) into 15000
+    print(get_extractive_summary(text_to_compress, MODEL_CACHE, max_length=15000))

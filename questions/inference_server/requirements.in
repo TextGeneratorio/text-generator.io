@@ -3,7 +3,6 @@ Click>=8.0.0
 colorama
 
 starlette>=0.36.0
-
 gunicorn
 h11
 isort>=5.13.0
@@ -25,6 +24,8 @@ triton>=2.2.0
 --find-links https://download.pytorch.org/whl/nightly/cu121
 torch
 torchvision
+flash_attn --no-build-isolation
+
 
 youtube_dl
 runpod
