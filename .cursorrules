@@ -1,0 +1,11 @@
+tools:
+
+read from mainserver.log thats autoreloaded NEVER try run the server yourself or pkill ever
+tail -n 200 mainserver.log
+
+we are running the server on localhost:4444
+can use curl
+
+we use uv package manager so `uv pip install`
+python commands can be ran but test one file at a time
+. .venv/bin/activate && pytest .
