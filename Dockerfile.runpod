@@ -1,29 +1,30 @@
 # Core autocomplete model docker file,
 # when running it can be acssed via /autocomplete?prefix=test
 
-FROM nvidia/cuda:11.7.0-base-ubuntu20.04  as base
-RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub && apt-get -y update
+FROM nvidia/cuda:12.2.0-base-ubuntu22.04 as base
+RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub && apt-get -y update
 
 RUN apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa
 
 RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get -y update && apt-get install \
-  -y --no-install-recommends python3.9
+  -y --no-install-recommends python3.12
 
-RUN apt-get install python3-venv python3-pip python3.9-distutils -y
-RUN --mount=type=cache,target=/root/.cache/pip python3.9 -m pip install -U pip && python3 --version && pip3 --version
-RUN #python3.9 -m pip install -U pip && python3 --version && pip3 --version
+RUN apt-get install python3-venv python3-pip python3.12-distutils -y
+RUN pip3.12 install astral-uv
+RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install -U pip && python3 --version && pip3 --version
+RUN #python3.12 -m pip install -U pip && python3 --version && pip3 --version
 # disable tpu for now
-#RUN python3.9 -m pip install pip install cloud-tpu-client==0.10 torch==1.11.0 https://storage.googleapis.com/tpu-pytorch/wheels/colab/torch_xla-1.11-cp37-cp37m-linux_x86_64.whl
+#RUN python3.12 -m pip install pip install cloud-tpu-client==0.10 torch==1.11.0 https://storage.googleapis.com/tpu-pytorch/wheels/colab/torch_xla-1.11-cp37-cp37m-linux_x86_64.whl
 
-RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get -y update && apt install -y libsm6 libxext6 libxrender-dev python3.9-dev gcc autoconf python3-opencv git tesseract-ocr
+RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get -y update && apt install -y libsm6 libxext6 libxrender-dev python3.12-dev gcc autoconf python3-opencv git tesseract-ocr
 
 WORKDIR /code
 
 SHELL ["/bin/bash", "-c"]
 
 # Install pip-tools and compilation dependencies
-#RUN --mount=type=cache,target=/root/.cache/pip python3.9 -m pip install -U setuptools pip-tools
-RUN python3.9 -m pip install -U setuptools pip-tools
+#RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install -U setuptools pip-tools
+RUN python3.12 -m pip install -U setuptools pip-tools
 
 FROM base AS python-deps
 
@@ -32,17 +33,17 @@ FROM base AS python-deps
 # Install python dependencies in /.venv
 COPY questions/inference_server/model-requirements.txt inference_server/model-requirements.txt
 #COPY OFA/fairseq OFA/fairseq
-RUN --mount=type=cache,target=/root/.cache/pip python3.9 -m pip install --no-compile -r inference_server/model-requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install --no-compile -r inference_server/model-requirements.txt
 # tried to move fairseq later but it failed to build
 #COPY inference_server/ofa-requirements.txt inference_server/ofa-requirements.txt
-#RUN --mount=type=cache,target=/root/.cache/pip python3.9 -m pip install -r inference_server/ofa-requirements.txt
-#RUN #python3.9 -m pip install -r inference_server/model-requirements.txt
-#RUN python3.9 -m pip install gsutil # for cloning the model
+#RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install -r inference_server/ofa-requirements.txt
+#RUN #python3.12 -m pip install -r inference_server/model-requirements.txt
+#RUN python3.12 -m pip install gsutil # for cloning the model
 
 
 ENV PYTHONPATH=.
 ## nltk download punkt
-RUN python3.9 -m nltk.downloader punkt
+RUN python3.12 -m nltk.downloader punkt
 
 FROM python-deps as test
 COPY dev-requirements.txt dev-requirements.txt
