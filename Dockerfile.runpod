@@ -2,28 +2,40 @@
 # when running it can be acssed via /autocomplete?prefix=test
 
 FROM nvidia/cuda:12.2.0-base-ubuntu22.04 as base
-RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub && apt-get -y update
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    gnupg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+RUN add-apt-repository ppa:deadsnakes/ppa
 
-RUN apt-get install -y software-properties-common && add-apt-repository ppa:deadsnakes/ppa
+# Consolidate installations and clean up in the same layer
+RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3-venv \
+    python3-pip \
+    python3.12-dev \
+    gcc \
+    autoconf \
+    python3-opencv \
+    git \
+    tesseract-ocr \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get -y update && apt-get install \
-  -y --no-install-recommends python3.12
-
-RUN apt-get install python3-venv python3-pip python3.12-distutils -y
-RUN pip3.12 install astral-uv
-RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install -U pip && python3 --version && pip3 --version
-RUN #python3.12 -m pip install -U pip && python3 --version && pip3 --version
-# disable tpu for now
-#RUN python3.12 -m pip install pip install cloud-tpu-client==0.10 torch==1.11.0 https://storage.googleapis.com/tpu-pytorch/wheels/colab/torch_xla-1.11-cp37-cp37m-linux_x86_64.whl
-
-RUN DEBIAN_FRONTEND=noninteractive TZ=Asia/Singapore apt-get -y update && apt install -y libsm6 libxext6 libxrender-dev python3.12-dev gcc autoconf python3-opencv git tesseract-ocr
+# Standardize on uv for Python package management
+RUN python3.12 -m pip install astral-uv
+RUN uv pip install -U pip setuptools pip-tools
 
 WORKDIR /code
 
 SHELL ["/bin/bash", "-c"]
 
 # Install pip-tools and compilation dependencies
-#RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install -U setuptools pip-tools
+#RUN uv pip install -U setuptools pip-tools
 RUN python3.12 -m pip install -U setuptools pip-tools
 
 FROM base AS python-deps
@@ -31,12 +43,12 @@ FROM base AS python-deps
 #RUN #apt install -y libsm6 libxext6 libxrender-dev
 
 # Install python dependencies in /.venv
-COPY questions/inference_server/model-requirements.txt inference_server/model-requirements.txt
+COPY questions/inference_server/requirements.txt inference_server/requirements.txt
 #COPY OFA/fairseq OFA/fairseq
-RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install --no-compile -r inference_server/model-requirements.txt
+RUN uv pip install --no-compile -r inference_server/requirements.txt
 # tried to move fairseq later but it failed to build
 #COPY inference_server/ofa-requirements.txt inference_server/ofa-requirements.txt
-#RUN --mount=type=cache,target=/root/.cache/pip python3.12 -m pip install -r inference_server/ofa-requirements.txt
+#RUN uv pip install -r inference_server/ofa-requirements.txt
 #RUN #python3.12 -m pip install -r inference_server/model-requirements.txt
 #RUN python3.12 -m pip install gsutil # for cloning the model
 
@@ -76,7 +88,6 @@ COPY static/ static/
 RUN ln -s static/templates/ templates
 RUN ln -s static/templates-game/ templates-game
 COPY questions/ questions/
-COPY OFA/ OFA/
 COPY gameon/ gameon/
 COPY secrets/ secrets/
 COPY secrets/ OFA/secrets/
@@ -91,7 +102,15 @@ ENV SERVER_SOFTWARE=PRODUCTION
 ENV TPU_IP_ADDRESS=10.2.2.2
 # Note to user: update the lines above
 
-ENV XRT_TPU_CONFIG="tpu_worker;0;$TPU_IP_ADDRESS:8470"
-ENV XLA_USE_BF16=1
+# ENV XRT_TPU_CONFIG="tpu_worker;0;$TPU_IP_ADDRESS:8470"
+# ENV XLA_USE_BF16=1
+
+# Create a non-root user for running the application
+# RUN useradd -m appuser
+# USER appuser
+
+# Add healthcheck
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+#   CMD curl -f http://localhost:$PORT/liveness_check || exit 1
 
 ENTRYPOINT gunicorn -k uvicorn.workers.UvicornWorker -b :$PORT questions.inference_server.inference_server:app --timeout 180000 --workers $PROCESS_COUNT
