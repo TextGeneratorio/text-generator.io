@@ -46,4 +46,5 @@ customersecrets
 ddns/config.json
 __pycache__
 flagged
+mainserver.log
 
