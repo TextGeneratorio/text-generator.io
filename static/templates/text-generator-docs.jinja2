@@ -1,0 +1,133 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block title %}AI Text Editor | Create Documents with AI-Powered Autocomplete{% endblock %}
+
+{% block meta_description %}Create and edit documents with AI-powered autocomplete in a beautiful WYSIWYG editor. Write faster and smarter with AI assistance.{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ static_url }}/css/text-generator-docs.css">
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block mainbody %}
+<div class="tgdocs-container">
+  <div class="tgdocs-main">
+    <div class="tgdocs-sidebar">
+      <div class="tgdocs-sidebar-header">
+        <h3>My Documents</h3>
+        <button id="new-doc-btn" class="mdl-button mdl-js-button mdl-button--fab mdl-button--mini-fab" title="Create New Document">
+          <i class="material-icons">add</i>
+        </button>
+      </div>
+      <div class="tgdocs-documents-list" id="documents-list">
+        <!-- Documents will be listed here -->
+      </div>
+    </div>
+
+    <div class="tgdocs-editor-container">
+      <div class="tgdocs-toolbar">
+        <input type="text" id="doc-title" class="tgdocs-doc-title" placeholder="Untitled Document">
+        <div class="tgdocs-actions">
+          <button id="generate-content-btn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" title="Generate Content (Ctrl+G or Alt+Enter)">
+            Generate
+          </button>
+          <button id="save-doc-btn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" title="Save Document (Ctrl+S)">
+            Save
+          </button>
+          <button id="export-doc-btn" class="mdl-button mdl-js-button mdl-button--raised" title="Export Document (Ctrl+E)">
+            Export
+          </button>
+        </div>
+      </div>
+      
+      <div id="editor">
+        <!-- This is where the Quill editor will be initialized -->
+      </div>
+      
+      <!-- Suggestion element for inline completion -->
+      <div id="autocomplete-suggestion" class="tgdocs-suggestion" style="display: none; position: absolute; z-index: 1000;">
+        <div class="suggestion-content">
+          <span class="suggestion-text"></span>
+          <span class="suggestion-hint">(Tab to Accept)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard shortcuts help dialog (hidden by default) -->
+<div id="keyboard-shortcuts-dialog" class="tgdocs-keyboard-shortcuts-dialog" style="display: none;">
+  <div class="tgdocs-keyboard-shortcuts-content">
+    <h3>Keyboard Shortcuts</h3>
+    <table class="tgdocs-shortcuts-table">
+      <tr>
+        <td><kbd>Ctrl</kbd> + <kbd>G</kbd></td>
+        <td>Rewrite document</td>
+      </tr>
+      <tr>
+        <td><kbd>Alt</kbd> + <kbd>Enter</kbd></td>
+        <td>Autowrite from cursor</td>
+      </tr>
+      <tr>
+        <td><kbd>Tab</kbd></td>
+        <td>Accept suggestion</td>
+      </tr>
+      <tr>
+        <td><kbd>Escape</kbd></td>
+        <td>Cancel suggestion</td>
+      </tr>
+      <tr>
+        <td><kbd>Ctrl</kbd> + <kbd>S</kbd></td>
+        <td>Save document</td>
+      </tr>
+      <tr>
+        <td><kbd>Ctrl</kbd> + <kbd>E</kbd></td>
+        <td>Export document</td>
+      </tr>
+    </table>
+    <div class="keyboard-shortcuts-actions">
+      <button id="close-shortcuts-btn" class="mdl-button mdl-js-button mdl-button--raised">Close</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="{{ static_url }}/js/text-generator-docs.js"></script>
+<script src="{{ static_url }}/js/text-generator-docs-enhanced.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the Enhanced Text Generator Docs app
+    const textGeneratorDocs = new EnhancedTextGeneratorDocs({
+      editorContainer: document.getElementById('editor'),
+      suggestionElement: document.getElementById('autocomplete-suggestion'),
+      documentsList: document.getElementById('documents-list'),
+      newDocButton: document.getElementById('new-doc-btn'),
+      saveDocButton: document.getElementById('save-doc-btn'),
+      exportDocButton: document.getElementById('export-doc-btn'),
+      docTitleInput: document.getElementById('doc-title'),
+      generateContentButton: document.getElementById('generate-content-btn'),
+      // Text generation settings
+      generationSettings: {
+        number_of_results: 1,
+        max_length: 500,
+        max_sentences: 10,
+        min_probability: 0,
+        stop_sequences: [],
+        top_p: 0.9,
+        top_k: 40,
+        temperature: 0.75,
+        repetition_penalty: 1.17,
+        seed: 0
+      }
+    });
+    
+    // Set up listener ONLY for the existing close button in the dialog
+    // The help button itself is added by the EnhancedTextGeneratorDocs class.
+    document.getElementById('close-shortcuts-btn').addEventListener('click', function() {
+      document.getElementById('keyboard-shortcuts-dialog').style.display = 'none';
+    });
+  });
+</script>
+{% endblock %} 

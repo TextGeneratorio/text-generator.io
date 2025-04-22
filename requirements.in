@@ -38,3 +38,4 @@ rsa
 fastapi==0.109.2
 pydantic==2.6.1
 protobuf<=3.20.0
+anthropic

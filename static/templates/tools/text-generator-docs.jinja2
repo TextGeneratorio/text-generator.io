@@ -1,0 +1,102 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ static_url }}/css/text-generator-docs.css">
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+{% endblock %}
+
+{% block mainbody %}
+<div class="tgdocs-container">
+
+  <div class="tgdocs-main">
+    <div class="tgdocs-sidebar">
+      <div class="tgdocs-sidebar-header">
+        <h3>My Documents</h3>
+        <button id="new-doc-btn" class="mdl-button mdl-js-button mdl-button--fab mdl-button--mini-fab">
+          <i class="material-icons">add</i>
+        </button>
+      </div>
+      <div class="tgdocs-documents-list" id="documents-list">
+        <!-- Documents will be listed here -->
+      </div>
+    </div>
+
+    <div class="tgdocs-editor-container">
+      <div class="tgdocs-toolbar">
+        <input type="text" id="doc-title" class="tgdocs-doc-title" placeholder="Untitled Document">
+        <div class="tgdocs-actions">
+          <!-- Claude toggle switch -->
+          <div class="tgdocs-claude-toggle-container">
+            <label for="claude-toggle" class="mdl-switch mdl-js-switch mdl-js-ripple-effect tgdocs-claude-toggle">
+              <input type="checkbox" id="claude-toggle" class="mdl-switch__input" checked>
+              <span class="mdl-switch__label">Claude</span>
+            </label>
+          </div>
+          <button id="generate-content-btn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" title="Generate Content (Ctrl+G or Alt+Enter)">
+            Generate
+          </button>
+          <button id="save-doc-btn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+            Save
+          </button>
+          <button id="export-doc-btn" class="mdl-button mdl-js-button mdl-button--raised">
+            Export
+          </button>
+        </div>
+      </div>
+      
+      <div id="editor">
+        <!-- This is where the Quill editor will be initialized -->
+      </div>
+      
+      <div id="autocomplete-suggestion" class="autocomplete-suggestion">
+        <span class="suggestion-text"></span>
+        <div class="suggestion-info">
+          <span class="hint">Press Tab to accept</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+<script src="{{ static_url }}/js/text-generator-docs.js"></script>
+<script src="{{ static_url }}/js/text-generator-docs-enhanced.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the Enhanced Text Generator Docs app
+    const textGeneratorDocs = new EnhancedTextGeneratorDocs({
+      editorContainer: document.getElementById('editor'),
+      suggestionElement: document.getElementById('autocomplete-suggestion'),
+      documentsList: document.getElementById('documents-list'),
+      newDocButton: document.getElementById('new-doc-btn'),
+      saveDocButton: document.getElementById('save-doc-btn'),
+      exportDocButton: document.getElementById('export-doc-btn'),
+      docTitleInput: document.getElementById('doc-title'),
+      generateContentButton: document.getElementById('generate-content-btn'),
+      claudeToggle: document.getElementById('claude-toggle'),
+      // Text generation settings
+      generationSettings: {
+        number_of_results: 1,
+        max_length: 500,
+        max_sentences: 10,
+        min_probability: 0,
+        stop_sequences: [],
+        top_p: 0.9,
+        top_k: 40,
+        temperature: 0.75,
+        repetition_penalty: 1.17,
+        seed: 0
+      }
+    });
+    
+    // Initialize Material Design Lite components
+    if (typeof componentHandler !== 'undefined') {
+      componentHandler.upgradeAllRegistered();
+    }
+  });
+</script>
+{% endblock %} 

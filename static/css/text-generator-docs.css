@@ -1,0 +1,474 @@
+/* Text Generator Docs - Medium-style WYSIWYG editor */
+
+.tgdocs-container {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  height: calc(100vh - 120px);
+  margin: 0 auto;
+  background-color: #fff;
+}
+.page-content {
+  height: 100%;
+}
+
+.ql-editor p {
+  font-size: 16px;
+}
+
+.tgdocs-main {
+  display: flex;
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.tgdocs-sidebar {
+  width: 250px;
+  border-right: 1px solid #eee;
+  background-color: #f9f9f9;
+  display: flex;
+  flex-direction: column;
+}
+
+.tgdocs-sidebar-header {
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+.tgdocs-sidebar-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.tgdocs-documents-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+}
+
+.tgdocs-document-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tgdocs-document-item:hover {
+  background-color: #eef2f7;
+}
+
+.tgdocs-document-item.active {
+  background-color: #e3f2fd;
+  border-left: 3px solid #2196f3;
+}
+
+.tgdocs-document-title {
+  font-weight: 500;
+  margin: 0 0 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tgdocs-document-date {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.tgdocs-editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.tgdocs-toolbar {
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+.tgdocs-doc-title {
+  border: none;
+  font-size: 1.5rem;
+  font-weight: 500;
+  width: 100%;
+  max-width: 500px;
+  padding: 0.5rem;
+  outline: none;
+  background-color: transparent;
+}
+
+.tgdocs-doc-title:focus {
+  border-bottom: 2px solid #2196f3;
+}
+
+.tgdocs-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Claude toggle styles */
+.tgdocs-claude-toggle-container {
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.tgdocs-claude-toggle {
+  margin: 0;
+  transform: scale(0.8);
+}
+
+.tgdocs-model-indicator {
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  padding: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  align-items: center;
+}
+
+.model-badge {
+  background-color: #6b46c1;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 5px;
+  font-weight: 500;
+}
+
+/* Save status indicator */
+.tgdocs-save-status {
+  font-size: 0.8rem;
+  color: #999;
+  margin-left: 1rem;
+  transition: opacity 0.3s ease;
+  display: inline-block;
+}
+
+.tgdocs-save-status.saved {
+  color: #4caf50;
+}
+
+/* Quill Editor customization */
+#editor {
+  flex: 1;
+  overflow-y: auto;
+  font-family: 'Georgia', serif;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: #333;
+}
+
+.ql-container {
+  border: none !important;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  height: 100%;
+}
+
+.ql-editor {
+  padding: 2rem 3rem;
+  max-width: 750px;
+  margin: 0 auto;
+  height: 100%;
+}
+
+/* Inline suggestion styling */
+.inline-suggestion {
+  color: #999 !important;
+  opacity: 0.6 !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  display: inline !important;
+  background-color: rgba(240, 240, 240, 0.3) !important;
+  position: relative !important;
+  z-index: 5 !important;
+  padding: 0 1px !important;
+}
+
+.ql-editor .inline-suggestion {
+  visibility: visible !important;
+  display: inline-block !important;
+}
+
+.ql-editor p {
+  margin-bottom: 1.5rem;
+}
+
+.ql-editor h1, .ql-editor h2, .ql-editor h3 {
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.ql-snow.ql-toolbar {
+  border: none;
+  border-bottom: 1px solid #eee;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* Login prompt */
+.tgdocs-login-prompt {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* Generate content dialog */
+.tgdocs-generate-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.tgdocs-generate-dialog-content {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+}
+
+.tgdocs-generate-prompt {
+  width: 100%;
+  height: 120px;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  margin: 1rem 0;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.tgdocs-generate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.tgdocs-login-message {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 400px;
+}
+
+.tgdocs-login-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.tgdocs-login-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tgdocs-secret-input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tgdocs-main {
+    flex-direction: column;
+  }
+  
+  .tgdocs-sidebar {
+    width: 100%;
+    height: 250px;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .ql-editor {
+    padding: 1.5rem;
+  }
+}
+
+/* Wide mode styles */
+.tgdocs-container.wide-mode {
+  max-width: 100% !important;
+  padding: 0 20px !important;
+}
+
+.tgdocs-container.wide-mode .tgdocs-editor-container {
+  width: calc(100% - 60px) !important;
+  max-width: none !important;
+}
+
+.tgdocs-sidebar.collapsed {
+  width: 50px !important;
+  overflow: hidden;
+  transition: width 0.3s ease;
+}
+
+.tgdocs-sidebar.collapsed h3, 
+.tgdocs-sidebar.collapsed .tgdocs-documents-list {
+  display: none;
+}
+
+/* Better suggestion styles */
+span.inline-suggestion, 
+.ql-editor span.inline-suggestion {
+  display: inline !important;
+  color: #999 !important;
+  opacity: 0.6 !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  background-color: rgba(240, 240, 240, 0.3) !important;
+  visibility: visible !important;
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+/* Highlight.js syntax highlighting for code blocks */
+.ql-editor pre {
+  background-color: #f3f3f3;
+  border-radius: 3px;
+  padding: 8px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.ql-editor pre code.hljs {
+  padding: 0;
+  background: transparent;
+}
+
+/* Keyboard shortcuts dialog */
+.tgdocs-keyboard-shortcuts-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.tgdocs-keyboard-shortcuts-content {
+  background-color: #fff;
+  padding: 24px;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  width: 100%;
+}
+
+.tgdocs-shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.tgdocs-shortcuts-table tr {
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.tgdocs-shortcuts-table tr:last-child {
+  border-bottom: none;
+}
+
+.tgdocs-shortcuts-table td {
+  padding: 8px 0;
+}
+
+.tgdocs-shortcuts-table td:first-child {
+  width: 40%;
+  white-space: nowrap;
+}
+
+kbd {
+  display: inline-block;
+  padding: 3px 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  background-color: #f5f5f5;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+  margin: 0 2px;
+}
+
+.keyboard-shortcuts-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* Autocomplete suggestion element */
+.tgdocs-suggestion {
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #333;
+  display: none;
+  white-space: nowrap;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestion-text {
+  font-weight: 500;
+}
+
+.suggestion-hint {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+} 

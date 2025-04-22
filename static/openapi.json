@@ -295,6 +295,61 @@
         }
       }
     },
+    "/api/v1/generate-large": {
+      "post": {
+        "summary": "Generate large text with Claude",
+        "operationId": "generate_large_route_api_v1_generate_large_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateResponse"
+                },
+                "example": [
+                  {
+                    "generated_text": "Once upon a time there was a magical kingdom where dreams came true. The people lived in harmony with nature and with each other.",
+                    "model": "claude-3-sonnet-20240229"
+                  }
+                ]
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/engines/{engine_name}/completions": {
       "post": {
         "summary": "Openai Compatibility Route",

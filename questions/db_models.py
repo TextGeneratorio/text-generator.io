@@ -49,3 +49,26 @@ class User(BaseModel):
         with client.context():
             return user.put()
 
+
+class Document(BaseModel):
+    user_id = ndb.StringProperty(required=True)
+    title = ndb.StringProperty(default="Untitled Document")
+    content = ndb.TextProperty()
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    updated = ndb.DateTimeProperty(auto_now=True)
+    
+    @classmethod
+    def byId(cls, id):
+        with client.context():
+            return ndb.Key(cls, id).get()
+    
+    @classmethod
+    def byUserId(cls, user_id):
+        with client.context():
+            return cls.query(cls.user_id == user_id).order(-cls.updated).fetch()
+    
+    @classmethod
+    def save(cls, document):
+        with client.context():
+            return document.put()
+

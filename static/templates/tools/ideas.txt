@@ -1,0 +1,7 @@
+
+Lets do that style where you after writing 10 words in a blank document it does another call to the llm to find a name for the document and auto fills that in if you never writ a name in
+
+lets make sure mapping from markdown from llm to wysiwyg is good
+
+
+Ah yes the generate content button could go from where the last cursor position is and generate much more content in bulk

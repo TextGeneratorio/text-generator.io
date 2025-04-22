@@ -4,5 +4,11 @@ tools_fixtures = {
         "description": "Generate creative domain names and check their availability instantly.",
         "url": "/tools/domain-generator",
         "image": "img/domain-name-generator.webp"
+    },
+    "text-generator-docs": {
+        "name": "AI Text Editor",
+        "description": "Create and edit documents with AI-powered autocomplete in a beautiful WYSIWYG editor.",
+        "url": "/ai-text-editor",
+        "image": "img/text-generator-docs.webp"
     }
 }

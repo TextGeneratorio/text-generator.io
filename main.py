@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 import json
 import os
+import httpx
 from copy import deepcopy
 from pathlib import Path
+from typing import Union
 from urllib.parse import urlencode, quote_plus
 
-from fastapi import Form, HTTPException
+from fastapi import Form, HTTPException, Header
 from fastapi import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -15,11 +17,14 @@ from starlette.routing import Route
 
 from questions import fixtures, doc_fixtures, tool_fixtures
 from questions import blog_fixtures
-from questions.db_models import User
+from questions.db_models import User, Document
 from questions.gameon_utils import GameOnUtils
 from questions.models import CreateUserRequest, GetUserRequest
 from questions.payments.payments import get_self_hosted_subscription_count_for_user, get_subscription_item_id_for_user_email
 from questions.utils import random_string
+
+# Import the claude_queries module directly
+from questions.inference_server.claude_queries import query_to_claude_async
 
 # pip install google-api-python-client google-cloud-storage google-auth-httplib2 google-auth-oauthlib
 
@@ -116,6 +121,16 @@ async def tools(request: Request):
     })
     return templates.TemplateResponse(
         "templates/tools.jinja2", base_vars,
+    )
+
+@app.get("/ai-text-editor")
+async def ai_text_editor(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+        # No additional variables needed
+    })
+    return templates.TemplateResponse(
+        "templates/text-generator-docs.jinja2", base_vars,
     )
 
 @app.get("/tools/{tool_name}")
@@ -747,3 +762,153 @@ def validate_generate_params(generate_params):
 
 ## serve favicon.ico from root
 app.mount("/", StaticFiles(directory="static"), name="favicon")
+
+@app.get("/api/docs/list")
+async def list_documents(request: Request):
+    user_id = request.query_params.get("userId")
+    if not user_id:
+        return JSONResponse({"error": "User ID is required"}, status_code=400)
+    
+    try:
+        documents = Document.byUserId(user_id)
+        docs_list = []
+        for doc in documents:
+            doc_dict = doc.to_dict()
+            doc_dict["id"] = doc.key.id()
+            docs_list.append(doc_dict)
+        
+        return JSONResponse({"documents": docs_list})
+    except Exception as e:
+        logger.error(f"Error listing documents: {e}")
+        return JSONResponse({"error": "Failed to list documents"}, status_code=500)
+
+@app.get("/api/docs/get")
+async def get_document(request: Request):
+    doc_id = request.query_params.get("id")
+    if not doc_id:
+        return JSONResponse({"error": "Document ID is required"}, status_code=400)
+    
+    try:
+        document = Document.byId(doc_id)
+        if not document:
+            return JSONResponse({"error": "Document not found"}, status_code=404)
+        
+        doc_dict = document.to_dict()
+        doc_dict["id"] = document.key.id()
+        
+        return JSONResponse(doc_dict)
+    except Exception as e:
+        logger.error(f"Error getting document: {e}")
+        return JSONResponse({"error": "Failed to get document"}, status_code=500)
+
+@app.post("/api/docs/save")
+async def save_document(request: Request):
+    try:
+        data = await request.json()
+        user_id = data.get("userId")
+        title = data.get("title", "Untitled Document")
+        content = data.get("content", "")
+        
+        if not user_id:
+            return JSONResponse({"error": "User ID is required"}, status_code=400)
+        
+        # Check if document exists
+        doc_id = data.get("id")
+        document = None
+        
+        if doc_id:
+            document = Document.byId(doc_id)
+        
+        if not document:
+            # Create new document
+            document = Document(
+                user_id=user_id,
+                title=title,
+                content=content
+            )
+        else:
+            # Update existing document
+            document.title = title
+            document.content = content
+        
+        # Save document
+        key = Document.save(document)
+        
+        return JSONResponse({
+            "id": key.id(),
+            "success": True,
+            "message": "Document saved successfully"
+        })
+    except Exception as e:
+        logger.error(f"Error saving document: {e}")
+        return JSONResponse({"error": "Failed to save document"}, status_code=500)
+
+@app.post("/api/docs/autosave")
+async def autosave_document(request: Request):
+    try:
+        data = await request.json()
+        user_id = data.get("userId")
+        doc_id = data.get("id")
+        title = data.get("title", "Untitled Document")
+        content = data.get("content", "")
+        
+        if not user_id:
+            return JSONResponse({"error": "User ID is required"}, status_code=400)
+        
+        document = None
+        
+        if doc_id:
+            document = Document.byId(doc_id)
+        
+        if not document:
+            # Create new document
+            document = Document(
+                user_id=user_id,
+                title=title,
+                content=content
+            )
+        else:
+            # Update existing document
+            document.title = title
+            document.content = content
+        
+        # Save document
+        key = Document.save(document)
+        
+        return JSONResponse({
+            "id": key.id(),
+            "success": True,
+            "message": "Document autosaved"
+        })
+    except Exception as e:
+        logger.error(f"Error autosaving document: {e}")
+        return JSONResponse({"error": "Failed to autosave document"}, status_code=500)
+
+@app.get("/api/current-user")
+async def get_current_user(request: Request):
+    # Get the secret from cookie or query param
+    secret = request.cookies.get("secret") or request.query_params.get("secret")
+    
+    if not secret:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    
+    # Get user from session or database
+    user = session_dict.get(secret)
+    if not user:
+        user = User.bySecret(secret)
+        if user:
+            set_session_for_user(user)
+    
+    if not user:
+        return JSONResponse({"error": "User not found"}, status_code=404)
+    
+    # Return user data
+    user_dict = user.to_dict()
+    user_dict["secret"] = secret  # Include secret for client-side storage
+    
+    return JSONResponse(user_dict)
+
+@app.get("/tools/text-generator-docs")
+async def text_generator_docs_redirect(request: Request):
+    # Redirect to the standalone route for backward compatibility
+    return RedirectResponse(url="/ai-text-editor", status_code=302)
