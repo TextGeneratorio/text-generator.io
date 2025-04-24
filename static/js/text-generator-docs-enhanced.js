@@ -86,6 +86,12 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       
       // Add enhanced event listeners for typing detection
       this.initEnhancedEventListeners();
+      this.addToolbarTooltips();
+      
+      // Expose this instance globally for manual traversal and testing
+      if (typeof window !== 'undefined') {
+        window.scene = this;
+      }
       
       console.log('Enhanced Text Generator Docs initialized');
     } catch (error) {
@@ -97,40 +103,35 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    * Initialize enhanced event listeners
    */
   initEnhancedEventListeners() {
-    // Add wide mode toggle
-    this.addWideModeToggle();
-    
-    // Apply wide mode if it was previously enabled
-    if (this.isWideMode) {
-      this.enableWideMode();
-    }
-    
-    // Add keyboard shortcuts help button
-    const helpButton = document.createElement('button');
-    helpButton.className = 'mdl-button mdl-js-button mdl-button--icon tgdocs-help-button';
-    helpButton.innerHTML = '<i class="material-icons">help</i>';
-    helpButton.title = 'Keyboard Shortcuts';
-    
-    // Add to the actions container
-    const actionsContainer = document.querySelector('.tgdocs-actions');
-    if (actionsContainer) {
-      actionsContainer.appendChild(helpButton);
-    }
-    
-    // Set up keyboard shortcuts dialog
-    const keyboardShortcutsDialog = document.getElementById('keyboard-shortcuts-dialog');
-    if (keyboardShortcutsDialog) {
-      helpButton.addEventListener('click', () => {
-        keyboardShortcutsDialog.style.display = 'flex';
-      });
-      
-      const closeButton = keyboardShortcutsDialog.querySelector('#close-shortcuts-btn');
-      if (closeButton) {
-        closeButton.addEventListener('click', () => {
-          keyboardShortcutsDialog.style.display = 'none';
-        });
+    // Capture Tab globally to accept suggestion popup whenever active
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Tab' && this.suggestionActive) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.acceptSuggestion();
       }
+    }, true);
+
+    // Add listeners to hide popup on scroll/resize
+    this._boundHideSuggestion = this.hideSuggestion.bind(this); // Bind for listener removal
+    window.addEventListener('scroll', this._boundHideSuggestion, true); // Use capture phase
+    window.addEventListener('resize', this._boundHideSuggestion); 
+
+    // Rebind Quill Tab key to accept suggestion when popup is active
+    if (this.editor && this.editor.keyboard) {
+      // Remove default Tab bindings
+      delete this.editor.keyboard.bindings[9];
+      // Add custom Tab binding
+      this.editor.keyboard.addBinding({ key: 9 }, (range, context) => {
+        if (this.suggestionActive) {
+          this.acceptSuggestion();
+          return false; // Prevent default Tab behavior
+        }
+        return true;
+      });
     }
+
+    // TODO: Consider adding a MutationObserver on the editor for complex reflows
   }
   
   /**
@@ -143,34 +144,32 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         // If change isn't from the user, ignore
         if (source !== 'user') return;
 
-        let hideSuggestion = true;
+        let shouldHideSuggestion = true;
         let incrementCounter = true;
-        let updateSuggestionText = null;
 
-        // Analyze the change if a suggestion is active
-        if (this.suggestionActive && this.suggestionText && delta.ops) {
+        // --- Analyze change for hiding popup --- 
+        if (this.suggestionActive && delta.ops) {
             // Check if the change is a simple text insertion
             if (delta.ops.length === 1 && delta.ops[0].insert && typeof delta.ops[0].insert === 'string') {
                 const insertedText = delta.ops[0].insert;
 
-                // Case 1: User typed only spaces
+                // Case 1: User typed only spaces - KEEP suggestion visible
                 if (/^\s+$/.test(insertedText)) {
-                    hideSuggestion = false; // Keep suggestion visible
+                    shouldHideSuggestion = false; // Keep popup visible
                     incrementCounter = false; // Don't invalidate pending requests
                 }
-                // Case 2: User typed text matching the start of the suggestion
-                else if (this.suggestionText.startsWith(insertedText)) {
-                    updateSuggestionText = this.suggestionText.substring(insertedText.length);
-                    hideSuggestion = false; // Keep suggestion visible (it will be updated)
-                    incrementCounter = false; // Don't invalidate pending requests
-                }
+                // Case 2: Any other insertion -> HIDE suggestion
             }
-            // Any other change (deletion, complex op, non-matching insert) invalidates
+            // Case 3: Deletions or complex changes -> HIDE suggestion
+            else {
+                shouldHideSuggestion = true; // Ensure hiding
+            }
         }
 
         // --- Apply decisions --- 
-        if (hideSuggestion && this.suggestionActive) {
-            this.hideSuggestion();
+        if (shouldHideSuggestion && this.suggestionActive) {
+            console.log("Invalidating change detected, hiding suggestion popup.");
+            this.hideSuggestion(); // Hide the popup and reset state
         }
 
         if (incrementCounter) {
@@ -178,39 +177,26 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         }
 
         // Track changes for history (call original logic)
-        this.trackEditorChanges(delta, oldDelta, source);
-
-        // If suggestion needs updating (user typed matching prefix)
-        if (updateSuggestionText !== null) {
-            this.suggestionText = updateSuggestionText;
-            if (this.suggestionText === '') { // If user typed the whole suggestion
-                this.hideSuggestion();
-            } else {
-                // Update the displayed suggestion (needs modification to showInlineSuggestion or similar)
-                // For now, let's just remove the old and show the new if possible
-                const selection = this.editor.getSelection();
-                if(selection) {
-                    this.removeInlineSuggestion(); // Remove old visual
-                    this.showInlineSuggestion(this.suggestionText, selection.index); // Show updated visual
-                }
-            }
-        } 
-        // Don't reset debounce if we are just updating the suggestion or user typed spaces
-        else if (hideSuggestion) { 
-          // --- Debounce for Autocomplete --- 
-          clearTimeout(this.debounceTimeout);
-          this.debounceTimeout = setTimeout(() => {
-            if (!this.suggestionActive) { // Only generate if none is active
-              this.generateAutocompleteSuggestion();
-            }
-          }, EnhancedTextGeneratorDocs.CONFIG.TYPING_DEBOUNCE);
+      this.trackEditorChanges(delta, oldDelta, source);
+      
+        // Reset debounce timer ONLY if the suggestion was hidden (or wasn't active)
+        if (shouldHideSuggestion) { 
+            // --- Debounce for Autocomplete --- 
+        clearTimeout(this.debounceTimeout);
+        this.debounceTimeout = setTimeout(() => {
+                // Check suggestionActive again, as it might have been hidden by this handler
+          if (!this.suggestionActive) {
+                    // Use the *new* popup display function
+            this.generateAutocompleteSuggestion();
+          }
+        }, EnhancedTextGeneratorDocs.CONFIG.TYPING_DEBOUNCE);
         }
-
+        
         // --- Debounce for Autosave --- 
         clearTimeout(this.autosaveTimeout);
         this.updateSaveStatus('Saving...');
         this.autosaveTimeout = setTimeout(() => {
-            this.autosaveCurrentDocument();
+          this.autosaveCurrentDocument();
         }, EnhancedTextGeneratorDocs.CONFIG.AUTOSAVE_INTERVAL || 60000); // Add default
     });
   }
@@ -464,7 +450,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       const cachedSuggestion = this.getFromCompletionCache(textBeforeCursor);
       if (cachedSuggestion && !this.suggestionActive) {
         console.log("Using cached suggestion for:", textBeforeCursor);
-        this.showInlineSuggestion(cachedSuggestion, cursorPosition);
+        this.showAutocompletePopup(cachedSuggestion, cursorPosition);
         delete this.pendingSuggestionRequests[requestId];
         return;
       }
@@ -485,7 +471,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         console.log("Using typing history pattern for suggestion");
         // Add to completion cache for future use with the EXACT prefix
         this.addToCompletionCache(textBeforeCursor, historyMatch);
-        this.showInlineSuggestion(historyMatch, cursorPosition);
+        this.showAutocompletePopup(historyMatch, cursorPosition);
         delete this.pendingSuggestionRequests[requestId];
         return;
       }
@@ -569,11 +555,13 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       
       // Extract the suggestion from the generated text
       // Return only the part after the prompt
-      const generatedText = data[0].generated_text;
-      const suggestion = generatedText.substring(prefix.length);
+      let suggestion = data[0].generated_text.substring(prefix.length);
       
-      // If we got a suggestion and it's not empty
-      if (suggestion && suggestion.trim() !== '' && !this.suggestionActive) {
+      // --- Filter Suggestion --- 
+      // Check if suggestion is valid (length > 1, not just whitespace) and none is active
+      const isValidSuggestion = suggestion && suggestion.trim().length > 1;
+      
+      if (isValidSuggestion && !this.suggestionActive) {
         // Get the original request data
         const requestData = this.pendingSuggestionRequests[requestId];
         
@@ -582,10 +570,15 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         
         // Show the suggestion if the request is still valid
         if (this.isSpecificRequestValid(requestId, changeCounterBeforeCall)) {
-          this.showInlineSuggestion(suggestion, requestData.cursorPosition);
+          this.showAutocompletePopup(suggestion, requestData.cursorPosition);
         } else {
           console.log(`Not showing suggestion for request ${requestId} - context changed`);
         }
+      } else if (!isValidSuggestion) {
+          console.log("Suggestion filtered (empty, length 1, or whitespace):", suggestion); // Log filtering
+      } else { 
+          // Suggestion was valid but one was already active, or some other edge case
+          console.log("Suggestion not shown (already active?):", suggestion);
       }
       
       // Clean up this request
@@ -622,7 +615,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     // Check if cursor position is close enough to original position
     const cursorMovement = Math.abs(currentCursorPosition - request.cursorPosition);
     const CURSOR_TOLERANCE = 3; // Allow small cursor movements
-
+    
     // If cursor moved by more than the tolerance, request is invalid
     if (cursorMovement > CURSOR_TOLERANCE) {
       console.log(`Request ${requestId} invalid - cursor moved ${cursorMovement} characters`);
@@ -772,7 +765,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         const largeGenerateEndpoint = isLocal ? 
             'http://localhost:8000/api/v1/generate-large' : 
             'https://api.text-generator.io/api/v1/generate-large';
-
+        
         // Generate content using the Claude API endpoint
         const response = await fetch(largeGenerateEndpoint, {
           method: 'POST',
@@ -941,194 +934,138 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   }
   
   /**
-   * Override hideSuggestion to ensure proper cleanup
-   * @override
+   * Hides the autocomplete popup and resets the suggestion state.
    */
   hideSuggestion() {
-    // Hide the suggestion UI element (if it exists and is separate)
+    // console.log("Hiding suggestion popup"); // Optional: Keep for debugging
+    
     if (this.suggestionElement) {
       this.suggestionElement.style.display = 'none';
+        this.suggestionElement.innerHTML = ''; // Clear content
     }
-    
-    // Remove any inline suggestion elements from the DOM
-    this.removeInlineSuggestion();
-    
-    // Reset state
+    // Reset internal state
     this.suggestionActive = false;
     this.suggestionText = '';
-    
-    // Clear any data attributes from the main suggestion element
-    if (this.suggestionElement) {
-      this.suggestionElement.removeAttribute('data-position');
-    }
-    
-    // Remove any suggestion markers left in the editor content area
-    try {
-       if (this.editor && this.editor.root) {
-         const markers = this.editor.root.querySelectorAll('.suggestion-marker');
-         markers.forEach(marker => marker.remove());
-       }
-    } catch (error) {
-        console.error('Error removing suggestion markers:', error);
-    }
+    this.suggestionPosition = null;
   }
   
   /**
-   * Override removeInlineSuggestion to ensure complete cleanup
-   * @override
+   * Shows the autocomplete suggestion in a popup below the cursor.
    */
-  removeInlineSuggestion() {
-    try {
-      // Remove any inline suggestion spans from the editor content area
-       if (this.editor && this.editor.root) {
-         const suggestions = this.editor.root.querySelectorAll('.inline-suggestion');
-         suggestions.forEach(suggestion => suggestion.remove());
-       }
-    } catch (error) {
-      console.error('Error removing inline suggestions:', error);
-    }
-  }
-  
-  /**
-   * Override acceptSuggestion to ensure it works with the current content
-   * and prevent race conditions
-   * @override
-   */
-  acceptSuggestion() {
-    if (!this.suggestionActive || !this.editor) return;
+  showAutocompletePopup(suggestion, position) {
+    // Ensure editor exists and none is already active
+    if (!this.editor || this.suggestionActive) return;
     
-    try {
-      // Use a flag to prevent race conditions and multiple acceptances
-      if (this._isAcceptingSuggestion) {
-        console.log('Already accepting a suggestion, ignoring duplicate request');
+    // --- Ensure suggestionElement exists (with fallback query) --- 
+    if (!this.suggestionElement) {
+        console.warn('this.suggestionElement is invalid, attempting fallback query...');
+        this.suggestionElement = document.getElementById('autocomplete-suggestion');
+        if (!this.suggestionElement) {
+            console.error('Fallback query failed: Autocomplete popup element (#autocomplete-suggestion) not found in the DOM.');
         return;
       }
-      
-      this._isAcceptingSuggestion = true;
-      
-      // Get current state
-      const selection = this.editor.getSelection();
-      if (!selection) {
-        this._isAcceptingSuggestion = false;
-        return;
-      }
-      
-      const cursorPosition = selection.index;
-      const text = this.editor.getText();
-      
-      // Get the suggestion text from either the suggestion element or inline elements
-      let suggestionText = '';
-      
-      // First try getting from a dedicated suggestion element 
-      if (this.suggestionElement && this.suggestionElement.querySelector('.suggestion-text')) {
-        suggestionText = this.suggestionElement.querySelector('.suggestion-text').textContent;
-      }
-      
-      // If that fails, try getting from the active inline suggestion in the DOM
-      if (!suggestionText) {
-        const inlineSuggestion = document.querySelector('.inline-suggestion');
-        if (inlineSuggestion) {
-          suggestionText = inlineSuggestion.textContent;
-        }
-      }
-      
-      // If we still don't have a suggestion text, use the cached one
-      if (!suggestionText && this.suggestionText) {
-        suggestionText = this.suggestionText;
-      }
-      
-      // If we have suggestion text to insert
-      if (suggestionText && suggestionText.trim() !== '') {
-        // Insert the suggestion at the cursor position using the Quill API
-        this.editor.insertText(cursorPosition, suggestionText);
-        
-        // Move cursor to end of inserted text
-        this.editor.setSelection(cursorPosition + suggestionText.length, 0);
-        
-        // Add to the completion cache for future use
-        // Use the EXACT prefix at the cursor position for precise caching
-        const prefix = text.substring(0, cursorPosition);
-        this.addToCompletionCache(prefix, suggestionText);
-        
-        console.log('Suggestion accepted and inserted:', suggestionText);
-      } else {
-        console.warn('No suggestion text found to accept');
-      }
-      
-      // Always hide the suggestion UI elements after trying to accept
-      this.hideSuggestion();
-      
-      // Ensure editor stays focused
-      this.editor.focus();
-      
-      // Auto-save after accepting suggestion
-      this.autosaveCurrentDocument();
-      
-      // Release the flag
-      this._isAcceptingSuggestion = false;
-    } catch (error) {
-      console.error('Error accepting suggestion:', error);
-      this.hideSuggestion();
-      this._isAcceptingSuggestion = false;
     }
-  }
-  
-  /**
-   * Override showInlineSuggestion to store position information
-   * @override
-   */
-  showInlineSuggestion(suggestion, position) {
-    if (!this.editor || !this.suggestionElement || this.suggestionActive) return;
-    
+
+    console.log(`Attempting to show popup suggestion: "${suggestion}" at position ${position}`);
+
+    // Use editor root directly for styling and positioning
+
     try {
-      // Store the position for later validation
-      this.suggestionElement.dataset.position = position.toString();
+      // Hide any previous popup first
+      this.hideSuggestion();
       
-      // Set the suggestion text
-      const suggestionTextEl = this.suggestionElement.querySelector('.suggestion-text');
-      if (suggestionTextEl) {
-        suggestionTextEl.textContent = suggestion;
-      }
-      
-      // Position the suggestion element
-      const bounds = this.editor.getBounds(position);
-      if (bounds) {
-        this.suggestionElement.style.top = `${bounds.top}px`;
-        this.suggestionElement.style.left = `${bounds.left}px`;
-        this.suggestionElement.style.display = 'block';
-      }
-      
-      // Mark suggestion as active
+      // Mark suggestion as active internally
       this.suggestionActive = true;
-      this.suggestionText = suggestion;
-      
-      // Add the inline suggestion as a span to the editor
-      const inlineNode = document.createElement('span');
-      inlineNode.className = 'inline-suggestion';
-      inlineNode.textContent = suggestion;
-      
-      // Insert at current position
-      const quill = this.editor;
-      const editorElement = quill.root;
-      
-      // Mark selection point for the SuggestionBlot
-      const selection = quill.getSelection();
-      if (selection) {
-        // Add marker for inline suggestion node
-        const marker = document.createElement('span');
-        marker.className = 'suggestion-marker';
-        marker.dataset.position = position.toString();
-        
-        // Insert marker and suggestion node in DOM but not in Quill Delta
-        const cursorNode = this.getNodeAtPosition(editorElement, position);
-        if (cursorNode) {
-          cursorNode.parentNode.insertBefore(marker, cursorNode.nextSibling);
-          marker.parentNode.insertBefore(inlineNode, marker.nextSibling);
-        }
+      this.suggestionText = suggestion; 
+      this.suggestionPosition = position; 
+
+      // --- Calculate position --- 
+      const bounds = this.editor.getBounds(position); 
+      if (!bounds || typeof bounds.left !== 'number' || typeof bounds.top !== 'number') { // Check top now
+          console.warn('Could not get valid bounds for suggestion position:', bounds);
+      this.hideSuggestion();
+          return;
       }
+      console.log('Cursor bounds:', bounds);
+
+      // Update popup content
+      this.suggestionElement.innerHTML = `<span class="suggestion-text">${suggestion}</span><span class="suggestion-hint"><kbd>&#x21E5;</kbd></span>`;
+      
+      // Add better visibility styles directly to the element
+      this.suggestionElement.style.backgroundColor = '#ffffff';
+      this.suggestionElement.style.border = '1px solid #dddddd';
+      this.suggestionElement.style.borderRadius = '4px';
+      this.suggestionElement.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+      this.suggestionElement.style.padding = '2px 4px';
+      this.suggestionElement.style.zIndex = '9999';
+      this.suggestionElement.style.display = 'block';
+      this.suggestionElement.style.opacity = '1';
+      this.suggestionElement.style.whiteSpace = 'nowrap';
+      this.suggestionElement.style.maxWidth = '400px';
+      this.suggestionElement.style.overflow = 'hidden';
+      this.suggestionElement.style.textOverflow = 'ellipsis';
+      this.suggestionElement.style.lineHeight = '1';
+      this.suggestionElement.style.display = 'inline-flex';
+      this.suggestionElement.style.alignItems = 'center';
+
+      // --- Apply editor font styles and get line height --- 
+      let editorLineHeight = '1.42'; // Default fallback line height
+      try {
+        const styleSource = this.editor.root.querySelector('p') || this.editor.root;
+        const computedStyle = window.getComputedStyle(styleSource);
+        console.log('Applying font styles from:', styleSource, 'Style:', computedStyle.fontFamily, computedStyle.fontSize, computedStyle.lineHeight);
+        
+        this.suggestionElement.style.fontSize = computedStyle.fontSize;
+        this.suggestionElement.style.fontFamily = computedStyle.fontFamily;
+        this.suggestionElement.style.fontWeight = computedStyle.fontWeight;
+        this.suggestionElement.style.fontStyle = computedStyle.fontStyle;
+        this.suggestionElement.style.color = '#555';
+        
+        const textSpan = this.suggestionElement.querySelector('.suggestion-text');
+        if(textSpan) {
+          textSpan.style.opacity = '0.65';
+          textSpan.style.display = 'inline';
+          textSpan.style.margin = '0';
+          textSpan.style.padding = '0';
+        }
+        
+        const hintSpan = this.suggestionElement.querySelector('.suggestion-hint');
+        if(hintSpan) {
+          hintSpan.style.display = 'inline-flex';
+          hintSpan.style.marginLeft = '2px';
+          hintSpan.style.fontSize = '0.8em';
+          hintSpan.style.opacity = '0.8';
+        }
+
+        // Store line height for positioning
+        if (computedStyle.lineHeight && computedStyle.lineHeight !== 'normal') {
+            editorLineHeight = computedStyle.lineHeight;
+        }
+        
+      } catch (styleError) {
+        console.warn("Could not apply editor styles to suggestion popup:", styleError);
+      }
+
+      // --- Position the popup using getBounds.bottom ---
+      const editorRect = this.editor.root.getBoundingClientRect();
+      const viewportTop = editorRect.top + bounds.top + bounds.height;
+      const viewportLeft = editorRect.left + bounds.left;
+
+      // Use absolute positioning relative to document by translating based on scroll offset
+      const scrollX = window.scrollX || window.pageXOffset;
+      const scrollY = window.scrollY || window.pageYOffset;
+
+      // Switch to fixed positioning to avoid scroll issues - more reliable
+      this.suggestionElement.style.position = 'fixed';
+      this.suggestionElement.style.top = `${viewportTop}px`;
+      this.suggestionElement.style.left = `${viewportLeft}px`;
+      this.suggestionElement.style.margin = '0';
+
+      console.log('Suggestion popup displayed.');
+
     } catch (error) {
-      console.error('Error showing inline suggestion:', error);
-      this.suggestionActive = false;
+      console.error('Error showing suggestion popup:', error);
+      this.hideSuggestion(); 
     }
   }
   
@@ -1207,35 +1144,10 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       event.preventDefault();
       event.stopPropagation(); // Stop propagation to prevent focus change
       
-      // Get current cursor position
-      const selection = this.editor.getSelection();
-      if (!selection) return;
-      
-      const cursorPosition = selection.index;
-      
-      // Get the suggestion position from the element's data attribute 
-      // or directly from the document element
-      let suggestionPos = 0;
-      
-      if (this.suggestionElement && this.suggestionElement.dataset.position) {
-        suggestionPos = parseInt(this.suggestionElement.dataset.position || '0');
-      } else {
-        // Try to find the suggestion marker in the DOM
-        const marker = document.querySelector('.suggestion-marker');
-        if (marker && marker.dataset.position) {
-          suggestionPos = parseInt(marker.dataset.position || '0');
-        }
-      }
-      
-      // Only accept if cursor is close enough to where suggestion was shown
-      if (Math.abs(cursorPosition - suggestionPos) <= EnhancedTextGeneratorDocs.CONFIG.CURSOR_TOLERANCE) {
-        console.log('Accepting suggestion via Tab key');
+      // If suggestion popup is active, accept it directly
+      console.log('Accepting suggestion via Tab key (popup)');
         this.acceptSuggestion();
-      } else {
-        // If cursor moved too far, hide suggestion instead of accepting
-        console.log('Cursor moved too far from suggestion position, hiding instead of accepting');
-        this.hideSuggestion();
-      }
+      
       return false; // Ensure the event is completely stopped
     }
     
@@ -1265,7 +1177,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     
     // Add title
     const title = document.createElement('h3');
-    title.textContent = 'Rewrite Document';
+    title.textContent = 'Autowrite Document';
     dialogContent.appendChild(title);
     
     // Add description
@@ -1291,7 +1203,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         document.body.removeChild(dialogContainer);
       }
     };
-
+    
     // Add cancel button
     const cancelButton = document.createElement('button');
     cancelButton.className = 'mdl-button mdl-js-button mdl-button--raised';
@@ -1299,18 +1211,30 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     cancelButton.addEventListener('click', closeDialog);
     actions.appendChild(cancelButton);
     
-    // Add rewrite button
-    const rewriteButton = document.createElement('button');
-    rewriteButton.className = 'mdl-button mdl-js-button mdl-button--raised mdl-button--colored';
-    rewriteButton.textContent = 'Rewrite';
-    rewriteButton.addEventListener('click', async () => {
+    // Add autowrite button
+    const autowriteButton = document.createElement('button');
+    autowriteButton.className = 'mdl-button mdl-js-button mdl-button--raised mdl-button--colored tgdocs-autowrite-btn';
+    autowriteButton.textContent = 'Autowrite';
+    autowriteButton.addEventListener('click', async () => {
       const instructionPrompt = promptTextarea.value.trim();
       if (instructionPrompt) {
+        // Disable button and show loading state
+        autowriteButton.disabled = true;
+        autowriteButton.textContent = 'Autowriting...';
+
         closeDialog(); // Close dialog before starting rewrite
-        await this.rewriteDocument(instructionPrompt);
+        try {
+          // Call the renamed function
+          await this.rewriteDocumentWithInstructions(instructionPrompt);
+        } finally {
+          // Re-enable button regardless of success/failure (dialog is already closed)
+          // Note: Button element might be gone if dialog closed instantly, 
+          // so direct manipulation here might not be necessary unless dialog closing is delayed.
+          // If we need to update UI state post-operation, use a different mechanism.
+        }
       }
     });
-    actions.appendChild(rewriteButton);
+    actions.appendChild(autowriteButton);
     
     dialogContent.appendChild(actions);
     dialogContainer.appendChild(dialogContent);
@@ -1341,7 +1265,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    * Rewrites the entire document based on instructions using an LLM.
    * @param {string} instructionPrompt - The instructions for rewriting.
    */
-  async rewriteDocument(instructionPrompt) {
+  async rewriteDocumentWithInstructions(instructionPrompt) {
     if (!this.editor) return;
 
     const fullDocumentText = this.editor.getText();
@@ -1374,9 +1298,9 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
           max_length: 4000, // Allow longer responses for full doc rewrite
           max_sentences: 0, // Let the model decide sentence structure
           min_probability: 0, 
-          stop_sequences: [],
+        stop_sequences: [],
           top_p: 0.8, // Slightly lower p for more focused rewriting
-          top_k: 40,
+        top_k: 40,
           temperature: 0.6, // Lower temperature for more controlled editing
           repetition_penalty: 1.1,
           seed: 0,
@@ -1408,10 +1332,9 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       let rewrittenText = data[0].generated_text;
       
       // Basic check: If the response starts exactly with the original text, try removing it.
-      // This is imperfect but might handle some cases.
       if (rewrittenText.startsWith(fullDocumentText)) {
-         // rewrittenText = rewrittenText.substring(fullDocumentText.length).trimStart();
-         // Let's trust the system prompt for now, assuming it outputs only the rewrite.
+        console.log("API included original prefix in rewrite response, removing it.");
+        rewrittenText = rewrittenText.substring(fullDocumentText.length).trimStart();
       }
 
       if (rewrittenText && rewrittenText.trim() !== '') {
@@ -1500,12 +1423,10 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       let continuationText = data[0].generated_text;
       // If the API includes the prompt, remove it
       if (continuationText.startsWith(textBeforeCursor)) {
+        console.log("API included original prefix in autowrite response, removing it.");
         continuationText = continuationText.substring(textBeforeCursor.length);
       }
       
-      // It might be better to rely on the system prompt asking for *only* the continuation
-      // continuationText = data[0].generated_text;
-
       if (continuationText && continuationText.trim() !== '') {
         // Insert the continuation text at the cursor position
         this.editor.insertText(cursorPosition, continuationText);
@@ -1520,6 +1441,116 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     } catch (error) {
       console.error('Error autowriting text:', error);
       this.updateSaveStatus('Autowrite failed');
+    }
+  }
+
+  /**
+   * @override
+   */
+  acceptSuggestion() {
+    // Check if editor and suggestion state are valid
+    if (!this.editor || !this.suggestionActive || !this.suggestionText || typeof this.suggestionPosition !== 'number') { 
+        this.hideSuggestion(); // Clean up state just in case
+        return;
+    }
+
+    console.log(`Accepting popup suggestion: "${this.suggestionText}"`);
+
+    try {
+      // Determine the correct insertion point with two fallbacks
+      const currentSelection = this.editor.getSelection();
+      const cursorIndex = currentSelection ? currentSelection.index : 0;
+      let insertPosition = this.suggestionPosition;
+
+      // Validate insertion position
+      if (typeof insertPosition !== 'number' || insertPosition < 0 || insertPosition > this.editor.getLength()) {
+        insertPosition = cursorIndex;
+      }
+
+      // Save suggestion text length BEFORE we hide it
+      const suggestionLength = this.suggestionText.length;
+      
+      // Insert the suggestion text at the determined position
+      this.editor.insertText(insertPosition, this.suggestionText, 'user');
+      
+      // Add to completion cache using the prefix *before* the suggestion started
+      const textBeforeSuggestion = this.editor.getText(0, insertPosition);
+      this.addToCompletionCache(textBeforeSuggestion, this.suggestionText);
+
+      // Hide suggestion state
+      this.hideSuggestion();
+
+      // Calculate ending position - we try multiple approaches to ensure movement
+      const finalPosition = insertPosition + suggestionLength;
+
+      // APPROACH 1: Direct end position selection (most reliable)
+      this.editor.setSelection(finalPosition, 0);
+      
+      // APPROACH 2: Delayed moveCursorRight as backup plan
+      setTimeout(() => {
+        // Double-check if cursor still isn't where it should be
+        const newSel = this.editor.getSelection();
+        if (!newSel || newSel.index !== finalPosition) {
+          console.log('Using backup cursor positioning method');
+          this.moveCursorRight(suggestionLength);
+        }
+        this.editor.focus();
+        console.log(`Cursor moved ${suggestionLength} positions right after suggestion acceptance`);
+      }, 50);
+
+      // Auto-save after accepting suggestion
+      this.autosaveCurrentDocument();
+    } catch (error) {
+      console.error('Error accepting suggestion:', error);
+      this.hideSuggestion();
+    }
+  }
+
+  /**
+   * Add tooltips for Quill toolbar buttons to show keyboard shortcuts.
+   */
+  addToolbarTooltips() {
+    const toolbar = document.querySelector('.ql-toolbar');
+    if (!toolbar) return;
+    const tooltips = [
+      { selector: 'button.ql-bold', title: 'Bold (Ctrl+B)' },
+      { selector: 'button.ql-italic', title: 'Italic (Ctrl+I)' },
+      { selector: 'button.ql-underline', title: 'Underline (Ctrl+U)' },
+      { selector: 'button.ql-strike', title: 'Strikethrough (Ctrl+Shift+S)' },
+      { selector: 'button.ql-blockquote', title: 'Blockquote' },
+      { selector: 'button.ql-code-block', title: 'Code Block' },
+      { selector: 'button.ql-list[value="ordered"]', title: 'Ordered List (Ctrl+Shift+7)' },
+      { selector: 'button.ql-list[value="bullet"]', title: 'Bullet List (Ctrl+Shift+8)' },
+      { selector: 'button.ql-link', title: 'Insert Link (Ctrl+K)' },
+      { selector: 'button.ql-image', title: 'Insert Image' },
+      { selector: 'button.ql-clean', title: 'Remove Formatting' },
+      { selector: '.ql-header .ql-picker-label', title: 'Header (Select Heading Level)' }
+    ];
+    tooltips.forEach(({ selector, title }) => {
+      toolbar.querySelectorAll(selector).forEach(el => el.setAttribute('title', title));
+    });
+  }
+
+  /**
+   * Move the editor cursor right by a given number of characters.
+   * Useful for manual testing/traversal from console: scene.moveCursorRight(5)
+   * @param {number} count - Number of characters to move forward.
+   */
+  moveCursorRight(count) {
+    if (!this.editor) return;
+    const sel = this.editor.getSelection();
+    const currentIndex = sel ? sel.index : this.editor.getLength();
+    const target = currentIndex + (typeof count === 'number' ? count : 0);
+    const source = (typeof Quill !== 'undefined' && Quill.sources) ? Quill.sources.USER : undefined;
+    try {
+      if (source) {
+        this.editor.setSelection(target, 0, source);
+      } else {
+        this.editor.setSelection(target, 0);
+      }
+      // No refocus here—avoid moving focus which can interfere with caret placement
+    } catch (e) {
+      console.warn('moveCursorRight failed:', e);
     }
   }
 } 

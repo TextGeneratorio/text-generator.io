@@ -193,6 +193,21 @@ class TextGeneratorDocs {
       
       Quill.register(SuggestionBlot);
       
+      // Add CSS rule for the suggestion format
+      const style = document.createElement('style');
+      style.id = 'suggestion-inline-style'; // Add ID to prevent duplicates if init runs again
+      if (!document.getElementById(style.id)) {
+          style.textContent = `
+            .inline-suggestion {
+              color: grey !important;
+              opacity: 0.6 !important;
+              background-color: rgba(220, 220, 220, 0.3) !important; /* Subtle background */
+              /* Add pointer-events: none? Might interfere with selection */
+            }
+          `;
+          document.head.appendChild(style);
+      }
+      
       // Ensure suggestion styles
       const ensureSuggestionStyles = () => {
         // Check if our suggestion style enforcement is already in the document
@@ -270,9 +285,44 @@ class TextGeneratorDocs {
       
       // Focus on editor
       this.editor.focus();
+
+      // Add tooltips with keyboard shortcuts to Quill toolbar buttons
+      this.addQuillToolbarTooltips();
+
     } catch (e) {
       console.error('Error initializing editor:', e);
     }
+  }
+  
+  addQuillToolbarTooltips() {
+    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    const modifier = isMac ? 'Cmd' : 'Ctrl';
+
+    const tooltips = {
+      '.ql-bold': `Bold (${modifier}+B)`,
+      '.ql-italic': `Italic (${modifier}+I)`,
+      '.ql-underline': `Underline (${modifier}+U)`,
+      '.ql-link': `Insert Link (${modifier}+K)`,
+      // Add others as needed - check Quill defaults or specific config
+      '.ql-header[value="1"]': 'Header 1',
+      '.ql-header[value="2"]': 'Header 2',
+      '.ql-header[value="3"]': 'Header 3',
+      '.ql-blockquote': 'Blockquote',
+      '.ql-code-block': 'Code Block',
+      '.ql-list[value="ordered"]': 'Ordered List',
+      '.ql-list[value="bullet"]': 'Bullet List',
+      '.ql-clean': 'Remove Formatting'
+    };
+
+    // Wait a brief moment for Quill to render the toolbar fully
+    setTimeout(() => {
+      for (const selector in tooltips) {
+        const button = this.editorContainer.parentNode.querySelector(`.ql-toolbar ${selector}`);
+        if (button) {
+          button.setAttribute('title', tooltips[selector]);
+        }
+      }
+    }, 500); // Adjust delay if needed
   }
   
   initEventListeners() {
@@ -408,7 +458,7 @@ class TextGeneratorDocs {
     clearTimeout(this.autosaveTimeout);
     
     // Show saving indicator
-    this.updateSaveStatus('Saving...');
+    this.updateSaveStatus('Saving');
     
     // Debounce autosave (1 minute)
     this.autosaveTimeout = setTimeout(() => {
@@ -418,6 +468,11 @@ class TextGeneratorDocs {
   
   updateSaveStatus(message) {
     try {
+      // Normalize message: remove trailing ellipses for 'Saving...'
+      let displayMessage = message;
+      if (displayMessage.endsWith('...')) {
+        displayMessage = displayMessage.slice(0, -3);
+      }
       // Create or update save status element
       if (!this.saveStatusElement) {
         this.saveStatusElement = document.createElement('div');
@@ -425,21 +480,22 @@ class TextGeneratorDocs {
         this.saveStatusElement.style.position = 'fixed';
         this.saveStatusElement.style.bottom = '10px';
         this.saveStatusElement.style.right = '10px';
+        // Less prominent style: white background, black text
         this.saveStatusElement.style.padding = '5px 10px';
-        this.saveStatusElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        this.saveStatusElement.style.color = '#fff';
+        this.saveStatusElement.style.backgroundColor = '#fff';
+        this.saveStatusElement.style.color = '#000';
         this.saveStatusElement.style.borderRadius = '3px';
         this.saveStatusElement.style.zIndex = '1000';
-        this.saveStatusElement.style.opacity = '0.8';
+        this.saveStatusElement.style.opacity = '1';
         this.saveStatusElement.style.transition = 'opacity 0.3s ease-in-out';
         document.body.appendChild(this.saveStatusElement);
       }
       
-      this.saveStatusElement.textContent = message;
-      this.saveStatusElement.style.opacity = '0.8';
+      // Update text
+      this.saveStatusElement.textContent = displayMessage;
       
       // Add 'saved' class if message indicates successful save
-      if (message === 'Saved') {
+      if (displayMessage === 'Saved') {
         this.saveStatusElement.classList.add('saved');
         
         // Fade out the status after 2 seconds
@@ -793,7 +849,7 @@ class TextGeneratorDocs {
         
         if (lastFewWords.length > 0) {
           // Show a brief visual feedback that generation is happening
-          this.updateSaveStatus('Generating...');
+          this.updateSaveStatus('Generating');
           
           // Small delay to ensure UI updates before potentially intensive operation
           setTimeout(() => {
@@ -970,6 +1026,7 @@ class TextGeneratorDocs {
       return;
     }
     
+    // Get raw content for saving
     const content = JSON.stringify(this.editor.getContents());
     const title = this.docTitleInput.value || 'Untitled Document';
     
@@ -1072,6 +1129,7 @@ class TextGeneratorDocs {
         return;
       }
       
+      // Get raw content for autosaving
       const content = JSON.stringify(this.editor.getContents());
       const title = this.docTitleInput.value || 'Untitled Document';
       
@@ -1282,7 +1340,7 @@ class TextGeneratorDocs {
     clearTimeout(this.titleChangeDebounceTimer);
     
     // Show saving indicator
-    this.updateSaveStatus('Saving...');
+    this.updateSaveStatus('Saving');
     
     // Debounce title changes (1 second)
     this.titleChangeDebounceTimer = setTimeout(() => {
@@ -1747,7 +1805,7 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
   if (!prompt || prompt.trim() === '') return;
   
   // Show loading indicator
-  this.updateSaveStatus('Generating content...');
+  this.updateSaveStatus('Generating');
   
   // Save current cursor position
   const savedSelection = this.editor ? this.editor.getSelection() : null;
@@ -1760,7 +1818,7 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
     
     if (useClaudeForThisRequest) {
       // Use Claude API for bulk generation
-      this.updateSaveStatus('Using Claude for high-quality generation...');
+      this.updateSaveStatus('Using Claude for high-quality generation');
       
       // Generate content using the Claude API endpoint
       const response = await fetch('/api/v1/generate-large', {

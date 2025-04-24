@@ -4,7 +4,7 @@ import os
 import httpx
 from copy import deepcopy
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional, List, Dict, Any, cast
 from urllib.parse import urlencode, quote_plus
 
 from fastapi import Form, HTTPException, Header
@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 from starlette.responses import JSONResponse, Response, RedirectResponse
 from starlette.routing import Route
+from starlette.datastructures import URL
 
 from questions import fixtures, doc_fixtures, tool_fixtures
 from questions import blog_fixtures
@@ -54,6 +55,11 @@ app = FastAPI(
     version="1",
 )
 
+# Import the new router
+from routes import documents 
+
+# Include the documents router
+app.include_router(documents.router)
 
 @app.middleware("http")
 async def redirect_domain(request: Request, call_next):
@@ -170,79 +176,82 @@ YOUR_DOMAIN = "https://text-generator.io"
 async def create_checkout_session(uid: str = Form(default=""), secret: str = Form(default=""), type: str = Form(default=""), quantity: int = Form(default=1)):
     quantity = quantity if quantity else 1
     user = session_dict.get(secret)
-    stripe_id = None
-    if not user or not user.stripe_id:
-        user = User.byId(uid)
-
-    if not user:
-        logger.error(f"User not found: {uid}")
-    else:
+    stripe_id: Optional[str] = None
+    if user and user.stripe_id:
         stripe_id = user.stripe_id
+    else:
+        db_user = User.byId(uid)
+        if db_user and db_user.stripe_id:
+            user = db_user # Update user if found in DB
+            stripe_id = db_user.stripe_id
+            set_session_for_user(user) # Update session cache
 
-    subscription_price = "price_0PpIzNDtz2XsjQROUZgNOTaF"  # Updated to new monthly price
-    success_url = YOUR_DOMAIN + "/playground"
-    line_item = {
-        "price": subscription_price,
+    if not stripe_id:
+        # Handle case where user or stripe_id is not found - maybe redirect to login/error?
+        logger.error(f"Stripe ID not found for user: {uid}")
+        # For now, returning an error response, adjust as needed
+        return JSONResponse({"error": "User payment info not found. Please ensure you are logged in."}, status_code=400)
+
+    # Define line_item with type hint (basic structure)
+    line_item: Dict[str, Any] = {
+        "price": "price_0PpIzNDtz2XsjQROUZgNOTaF", # Default monthly
         'quantity': quantity,
     }
+    success_url = YOUR_DOMAIN + "/playground"
 
-    if type and type == "annual":
-        subscription_price = "price_0PpJ10Dtz2XsjQROADWTSIBr"  # Updated to new annual price
-
-        line_item = {
-            "price": subscription_price,
-            'quantity': quantity,
-        }
-    if type and type == "self-hosted":
-        subscription_price = 'price_0MuAuxDtz2XsjQROz3Hp5Tcx'
+    if type == "annual":
+        line_item["price"] = "price_0PpJ10Dtz2XsjQROADWTSIBr"
+    elif type == "self-hosted":
+        line_item["price"] = 'price_0MuAuxDtz2XsjQROz3Hp5Tcx'
         success_url = YOUR_DOMAIN + "/account"
-        line_item = {
-            "price": subscription_price,
-            'quantity': quantity,
-        }
+    
+    checkout_session_url: Optional[str] = None
     try:
+        # Type hint removed for line_items list to satisfy linter
+        checkout_items = [line_item]
         checkout_session = stripe.checkout.Session.create(
-            customer=stripe_id,
-            # customer_email=user.email,
-            line_items=[
-                line_item,
-            ],
+            customer=stripe_id, # stripe_id is confirmed not None here
+            line_items=checkout_items, # type: ignore
             mode="subscription",
             success_url=success_url,
             cancel_url=YOUR_DOMAIN + "/",
         )
+        checkout_session_url = checkout_session.url
     except Exception as e:
         if "combine currencies" in str(e):
-            # dropdown to old NZD plans only
-            subscription_price = "price_0LCAb8Dtz2XsjQROnv1GhCL4"
-            line_item = {
-                "price": subscription_price,
+            # Fallback for NZD plans
+            line_item_nzd: Dict[str, Any] = {
+                "price": "price_0LCAb8Dtz2XsjQROnv1GhCL4",
+                'quantity': quantity, # Assuming quantity applies here too
             }
-            if type and type == "self-hosted":
-                subscription_price = 'price_0MuBEoDtz2XsjQROiRewGRFi'
-                success_url = YOUR_DOMAIN + "/account"
-                line_item = {
-                    # Provide the exact Price ID (for example, pr_1234) of the product you want to sell
-                    "price": subscription_price,
-                    'quantity': quantity,
-                }
+            if type == "self-hosted":
+                 line_item_nzd["price"] = 'price_0MuBEoDtz2XsjQROiRewGRFi'
+                 success_url = YOUR_DOMAIN + "/account"
+                 
             try:
-                checkout_session = stripe.checkout.Session.create(
-                    customer=stripe_id,
-                    line_items=[
-                        line_item,
-                    ],
-                    mode="subscription",
-                    success_url=success_url,
-                    cancel_url=YOUR_DOMAIN + "/",
-                )
+                 # Type hint removed for line_items list to satisfy linter
+                 checkout_items_nzd = [line_item_nzd]
+                 checkout_session_nzd = stripe.checkout.Session.create(
+                     customer=stripe_id, # Still checked
+                     line_items=checkout_items_nzd, # type: ignore
+                     mode="subscription",
+                     success_url=success_url,
+                     cancel_url=YOUR_DOMAIN + "/",
+                 )
+                 checkout_session_url = checkout_session_nzd.url
             except Exception as ex:
-                logger.error(f"Error creating checkout session: {ex}")
-                return Response(str(e), status_code=500)
-            return RedirectResponse(checkout_session.url, status_code=303)
-        return Response(str(e), status_code=500)
+                 logger.error(f"Error creating fallback checkout session: {ex}")
+                 return Response(str(ex), status_code=500)
+        else:
+             logger.error(f"Error creating checkout session: {e}")
+             return Response(str(e), status_code=500)
 
-    return RedirectResponse(checkout_session.url, status_code=303)
+    if checkout_session_url:
+        return RedirectResponse(checkout_session_url, status_code=303)
+    else:
+        # Handle case where URL wasn't obtained (e.g., error handled internally but no URL)
+        logger.error("Checkout session created but URL is missing")
+        return JSONResponse({"error": "Failed to create checkout session URL."}, status_code=500)
 
 
 # @app.post('/webhook')
@@ -312,23 +321,13 @@ async def signup(request: Request):
 
 
 @app.get("/where-is-ai-game")
-async def signup(request: Request):
+async def where_is_ai_game(request: Request):
     base_vars = get_base_template_vars(request)
     base_vars.update({
     })
     return templates.TemplateResponse(
         "templates/where-is-ai-game.jinja2", base_vars,
 
-    )
-
-
-@app.get("/login")
-async def login(request: Request):
-    base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
-    return templates.TemplateResponse(
-        "templates/login.jinja2", base_vars,
     )
 
 
@@ -365,8 +364,8 @@ async def create_user(create_user_request: CreateUserRequest):
     # get or create
     user.id = uid
     user.email = email
-    user.token = token
-    user.photoURL = photoURL
+    # user.token = token # Attribute doesn't exist on User model
+    # user.photoURL = photoURL # Attribute doesn't exist on User model
     # user.emailVerified = emailVerified
     if not existing_user:  # never change secret
         user.secret = random_string(32)
@@ -483,20 +482,28 @@ def track_stripe_request_usage(secret, quantity: int):
         set_session_for_user(existing_user)
 
     subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
-    # TODO batching
-    # todo block if none
-    stripe.SubscriptionItem.create_usage_record(
-        subscription_item_id,
-        quantity=quantity,
-        # timestamp=int(time.time()),
-    )
+    
+    if subscription_item_id:
+        try:
+            stripe.SubscriptionItem.create_usage_record(
+                subscription_item_id, # Checked not None
+                quantity=quantity,
+            )
+        except Exception as e:
+            logger.error(f"Failed to create usage record for {existing_user.email}: {e}")
+    else:
+        logger.warning(f"Could not find subscription item ID for {existing_user.email} to track usage.")
 
 
 def get_base_template_vars(request: Request):
+    is_mac = False # Default value
     try:
-        is_mac = request.headers.get("User-Agent").lower().find("mac") != -1
+        user_agent = request.headers.get("User-Agent")
+        if user_agent:
+            is_mac = user_agent.lower().find("mac") != -1
     except Exception as e:
-        is_mac = False
+        logger.warning(f"Could not determine platform from User-Agent: {e}")
+        is_mac = False # Fallback
 
     return {
         "request": request,
@@ -566,16 +573,6 @@ async def selfhosting(request: Request):
         "templates/selfhosting.jinja2", base_vars,
     )
 
-@app.get("/success")
-async def success(request: Request):
-    base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
-    return templates.TemplateResponse(
-        "templates/success.jinja2", base_vars,
-    )
-
-
 @app.get("/how-it-works")
 async def howitworks(request: Request):
     base_vars = get_base_template_vars(request)
@@ -626,20 +623,27 @@ async def text_to_speech(request: Request):
 
 @app.get("/use-cases/{usecase}")
 async def use_case_route(request: Request, usecase: str):
-    use_case = deepcopy(fixtures.use_cases.get(usecase))
-    url_key = urlencode(use_case["generate_params"], quote_via=quote_plus)
-    input_text = use_case["generate_params"]["text"]
+    use_case_data = deepcopy(fixtures.use_cases.get(usecase))
+    
+    if not use_case_data:
+         raise HTTPException(status_code=404, detail=f"Use case '{usecase}' not found")
 
-    results = use_case["results"]
+    url_key = urlencode(use_case_data["generate_params"], quote_via=quote_plus)
+    input_text = use_case_data["generate_params"]["text"]
+
+    results = use_case_data["results"]
     for result in results:
-        result["generated_text"] = result["generated_text"][len(input_text) :]
+        if "generated_text" in result and isinstance(result["generated_text"], str):
+             if result["generated_text"].startswith(input_text):
+                 result["generated_text"] = result["generated_text"][len(input_text) :]
+        
     base_vars = get_base_template_vars(request)
     base_vars.update({
-            "description": use_case["description"],
-            "title": use_case["title"],
+            "description": use_case_data["description"],
+            "title": use_case_data["title"],
             "results": results,
             "text": input_text,
-            "use_case": use_case,
+            "use_case": use_case_data,
             "url_key": url_key,
         })
     return templates.TemplateResponse(
@@ -662,13 +666,17 @@ async def use_cases(request: Request):
 
 @app.get("/blog/{name}")
 async def blog_name(request: Request, name: str):
-    blog = deepcopy(blog_fixtures.blogs.get(name))
+    blog_data = deepcopy(blog_fixtures.blogs.get(name))
+    
+    if not blog_data:
+        raise HTTPException(status_code=404, detail=f"Blog post '{name}' not found")
+
     base_vars = get_base_template_vars(request)
     base_vars.update({
-            "blog": blog,
-            "description": blog["description"],
-            "title": blog["title"],
-            "keywords": blog["keywords"],
+            "blog": blog_data,
+            "description": blog_data["description"],
+            "title": blog_data["title"],
+            "keywords": blog_data["keywords"],
             "blogtemplate": "/templates/shared/" + name + ".jinja2",
         })
     return templates.TemplateResponse(
@@ -689,13 +697,17 @@ async def blog(request: Request):
 
 @app.get("/docs/{name}")
 async def doc_name(request: Request, name: str):
-    doc = deepcopy(doc_fixtures.docs.get(name))
+    doc_data = deepcopy(doc_fixtures.docs.get(name))
+    
+    if not doc_data:
+        raise HTTPException(status_code=404, detail=f"Documentation page '{name}' not found")
+
     base_vars = get_base_template_vars(request)
     base_vars.update({
-            "doc": doc,
-            "description": doc["description"],
-            "title": doc["title"],
-            "keywords": doc["keywords"],
+            "doc": doc_data,
+            "description": doc_data["description"],
+            "title": doc_data["title"],
+            "keywords": doc_data["keywords"],
             "blogtemplate": "/templates/shared/" + name + ".jinja2",
         })
     return templates.TemplateResponse(
@@ -724,13 +736,8 @@ async def sitemap_xml(request: Request, response: Response):
     )
 
 
-# All the routes are stored in app.routes
-for route in app.routes:
-    # Check if route is an instance of the class Route and not of any other class like BaseRoute
-    # AND check if the name of the route is openapi
-    if route.__class__ == Route and route.name == "openapi":
-        # Remove the route from the list
-        app.router.routes.remove(route)
+# Filter out openapi route definition more safely
+app.router.routes = [route for route in app.routes if not (isinstance(route, Route) and hasattr(route, 'name') and route.name == "openapi")]
 
 
 @app.get("/openapi.json")
@@ -747,8 +754,10 @@ async def openapi(request: Request):
 @app.get("/file{file_path:path}")
 async def file(file_path: str, request: Request):
     # redirect to "api." and gradio_tts
-    current_url = request.url
-    if "localhost" in current_url.hostname or "127." in current_url.hostname:
+    current_url: URL = request.url
+    hostname = current_url.hostname
+    # Check hostname safely
+    if hostname and ("localhost" in hostname or "127." in hostname):
         return RedirectResponse(url="http://localhost:8000/gradio_tts/file" + str(file_path))
     return RedirectResponse(url="https://api.text-generator.io/gradio_tts/file" + str(file_path))
 
@@ -759,130 +768,6 @@ def validate_generate_params(generate_params):
         validate_result = "Please enter some text"
     return validate_result
 
-
-## serve favicon.ico from root
-app.mount("/", StaticFiles(directory="static"), name="favicon")
-
-@app.get("/api/docs/list")
-async def list_documents(request: Request):
-    user_id = request.query_params.get("userId")
-    if not user_id:
-        return JSONResponse({"error": "User ID is required"}, status_code=400)
-    
-    try:
-        documents = Document.byUserId(user_id)
-        docs_list = []
-        for doc in documents:
-            doc_dict = doc.to_dict()
-            doc_dict["id"] = doc.key.id()
-            docs_list.append(doc_dict)
-        
-        return JSONResponse({"documents": docs_list})
-    except Exception as e:
-        logger.error(f"Error listing documents: {e}")
-        return JSONResponse({"error": "Failed to list documents"}, status_code=500)
-
-@app.get("/api/docs/get")
-async def get_document(request: Request):
-    doc_id = request.query_params.get("id")
-    if not doc_id:
-        return JSONResponse({"error": "Document ID is required"}, status_code=400)
-    
-    try:
-        document = Document.byId(doc_id)
-        if not document:
-            return JSONResponse({"error": "Document not found"}, status_code=404)
-        
-        doc_dict = document.to_dict()
-        doc_dict["id"] = document.key.id()
-        
-        return JSONResponse(doc_dict)
-    except Exception as e:
-        logger.error(f"Error getting document: {e}")
-        return JSONResponse({"error": "Failed to get document"}, status_code=500)
-
-@app.post("/api/docs/save")
-async def save_document(request: Request):
-    try:
-        data = await request.json()
-        user_id = data.get("userId")
-        title = data.get("title", "Untitled Document")
-        content = data.get("content", "")
-        
-        if not user_id:
-            return JSONResponse({"error": "User ID is required"}, status_code=400)
-        
-        # Check if document exists
-        doc_id = data.get("id")
-        document = None
-        
-        if doc_id:
-            document = Document.byId(doc_id)
-        
-        if not document:
-            # Create new document
-            document = Document(
-                user_id=user_id,
-                title=title,
-                content=content
-            )
-        else:
-            # Update existing document
-            document.title = title
-            document.content = content
-        
-        # Save document
-        key = Document.save(document)
-        
-        return JSONResponse({
-            "id": key.id(),
-            "success": True,
-            "message": "Document saved successfully"
-        })
-    except Exception as e:
-        logger.error(f"Error saving document: {e}")
-        return JSONResponse({"error": "Failed to save document"}, status_code=500)
-
-@app.post("/api/docs/autosave")
-async def autosave_document(request: Request):
-    try:
-        data = await request.json()
-        user_id = data.get("userId")
-        doc_id = data.get("id")
-        title = data.get("title", "Untitled Document")
-        content = data.get("content", "")
-        
-        if not user_id:
-            return JSONResponse({"error": "User ID is required"}, status_code=400)
-        
-        document = None
-        
-        if doc_id:
-            document = Document.byId(doc_id)
-        
-        if not document:
-            # Create new document
-            document = Document(
-                user_id=user_id,
-                title=title,
-                content=content
-            )
-        else:
-            # Update existing document
-            document.title = title
-            document.content = content
-        
-        # Save document
-        key = Document.save(document)
-        
-        return JSONResponse({
-            "id": key.id(),
-            "success": True,
-            "message": "Document autosaved"
-        })
-    except Exception as e:
-        logger.error(f"Error autosaving document: {e}")
-        return JSONResponse({"error": "Failed to autosave document"}, status_code=500)
 
 @app.get("/api/current-user")
 async def get_current_user(request: Request):
