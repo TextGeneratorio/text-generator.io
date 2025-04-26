@@ -16,10 +16,10 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   static get CONFIG() {
     return {
       // Autocomplete settings
-      MIN_SUGGESTION_LENGTH: 15,
+      MIN_SUGGESTION_LENGTH: 2,
       AUTOCOMPLETE_DEBOUNCE_MS: 800,
       AUTOCOMPLETE_MIN_PROB: 0.7,
-      BULK_GEN_MIN_PROB: 0,
+      BULK_GEN_MIN_PROB: 0.2,
       TYPING_DEBOUNCE: 800, // Debounce time before triggering autocomplete check (increased back)
       CURSOR_TOLERANCE: 3, // How much cursor can move before invalidating suggestion
       
@@ -29,7 +29,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       
       // Claude API settings
       CLAUDE_MODEL: "claude-3-sonnet-20240229",
-      CLAUDE_MAX_TOKENS: 1000,
+      CLAUDE_MAX_TOKENS: 5999,
       CLAUDE_TEMPERATURE: 0.8,
       
       // UI settings
@@ -447,7 +447,10 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       
       // Capture the current state when making the request
       const changeCounterAtRequest = this.textChangeCounter;
-      
+      //dont need that much context for autocomplete
+      if (textBeforeCursor.length > 512) {
+        textBeforeCursor = textBeforeCursor.slice(-512);
+      }
       // Store the current context for this request
       this.pendingSuggestionRequests[requestId] = {
         prefix: textBeforeCursor,
@@ -522,7 +525,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const generateEndpoint = isLocal ? 
           'http://localhost:8000/api/v1/generate' : 
-          'https://api.text-generator.io/api/v1/generate'; // Use standard generate endpoint
+          'https://text-generator.io/api/v1/generate'; // Use standard generate endpoint
 
       const response = await fetch(generateEndpoint, {
         method: 'POST',
@@ -714,7 +717,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     
     try {
       // Use the correct API endpoint with the secret key in header
-      const response = await fetch('https://api.text-generator.io/api/v1/generate', {
+      const response = await fetch('https://text-generator.io/api/v1/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -774,7 +777,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
         const largeGenerateEndpoint = isLocal ? 
             'http://localhost:8000/api/v1/generate-large' : 
-            'https://api.text-generator.io/api/v1/generate-large';
+            'https://text-generator.io/api/v1/generate-large';
         
         // Generate content using the Claude API endpoint
         const response = await fetch(largeGenerateEndpoint, {
@@ -1374,7 +1377,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const largeGenerateEndpoint = isLocal ? 
           'http://localhost:8000/api/v1/generate-large' : 
-          'https://api.text-generator.io/api/v1/generate-large';
+          'https://text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for rewriting
       const system_message = `You are a world-class creative writer. Transform the following text according to these instructions: "${instructionPrompt}"
@@ -1479,7 +1482,7 @@ And finally also output the full text again if its used, as we are doing a full 
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const largeGenerateEndpoint = isLocal ? 
           'http://localhost:8000/api/v1/generate-large' : 
-          'https://api.text-generator.io/api/v1/generate-large';
+          'https://text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for continuation
       const system_message = `You are a master storyteller and prose stylist. Continue this text naturally as a talented author would. 
@@ -1500,7 +1503,7 @@ KEY RULES:
         body: JSON.stringify({
           text: textBeforeCursor, // Send preceding text as prompt
           // Use settings suitable for creative continuation
-          max_length: 500, // Moderate length for continuation
+          max_length: 4000, // Moderate length for continuation
           max_sentences: 0, 
           min_probability: 0,
           stop_sequences: ["\n\n\n"], // Stop after a couple of paragraphs typically
