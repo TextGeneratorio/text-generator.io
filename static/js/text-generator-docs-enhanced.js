@@ -105,10 +105,17 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   initEnhancedEventListeners() {
     // Capture Tab globally to accept suggestion popup whenever active
     document.addEventListener('keydown', event => {
-      if (event.key === 'Tab' && this.suggestionActive) {
+      // Check if Tab pressed and either suggestion is active OR editor has focus
+      if (event.key === 'Tab' && (this.suggestionActive || (this.editor && this.editor.hasFocus()))) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        this.acceptSuggestion();
+        // Only accept suggestion if one is active
+        if (this.suggestionActive) {
+          this.acceptSuggestion();
+        } else {
+          // Insert a tab character if in editor and no suggestion
+          this.editor.insertText(this.editor.getSelection() ? this.editor.getSelection().index : 0, '\t', 'user');
+        }
       }
     }, true);
 
@@ -123,11 +130,14 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       delete this.editor.keyboard.bindings[9];
       // Add custom Tab binding
       this.editor.keyboard.addBinding({ key: 9 }, (range, context) => {
+        // When in editor, always handle Tab internally
         if (this.suggestionActive) {
           this.acceptSuggestion();
-          return false; // Prevent default Tab behavior
+        } else {
+          // Insert tab character
+          this.editor.insertText(range.index, '\t', 'user');
         }
-        return true;
+        return false; // Always prevent default Tab behavior
       });
     }
 
@@ -979,17 +989,43 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       this.suggestionText = suggestion; 
       this.suggestionPosition = position; 
 
+      // Extract the current partial word for visual continuity
+      let partialWord = '';
+      try {
+      const text = this.editor.getText();
+        const beforeCursor = text.substring(0, position);
+        // More lenient regex that catches any sequence of word chars at end
+        const wordRegex = /(\w+)$/;
+        const match = beforeCursor.match(wordRegex);
+        
+        if (match && match[1]) {
+          partialWord = match[1];
+          console.log(`Detected partial word: "${partialWord}"`);
+        }
+      } catch (error) {
+        console.warn('Error extracting partial word:', error);
+      }
+
       // --- Calculate position --- 
       const bounds = this.editor.getBounds(position); 
       if (!bounds || typeof bounds.left !== 'number' || typeof bounds.top !== 'number') { // Check top now
           console.warn('Could not get valid bounds for suggestion position:', bounds);
       this.hideSuggestion();
-          return;
+        return;
       }
       console.log('Cursor bounds:', bounds);
 
-      // Update popup content
-      this.suggestionElement.innerHTML = `<span class="suggestion-text">${suggestion}</span><span class="suggestion-hint"><kbd>&#x21E5;</kbd></span>`;
+      // Update popup content, incorporating partial word if appropriate
+      if (partialWord && suggestion.toLowerCase().startsWith(partialWord.toLowerCase())) {
+        // Split the suggestion: showing typed part + remaining part
+        const remainingText = suggestion.substring(partialWord.length);
+        this.suggestionElement.innerHTML = `
+          <span class="suggestion-partial">${partialWord}</span><span class="suggestion-text">${remainingText}</span><span class="suggestion-hint"><kbd>&#x21E5;</kbd></span>
+        `.trim();
+      } else {
+        // Just show the suggestion as normal
+        this.suggestionElement.innerHTML = `<span class="suggestion-text">${suggestion}</span><span class="suggestion-hint"><kbd>&#x21E5;</kbd></span>`;
+      }
       
       // Add better visibility styles directly to the element
       this.suggestionElement.style.backgroundColor = '#ffffff';
@@ -1029,6 +1065,17 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
           textSpan.style.padding = '0';
         }
         
+        // Style the partial word to match the editor text
+        const partialSpan = this.suggestionElement.querySelector('.suggestion-partial');
+        if(partialSpan) {
+          partialSpan.style.display = 'inline';
+          partialSpan.style.margin = '0';
+          partialSpan.style.padding = '0';
+          partialSpan.style.opacity = '1';
+          partialSpan.style.color = 'black';
+          partialSpan.style.fontWeight = 'inherit';
+        }
+        
         const hintSpan = this.suggestionElement.querySelector('.suggestion-hint');
         if(hintSpan) {
           hintSpan.style.display = 'inline-flex';
@@ -1049,7 +1096,28 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       // --- Position the popup using getBounds.bottom ---
       const editorRect = this.editor.root.getBoundingClientRect();
       const viewportTop = editorRect.top + bounds.top + bounds.height;
-      const viewportLeft = editorRect.left + bounds.left;
+      
+      // Adjust left position - subtract width of partial word if present
+      let partialWordWidth = 0;
+      const partialSpan = this.suggestionElement.querySelector('.suggestion-partial');
+      if (partialSpan) {
+        // Create an invisible measuring element to calculate exact width
+        const measurer = document.createElement('span');
+        measurer.style.visibility = 'hidden';
+        measurer.style.position = 'absolute';
+        measurer.style.fontSize = this.suggestionElement.style.fontSize;
+        measurer.style.fontFamily = this.suggestionElement.style.fontFamily;
+        measurer.style.fontWeight = this.suggestionElement.style.fontWeight;
+        measurer.style.whiteSpace = 'pre';
+        measurer.textContent = partialWord;
+        document.body.appendChild(measurer);
+        partialWordWidth = measurer.getBoundingClientRect().width;
+        document.body.removeChild(measurer);
+        console.log(`Partial word "${partialWord}" width: ${partialWordWidth}px`);
+      }
+      
+      const alignmentOffset = 105; // Base offset for alignment
+      const viewportLeft = editorRect.left + bounds.left - alignmentOffset - partialWordWidth;
 
       // Use absolute positioning relative to document by translating based on scroll offset
       const scrollX = window.scrollX || window.pageXOffset;
@@ -1220,7 +1288,32 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       if (instructionPrompt) {
         // Disable button and show loading state
         autowriteButton.disabled = true;
+        // Add spinner element to button
+        const originalText = autowriteButton.textContent;
+        const spinner = document.createElement('span');
+        spinner.className = 'autowrite-spinner';
+        spinner.style.display = 'inline-block';
+        spinner.style.width = '16px';
+        spinner.style.height = '16px';
+        spinner.style.border = '2px solid rgba(255,255,255,0.3)';
+        spinner.style.borderRadius = '50%';
+        spinner.style.borderTopColor = '#fff';
+        spinner.style.animation = 'spin 1s linear infinite';
+        spinner.style.marginRight = '8px';
+        spinner.style.verticalAlign = 'middle';
+        
+        // Add keyframes animation if it doesn't exist
+        if (!document.getElementById('spinner-keyframes')) {
+          const style = document.createElement('style');
+          style.id = 'spinner-keyframes';
+          style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+          document.head.appendChild(style);
+        }
+        
         autowriteButton.textContent = 'Autowriting...';
+        autowriteButton.insertBefore(spinner, autowriteButton.firstChild);
+        autowriteButton.style.opacity = '0.8';
+        autowriteButton.style.cursor = 'not-allowed';
 
         closeDialog(); // Close dialog before starting rewrite
         try {
@@ -1284,7 +1377,17 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
           'https://api.text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for rewriting
-      const system_message = `You are an expert editor. Rewrite the following document based *only* on the user's instructions. Preserve the original meaning unless instructed otherwise. Output *only* the rewritten document content, without any preamble, comments, or explanations. Do not include the instructions in your output. The user's instruction is: ${instructionPrompt}`;
+      const system_message = `You are a world-class creative writer. Transform the following text according to these instructions: "${instructionPrompt}"
+
+Approach the text as a professional writer would, not as an AI assistant. Never address the reader directly. Never use phrases like "I understand" or "Here's". 
+
+OUTPUT RULES:
+1. Start writing immediately without any introduction
+2. Maintain the same perspective (first/third person) as the original unless instructed otherwise
+3. Output ONLY the transformed content - no explanations, no meta-commentary
+4. Do not reference yourself or the editing process in any way
+5. If the instruction is to create a fantasy intro, write as if for a published fantasy novel
+And finally also output the full text again if its used, as we are doing a full rewrite`;
 
       const response = await fetch(largeGenerateEndpoint, {
         method: 'POST',
@@ -1379,7 +1482,14 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
           'https://api.text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for continuation
-      const system_message = `You are a helpful writing assistant. Continue writing naturally from the following text. Do not repeat the provided text. Output only the continuation.`;
+      const system_message = `You are a master storyteller and prose stylist. Continue this text naturally as a talented author would. 
+
+KEY RULES:
+1. Start writing immediately - no explanations or phrases like "here's a continuation" 
+2. Maintain the established tone, tense, and perspective of the original
+3. Output only your direct continuation without any meta-commentary
+4. Never address the reader or acknowledge your role as an AI
+5. If the text suggests a fantasy context, continue in rich, imaginative fantasy prose`;
 
       const response = await fetch(largeGenerateEndpoint, {
         method: 'POST',
@@ -1467,11 +1577,19 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         insertPosition = cursorIndex;
       }
 
-      // Save suggestion text length BEFORE we hide it
-      const suggestionLength = this.suggestionText.length;
+      // Check if we have a partial word display active
+      const partialSpan = this.suggestionElement.querySelector('.suggestion-partial');
+      const partialWord = partialSpan ? partialSpan.textContent : '';
       
-      // Insert the suggestion text at the determined position
-      this.editor.insertText(insertPosition, this.suggestionText, 'user');
+      // Save suggestion text length BEFORE we hide it
+      // If we're showing a partial word, only insert the remainder
+      let textToInsert = this.suggestionText;
+      if (partialWord && this.suggestionText.toLowerCase().startsWith(partialWord.toLowerCase())) {
+        textToInsert = this.suggestionText.substring(partialWord.length);
+      }
+      
+      // Insert the suggestion text (either full or just remaining part)
+      this.editor.insertText(insertPosition, textToInsert, 'user');
       
       // Add to completion cache using the prefix *before* the suggestion started
       const textBeforeSuggestion = this.editor.getText(0, insertPosition);
@@ -1481,7 +1599,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       this.hideSuggestion();
 
       // Calculate ending position - we try multiple approaches to ensure movement
-      const finalPosition = insertPosition + suggestionLength;
+      const finalPosition = insertPosition + textToInsert.length;
 
       // APPROACH 1: Direct end position selection (most reliable)
       this.editor.setSelection(finalPosition, 0);
@@ -1492,10 +1610,10 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         const newSel = this.editor.getSelection();
         if (!newSel || newSel.index !== finalPosition) {
           console.log('Using backup cursor positioning method');
-          this.moveCursorRight(suggestionLength);
+          this.moveCursorRight(textToInsert.length);
         }
         this.editor.focus();
-        console.log(`Cursor moved ${suggestionLength} positions right after suggestion acceptance`);
+        console.log(`Cursor moved ${textToInsert.length} positions right after suggestion acceptance`);
       }, 50);
 
       // Auto-save after accepting suggestion

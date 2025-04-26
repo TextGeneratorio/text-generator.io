@@ -882,6 +882,8 @@ class TextGeneratorDocs {
         if (response.ok) {
           const data = await response.json();
           this.documents = data.documents || [];
+          // dedupe by id
+          this.documents = Array.from(new Map(this.documents.map(d => [d.id, d])).values());
         } else {
           // API endpoint not available, use localStorage as fallback
           console.log("API endpoint not available, using localStorage fallback");
@@ -916,6 +918,8 @@ class TextGeneratorDocs {
       const storedDocs = localStorage.getItem(`tgdocs-documents-${this.userId}`);
       if (storedDocs) {
         this.documents = JSON.parse(storedDocs);
+        // dedupe by id
+        this.documents = Array.from(new Map(this.documents.map(d => [d.id, d])).values());
       } else {
         this.documents = [];
       }
@@ -945,13 +949,50 @@ class TextGeneratorDocs {
       date.className = 'tgdocs-document-date';
       date.textContent = this.formatDate(doc.updatedAt);
       
-      docItem.appendChild(title);
-      docItem.appendChild(date);
+      // Create wrapper for document info
+      const docInfo = document.createElement('div');
+      docInfo.className = 'tgdocs-document-info';
+      docInfo.appendChild(title);
+      docInfo.appendChild(date);
+      
+      // Create delete button
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'tgdocs-document-delete';
+      deleteBtn.innerHTML = '<i class="material-icons">delete</i>';
+      deleteBtn.title = 'Delete document';
+      deleteBtn.style.border = 'none';
+      deleteBtn.style.background = 'transparent';
+      deleteBtn.style.cursor = 'pointer';
+      deleteBtn.style.color = '#999';
+      deleteBtn.style.padding = '4px';
+      deleteBtn.style.opacity = '0';
+      deleteBtn.style.transition = 'opacity 0.3s';
+      
+      // Show delete button on hover
+      docItem.addEventListener('mouseenter', () => {
+        deleteBtn.style.opacity = '1';
+      });
+      
+      docItem.addEventListener('mouseleave', () => {
+        deleteBtn.style.opacity = '0';
+      });
+      
+      // Handle delete button click
+      deleteBtn.addEventListener('click', (event) => {
+        event.stopPropagation(); // Prevent document selection
+        this.deleteDocument(doc.id);
+      });
+      
+      docItem.appendChild(docInfo);
+      docItem.appendChild(deleteBtn);
       
       // Add click event to load document
       docItem.addEventListener('click', () => {
         this.loadDocument(doc.id);
       });
+      
+      // Add data attribute for document ID
+      docItem.dataset.id = doc.id;
       
       this.documentsList.appendChild(docItem);
     });
@@ -968,6 +1009,8 @@ class TextGeneratorDocs {
   }
   
   async loadDocument(docId) {
+    // skip invalid id
+    if (!docId) return;
     try {
       // Try to load from API first
       try {
@@ -1073,6 +1116,14 @@ class TextGeneratorDocs {
       // If API save failed, save to localStorage
       if (!apiSaveSuccessful) {
         this.saveDocumentToLocalStorage(documentData);
+      }
+      
+      // Update documents array and persist
+      if (apiSaveSuccessful) {
+        const idx = this.documents.findIndex(d => d.id === documentData.id);
+        if (idx >= 0) this.documents[idx] = documentData;
+        else this.documents.push(documentData);
+        localStorage.setItem(`tgdocs-documents-${this.userId}`, JSON.stringify(this.documents));
       }
       
       // Show success message
@@ -1462,6 +1513,159 @@ class TextGeneratorDocs {
     setTimeout(() => {
       document.getElementById('generate-prompt').focus();
     }, 100);
+  }
+  
+  /**
+   * Delete a document with undo functionality
+   * @param {string} docId - The ID of the document to delete
+   */
+  deleteDocument(docId) {
+    // Find the document
+    const docIndex = this.documents.findIndex(d => d.id === docId);
+    if (docIndex === -1) return;
+    
+    // Store document for potential restoration
+    const docToDelete = this.documents[docIndex];
+    
+    // If this is the currently loaded document, create a new one
+    const isCurrentDoc = this.currentDocId === docId;
+    
+    // Hide from UI immediately
+    const docItem = this.documentsList.querySelector(`.tgdocs-document-item[data-id="${docId}"]`);
+    if (docItem) {
+      docItem.style.height = `${docItem.offsetHeight}px`;
+      docItem.style.overflow = 'hidden';
+      docItem.style.transition = 'all 0.3s';
+      
+      // Animate out
+      setTimeout(() => {
+        docItem.style.height = '0px';
+        docItem.style.opacity = '0';
+        docItem.style.padding = '0';
+        docItem.style.margin = '0';
+      }, 10);
+    }
+    
+    // Remove from documents array
+    this.documents.splice(docIndex, 1);
+    
+    // Update localStorage
+    localStorage.setItem(`tgdocs-documents-${this.userId}`, JSON.stringify(this.documents));
+    
+    // If it was the current doc, create a new one
+    if (isCurrentDoc) {
+      this.createNewDocument();
+    }
+    
+    // Create undo toast
+    const toast = document.createElement('div');
+    toast.className = 'tgdocs-undo-toast';
+    toast.innerHTML = `
+      <span>Document deleted</span>
+      <button class="tgdocs-undo-button">UNDO</button>
+    `;
+    
+    // Style the toast
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.backgroundColor = '#333';
+    toast.style.color = 'white';
+    toast.style.padding = '12px 24px';
+    toast.style.borderRadius = '4px';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.justifyContent = 'space-between';
+    toast.style.gap = '12px';
+    toast.style.boxShadow = '0 3px 6px rgba(0,0,0,0.16)';
+    toast.style.zIndex = '2000';
+    toast.style.animation = 'fadeIn 0.3s ease-out';
+    
+    // Style the undo button
+    const undoBtn = toast.querySelector('.tgdocs-undo-button');
+    undoBtn.style.backgroundColor = 'transparent';
+    undoBtn.style.border = 'none';
+    undoBtn.style.color = '#4caf50';
+    undoBtn.style.fontWeight = 'bold';
+    undoBtn.style.cursor = 'pointer';
+    undoBtn.style.padding = '4px 8px';
+    
+    // Add fade-in animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translate(-50%, 20px); }
+        to { opacity: 1; transform: translate(-50%, 0); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Append toast to body
+    document.body.appendChild(toast);
+    
+    // Set timeout for deletion (8 seconds)
+    const deleteTimeout = setTimeout(async () => {
+      // Animate out
+      toast.style.animation = 'fadeOut 0.3s ease-in forwards';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          document.body.removeChild(toast);
+        }
+      }, 300);
+      
+      // Attempt to delete via API
+      try {
+        const response = await fetch(`/api/docs/delete?id=${docId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          console.warn(`API delete failed, document already removed from local storage`);
+        }
+      } catch (error) {
+        console.warn('Error deleting document via API, already removed locally:', error);
+      }
+    }, 8000);
+    
+    // Handle undo button click
+    undoBtn.addEventListener('click', () => {
+      // Clear delete timeout
+      clearTimeout(deleteTimeout);
+      
+      // Restore document in the array
+      this.documents.splice(docIndex, 0, docToDelete);
+      
+      // Update localStorage
+      localStorage.setItem(`tgdocs-documents-${this.userId}`, JSON.stringify(this.documents));
+      
+      // Re-render document list
+      this.renderDocumentsList();
+      
+      // Reload the document if it was the current one
+      if (isCurrentDoc) {
+        this.loadDocument(docId);
+      }
+      
+      // Remove toast
+      toast.style.animation = 'fadeOut 0.3s ease-in forwards';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          document.body.removeChild(toast);
+        }
+      }, 300);
+    });
+    
+    // Add fade-out animation
+    style.textContent += `
+      @keyframes fadeOut {
+        from { opacity: 1; transform: translate(-50%, 0); }
+        to { opacity: 0; transform: translate(-50%, 20px); }
+      }
+    `;
   }
 }
 

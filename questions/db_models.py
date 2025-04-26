@@ -4,7 +4,15 @@ client = ndb.Client()
 
 
 class BaseModel(ndb.Model):
-    def default(self, o): return o.to_dict()
+    def to_dict(self):
+        result = super(BaseModel, self).to_dict()
+        for key, val in result.items():
+            if hasattr(val, 'isoformat'):  # Handle datetime objects
+                result[key] = val.isoformat()
+        return result
+
+    def default(self, o): 
+        return self.to_dict()
 
 
 class User(BaseModel):
