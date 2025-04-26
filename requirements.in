@@ -35,9 +35,14 @@ cachetools
 python-multipart
 rsa
 
-fastapi==0.109.2
-pydantic==2.6.1
+# Let compile resolve these based on anthropic and other needs
+# fastapi==0.109.2
+# pydantic==2.6.1
+# httpx==0.24.1
+# httpcore==0.17.3
+fastapi
+pydantic
 protobuf<=3.20.0
 anthropic==0.49.0
-httpx==0.24.1
-httpcore==0.17.3
+httpx
+httpcore
