@@ -133,6 +133,20 @@
   font-size: 18px;
 }
 
+/* Spinner animation for loading state */
+.mdl-spinner--active {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Claude toggle styles */
 .tgdocs-claude-toggle-container {
   display: flex;

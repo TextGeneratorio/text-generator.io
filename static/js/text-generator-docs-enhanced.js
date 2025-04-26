@@ -1486,15 +1486,20 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   async rewriteDocumentWithInstructions(instructionPrompt) {
     if (!this.editor) return;
 
-    const fullDocumentText = this.editor.getText();
-    if (!fullDocumentText || fullDocumentText.trim() === '\n') {
-      this.updateSaveStatus('Document is empty, nothing to rewrite.');
-      return;
-    }
-
-    this.updateSaveStatus('Rewriting document...');
+    // Set loading state for the button
+    const button = this.rewriteContentButton || document.getElementById('rewrite-content-btn');
+    this.setButtonLoadingState(button, true);
 
     try {
+      const fullDocumentText = this.editor.getText();
+      if (!fullDocumentText || fullDocumentText.trim() === '\n') {
+        this.updateSaveStatus('Document is empty, nothing to rewrite.');
+        this.setButtonLoadingState(button, false); // Reset loading state
+        return;
+      }
+
+      this.updateSaveStatus('Rewriting document...');
+
       // Determine the API endpoint (always use Claude for rewriting for better quality)
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const largeGenerateEndpoint = isLocal ? 
@@ -1541,6 +1546,7 @@ And finally also output the full text again if its used, as we are doing a full 
         const errorText = await response.text();
         console.error(`Rewrite API Error (${response.status}): ${errorText}`);
         this.updateSaveStatus(`Rewrite failed: ${response.status} error`);
+        this.setButtonLoadingState(button, false); // Reset loading state
         return;
       }
 
@@ -1549,6 +1555,7 @@ And finally also output the full text again if its used, as we are doing a full 
       if (!data || !Array.isArray(data) || data.length === 0) {
         console.warn('Empty or invalid response from rewrite API');
         this.updateSaveStatus('Rewrite received empty response');
+        this.setButtonLoadingState(button, false); // Reset loading state
         return;
       }
 
@@ -1577,6 +1584,9 @@ And finally also output the full text again if its used, as we are doing a full 
     } catch (error) {
       console.error('Error rewriting document:', error);
       this.updateSaveStatus('Rewrite failed');
+    } finally {
+      // Ensure button loading state is reset
+      this.setButtonLoadingState(button, false);
     }
   }
 
@@ -1589,17 +1599,22 @@ And finally also output the full text again if its used, as we are doing a full 
     const selection = this.editor.getSelection();
     if (!selection) return;
 
-    const cursorPosition = selection.index;
-    let textBeforeCursor = this.editor.getText(0, cursorPosition);
-
-    if (!textBeforeCursor || textBeforeCursor.trim() === '') {
-      this.updateSaveStatus('Cannot autowrite without preceding text.');
-      return;
-    }
-
-    this.updateSaveStatus('Autowriting...');
+    // Set loading state for the button
+    const button = this.generateContentButton || document.getElementById('generate-content-btn');
+    this.setButtonLoadingState(button, true);
 
     try {
+      const cursorPosition = selection.index;
+      let textBeforeCursor = this.editor.getText(0, cursorPosition);
+
+      if (!textBeforeCursor || textBeforeCursor.trim() === '') {
+        this.updateSaveStatus('Cannot autowrite without preceding text.');
+        this.setButtonLoadingState(button, false); // Reset loading state
+        return;
+      }
+
+      this.updateSaveStatus('Autowriting...');
+
       // Determine the API endpoint (Claude for better continuation)
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const largeGenerateEndpoint = isLocal ? 
@@ -1643,6 +1658,7 @@ KEY RULES:
         const errorText = await response.text();
         console.error(`Autowrite API Error (${response.status}): ${errorText}`);
         this.updateSaveStatus(`Autowrite failed: ${response.status} error`);
+        this.setButtonLoadingState(button, false); // Reset loading state
         return;
       }
 
@@ -1651,6 +1667,7 @@ KEY RULES:
       if (!data || !Array.isArray(data) || data.length === 0) {
         console.warn('Empty or invalid response from autowrite API');
         this.updateSaveStatus('Autowrite received empty response');
+        this.setButtonLoadingState(button, false); // Reset loading state
         return;
       }
 
@@ -1674,8 +1691,11 @@ KEY RULES:
       }
 
     } catch (error) {
-      console.error('Error autowriting text:', error);
+      console.error('Error autowriting from cursor:', error);
       this.updateSaveStatus('Autowrite failed');
+    } finally {
+      // Ensure button loading state is reset 
+      this.setButtonLoadingState(button, false);
     }
   }
 
@@ -1794,6 +1814,38 @@ KEY RULES:
       // No refocus here—avoid moving focus which can interfere with caret placement
     } catch (e) {
       console.warn('moveCursorRight failed:', e);
+    }
+  }
+
+  /**
+   * Set loading state for a button
+   * @param {HTMLElement} button - The button to set loading state for
+   * @param {boolean} isLoading - Whether the button is in loading state
+   */
+  setButtonLoadingState(button, isLoading) {
+    if (!button) return;
+    
+    const originalContent = button.getAttribute('data-original-content');
+    
+    if (isLoading) {
+      // Save original content if not already saved
+      if (!originalContent) {
+        button.setAttribute('data-original-content', button.innerHTML);
+      }
+      
+      // Update button appearance
+      button.innerHTML = '<i class="material-icons mdl-spinner mdl-spinner--active mdl-spinner--single-color">autorenew</i> Working...';
+      button.classList.add('mdl-button--disabled');
+      button.disabled = true;
+    } else {
+      // Restore original content
+      if (originalContent) {
+        button.innerHTML = originalContent;
+      }
+      
+      // Restore button state
+      button.classList.remove('mdl-button--disabled');
+      button.disabled = false;
     }
   }
 } 
