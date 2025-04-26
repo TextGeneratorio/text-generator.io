@@ -1,7 +1,6 @@
 tools:
 
-read from mainserver.log thats autoreloaded NEVER try run the server yourself or pkill ever
-tail -n 200 mainserver.log
+ . .venv/bin/activate && uvicorn main:app  --port 7347
 
 we are running the server on localhost:4444
 can use curl

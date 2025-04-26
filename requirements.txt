@@ -7,7 +7,7 @@ anthropic==0.49.0
 anyio==4.7.0
     # via
     #   anthropic
-    #   httpx
+    #   httpcore
     #   starlette
 astroid==2.3.3
     # via -r requirements.in
@@ -17,6 +17,7 @@ cachetools==4.2.4
     #   google-auth
 certifi==2024.8.30
     # via
+    #   httpcore
     #   httpx
     #   requests
 charset-normalizer==3.4.0
@@ -70,19 +71,23 @@ grpcio==1.68.1
     # via google-api-core
 gunicorn==20.1.0
     # via -r requirements.in
-h11==0.9.0
+h11==0.14.0
     # via
     #   -r requirements.in
     #   httpcore
     #   uvicorn
-httpcore==0.13.2
-    # via httpx
+httpcore==0.17.3
+    # via
+    #   -r requirements.in
+    #   httpx
 httplib2==0.22.0
     # via
     #   google-api-python-client
     #   google-auth-httplib2
-httpx==0.25.1
-    # via anthropic
+httpx==0.24.1
+    # via
+    #   -r requirements.in
+    #   anthropic
 idna==3.10
     # via
     #   anyio
