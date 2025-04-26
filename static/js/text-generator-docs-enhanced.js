@@ -525,7 +525,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const generateEndpoint = isLocal ? 
           'http://localhost:8000/api/v1/generate' : 
-          'https://text-generator.io/api/v1/generate'; // Use standard generate endpoint
+          'https://api.text-generator.io/api/v1/generate'; 
 
       const response = await fetch(generateEndpoint, {
         method: 'POST',
@@ -776,7 +776,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         // Determine the correct API endpoint based on hostname
         const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
         const largeGenerateEndpoint = isLocal ? 
-            'http://localhost:8000/api/v1/generate-large' : 
+            '/api/v1/generate-large' : 
             'https://text-generator.io/api/v1/generate-large';
         
         // Generate content using the Claude API endpoint
@@ -1376,7 +1376,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       // Determine the API endpoint (always use Claude for rewriting for better quality)
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const largeGenerateEndpoint = isLocal ? 
-          'http://localhost:8000/api/v1/generate-large' : 
+          '/api/v1/generate-large' : 
           'https://text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for rewriting
@@ -1481,7 +1481,7 @@ And finally also output the full text again if its used, as we are doing a full 
       // Determine the API endpoint (Claude for better continuation)
       const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
       const largeGenerateEndpoint = isLocal ? 
-          'http://localhost:8000/api/v1/generate-large' : 
+          '/api/v1/generate-large' : 
           'https://text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for continuation

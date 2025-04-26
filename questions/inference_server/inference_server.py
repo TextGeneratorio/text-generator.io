@@ -1046,167 +1046,170 @@ def tts_demo(request: Request):
         },
     )
 
-@app.post("/api/v1/generate-long")
-async def generate_long_text(
-    generate_params: GenerateParams,
-    background_tasks: BackgroundTasks = None,
-    request: Request = None,
-    secret: Union[str, None] = Header(default=None),
-):
-    """
-    Generate longer text using Claude 3.7 via netwrck.com API
-    This is optimized for longer, more creative text generation
-    """
-    validation_result = validate_generate_params(generate_params)
-    if validation_result:
-        return HTTPException(status_code=400, detail=validation_result)
+# @app.post("/api/v1/generate-long")
+# async def generate_long_text(
+#     generate_params: GenerateParams,
+#     background_tasks: BackgroundTasks = None,
+#     request: Request = None,
+#     secret: Union[str, None] = Header(default=None),
+# ):
+#     """
+#     Generate longer text using Claude 3.7 via netwrck.com API
+#     This is optimized for longer, more creative text generation
+#     """
+#     validation_result = validate_generate_params(generate_params)
+#     if validation_result:
+#         return HTTPException(status_code=400, detail=validation_result)
+# 
+#     # Authorize the request
+#     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+#         if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+#             if not request_authorized(request, secret):
+#                 return HTTPException(
+#                     status_code=401, 
+#                     detail="Please subscribe at https://text-generator.io/subscribe first"
+#                 )
+# 
+#     try:
+#         # Prepare the prompt for Claude
+#         prompt = generate_params.text
+#         
+#         # Set up system message to control generation parameters
+#         system_message = f"""
+# You are a creative text generation assistant. Generate text that continues from the given prompt.
+# 
+# Parameters to follow:
+# - Temperature: {generate_params.temperature}
+# - Creativity level: {"high" if generate_params.temperature > 0.7 else "medium" if generate_params.temperature > 0.3 else "low"}
+# - Maximum length: {generate_params.max_length} tokens
+# 
+# Important instructions:
+# - Continue the text naturally from where the prompt ends
+# - Do not repeat the prompt in your response
+# - Do not add any explanations, notes, or metadata
+# - Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
+# - Just generate the continuation text directly
+#         """
+#         
+#         # Set up stop sequences
+#         stop_sequences = None
+#         if generate_params.stop_sequences and len(generate_params.stop_sequences) > 0:
+#             stop_sequences = frozenset(generate_params.stop_sequences)
+#         
+#         # Call Claude API
+#         generated_text = await query_to_claude_async(
+#             prompt=prompt,
+#             stop_sequences=stop_sequences,
+#             system_message=system_message,
+#         )
+#         
+#         # Handle the response
+#         if generated_text is None:
+#             return HTTPException(status_code=500, detail="Failed to generate text with Claude")
+#         
+#         # Format the response to match the standard API format
+#         result = [{
+#             "generated_text": prompt + generated_text,
+#             "finished_reason": "length",
+#             "model": "claude-3-sonnet-20240229"
+#         }]
+#         
+#         # Track usage if needed
+#         if request and background_tasks:
+#             if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+#                 if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+#                     # Claude is more expensive, so we charge 3 units
+#                     background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=3)
+#         
+#         return result
+#         
+#     except Exception as e:
+#         logger.error(f"Error generating text with Claude: {e}")
+#         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+# 
+# @app.post("/api/v1/generate-large")
+# async def generate_large_text(
+#     generate_params: GenerateParams,
+#     background_tasks: BackgroundTasks = None,
+#     request: Request = None,
+#     secret: Union[str, None] = Header(default=None),
+# ):
+#     """
+# Generate large amounts of text using Claude models
+# This endpoint accepts a model parameter to specify which Claude model to use
+#     """
+#     validation_result = validate_generate_params(generate_params)
+#     if validation_result:
+#         return HTTPException(status_code=400, detail=validation_result)
+# 
+#     # Authorize the request
+#     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+#         if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+#             if not request_authorized(request, secret):
+#                 return HTTPException(
+#                     status_code=401, 
+#                     detail="Please subscribe at https://text-generator.io/subscribe first"
+#                 )
+# 
+#     try:
+#         # Prepare the prompt for Claude
+#         prompt = generate_params.text
+#         model_name = "claude-3-7-sonnet-20250219"
+#         
+#         # Set up system message to control generation parameters
+#         system_message = f"""
+#         You are a creative text generation assistant. Generate text that continues from the given prompt.
+#         
+#         Parameters to follow:
+#         - Temperature: {generate_params.temperature}
+#         - Creativity level: {"high" if generate_params.temperature > 0.7 else "medium" if generate_params.temperature > 0.3 else "low"}
+#         - Maximum length: {generate_params.max_length} tokens
+#         
+#         Important instructions:
+#         - Continue the text naturally from where the prompt ends
+#         - Do not repeat the prompt in your response
+#         - Do not add any explanations, notes, or metadata
+#         - Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
+#         - Just generate the continuation text directly
+#         """
+#         
+#         # Set up stop sequences
+#         stop_sequences = None
+#         if generate_params.stop_sequences and len(generate_params.stop_sequences) > 0:
+#             stop_sequences = frozenset(generate_params.stop_sequences)
+#         
+#         # Call Claude API with the specified model
+#         generated_text = await query_to_claude_async(
+#             prompt=prompt,
+#             stop_sequences=stop_sequences,
+#             system_message=system_message,
+#             model=model_name,  # Pass the model name to the Claude API function
+#         )
+#         
+#         # Handle the response
+#         if generated_text is None:
+#             return HTTPException(status_code=500, detail="Failed to generate text with Claude")
+#         
+#         # Format the response to match the standard API format
+#         result = [{
+#             "generated_text": prompt + generated_text,
+#             "finished_reason": "length",
+#             "model": model_name
+#         }]
+#         
+#         # Track usage if needed
+#         if request and background_tasks:
+#             if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+#                 if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+#                     # Claude is more expensive, so we charge more units based on the model
+#                     quantity = 5 if "opus" in model_name else 3 if "sonnet" in model_name else 2
+#                     background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=quantity)
+#         
+#         return result
+#         
+#     except Exception as e:
+#         logger.error(f"Error generating text with Claude: {e}")
+#         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
 
-    # Authorize the request
-    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-            if not request_authorized(request, secret):
-                return HTTPException(
-                    status_code=401, 
-                    detail="Please subscribe at https://text-generator.io/subscribe first"
-                )
-
-    try:
-        # Prepare the prompt for Claude
-        prompt = generate_params.text
-        
-        # Set up system message to control generation parameters
-        system_message = f"""
-You are a creative text generation assistant. Generate text that continues from the given prompt.
-
-Parameters to follow:
-- Temperature: {generate_params.temperature}
-- Creativity level: {"high" if generate_params.temperature > 0.7 else "medium" if generate_params.temperature > 0.3 else "low"}
-- Maximum length: {generate_params.max_length} tokens
-
-Important instructions:
-- Continue the text naturally from where the prompt ends
-- Do not repeat the prompt in your response
-- Do not add any explanations, notes, or metadata
-- Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
-- Just generate the continuation text directly
-        """
-        
-        # Set up stop sequences
-        stop_sequences = None
-        if generate_params.stop_sequences and len(generate_params.stop_sequences) > 0:
-            stop_sequences = frozenset(generate_params.stop_sequences)
-        
-        # Call Claude API
-        generated_text = await query_to_claude_async(
-            prompt=prompt,
-            stop_sequences=stop_sequences,
-            system_message=system_message,
-        )
-        
-        # Handle the response
-        if generated_text is None:
-            return HTTPException(status_code=500, detail="Failed to generate text with Claude")
-        
-        # Format the response to match the standard API format
-        result = [{
-            "generated_text": prompt + generated_text,
-            "finished_reason": "length",
-            "model": "claude-3-sonnet-20240229"
-        }]
-        
-        # Track usage if needed
-        if request and background_tasks:
-            if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-                if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                    # Claude is more expensive, so we charge 3 units
-                    background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=3)
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error generating text with Claude: {e}")
-        return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
-
-@app.post("/api/v1/generate-large")
-async def generate_large_text(
-    generate_params: GenerateParams,
-    background_tasks: BackgroundTasks = None,
-    request: Request = None,
-    secret: Union[str, None] = Header(default=None),
-):
-    """
-Generate large amounts of text using Claude models
-This endpoint accepts a model parameter to specify which Claude model to use
-    """
-    validation_result = validate_generate_params(generate_params)
-    if validation_result:
-        return HTTPException(status_code=400, detail=validation_result)
-
-    # Authorize the request
-    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-            if not request_authorized(request, secret):
-                return HTTPException(
-                    status_code=401, 
-                    detail="Please subscribe at https://text-generator.io/subscribe first"
-                )
-
-    try:
-        # Prepare the prompt for Claude
-        prompt = generate_params.text
-        model_name = "claude-3-7-sonnet-20250219"
-        
-        # Set up system message to control generation parameters
-        system_message = f"""
-        You are a creative text generation assistant. Generate text that continues from the given prompt.
-        
-        Parameters to follow:
-        - Temperature: {generate_params.temperature}
-        - Creativity level: {"high" if generate_params.temperature > 0.7 else "medium" if generate_params.temperature > 0.3 else "low"}
-        - Maximum length: {generate_params.max_length} tokens
-        
-        Important instructions:
-        - Continue the text naturally from where the prompt ends
-        - Do not repeat the prompt in your response
-        - Do not add any explanations, notes, or metadata
-        - Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
-        - Just generate the continuation text directly
-        """
-        
-        # Set up stop sequences
-        stop_sequences = None
-        if generate_params.stop_sequences and len(generate_params.stop_sequences) > 0:
-            stop_sequences = frozenset(generate_params.stop_sequences)
-        
-        # Call Claude API with the specified model
-        generated_text = await query_to_claude_async(
-            prompt=prompt,
-            stop_sequences=stop_sequences,
-            system_message=system_message,
-            model=model_name,  # Pass the model name to the Claude API function
-        )
-        
-        # Handle the response
-        if generated_text is None:
-            return HTTPException(status_code=500, detail="Failed to generate text with Claude")
-        
-        # Format the response to match the standard API format
-        result = [{
-            "generated_text": prompt + generated_text,
-            "finished_reason": "length",
-            "model": model_name
-        }]
-        
-        # Track usage if needed
-        if request and background_tasks:
-            if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-                if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                    # Claude is more expensive, so we charge more units based on the model
-                    quantity = 5 if "opus" in model_name else 3 if "sonnet" in model_name else 2
-                    background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=quantity)
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error generating text with Claude: {e}")
-        return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+if __name__ == "__main__":
+    import uvicorn
