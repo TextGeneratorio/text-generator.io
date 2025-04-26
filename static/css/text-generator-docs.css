@@ -116,6 +116,23 @@
   align-items: center;
 }
 
+/* Add styling for the action buttons */
+.tgdocs-actions .mdl-button {
+  padding: 0 12px;
+  min-width: 64px;
+  height: 36px;
+  text-transform: none; /* Prevent uppercase transformation */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tgdocs-actions .mdl-button i.material-icons {
+  margin-right: 4px;
+  font-size: 18px;
+}
+
 /* Claude toggle styles */
 .tgdocs-claude-toggle-container {
   display: flex;

@@ -75,24 +75,52 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    */
   async init() {
     try {
-      // Call parent init method
+      // Call parent init method FIRST - this should find elements via options passed during instantiation
       await super.init();
-      
-      // Add enhanced UI elements
+
+      // Add other enhanced UI elements immediately (assuming they don't depend on the buttons yet)
       this.addWideModeToggle();
-      
-      // Override default debounce settings
-      this.initDebounceSettings();
-      
-      // Add enhanced event listeners for typing detection
-      this.initEnhancedEventListeners();
-      this.addToolbarTooltips();
-      
-      // Expose this instance globally for manual traversal and testing
+      this.initDebounceSettings(); // Needs this.editor from super.init()
+      this.initEnhancedEventListeners(); // Needs this.editor from super.init()
+      this.addToolbarTooltips(); // Should be safe
+
+      console.log("Attempting to configure buttons after delay...");
+
+      // Prefer using properties set by base class constructor if available, fallback to getElementById
+      const autowriteBtn = this.generateContentButton || document.getElementById('generate-content-btn');
+      const rewriteBtn = this.rewriteContentButton || document.getElementById('rewrite-content-btn');
+
+      // Configure "Write from Cursor" Button
+      if (autowriteBtn) {
+          console.log("#generate-content-btn found/referenced. Configuring...");
+          autowriteBtn.innerHTML = '<i class="material-icons">auto_fix_high</i> Write from Cursor (Ctrl+Space)';
+          autowriteBtn.setAttribute('title', 'Generate text starting from cursor (Ctrl+Space)');
+          // Remove potential old listeners before adding new one
+          autowriteBtn.removeEventListener('click', this._boundAutoWriteFromCursor);
+          this._boundAutoWriteFromCursor = () => this.autoWriteFromCursor(); // Store bound function
+          autowriteBtn.addEventListener('click', this._boundAutoWriteFromCursor);
+      } else {
+          console.warn('Button #generate-content-btn STILL not found.');
+      }
+
+      // Configure "Rewrite" Button
+      if (rewriteBtn) {
+          console.log("#rewrite-content-btn found/referenced. Configuring...");
+          rewriteBtn.innerHTML = '<i class="material-icons">edit_note</i> Rewrite (Ctrl+G)';
+          rewriteBtn.setAttribute('title', 'Rewrite selected text or whole document with instructions (Ctrl+G)');
+          // Remove potential old listeners before adding new one
+          rewriteBtn.removeEventListener('click', this._boundRewriteWithInstructions);
+          this._boundRewriteWithInstructions = () => this.showRewriteDialog(); 
+          rewriteBtn.addEventListener('click', this._boundRewriteWithInstructions);
+      } else {
+          console.warn('Button #rewrite-content-btn STILL not found.');
+      }
+
+      // Expose this instance globally for testing
       if (typeof window !== 'undefined') {
         window.scene = this;
       }
-      
+
       console.log('Enhanced Text Generator Docs initialized');
     } catch (error) {
       console.error('Error initializing enhanced text generator:', error);
@@ -140,6 +168,28 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         return false; // Always prevent default Tab behavior
       });
     }
+
+    // Global listener for Ctrl+Space to open Autowrite dialog
+    document.addEventListener('keydown', (event) => {
+      // Check if Ctrl+Space is pressed AND the editor currently has focus
+      if (event.ctrlKey && event.code === 'Space' && this.editor && this.editor.hasFocus()) {
+          event.preventDefault();     // Prevent default browser behavior (e.g., inserting space)
+          event.stopPropagation();  // Stop event from bubbling further
+          console.log('Ctrl+Space detected, triggering Write from Cursor.');
+          this.autoWriteFromCursor(); // Trigger Write from Cursor directly
+      }
+    }, true); // Use capture phase: true
+
+    // Global listener for Ctrl+G to trigger Rewrite
+    document.addEventListener('keydown', (event) => {
+      // Check if Ctrl+G is pressed AND the editor currently has focus
+      if (event.ctrlKey && event.key === 'g' && this.editor && this.editor.hasFocus()) {
+          event.preventDefault();     // Prevent default browser behavior (e.g., find)
+          event.stopPropagation();  // Stop event from bubbling further
+          console.log('Ctrl+G detected, triggering Rewrite.');
+          this.showRewriteDialog(); // Show rewrite dialog instead
+      }
+    }, true); // Use capture phase: true
 
     // TODO: Consider adding a MutationObserver on the editor for complex reflows
   }
@@ -431,7 +481,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       if (!selection) return;
       
       const cursorPosition = selection.index;
-      const textBeforeCursor = text.substring(0, cursorPosition);
+      let textBeforeCursor = text.substring(0, cursorPosition);
       
       // If the text before cursor is too short, don't suggest
       if (textBeforeCursor.trim().length < EnhancedTextGeneratorDocs.CONFIG.MIN_SUGGESTION_LENGTH) return;
@@ -447,7 +497,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       
       // Capture the current state when making the request
       const changeCounterAtRequest = this.textChangeCounter;
-      //dont need that much context for autocomplete
+      // dont need that much context for autocomplete
       if (textBeforeCursor.length > 512) {
         textBeforeCursor = textBeforeCursor.slice(-512);
       }
@@ -1358,6 +1408,78 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   }
 
   /**
+   * Show dialog to get rewrite instructions from user
+   */
+  showRewriteDialog() {
+    // Create dialog for rewrite instructions
+    const dialogContainer = document.createElement('div');
+    dialogContainer.className = 'tgdocs-generate-dialog'; // Reuse the same dialog styling
+    
+    // Create dialog content
+    const dialogContent = document.createElement('div');
+    dialogContent.className = 'tgdocs-generate-dialog-content';
+    dialogContent.innerHTML = `
+      <h3>Rewrite Content</h3>
+      <p>Enter instructions for how you want the content to be rewritten:</p>
+      <textarea id="rewrite-instructions" class="tgdocs-generate-prompt" placeholder="E.g., Make it more formal, convert to bullet points, rewrite in a fantasy style..."></textarea>
+      <div class="tgdocs-generate-actions">
+        <button id="rewrite-cancel" class="mdl-button mdl-js-button">Cancel</button>
+        <button id="rewrite-submit" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Rewrite</button>
+      </div>
+    `;
+    
+    // Append dialog to body
+    document.body.appendChild(dialogContainer);
+    dialogContainer.appendChild(dialogContent);
+    
+    // Helper for closing dialog
+    const closeDialog = () => {
+      dialogContainer.remove();
+      // Remove event listeners
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+    
+    // Add event listeners
+    document.getElementById('rewrite-cancel').addEventListener('click', () => {
+      closeDialog();
+    });
+    
+    document.getElementById('rewrite-submit').addEventListener('click', () => {
+      const instructions = document.getElementById('rewrite-instructions').value.trim();
+      if (instructions) {
+        // Close dialog first
+        closeDialog();
+        // Then rewrite with instructions
+        this.rewriteDocumentWithInstructions(instructions);
+      } else {
+        // Show validation message if empty
+        alert('Please enter rewrite instructions');
+      }
+    });
+    
+    // Handle Escape key to close dialog
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        closeDialog();
+      }
+    };
+    document.addEventListener('keydown', handleEscapeKey);
+    
+    // Add background click listener to close
+    dialogContainer.addEventListener('click', (event) => {
+      // Check if the click is directly on the background container
+      if (event.target === dialogContainer) {
+        closeDialog();
+      }
+    });
+    
+    // Focus on instructions textarea
+    setTimeout(() => {
+      document.getElementById('rewrite-instructions').focus();
+    }, 100);
+  }
+
+  /**
    * Rewrites the entire document based on instructions using an LLM.
    * @param {string} instructionPrompt - The instructions for rewriting.
    */
@@ -1468,7 +1590,7 @@ And finally also output the full text again if its used, as we are doing a full 
     if (!selection) return;
 
     const cursorPosition = selection.index;
-    const textBeforeCursor = this.editor.getText(0, cursorPosition);
+    let textBeforeCursor = this.editor.getText(0, cursorPosition);
 
     if (!textBeforeCursor || textBeforeCursor.trim() === '') {
       this.updateSaveStatus('Cannot autowrite without preceding text.');

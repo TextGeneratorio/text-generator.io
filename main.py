@@ -852,12 +852,11 @@ async def generate_long_text(
 
     # Authorize the request
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-            if not request_authorized(request, secret):
-                return HTTPException(
-                    status_code=401, 
-                    detail="Please subscribe at https://text-generator.io/subscribe first"
-                )
+        if not request_authorized(request, secret):
+            return HTTPException(
+                status_code=401, 
+                detail="Please subscribe at https://text-generator.io/subscribe first"
+            )
 
     try:
         # Prepare the prompt for Claude
