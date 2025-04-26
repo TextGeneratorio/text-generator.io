@@ -1076,19 +1076,19 @@ async def generate_long_text(
         
         # Set up system message to control generation parameters
         system_message = f"""
-        You are a creative text generation assistant. Generate text that continues from the given prompt.
-        
-        Parameters to follow:
-        - Temperature: {generate_params.temperature}
-        - Creativity level: {"high" if generate_params.temperature > 0.7 else "medium" if generate_params.temperature > 0.3 else "low"}
-        - Maximum length: {generate_params.max_length} tokens
-        
-        Important instructions:
-        - Continue the text naturally from where the prompt ends
-        - Do not repeat the prompt in your response
-        - Do not add any explanations, notes, or metadata
-        - Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
-        - Just generate the continuation text directly
+You are a creative text generation assistant. Generate text that continues from the given prompt.
+
+Parameters to follow:
+- Temperature: {generate_params.temperature}
+- Creativity level: {"high" if generate_params.temperature > 0.7 else "medium" if generate_params.temperature > 0.3 else "low"}
+- Maximum length: {generate_params.max_length} tokens
+
+Important instructions:
+- Continue the text naturally from where the prompt ends
+- Do not repeat the prompt in your response
+- Do not add any explanations, notes, or metadata
+- Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
+- Just generate the continuation text directly
         """
         
         # Set up stop sequences
@@ -1135,8 +1135,8 @@ async def generate_large_text(
     secret: Union[str, None] = Header(default=None),
 ):
     """
-    Generate large amounts of text using Claude models
-    This endpoint accepts a model parameter to specify which Claude model to use
+Generate large amounts of text using Claude models
+This endpoint accepts a model parameter to specify which Claude model to use
     """
     validation_result = validate_generate_params(generate_params)
     if validation_result:
@@ -1154,16 +1154,7 @@ async def generate_large_text(
     try:
         # Prepare the prompt for Claude
         prompt = generate_params.text
-        
-        # Get the model name from the parameters or use a default
-        model_name = getattr(generate_params, "model", "claude-3-sonnet-20240229")
-        
-        # Validate the model name
-        valid_models = ["claude-3-opus-20240229", "claude-3-sonnet-20240229", "claude-3-haiku-20240307"]
-        if model_name not in valid_models:
-            model_name = "claude-3-sonnet-20240229"  # Default to Sonnet if invalid
-            
-        logger.info(f"Using Claude model: {model_name}")
+        model_name = "claude-3-7-sonnet-20250219"
         
         # Set up system message to control generation parameters
         system_message = f"""

@@ -20,7 +20,7 @@ async def query_to_claude_async(
     extra_data: Optional[dict] = None,
     prefill: Optional[str] = None,
     system_message: Optional[str] = None,
-    model: Optional[str] = "claude-3-sonnet-20240229",
+    model: Optional[str] = "claude-3-7-sonnet-20250219",
 ) -> Optional[str]:
     """Async Claude query with caching"""
     
