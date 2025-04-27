@@ -1284,7 +1284,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   }
 
   /**
-   * Override showGenerateContentDialog to act as a Rewrite/Edit trigger
+   * Override showGenerateContentDialog to properly handle Write from Cursor functionality
    * @override
    */
   showGenerateContentDialog() {
@@ -1298,20 +1298,16 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     
     // Add title
     const title = document.createElement('h3');
-    title.textContent = 'Autowrite Document';
+    title.textContent = 'Write from Cursor';
     dialogContent.appendChild(title);
     
     // Add description
     const description = document.createElement('p');
-    description.textContent = 'Enter instructions for rewriting the entire document below.';
+    description.textContent = 'This will generate new text continuing from your current cursor position.';
     dialogContent.appendChild(description);
     
-    // Add textarea for prompt
-    const promptTextarea = document.createElement('textarea');
-    promptTextarea.className = 'tgdocs-generate-prompt';
-    promptTextarea.placeholder = 'e.g., Make this more concise, Fix grammar, Change the tone to formal';
-    promptTextarea.value = "Let's make this more concise"; 
-    dialogContent.appendChild(promptTextarea);
+    // Add textarea for prompt - actually not needed for write from cursor
+    // as it uses preceding text automatically
     
     // Add actions
     const actions = document.createElement('div');
@@ -1335,49 +1331,43 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     // Add autowrite button
     const autowriteButton = document.createElement('button');
     autowriteButton.className = 'mdl-button mdl-js-button mdl-button--raised mdl-button--colored tgdocs-autowrite-btn';
-    autowriteButton.textContent = 'Autowrite';
+    autowriteButton.textContent = 'Generate';
     autowriteButton.addEventListener('click', async () => {
-      const instructionPrompt = promptTextarea.value.trim();
-      if (instructionPrompt) {
-        // Disable button and show loading state
-        autowriteButton.disabled = true;
-        // Add spinner element to button
-        const originalText = autowriteButton.textContent;
-        const spinner = document.createElement('span');
-        spinner.className = 'autowrite-spinner';
-        spinner.style.display = 'inline-block';
-        spinner.style.width = '16px';
-        spinner.style.height = '16px';
-        spinner.style.border = '2px solid rgba(255,255,255,0.3)';
-        spinner.style.borderRadius = '50%';
-        spinner.style.borderTopColor = '#fff';
-        spinner.style.animation = 'spin 1s linear infinite';
-        spinner.style.marginRight = '8px';
-        spinner.style.verticalAlign = 'middle';
-        
-        // Add keyframes animation if it doesn't exist
-        if (!document.getElementById('spinner-keyframes')) {
-          const style = document.createElement('style');
-          style.id = 'spinner-keyframes';
-          style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-          document.head.appendChild(style);
-        }
-        
-        autowriteButton.textContent = 'Autowriting...';
-        autowriteButton.insertBefore(spinner, autowriteButton.firstChild);
-        autowriteButton.style.opacity = '0.8';
-        autowriteButton.style.cursor = 'not-allowed';
+      // Disable button and show loading state
+      autowriteButton.disabled = true;
+      // Add spinner element to button
+      const originalText = autowriteButton.textContent;
+      const spinner = document.createElement('span');
+      spinner.className = 'autowrite-spinner';
+      spinner.style.display = 'inline-block';
+      spinner.style.width = '16px';
+      spinner.style.height = '16px';
+      spinner.style.border = '2px solid rgba(255,255,255,0.3)';
+      spinner.style.borderRadius = '50%';
+      spinner.style.borderTopColor = '#fff';
+      spinner.style.animation = 'spin 1s linear infinite';
+      spinner.style.marginRight = '8px';
+      spinner.style.verticalAlign = 'middle';
+      
+      // Add keyframes animation if it doesn't exist
+      if (!document.getElementById('spinner-keyframes')) {
+        const style = document.createElement('style');
+        style.id = 'spinner-keyframes';
+        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+      }
+      
+      autowriteButton.textContent = 'Generating...';
+      autowriteButton.insertBefore(spinner, autowriteButton.firstChild);
+      autowriteButton.style.opacity = '0.8';
+      autowriteButton.style.cursor = 'not-allowed';
 
-        closeDialog(); // Close dialog before starting rewrite
-        try {
-          // Call the renamed function
-          await this.rewriteDocumentWithInstructions(instructionPrompt);
-        } finally {
-          // Re-enable button regardless of success/failure (dialog is already closed)
-          // Note: Button element might be gone if dialog closed instantly, 
-          // so direct manipulation here might not be necessary unless dialog closing is delayed.
-          // If we need to update UI state post-operation, use a different mechanism.
-        }
+      closeDialog(); // Close dialog before starting write from cursor
+      try {
+        // Call the correct function for "Write from Cursor"
+        await this.autoWriteFromCursor();
+      } finally {
+        // Re-enable button regardless of success/failure (dialog is already closed)
       }
     });
     actions.appendChild(autowriteButton);
@@ -1385,10 +1375,6 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     dialogContent.appendChild(actions);
     dialogContainer.appendChild(dialogContent);
     document.body.appendChild(dialogContainer);
-    
-    // Focus the textarea and select the default text
-    promptTextarea.focus();
-    promptTextarea.select();
 
     // Add Escape key listener
     const handleEscapeKey = (event) => {
