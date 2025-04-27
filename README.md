@@ -19,10 +19,11 @@ If a prompt contains links to images they are converted to text using captioning
 
 Please support us!
 
-You can support us by purchasing [Netwrck](https://netwrck.com/).
+You can support us by purchasing unlimited API use on [text-generator io](https://text-generator.io)
 
-Also checkout [AIArt-Generator.art](https://AIArt-Generator.art) and [Netwrck.com](https://netwrck.com)
-Also checkout [Helix.app.nz](https://helix.app.nz)
+Also checkout our other projects: [Netwrck](https://netwrck.com/) AI Social chat character network/art generator.
+Art Generator: [AIArt-Generator.art](https://AIArt-Generator.art)
+AI Data Analyst: [Helix.app.nz](https://helix.app.nz)
 
 
 Coming soon:
