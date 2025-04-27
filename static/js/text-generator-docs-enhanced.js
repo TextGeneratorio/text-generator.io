@@ -145,12 +145,50 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
           this.editor.insertText(this.editor.getSelection() ? this.editor.getSelection().index : 0, '\t', 'user');
         }
       }
+      
+      // Hide suggestion on arrow keys (new functionality)
+      if (this.suggestionActive && (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || 
+          event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        console.log('Arrow key pressed while suggestion active, hiding suggestion');
+        this.hideSuggestion();
+      }
     }, true);
 
     // Add listeners to hide popup on scroll/resize
     this._boundHideSuggestion = this.hideSuggestion.bind(this); // Bind for listener removal
     window.addEventListener('scroll', this._boundHideSuggestion, true); // Use capture phase
     window.addEventListener('resize', this._boundHideSuggestion); 
+
+    // Add listener for document clicks to hide suggestions when clicking elsewhere
+    document.addEventListener('mousedown', (event) => {
+      if (this.suggestionActive) {
+        // Get the editor element and suggestion element
+        const editorElement = this.editor.root;
+        const suggestionElement = this.suggestionElement;
+        
+        // Check if click is outside both the editor and suggestion element
+        if (!editorElement.contains(event.target) && 
+            !(suggestionElement && suggestionElement.contains(event.target))) {
+          console.log('Click outside editor/suggestion detected, hiding suggestion');
+          this.hideSuggestion();
+        }
+      }
+    }, true);
+
+    // Enhanced selection change handling
+    if (this.editor) {
+      // Track cursor movement to hide suggestions when cursor moves
+      this.editor.on('selection-change', (range, oldRange, source) => {
+        // If suggestion is active and cursor moves more than 1 character or changes via API
+        if (this.suggestionActive && 
+            ((range && oldRange && Math.abs(range.index - oldRange.index) > 0) || source === 'api')) {
+          console.log('Cursor moved or selection changed, hiding suggestion');
+          this.hideSuggestion();
+        }
+      });
+      
+      // Rest of the existing code...
+    }
 
     // Rebind Quill Tab key to accept suggestion when popup is active
     if (this.editor && this.editor.keyboard) {
@@ -1267,7 +1305,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       
       // If suggestion popup is active, accept it directly
       console.log('Accepting suggestion via Tab key (popup)');
-        this.acceptSuggestion();
+      this.acceptSuggestion();
       
       return false; // Ensure the event is completely stopped
     }
@@ -1277,6 +1315,13 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       event.preventDefault();
       this.hideSuggestion();
       return;
+    }
+    
+    // If arrow keys are pressed and we have an active suggestion, hide it
+    if (this.suggestionActive && (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || 
+        event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      this.hideSuggestion();
+      // But allow the event to propagate for normal cursor movement
     }
     
     // For all other keys, call parent method
