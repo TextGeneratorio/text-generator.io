@@ -1215,6 +1215,10 @@ for use_case_name, use_case in use_cases.items():
     use_cases[use_case_name]["results"] = results
     logger.info(f"Use case {use_case_name} generated")
     logger.info(use_cases)
+# Write use cases to fixtures file
+with open("questions/usecase_fixtures.py", "w") as f:
+    f.write(f"use_cases = {repr(use_cases)}")
+    logger.info("Use cases written to questions/usecase_fixtures.py")
 # openai use cases
 # for use_case_name, use_case in openai_examples_map.items():
 #     results = make_request(use_case)

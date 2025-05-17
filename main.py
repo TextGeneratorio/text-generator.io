@@ -377,9 +377,18 @@ async def success(request: Request):
         "templates/success.jinja2", base_vars,
     )
 
+@app.get("/login")
+async def login(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
+    return templates.TemplateResponse(
+        "templates/login.jinja2", base_vars,
+    )
+
 
 @app.get("/logout")
-async def login(request: Request):
+async def logout(request: Request):
     # clear session?
     return RedirectResponse("/", status_code=303)
 
