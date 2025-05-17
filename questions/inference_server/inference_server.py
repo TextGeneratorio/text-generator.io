@@ -220,6 +220,7 @@ def track_stripe_request_usage(secret, quantity: int):
         db_user = User.bySecret(secret)
         if not db_user:
             logger.error(f"user not found for secret: {secret}")
+            return
         db_user.charges_monthly += int(quantity * 10)
         User.save(db_user)
         set_session_for_user(db_user)
