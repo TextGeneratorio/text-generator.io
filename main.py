@@ -17,6 +17,7 @@ from starlette.routing import Route
 from starlette.datastructures import URL
 
 from questions import fixtures, doc_fixtures, tool_fixtures
+from pydantic import BaseModel
 from questions import blog_fixtures
 from questions.db_models import User, Document
 from questions.gameon_utils import GameOnUtils
@@ -975,3 +976,67 @@ Important instructions:
         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
 
 # --- End Moved Routes ---
+
+
+class OptimizePromptParams(BaseModel):
+    prompt: str
+    evolve_prompt: str
+    judge_prompt: str
+    iterations: int = 2
+
+
+async def evaluate_prompt(prompt: str, judge_prompt: str) -> Dict[str, Any]:
+    system_message = (
+        "You are a strict judge of prompt quality. "
+        "Return JSON with keys 'score' (0-1) and 'feedback'."
+    )
+    query = f"{judge_prompt}\nPrompt:\n{prompt}\nRespond in JSON."
+    result = await query_to_claude_async(prompt=query, system_message=system_message)
+    try:
+        data = json.loads(result)
+    except Exception:
+        data = {"score": 0.0, "feedback": result.strip()}
+    return data
+
+
+async def evolve_prompt(prompt: str, evolve_prompt: str) -> str:
+    system_message = (
+        "You improve prompts. Return JSON with key 'prompt' containing the new prompt."
+    )
+    query = f"{evolve_prompt}\nCurrent Prompt:\n{prompt}\nRespond in JSON."
+    result = await query_to_claude_async(prompt=query, system_message=system_message)
+    try:
+        data = json.loads(result)
+        return data.get("prompt", prompt)
+    except Exception:
+        return result.strip()
+
+
+async def optimize_prompt(params: OptimizePromptParams) -> Dict[str, Any]:
+    current_prompt = params.prompt
+    evaluations: List[Dict[str, Any]] = []
+    for i in range(params.iterations):
+        current_eval = await evaluate_prompt(current_prompt, params.judge_prompt)
+        evaluations.append({
+            "prompt": current_prompt,
+            "feedback": current_eval.get("feedback", ""),
+            "score": current_eval.get("score", 0)
+        })
+        if i == params.iterations - 1:
+            break
+        candidate = await evolve_prompt(current_prompt, params.evolve_prompt)
+        candidate_eval = await evaluate_prompt(candidate, params.judge_prompt)
+        evaluations.append({
+            "prompt": candidate,
+            "feedback": candidate_eval.get("feedback", ""),
+            "score": candidate_eval.get("score", 0)
+        })
+        if candidate_eval.get("score", 0) > current_eval.get("score", 0):
+            current_prompt = candidate
+    return {"final_prompt": current_prompt, "evaluations": evaluations}
+
+
+@app.post("/api/v1/optimize-prompt")
+async def optimize_prompt_route(params: OptimizePromptParams):
+    result = await optimize_prompt(params)
+    return JSONResponse(result)

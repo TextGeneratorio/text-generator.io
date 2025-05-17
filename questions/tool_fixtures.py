@@ -10,5 +10,11 @@ tools_fixtures = {
         "description": "Create and edit documents with AI-powered autocomplete in a beautiful WYSIWYG editor.",
         "url": "/ai-text-editor",
         "image": "img/text-generator-docs.webp"
+    },
+    "prompt-optimizer": {
+        "name": "Prompt Optimizer",
+        "description": "Iteratively improve prompts using Claude to get better results.",
+        "url": "/tools/prompt-optimizer",
+        "image": "img/prompt-optimizer.webp"
     }
 }
