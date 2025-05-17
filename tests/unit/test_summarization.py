@@ -14,14 +14,19 @@ text = """
 
 
 def test_summarization():
-    print(get_extractive_summary(text, MODEL_CACHE))
+    summary = get_extractive_summary(text, MODEL_CACHE)
+    assert summary.strip() != ""
+
     with log_time("inf time"):
-        print(get_extractive_summary(text, MODEL_CACHE))
+        summary2 = get_extractive_summary(text, MODEL_CACHE)
+    assert summary2.strip() != ""
 
     # print(get_extractive_summary(text *
     #                              45, MODEL_CACHE))
 
 
 def test_summarization_max_length():
-    print(get_extractive_summary(text *
-                                 145, MODEL_CACHE, max_length=1024))
+    summary = get_extractive_summary(text *
+                                     145, MODEL_CACHE, max_length=1024)
+    assert summary.strip() != ""
+    assert len(summary) <= 1024
