@@ -685,6 +685,7 @@ async def use_case_route(request: Request, usecase: str):
     base_vars = get_base_template_vars(request)
     base_vars.update({
             "description": use_case_data["description"],
+            "long_description": use_case_data.get("long_description"),
             "title": use_case_data["title"],
             "results": results,
             "text": input_text,

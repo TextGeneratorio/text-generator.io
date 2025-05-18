@@ -8,9 +8,10 @@
                 <a href="/" title="Text Generator">Text Generator</a> > {{ title }}
             </div>
             <h3>Example Use Cases</h3>
-            <ul class="demo-list-item mdl-list">
+            <input type="text" id="use-case-search" placeholder="Search" class="mdl-textfield__input" style="margin-bottom:20px;">
+            <ul class="demo-list-item mdl-list" id="use-case-list">
                 {% for key, use_case in use_cases %}
-                    <li class="mdl-list__item">
+                    <li class="mdl-list__item use-case-item">
                     <!-- bullet point icon list-->
                         <i class="material-icons mdl-list__item-icon" style="margin-right: 25px">fiber_manual_record</i>
 

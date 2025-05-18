@@ -9,15 +9,20 @@
             </div>
             <h3>{{ title }}</h3>
             <p>{{ description }}</p>
+            {% if long_description %}
+            <p>{{ long_description }}</p>
+            {% endif %}
             <h4>Example input</h4>
                     <ul class="demo-list-item mdl-list">
 
         <li class="mdl-list__item">
                         <span class="mdl-list__item-primary-content">
             <p class="example-text">{{ text }}</p>
+            <textarea readonly style="width:100%;margin-top:10px">{{ text }}</textarea>
                         </span>
         </li>
     </ul>
+            <p><a href="https://text-generator.io/playground?{{ url_key }}">Open this prompt in Playground</a></p>
             <h4>Example real generated results</h4>
             <ul class="demo-list-item mdl-list">
 
