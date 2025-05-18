@@ -29,11 +29,22 @@ def make_request(use_case, retries=0):
         logger.error("Request failed")
 
 
-for use_case_name, use_case in use_cases.items():
-    results = make_request(use_case)
+existing_use_cases = {}
+try:
+    with open("questions/usecase_fixtures.py", "r") as f:
+        exec(f.read(), {}, existing_use_cases)
+    existing_use_cases = existing_use_cases.get("use_cases", {})
+except FileNotFoundError:
+    pass
 
-    use_cases[use_case_name]["results"] = results
-    logger.info(f"Use case {use_case_name} generated")
+for use_case_name, use_case in use_cases.items():
+    if use_case_name not in existing_use_cases:
+        results = make_request(use_case)
+        use_cases[use_case_name]["results"] = results
+        logger.info(f"Use case {use_case_name} generated")
+    else:
+        use_cases[use_case_name]["results"] = existing_use_cases[use_case_name]["results"]
+        logger.info(f"Use case {use_case_name} loaded from fixtures")
     logger.info(use_cases)
 
 with open("questions/usecase_fixtures.py", "w") as f:
