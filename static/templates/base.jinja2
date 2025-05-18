@@ -15,6 +15,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
     {% block headers %}
     {% endblock %}
 
@@ -51,10 +54,10 @@
         f.parentNode.insertBefore(j, f);
     })(window, document, 'script', 'dataLayer', 'GTM-MMLBMCK');</script>
 
-    <script src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
+    <script defer src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
 
 
-    <script src="https://www.gstatic.com/firebasejs/5.9.1/firebase.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/5.9.1/firebase.js"></script>
 
     <script>
         // Initialize Firebase
