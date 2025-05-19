@@ -69,8 +69,7 @@ app = FastAPI(
     version="1",
 )
 
-import whisper
-import numpy as np
+import nemo.collections.asr as nemo_asr
 
 MODEL_CACHE = ModelCache()
 
@@ -259,20 +258,20 @@ def validate_generate_params(generate_params):
 
 
 audio_model = None
+
+
 def load_audio_model():
+    """Load and return the Parakeet ASR model for speech to text."""
     global audio_model
-    # about 10s
-    with log_time("load whisper model"):
-        # audio_model = whisper.load_model("large") # todo specify download_root to a fast ssd
+    with log_time("load parakeet model"):
         if not audio_model:
-            audio_model = whisper.load_model("medium", download_root="models")  # todo specify download_root to a fast ssd
-            audio_model.eval()
-        audio_model = audio_model.to("cuda")
-        logger.info(
-            f"Model is {'multilingual' if audio_model.is_multilingual else 'English-only'} "
-            f"and has {sum(np.prod(p.shape) for p in audio_model.parameters()):,} parameters."
-            f"and is on {audio_model.device}"
-        )
+            audio_model = nemo_asr.models.ASRModel.from_pretrained(
+                model_name="nvidia/parakeet-tdt-0.6b-v2"
+            )
+            audio_model.freeze()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        audio_model = audio_model.to(device)
+        logger.info(f"Model loaded on {device}")
         return audio_model
 
 
@@ -321,20 +320,21 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
             audio_bytes = response.content
 
     with torch.inference_mode():
-        opts = transcribe_options  # dict(beam_size=5, best_of=5)
-        if audio_params.translate_to_english:
-            opts = translate_options
-        # write to /dev/shm ... assume mp3
-        tmp_file = NamedTemporaryFile(dir="/dev/shm", delete=True, suffix=".mp3")
+        tmp_file = NamedTemporaryFile(dir="/dev/shm", delete=True, suffix=".wav")
         tmp_file.write(audio_bytes)
-        result = audio_model.transcribe(tmp_file.name, **opts)
-
-        # clean data
+        nemo_result = audio_model.transcribe([tmp_file.name], timestamps=True)[0]
         tmp_file.close()
-        for segment in result['segments']:
-            del segment['tokens']
-        result['text'] = result['text'].strip()
-        return result
+
+        segments = [
+            {
+                "start": seg["start"],
+                "end": seg["end"],
+                "text": seg.get("segment", "").strip(),
+            }
+            for seg in nemo_result.timestamp["segment"]
+        ]
+
+        return {"text": nemo_result.text.strip(), "segments": segments}
 
 
 def srt_format_timestamp(seconds: float):

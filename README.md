@@ -7,7 +7,7 @@ Text Generator is a system for;
 * Serving AI APIs via swapping in AI Networks.
 * Using data enrichment (OCR, crawling, image analysis to make prompt engineering easier)
 * Generating speech and text.
-* Understanding text and speech (speech to text with whisper).
+* Understanding text and speech (speech to text with NVIDIA Parakeet).
 
 Text generator can be used via API or self hosted.
 
@@ -128,7 +128,7 @@ cd models
 git clone https://huggingface.co/distilbert-base-uncased
 ```
 
-whisper and STT models will be loaded on demand and placed in the huggingface cache.
+Parakeet ASR models will be loaded on demand and placed in the huggingface cache.
 
 
 #### Run
@@ -194,7 +194,7 @@ PYTHONPATH=$HOME/code/20-questions:$HOME/code/20-questions/OFA:$HOME/code/20-que
 Then go to localhost:9080/docs to use the API
 #### run audio server only
 
-Just the whisper speech to text part.
+Just the Parakeet speech to text part.
 This isn't required as the inference server automatically balances these requests
 ```shell
 PYTHONPATH=$(pwd):$(pwd)/OFA GOOGLE_APPLICATION_CREDENTIALS=secrets/google-credentials.json gunicorn -k uvicorn.workers.UvicornWorker -b :9080 audio_server.audio_server:app --timeout 180000 --workers 1 
