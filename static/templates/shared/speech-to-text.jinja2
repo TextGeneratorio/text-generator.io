@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        .demo-ribbon {
+            width: 100%;
+            height: 40vh;
+            background-color: #3F51B5;
+            flex-shrink: 0;
+        }
+        .demo-main {
+            margin-top: -35vh;
+            flex-shrink: 0;
+        }
+        .demo-container {
+            max-width: 1600px;
+            width: calc(100% - 16px);
+            margin: 0 auto;
+        }
+        .demo-content {
+            border-radius: 2px;
+            padding: 40px 56px;
+            margin-bottom: 80px;
+        }
+        .stt-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="demo-content mdl-color--white mdl-shadow--4dp mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+            <div class="stt-container">
+                <h3>Speech To Text Playground</h3>
+                <div class="mdl-textfield mdl-js-textfield">
+                    <input class="mdl-textfield__input" type="text" id="audioUrl" placeholder="Audio URL">
+                </div>
+                <div>
+                    <input type="file" id="audioFile" accept="audio/*">
+                </div>
+                <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="translate">
+                    <input type="checkbox" id="translate" class="mdl-checkbox__input">
+                    <span class="mdl-checkbox__label">Translate to English</span>
+                </label>
+                <br>
+                <button id="runUrl" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Transcribe URL</button>
+                <button id="runFile" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Transcribe File</button>
+                <pre id="result"></pre>
+                <button id="toggleCode" class="mdl-button mdl-js-button">Show Code</button>
+                <div id="codeExamples" class="hidden">
+                    <h4>cURL</h4>
+<pre><code>curl -X POST "https://api.text-generator.io/api/v1/audio-extraction" \
+ -H "Content-Type: application/json" \
+ -H "secret: YOUR_API_KEY" \
+ -d '{
+  "audio_url": "AUDIO_URL",
+  "translate_to_english": false
+}'
+
+curl -X POST "https://api.text-generator.io/api/v1/audio-file-extraction" \
+ -H "secret: YOUR_API_KEY" \
+ -F "audio_file=@your_file.wav" \
+ -F "translate_to_english=false"
+</code></pre>
+                    <h4>Python</h4>
+<pre><code>import requests
+
+headers = {"secret": "YOUR_API_KEY"}
+
+data = {
+    "audio_url": "AUDIO_URL",
+    "translate_to_english": False
+}
+url = "https://api.text-generator.io/api/v1/audio-extraction"
+print(requests.post(url, json=data, headers=headers).json())
+</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+<script>
+    const runUrlBtn = document.getElementById('runUrl');
+    const runFileBtn = document.getElementById('runFile');
+    const resultEl = document.getElementById('result');
+    const codeBtn = document.getElementById('toggleCode');
+    const codeExamples = document.getElementById('codeExamples');
+    let secret = null;
+    if (typeof firebase !== 'undefined') {
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user) {
+                getUserWithStripe(user, function(data){
+                    secret = data['secret'];
+                });
+            }
+        });
+    }
+    codeBtn.addEventListener('click', () => {
+        codeExamples.classList.toggle('hidden');
+    });
+    runUrlBtn.addEventListener('click', async () => {
+        const audioUrl = document.getElementById('audioUrl').value;
+        const translate = document.getElementById('translate').checked;
+        if (!audioUrl) { alert('Enter audio URL'); return; }
+        const base = window.location.hostname.includes('localhost') ? 'http://localhost:9080' : 'https://api.text-generator.io';
+        const resp = await fetch(`${base}/api/v1/audio-extraction`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json', ...(secret?{secret}:{})},
+            body: JSON.stringify({audio_url: audioUrl, translate_to_english: translate})
+        });
+        resultEl.textContent = JSON.stringify(await resp.json(), null, 2);
+    });
+    runFileBtn.addEventListener('click', async () => {
+        const file = document.getElementById('audioFile').files[0];
+        const translate = document.getElementById('translate').checked;
+        if (!file) { alert('Choose a file'); return; }
+        const base = window.location.hostname.includes('localhost') ? 'http://localhost:9080' : 'https://api.text-generator.io';
+        const formData = new FormData();
+        formData.append('audio_file', file);
+        formData.append('translate_to_english', translate);
+        const resp = await fetch(`${base}/api/v1/audio-file-extraction`, {
+            method: 'POST',
+            headers: secret ? {secret} : {},
+            body: formData
+        });
+        resultEl.textContent = JSON.stringify(await resp.json(), null, 2);
+    });
+</script>
+</body>
+</html>
