@@ -75,7 +75,7 @@ pypdf2>=3.0.0
 pytesseract>=0.3.10
 setuptools>=69.0.0
 
-whisper>=1.1.0
+nemo_toolkit[asr]>=2.2.0
 ffmpeg-python>=0.2.0
 tensorboard>=2.15.0
 # download video/audio extract
