@@ -35,6 +35,7 @@ from questions.text_generator_inference import (
     fast_inference,
     fast_feature_extract_inference,
 )
+from questions.vllm_inference import fast_vllm_inference, VLLM_AVAILABLE
 from questions.utils import log_time
 from sellerinfo import session_secret
 from .models import build_model
@@ -478,10 +479,11 @@ async def feature_extraction(
 @app.get("/liveness_check")
 async def liveness_check(request: Request):
     # global daemon
-    inference_result = fast_inference(
-        generate_params=GenerateParams(text="hi my friend", min_probability=0.9, max_length=1, model='any'),
-        model_cache=MODEL_CACHE,
-    )
+    params = GenerateParams(text="hi my friend", min_probability=0.9, max_length=1, model='any')
+    if VLLM_AVAILABLE:
+        inference_result = fast_vllm_inference(params, MODEL_CACHE)
+    else:
+        inference_result = fast_inference(params, MODEL_CACHE)
     return JSONResponse(inference_result)
 
 
@@ -856,7 +858,10 @@ async def generate_route(
     #             status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
     #         )
     # todo validate api key and user
-    inference_result = fast_inference(generate_params, MODEL_CACHE)
+    if VLLM_AVAILABLE:
+        inference_result = fast_vllm_inference(generate_params, MODEL_CACHE)
+    else:
+        inference_result = fast_inference(generate_params, MODEL_CACHE)
     # todo vuln
     if request and background_tasks:
         if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
@@ -913,7 +918,10 @@ async def generate_route_bulk(
             return HTTPException(status_code=400, detail=validation_result)
 
     for generate_params in bulk_params:
-        inference_result = fast_inference(generate_params)
+        if VLLM_AVAILABLE:
+            inference_result = fast_vllm_inference(generate_params)
+        else:
+            inference_result = fast_inference(generate_params)
         inference_results.append(inference_result)
     # todo vuln
     if request and background_tasks:
@@ -989,7 +997,10 @@ async def openai_route_named(
             status_code=401,
             detail="Please subscribe at https://text-generator.io/subscribe first, also ensure you have a credit card on file"
         )
-    inference_result = fast_inference(generate_params, MODEL_CACHE)
+    if VLLM_AVAILABLE:
+        inference_result = fast_vllm_inference(generate_params, MODEL_CACHE)
+    else:
+        inference_result = fast_inference(generate_params, MODEL_CACHE)
     if not openai_params.echo:
         ## remove all the inputs from the generated texts
         for i in range(len(inference_result)):
