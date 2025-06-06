@@ -51,7 +51,6 @@ def setup_package():
             'google-api-python-client==2.43.0',
             'google-api-core==1.31.5',
             'google-cloud-storage==2.3.0',
-            'loguru==0.5.3',
             'pydantic==1.9.0',
             'jinja2==3.1.1',
             'nltk==3.7.0',

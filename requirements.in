@@ -24,7 +24,6 @@ google-api-core
 google-cloud-storage
 
 google-cloud-ndb
-loguru
 #jinja2
 jinja2
 websockets

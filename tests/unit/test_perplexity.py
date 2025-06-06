@@ -1,5 +1,9 @@
 from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2TokenizerFast, BloomTokenizerFast, BloomForCausalLM
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 import torch
 

@@ -105,7 +105,6 @@ lazy-object-proxy==1.4.3
     # via
     #   -r requirements.in
     #   astroid
-loguru==0.5.3
     # via -r requirements.in
 markupsafe==3.0.2
     # via jinja2

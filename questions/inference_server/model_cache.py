@@ -8,7 +8,11 @@ import os
 import gc
 
 import torch.cuda
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

@@ -11,7 +11,8 @@ from fastapi import Form, HTTPException, Header
 from fastapi import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
 from starlette.responses import JSONResponse, Response, RedirectResponse
 from starlette.routing import Route
 from starlette.datastructures import URL
@@ -23,6 +24,10 @@ from questions.gameon_utils import GameOnUtils
 from questions.models import CreateUserRequest, GetUserRequest, GenerateParams
 from questions.payments.payments import get_self_hosted_subscription_count_for_user, get_subscription_item_id_for_user_email
 from questions.utils import random_string
+
+# Configure logging to also send logs to Google Cloud
+setup_logging(use_cloud=True)
+logger = logging.getLogger(__name__)
 
 # Import the claude_queries module directly
 from questions.inference_server.claude_queries import query_to_claude_async
