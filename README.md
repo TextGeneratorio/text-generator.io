@@ -279,15 +279,3 @@ stretch your body every 30 mins with the say command...
 ```shell
 watch -n 1800 'echo "stretch your body" | espeak -s 120'
 ```
-
-## Logging Configuration
-
-All modules now use the standard `logging` package. Logging is configured via
-`questions.logging_config.setup_logging`. The following environment variables can
-control behaviour:
-
-* `LOG_LEVEL` – override the default log level.
-* `COLOR_LOGS` – set to `0` to disable coloured output.
-* `LOG_FILE` – if set, logs will also be written to this file.
-
-`main.py` enables Google Cloud Logging automatically when running on GCP.
