@@ -28,12 +28,14 @@ def setup_logging(level: int = logging.INFO, use_cloud: bool = False) -> None:
         COLOR_LOGS: Set to "0" to disable color output.
         LOG_FILE: If set, also log to this file.
         GOOGLE_CLOUD_LOGGING: Enable Google Cloud Logging when set.
+
     """
     env_level = os.environ.get("LOG_LEVEL")
     if env_level:
         level = logging.getLevelName(env_level.upper())  # type: ignore[arg-type]
     if os.environ.get("GOOGLE_CLOUD_LOGGING"):
         use_cloud = True
+
 
     root_logger = logging.getLogger()
     if root_logger.handlers:
@@ -71,3 +73,4 @@ def get_logger(name: str) -> logging.Logger:
     if not logging.getLogger().handlers:
         setup_logging()
     return logging.getLogger(name)
+
