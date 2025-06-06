@@ -10,7 +10,11 @@ from fastapi import BackgroundTasks
 from fastapi import Request, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 from starlette.responses import JSONResponse, Response
 
 from questions.audio_server.audio_dl import request_get

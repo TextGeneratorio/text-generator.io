@@ -9,7 +9,11 @@ from onnxruntime import InferenceSession
 import numpy as np
 import os
 import subprocess
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 if not os.path.exists("models/neo-causal-lm"):
     try:

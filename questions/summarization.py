@@ -1,7 +1,11 @@
 import torch
 from nltk import sent_tokenize
 from transformers import pipeline
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 from questions.inference_server.model_cache import DEVICE
 from questions.utils import log_time

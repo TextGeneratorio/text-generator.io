@@ -7,7 +7,11 @@ from typing import Dict, List
 from accelerate import Accelerator, infer_auto_device_map, dispatch_model
 # from accelerate.utils import is_tpu_available
 from cachetools import TTLCache
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 from transformers import (
     GPT2TokenizerFast,
     GPTNeoForCausalLM,
