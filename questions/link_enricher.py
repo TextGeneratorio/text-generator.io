@@ -9,7 +9,11 @@ import bs4
 import cachetools
 from PIL import Image
 from cachetools import cached
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 from requests_futures.sessions import FuturesSession
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer

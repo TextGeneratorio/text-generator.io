@@ -1,5 +1,9 @@
 from questions.link_enricher import get_urls, enrich_links
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 def test_get_urls():
