@@ -19,17 +19,22 @@ headers = {"secret": API_KEY}
 
 def test_speech_creation():
     with log_time("speech creation"):
-        result = audio_process("It is not in the stars to hold our destiny but in ourselves." * 10, "Male fast")
+        result = audio_process(
+            "It is not in the stars to hold our destiny but in ourselves." * 10,
+            "Male fast",
+        )
         assert result is not None
         assert result[0] is not None
 
 
-def test_speech_creation_route():
+def test_generate_speech_route_single_voice():
     audio_params = GenerateSpeechParams(
         text="Text-Generator.io is bringing the cost of intelligence toward zero.",
         speaker="Male fast",
     )
-    response = client.post("/api/v1/generate_speech", json=audio_params.__dict__, headers=headers)
+    response = client.post(
+        "/api/v1/generate_speech", json=audio_params.__dict__, headers=headers
+    )
     assert response.status_code == 200, response.text
     binary_file_response = response.content
     assert binary_file_response is not None
@@ -46,13 +51,15 @@ speakers = [
 ]
 
 
-def test_speech_creation_route():
+def test_generate_speech_route_all_voices():
     for speaker in speakers:
         audio_params = GenerateSpeechParams(
             text="Text-Generator.io is bringing the cost of intelligence toward zero.",
             speaker=speaker,
         )
-        response = client.post("/api/v1/generate_speech", json=audio_params.__dict__, headers=headers)
+        response = client.post(
+            "/api/v1/generate_speech", json=audio_params.__dict__, headers=headers
+        )
         assert response.status_code == 200, response.text
         binary_file_response = response.content
         assert binary_file_response is not None
