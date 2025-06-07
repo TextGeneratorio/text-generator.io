@@ -75,6 +75,7 @@ sudo apt install -y python3.9-distutils
 pip install -r requirements.txt
 pip install -r questions/inference_server/model-requirements.txt
 pip install -r dev-requirements.txt
+pip install -r requirements-test.txt
 ```
 
 Using cuda is important to speed up inference.
