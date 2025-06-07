@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
       - name: Ruff
-        run: ruff .
+        run: ruff check .
       - name: Run unit tests
         run: pytest --cov=questions --cov-report=xml -q
       - name: Upload coverage
