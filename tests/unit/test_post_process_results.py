@@ -1,4 +1,11 @@
+import pytest
+
+transformers = pytest.importorskip(
+    "transformers", reason="transformers required for post-process tests"
+)
 from transformers import AutoTokenizer
+
+pytestmark = pytest.mark.integration
 
 from questions.models import GenerateParams
 from questions.post_process_results import post_process_results

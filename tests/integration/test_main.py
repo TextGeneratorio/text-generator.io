@@ -1,4 +1,7 @@
 import dataclasses
+import pytest
+
+pytestmark = pytest.mark.integration
 
 from starlette.testclient import TestClient
 

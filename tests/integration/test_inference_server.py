@@ -1,5 +1,8 @@
 import dataclasses
 import os
+import pytest
+
+pytestmark = pytest.mark.integration
 
 from fastapi import UploadFile
 

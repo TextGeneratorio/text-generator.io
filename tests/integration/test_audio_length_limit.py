@@ -1,6 +1,8 @@
 import os
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from starlette.testclient import TestClient
 
 from questions.inference_server.inference_server import app, audio_process

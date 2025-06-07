@@ -25,8 +25,9 @@ google-cloud-storage
 
 google-cloud-ndb
 #jinja2
+# we need websockets <11 for pyppeteer compatibility
 jinja2
-websockets
+websockets<11
 #nltk
 nltk
 stripe
