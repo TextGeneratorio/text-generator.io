@@ -1,5 +1,10 @@
 import requests
 import os
+import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.internet]
+
+pytest.skip("manual script", allow_module_level=True)
 
 from sellerinfo import TEXT_GENERATOR_SECRET
 
