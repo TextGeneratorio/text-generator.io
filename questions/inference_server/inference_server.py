@@ -5,6 +5,8 @@ from io import BytesIO
 from tempfile import NamedTemporaryFile
 from typing import Union, List, Iterator
 
+from .tts_utils import srt_format_timestamp, write_srt, synthesize_full_text
+
 import torch
 import youtube_dl
 from fastapi import BackgroundTasks, UploadFile, File, Form
@@ -429,34 +431,6 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
         return result
 
 
-def srt_format_timestamp(seconds: float):
-    assert seconds >= 0, "non-negative timestamp expected"
-    milliseconds = round(seconds * 1000.0)
-
-    hours = milliseconds // 3_600_000
-    milliseconds -= hours * 3_600_000
-
-    minutes = milliseconds // 60_000
-    milliseconds -= minutes * 60_000
-
-    seconds = milliseconds // 1_000
-    milliseconds -= seconds * 1_000
-
-    return (f"{hours}:") + f"{minutes:02d}:{seconds:02d},{milliseconds:03d}"
-
-
-def write_srt(transcript: Iterator[dict]):
-    count = 0
-    srt = []
-    for segment in transcript:
-        count += 1
-        srt.append(
-            f"{count}\n"
-            f"{srt_format_timestamp(segment['start'])} --> {srt_format_timestamp(segment['end'])}\n"
-            f"{segment['text'].replace('-->', '->').strip()}\n",
-        )
-    return "\n".join(srt)
-
 
 @app.post("/api/v1/audio-file-extraction")
 async def audio_file_extraction(
@@ -783,26 +757,6 @@ def audio_process(text, voice="af_nicole", speed=1.0):
     return (24000, audio)
 
 
-def synthesize_full_text(
-    text: str, voice: str = "af_nicole", speed: float = 1.0, chunk_words: int = 100
-):
-    """Generate speech for arbitrarily long text by chunking."""
-    if not text.strip():
-        return (24000, np.zeros(0, dtype=np.int16))
-
-    words = text.split()
-    segments = []
-    for start in range(0, len(words), chunk_words):
-        chunk = " ".join(words[start : start + chunk_words])
-        _, audio = audio_process(chunk, voice=voice, speed=speed)
-        segments.append(audio)
-
-    if segments:
-        full_audio = np.concatenate(segments)
-    else:
-        full_audio = np.zeros(0, dtype=np.int16)
-
-    return (24000, full_audio)
 
 
 # gradio web app at https://text-generator.io/gradio_tts
