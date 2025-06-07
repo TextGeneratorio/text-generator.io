@@ -200,3 +200,7 @@ wrapt==1.11.2
     # via
     #   -r requirements.in
     #   astroid
+pillow==10.3.0
+    # via -r requirements.in
+pyppeteer==1.0.2
+    # via -r requirements.in
