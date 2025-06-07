@@ -190,11 +190,11 @@ typing-inspection==0.4.0
     # via pydantic
 uritemplate==4.1.1
     # via google-api-python-client
-urllib3==2.2.3
+urllib3<2
     # via requests
 uvicorn==0.34.2
     # via -r requirements.in
-websockets==12.0
+websockets==10.4
     # via -r requirements.in
 wrapt==1.11.2
     # via

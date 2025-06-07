@@ -1,6 +1,11 @@
-from questions.link_enricher import get_urls, enrich_links
 import logging
+import pytest
+
+bs4 = pytest.importorskip("bs4", reason="bs4 required for link enrichment tests")
+from questions.link_enricher import get_urls, enrich_links
 from questions.logging_config import setup_logging
+
+pytestmark = pytest.mark.integration
 
 setup_logging()
 logger = logging.getLogger(__name__)

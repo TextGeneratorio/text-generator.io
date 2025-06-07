@@ -48,3 +48,4 @@ __pycache__
 flagged
 mainserver.log
 
+nltk_data/
