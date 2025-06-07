@@ -1,6 +1,14 @@
 import json
 from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
+import os
+
+if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+    pytest.skip("integration test requires Google credentials", allow_module_level=True)
+
+pytest.importorskip("google.cloud.ndb", reason="google cloud ndb required for document api tests")
+
+pytestmark = pytest.mark.integration
 
 from main import list_documents, get_document, save_document, autosave_document
 

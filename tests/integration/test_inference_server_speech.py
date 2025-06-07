@@ -1,4 +1,7 @@
 import os
+import pytest
+
+pytestmark = pytest.mark.integration
 
 from questions.utils import log_time
 

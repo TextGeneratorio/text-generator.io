@@ -1,5 +1,8 @@
 import requests
 import os
+import pytest
+
+pytestmark = pytest.mark.integration
 
 from sellerinfo import TEXT_GENERATOR_SECRET
 
