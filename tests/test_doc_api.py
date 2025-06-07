@@ -8,7 +8,7 @@ if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
 
 pytest.importorskip("google.cloud.ndb", reason="google cloud ndb required for document api tests")
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.internet]
 
 from main import list_documents, get_document, save_document, autosave_document
 

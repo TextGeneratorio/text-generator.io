@@ -2,7 +2,7 @@ import dataclasses
 import os
 import pytest
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.internet]
 
 from fastapi import UploadFile
 
