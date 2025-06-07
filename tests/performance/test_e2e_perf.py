@@ -1,6 +1,8 @@
 import traceback
 
 import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.internet]
 import requests
 import logging
 from questions.logging_config import setup_logging

@@ -83,6 +83,16 @@ Using cuda is important to speed up inference.
 python -m nltk.downloader punkt
 ```
 
+### Running offline integration tests
+
+Offline integration tests exercise functionality that does not require internet
+access but may load heavy dependencies. After installing the `punkt` dataset
+you can run them with:
+
+```shell
+pytest -m "integration and not internet"
+```
+
 Set up some environment variables in this file (fake ones are okay for local dev)
 
 ```shell
