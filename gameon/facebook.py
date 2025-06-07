@@ -33,8 +33,6 @@ if user:
 
 """
 
-import cgi
-import time
 import urllib
 import urllib2
 import httplib
@@ -218,7 +216,7 @@ class GraphAPI(object):
             data = urllib2.urlopen(req).read()
         #For Python 3 use this:
         #except urllib2.HTTPError as e:
-        except urllib2.HTTPError, e:
+        except urllib2.HTTPError as e:
             data = e.read()  # Facebook sends OAuth errors as 400, and urllib2
                              # throws an exception, we want a GraphAPIError
         try:
@@ -263,7 +261,7 @@ class GraphAPI(object):
             else:
                 L.append('Content-Disposition: form-data; name="%s"' % key)
             L.append('')
-            if isinstance(value, unicode):
+            if isinstance(value, str):
                 logging.debug("Convert to ascii")
                 value = value.encode('ascii')
             L.append(value)
@@ -293,7 +291,7 @@ class GraphAPI(object):
             file = urllib2.urlopen("https://graph.facebook.com/" + path + "?" +
                                    urllib.urlencode(args),
                                    post_data, timeout=self.timeout)
-        except urllib2.HTTPError, e:
+        except urllib2.HTTPError as e:
             response = _parse_json(e.read())
             raise GraphAPIError(response)
         except TypeError:
@@ -340,7 +338,7 @@ class GraphAPI(object):
            use the multiquery method
            else use single query
         """
-        if not isinstance(query, basestring):
+        if not isinstance(query, str):
             args["queries"] = query
             fql_method = 'fql.multiquery'
         else:
@@ -367,7 +365,7 @@ class GraphAPI(object):
             #Return a list if success, return a dictionary if failed
             if type(response) is dict and "error_code" in response:
                 raise GraphAPIError(response)
-        except Exception, e:
+        except Exception as e:
             raise e
         finally:
             file.close()
@@ -408,21 +406,21 @@ class GraphAPIError(Exception):
         self.result = result
         try:
             self.type = result["error_code"]
-        except:
+        except Exception:
             self.type = ""
 
         # OAuth 2.0 Draft 10
         try:
             self.message = result["error_description"]
-        except:
+        except Exception:
             # OAuth 2.0 Draft 00
             try:
                 self.message = result["error"]["message"]
-            except:
+            except Exception:
                 # REST server style
                 try:
                     self.message = result["error_msg"]
-                except:
+                except Exception:
                     self.message = result
 
         Exception.__init__(self, self.message)
