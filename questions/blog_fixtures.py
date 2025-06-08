@@ -54,4 +54,9 @@ blogs = {
         "description": "Control summary length precisely by specifying maximum characters in the summarization API",
         "keywords": "text summarization, API, natural language processing, text generation, Machine Learning"
     },
+    "streaming-speech-api": {
+        "title": "Stream Speech Output in Real Time",
+        "description": "Generate speech in chunks and stream it directly without buffering the whole audio.",
+        "keywords": "text to speech, streaming, API"
+    },
 }

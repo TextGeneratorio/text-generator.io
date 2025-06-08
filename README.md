@@ -42,6 +42,7 @@ There's also more control of text generation via the Text-generator API, this in
 * max_sentences (generate only a set number of sentences at most)
 
 Text generator also has routes for speech to text and speech generation.
+You can now stream generated speech in real time via `/api/v1/generate_speech_stream`.
 
 See https://text-generator.io/docs
 

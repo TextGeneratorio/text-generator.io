@@ -209,6 +209,56 @@
         }
       }
     },
+    "/api/v1/generate_speech_stream": {
+      "post": {
+        "summary": "Stream Speech",
+        "operationId": "generate_speech_stream_api_v1_generate_speech_stream_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateSpeechParams"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/generate": {
       "post": {
         "summary": "Generate Route",
@@ -572,6 +622,11 @@
             "title": "Speaker",
             "type": "string",
             "default": "Female 1"
+          },
+          "chunk_words": {
+            "title": "Chunk Words",
+            "type": "integer",
+            "default": 100
           }
         }
       },

@@ -1,0 +1,38 @@
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog" title="Text Generator Blog">Blog</a> > Streaming Speech API
+            </div>
+            <h3>Stream text to speech output</h3>
+            <h4>No more waiting for long texts</h4>
+            <p>Our new endpoint <code>/api/v1/generate_speech_stream</code> lets you begin playback as soon as audio is generated. The backend automatically chunks long text so memory use stays low.</p>
+            <h4>Example usage</h4>
+            <pre><code id="code-snippet-embed" class="language-python">import requests
+import os
+
+API_KEY = os.getenv("TEXT_GENERATOR_API_KEY")
+headers = {"secret": API_KEY}
+
+params = {"text": "Hello streaming world", "speaker": "Male fast"}
+with requests.post("https://api.text-generator.io/api/v1/generate_speech_stream", json=params, headers=headers, stream=True) as r:
+    for chunk in r.iter_content(chunk_size=None):
+        # Play or save chunk
+        print("Received", len(chunk), "bytes")
+</code></pre>
+            <p>Chunks are standard WAV fragments with a 24 kHz sample rate.</p>
+            <p>See the API docs for more details.</p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup" href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+    {% import "templates/macros.jinja2" as macros with context %}
+    {{ macros.svgstyled() }}
+</main>

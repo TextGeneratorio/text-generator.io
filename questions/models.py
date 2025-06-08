@@ -1,5 +1,6 @@
 from time import time
 from typing import Optional, List
+import os
 
 from fastapi import UploadFile
 from pydantic import BaseModel
@@ -73,6 +74,7 @@ class GenerateSpeechParams(BaseModel):
     speed: float = 1.0
     volume: float = 1.0
     sample_rate: int = 24000  # Kokoro outputs 24kHz audio
+    chunk_words: int = int(os.getenv("STREAM_CHUNK_WORDS", "100"))
 
 
 class OpenaiParams(BaseModel):
