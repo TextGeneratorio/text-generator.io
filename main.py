@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import json
 import os
-import httpx
 from copy import deepcopy
 from pathlib import Path
 from typing import Union, Optional, List, Dict, Any, cast
@@ -143,9 +142,6 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount(
-    "/gameon/static", StaticFiles(directory="gameon/static"), name="gameon/static"
-)
 
 session_dict = {}
 

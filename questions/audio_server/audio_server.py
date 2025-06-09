@@ -91,7 +91,6 @@ translations = []
 # result = model.transcribe("/media/lee/78ca132e-d181-4406-aea5-3c9665f486cc/Videos/intro-bitbanknz.mp3") 40/6s
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/gameon/static", StaticFiles(directory="gameon/static"), name="gameon/static")
 
 app.add_middleware(
     CORSMiddleware,
