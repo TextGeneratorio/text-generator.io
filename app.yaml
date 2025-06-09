@@ -40,10 +40,6 @@ handlers:
   static_files: static/channel.html
   upload: static/channel.html
 
-- url: /gameon/static/*
-  static_dir: gameon/static
-  http_headers:
-    Vary: Accept-Encoding
 
 
 - url: /favic(.+)

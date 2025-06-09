@@ -57,7 +57,6 @@ RUN ln -s static/templates-game/ templates-game
 
 COPY questions/ questions/
 COPY OFA/ OFA/
-COPY gameon/ gameon/
 
 COPY tests/ tests/
 
@@ -76,7 +75,6 @@ RUN ln -s static/templates/ templates
 RUN ln -s static/templates-game/ templates-game
 COPY questions/ questions/
 COPY OFA/ OFA/
-COPY gameon/ gameon/
 COPY customersecrets/ secrets/
 COPY customersecrets/ OFA/secrets/
 
