@@ -76,7 +76,15 @@ pip install -r requirements.txt
 pip install -r questions/inference_server/model-requirements.txt
 pip install -r dev-requirements.txt
 pip install -r requirements-test.txt
+pip install vllm  # optional, enables faster inference
 ```
+
+When installing `vllm` for the Smol models we use, the project recommends
+installing prebuilt kernels when available to get the best performance. Refer to
+the [vLLM installation guide](https://github.com/vllm-project/vllm#installation)
+for the latest GPU optimized wheels.
+
+Set `USE_VLLM=0` to force the server to skip vLLM even when installed.
 
 Using cuda is important to speed up inference.
 

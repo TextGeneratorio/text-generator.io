@@ -54,6 +54,8 @@ from questions.text_generator_inference import (
     fast_inference,
     fast_feature_extract_inference,
 )
+from questions.vllm_inference import VLLM_AVAILABLE, vllm_inference
+USE_VLLM = os.getenv("USE_VLLM", "1") == "1"
 from questions.utils import log_time
 from sellerinfo import session_secret
 from .models import build_model
@@ -967,7 +969,10 @@ async def generate_route(
     #             status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
     #         )
     # todo validate api key and user
-    inference_result = fast_inference(generate_params, MODEL_CACHE)
+    if VLLM_AVAILABLE and USE_VLLM:
+        inference_result = vllm_inference(generate_params, weights_path_tgz)
+    else:
+        inference_result = fast_inference(generate_params, MODEL_CACHE)
     # todo vuln
     if request and background_tasks:
         if (
@@ -1347,3 +1352,4 @@ def tts_demo(request: Request):
 #         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
 
 if __name__ == "__main__":
+    pass
