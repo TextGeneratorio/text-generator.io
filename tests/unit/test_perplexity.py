@@ -1,7 +1,24 @@
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2TokenizerFast, BloomTokenizerFast, BloomForCausalLM
-from loguru import logger
+import pytest
 
-import torch
+transformers = pytest.importorskip(
+    "transformers", reason="transformers is required for perplexity tests"
+)
+from transformers import (
+    GPT2LMHeadModel,
+    GPT2Tokenizer,
+    GPT2TokenizerFast,
+    BloomTokenizerFast,
+    BloomForCausalLM,
+)
+import logging
+from questions.logging_config import setup_logging
+
+pytestmark = pytest.mark.integration
+
+setup_logging()
+logger = logging.getLogger(__name__)
+
+torch = pytest.importorskip("torch", reason="torch is required for perplexity tests")
 
 from questions.perplexity import get_perplexity
 

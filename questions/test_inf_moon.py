@@ -2,7 +2,11 @@ import pytest
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from PIL import Image
 import os
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 def test_moondream():
     model_id = "vikhyatk/moondream2"

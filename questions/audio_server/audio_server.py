@@ -10,7 +10,11 @@ from fastapi import BackgroundTasks
 from fastapi import Request, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 from starlette.responses import JSONResponse, Response
 
 from questions.audio_server.audio_dl import request_get
@@ -87,7 +91,6 @@ translations = []
 # result = model.transcribe("/media/lee/78ca132e-d181-4406-aea5-3c9665f486cc/Videos/intro-bitbanknz.mp3") 40/6s
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/gameon/static", StaticFiles(directory="gameon/static"), name="gameon/static")
 
 app.add_middleware(
     CORSMiddleware,

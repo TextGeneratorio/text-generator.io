@@ -75,6 +75,7 @@ sudo apt install -y python3.9-distutils
 pip install -r requirements.txt
 pip install -r questions/inference_server/model-requirements.txt
 pip install -r dev-requirements.txt
+pip install -r requirements-test.txt
 ```
 
 Using cuda is important to speed up inference.
@@ -83,10 +84,31 @@ Using cuda is important to speed up inference.
 python -m nltk.downloader punkt
 ```
 
+### Running offline integration tests
+
+Offline integration tests exercise functionality that does not require internet
+access but may load heavy dependencies. After installing the `punkt` dataset
+you can run them with:
+
+```shell
+pytest -m "integration and not internet"
+```
+
 Set up some environment variables in this file (fake ones are okay for local dev)
 
 ```shell
 mv sellerinfo_faked.py sellerinfo.py
+```
+
+### Helper Makefile targets
+
+Common development tasks are wrapped in the Makefile. Useful commands include:
+
+```shell
+make install          # install requirements using uv
+make coverage         # run unit tests with coverage output
+make ruff-fix         # run ruff with automatic fixes
+make download-punkt   # download the punkt dataset for NLTK
 ```
 
 ### Models
@@ -279,3 +301,15 @@ stretch your body every 30 mins with the say command...
 ```shell
 watch -n 1800 'echo "stretch your body" | espeak -s 120'
 ```
+
+## Logging Configuration
+
+All modules now use the standard `logging` package. Logging is configured via
+`questions.logging_config.setup_logging`. The following environment variables can
+control behaviour:
+
+* `LOG_LEVEL` – override the default log level.
+* `COLOR_LOGS` – set to `0` to disable coloured output.
+* `LOG_FILE` – if set, logs will also be written to this file.
+
+`main.py` enables Google Cloud Logging automatically when running on GCP.

@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Request, HTTPException
 from starlette.responses import JSONResponse
-from loguru import logger
+import logging
+from questions.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # Assuming models are accessible like this, adjust if necessary
 from questions.db_models import Document, User 

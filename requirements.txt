@@ -9,8 +9,22 @@ anyio==4.7.0
     #   anthropic
     #   httpx
     #   starlette
+appdirs==1.4.4
+    # via pyppeteer
 astroid==2.3.3
     # via -r requirements.in
+azure-ai-documentintelligence==1.0.2
+    # via markitdown
+azure-core==1.34.0
+    # via
+    #   azure-ai-documentintelligence
+    #   azure-identity
+azure-identity==1.23.0
+    # via markitdown
+beautifulsoup4==4.13.4
+    # via
+    #   markdownify
+    #   markitdown
 cachetools==4.2.4
     # via
     #   -r requirements.in
@@ -19,20 +33,45 @@ certifi==2024.8.30
     # via
     #   httpcore
     #   httpx
+    #   pyppeteer
     #   requests
+cffi==1.17.1
+    # via cryptography
 charset-normalizer==3.4.0
-    # via requests
-click==7.0
+    # via
+    #   markitdown
+    #   pdfminer-six
+    #   requests
+click==8.2.1
     # via
     #   -r requirements.in
+    #   magika
     #   nltk
     #   uvicorn
+cobble==0.1.4
+    # via mammoth
 colorama==0.4.3
     # via -r requirements.in
+coloredlogs==15.0.1
+    # via onnxruntime
+cryptography==45.0.3
+    # via
+    #   azure-identity
+    #   msal
+    #   pdfminer-six
+    #   pyjwt
+defusedxml==0.7.1
+    # via
+    #   markitdown
+    #   youtube-transcript-api
 distro==1.9.0
     # via anthropic
+et-xmlfile==2.0.0
+    # via openpyxl
 fastapi==0.115.12
     # via -r requirements.in
+flatbuffers==25.2.10
+    # via onnxruntime
 google-api-core==1.31.5
     # via
     #   -r requirements.in
@@ -88,11 +127,17 @@ httpx==0.28.1
     # via
     #   -r requirements.in
     #   anthropic
+humanfriendly==10.0
+    # via coloredlogs
 idna==3.10
     # via
     #   anyio
     #   httpx
     #   requests
+importlib-metadata==8.7.0
+    # via pyppeteer
+isodate==0.7.2
+    # via azure-ai-documentintelligence
 isort==4.3.21
     # via -r requirements.in
 jinja2==3.1.4
@@ -105,28 +150,70 @@ lazy-object-proxy==1.4.3
     # via
     #   -r requirements.in
     #   astroid
-loguru==0.5.3
+lxml==5.4.0
+    # via
+    #   markitdown
+    #   python-pptx
+magika==0.6.2
+    # via markitdown
+mammoth==1.9.1
+    # via markitdown
+markdownify==1.1.0
+    # via markitdown
+markitdown==0.1.2
     # via -r requirements.in
 markupsafe==3.0.2
     # via jinja2
 mccabe==0.6.1
     # via -r requirements.in
+mpmath==1.3.0
+    # via sympy
+msal==1.32.3
+    # via
+    #   azure-identity
+    #   msal-extensions
+msal-extensions==1.3.1
+    # via azure-identity
 nltk==3.6.7
     # via -r requirements.in
+numpy==2.2.6
+    # via
+    #   magika
+    #   onnxruntime
+    #   pandas
+olefile==0.47
+    # via markitdown
+onnxruntime==1.22.0
+    # via magika
+openpyxl==3.1.5
+    # via markitdown
 packaging==24.2
-    # via google-api-core
+    # via
+    #   google-api-core
+    #   onnxruntime
+pandas==2.3.0
+    # via markitdown
+pdfminer-six==20250506
+    # via markitdown
+pillow==10.3.0
+    # via
+    #   -r requirements.in
+    #   python-pptx
 protobuf==3.20.0
     # via
     #   -r requirements.in
     #   google-api-core
     #   google-cloud-storage
     #   googleapis-common-protos
+    #   onnxruntime
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
     #   rsa
 pyasn1-modules==0.4.1
     # via google-auth
+pycparser==2.22
+    # via cffi
 pydantic==2.11.3
     # via
     #   -r requirements.in
@@ -134,25 +221,44 @@ pydantic==2.11.3
     #   fastapi
 pydantic-core==2.33.1
     # via pydantic
+pydub==0.25.1
+    # via markitdown
+pyee==8.2.2
+    # via pyppeteer
+pyjwt==2.10.1
+    # via msal
 pymemcache==4.0.0
     # via google-cloud-ndb
 pyparsing==3.2.0
     # via httplib2
+pyppeteer==1.0.2
+    # via -r requirements.in
+python-dateutil==2.9.0.post0
+    # via pandas
+python-dotenv==1.1.0
+    # via magika
 python-multipart==0.0.5
     # via -r requirements.in
+python-pptx==1.0.2
+    # via markitdown
 pytz==2024.2
     # via
     #   google-api-core
     #   google-cloud-ndb
+    #   pandas
 redis==5.2.1
     # via google-cloud-ndb
 regex==2024.11.6
     # via nltk
 requests==2.32.3
     # via
+    #   azure-core
     #   google-api-core
     #   google-cloud-storage
+    #   markitdown
+    #   msal
     #   stripe
+    #   youtube-transcript-api
 rsa==4.9
     # via
     #   -r requirements.in
@@ -166,38 +272,70 @@ six==1.17.0
     # via
     #   -r requirements.in
     #   astroid
+    #   azure-core
     #   google-api-core
     #   google-auth
+    #   markdownify
+    #   python-dateutil
     #   python-multipart
 sniffio==1.3.1
     # via
     #   anthropic
     #   anyio
+soupsieve==2.7
+    # via beautifulsoup4
+speechrecognition==3.14.3
+    # via markitdown
 starlette==0.46.2
     # via fastapi
 stripe==3.4.0
     # via -r requirements.in
+sympy==1.14.0
+    # via onnxruntime
 tqdm==4.67.1
-    # via nltk
+    # via
+    #   nltk
+    #   pyppeteer
 typing-extensions==4.12.2
     # via
     #   anthropic
     #   anyio
+    #   azure-ai-documentintelligence
+    #   azure-core
+    #   azure-identity
+    #   beautifulsoup4
     #   fastapi
     #   pydantic
     #   pydantic-core
+    #   python-pptx
+    #   speechrecognition
     #   typing-inspection
 typing-inspection==0.4.0
     # via pydantic
+tzdata==2025.2
+    # via pandas
 uritemplate==4.1.1
     # via google-api-python-client
-urllib3==2.2.3
-    # via requests
+urllib3==1.26.20
+    # via
+    #   -r requirements.in
+    #   pyppeteer
+    #   requests
 uvicorn==0.34.2
     # via -r requirements.in
-websockets==12.0
-    # via -r requirements.in
+websockets==10.4
+    # via
+    #   -r requirements.in
+    #   pyppeteer
 wrapt==1.11.2
     # via
     #   -r requirements.in
     #   astroid
+xlrd==2.0.1
+    # via markitdown
+xlsxwriter==3.2.3
+    # via python-pptx
+youtube-transcript-api==1.0.3
+    # via markitdown
+zipp==3.22.0
+    # via importlib-metadata

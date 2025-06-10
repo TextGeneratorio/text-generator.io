@@ -5,6 +5,9 @@
     "description": "Generate text, create chat bots, perform question answering, classification, language translation, prediction across a variety of domains via 'prompt engineering' asking questions in a familiar way to human conversation. \n Under the hood we use very large language models trained on broad human language.  \n * control stopping criteria and cost\n * `max_length` for a maximum amount of tokens \n * `max_sentences` for setting a max number of sentences, good for conversational agents or when you know how many sentences should be generated\n * `stopping_sequences` a list of sequences that once generated signal the end of text generation, give some examples of when these should appear in your prompt, these wont be output at the end if used to stop. \n * control the variety of results \n * get more results with `number_of_results`\n * higher `top_p`, lower `top_k` for high variety/creativity \n * low `top_p` and high `top_k` for consistency\n * low `temperature` for consistency, high for creativity\n * when generating shorter sequences you may want to choose settings that give higher consistency and are more likely, when generating long sequences you may want to use settings that are give more surprise/creativity, defaults should work well for both.",
     "version": "1"
   },
+
+  "servers": [{"url": "https://api.text-generator.io"}],
+
   "paths": {
     "/api/v1/feature-extraction": {
       "post": {

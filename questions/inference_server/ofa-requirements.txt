@@ -28,7 +28,6 @@ google-cloud-storage==2.3.0 #not on gae python
 #google-cloud-storage==2.0.0
 
 google-cloud-ndb==1.11.1
-loguru==0.5.3
 pydantic==1.9.0
 jinja2==3.1.1 #not on gae python
 #jinja2==3.0.3
