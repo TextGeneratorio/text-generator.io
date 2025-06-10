@@ -5,3 +5,4 @@ pytest-asyncio
 requests-futures
 gradio
 black
+vllm

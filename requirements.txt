@@ -339,3 +339,4 @@ youtube-transcript-api==1.0.3
     # via markitdown
 zipp==3.22.0
     # via importlib-metadata
+vllm
