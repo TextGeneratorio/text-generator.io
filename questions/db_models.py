@@ -7,7 +7,12 @@ in NDB for now as the migration is focused on the authentication flow.
 """
 
 import os
-from google.cloud import ndb
+
+try:
+    from google.cloud import ndb  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    ndb = None
+
 
 from .sql_models import (
     BaseModel,  # SQLAlchemy BaseModel
@@ -15,7 +20,10 @@ from .sql_models import (
 )
 
 project = os.environ.get("GOOGLE_CLOUD_PROJECT", "local")
-client = ndb.Client(project=project, credentials=None)
+if ndb is not None and os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+    client = ndb.Client(project=project, credentials=None)
+else:  # pragma: no cover - allow running without GCP credentials
+    client = None
 
 
 class NDBBaseModel(ndb.Model):
@@ -46,16 +54,22 @@ class Document(NDBBaseModel):
     
     @classmethod
     def byId(cls, id):
+        if client is None:
+            raise RuntimeError("NDB client not configured")
         with client.context():
             return ndb.Key(cls, id).get()
     
     @classmethod
     def byUserId(cls, user_id):
+        if client is None:
+            raise RuntimeError("NDB client not configured")
         with client.context():
             return cls.query(cls.user_id == user_id).order(-cls.updated).fetch()
     
     @classmethod
     def save(cls, document):
+        if client is None:
+            raise RuntimeError("NDB client not configured")
         with client.context():
             return document.put()
 
