@@ -1,5 +1,8 @@
+import os
 import pytest
 pytest.importorskip("torch", reason="torch required for summarization tests")
+if not os.path.exists("models/ModernBERT-base"):
+    pytest.skip("requires ModernBERT-base model", allow_module_level=True)
 from questions.inference_server.inference_server import MODEL_CACHE
 from questions.summarization import get_extractive_summary
 from questions.utils import log_time
