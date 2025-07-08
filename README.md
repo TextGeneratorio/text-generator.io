@@ -147,7 +147,14 @@ The embedding model is a smaller model.
 
 ```shell
 cd models
-git clone https://huggingface.co/distilbert-base-uncased
+git clone https://huggingface.co/answerdotai/ModernBERT-base
+```
+Set `BERT_CHECKPOINT` to override the default model path if needed.
+`BERT_DEVICE` can be set to "cpu" to force CPU embeddings.
+
+Generate embeddings from the command line with:
+```shell
+python scripts/embed_cli.py "Hello world"
 ```
 
 Parakeet ASR models will be loaded on demand and placed in the huggingface cache.
@@ -273,7 +280,7 @@ clone from huggingface
 
 ```
 cd models
-git clone https://huggingface.co/distilbert-base-uncased
+git clone https://huggingface.co/answerdotai/ModernBERT-base
 ```
 
 ### maintenence 

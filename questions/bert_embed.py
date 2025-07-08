@@ -1,4 +1,5 @@
 from transformers import AutoModel, AutoTokenizer
+import os
 import torch.nn as nn
 import torch
 
@@ -35,26 +36,32 @@ class FeatureExtractModel(nn.Module):
         return mean_pool
 
 
-checkpoint = "models/distilbert-base-uncased"
-distilbert = None
-def get_distilbert():
-    global distilbert
-    with log_time("bert load"):
-        if not distilbert:
-            distilbert = FeatureExtractModel(checkpoint, freeze=True)
+checkpoint = os.getenv("BERT_CHECKPOINT", "models/ModernBERT-base")
+device_override = os.getenv("BERT_DEVICE")
+if device_override:
+    DEVICE = device_override
 
-    distilbert.eval()
+modernbert = None
+
+
+def get_modernbert():
+    global modernbert
+    with log_time("bert load"):
+        if not modernbert:
+            modernbert = FeatureExtractModel(checkpoint, freeze=True)
+
+    modernbert.eval()
     if DEVICE == "cuda":
         with log_time("bert to bf16"):
-            distilbert.bfloat16()
+            modernbert.bfloat16()
 
         with log_time("bert to gpu"):
-            distilbert.to(DEVICE)
+            modernbert.to(DEVICE)
     elif DEVICE == "cpu":
         logger.error("no GPU available, performance may be very slow")
         logger.error("consider using a GPU or many fast CPUs if you need to do this")
-        distilbert.to(DEVICE)
-    return distilbert
+        modernbert.to(DEVICE)
+    return modernbert
 
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
@@ -75,7 +82,7 @@ def get_bert_embeddings(sentences, model_cache):
     """
     returns 768 size tensor
     """
-    distilbert = model_cache.add_or_get("distilbert", get_distilbert)
+    modernbert = model_cache.add_or_get("modernbert", get_modernbert)
     final_embeddings = list()
     all_embeddings = []
 
@@ -90,7 +97,7 @@ def get_bert_embeddings(sentences, model_cache):
                 return_attention_mask=True,
                 padding=True,
             )
-            embeddings = distilbert(tokens)
+            embeddings = modernbert(tokens)
             final_embeddings.extend(embeddings)
             all_embeddings = torch.stack(final_embeddings)
     return all_embeddings.cpu().float().numpy().tolist()

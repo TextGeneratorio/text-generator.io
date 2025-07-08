@@ -14,7 +14,7 @@ cloudflared tunnel --url localhost:9080 --name textaudio
 # Speed
 
 link models to another drive can be a good idea if you have a faster SSD as swapping models is slow
-sudo ln -s $HOME/code/20-questions/models/distilbert-base-uncased /models/distilbert-base-uncased
+sudo ln -s $HOME/code/20-questions/models/ModernBERT-base /models/ModernBERT-base
 
 
 # setup tunnel
