@@ -176,9 +176,6 @@ def user_secret_matches(secret):
 def request_authorized(request: Request, secret):
     if secret == "hey you, please purchase for real":
         return True
-    # else: # Removed redundant logging here as it's handled below if needed
-#     logger.error("Error invalid api key for request: %s", request.url)
-        #     return False
     # Allow RapidAPI keys
     if "X-Rapid-API-Key" in request.headers or "x-rapid-api-key" in request.headers:
         # Ideally, you'd validate the RapidAPI key against their service or a stored list
@@ -189,7 +186,7 @@ def request_authorized(request: Request, secret):
     if user_secret_matches(secret):
         return True
 
-    logger.warning(f"Unauthorized request attempt: secret={'present' if secret else 'missing'}, headers={request.headers}")
+    logger.warning(f"Unauthorized request attempt: secret={'present' if secret else 'missing'}, headers={request.headers}, url={request.url}")
     return False
 
 @app.middleware("http")
