@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Union, Optional, List, Dict, Any, cast
 from urllib.parse import urlencode, quote_plus
 
-from fastapi import Form, HTTPException, Header
+from fastapi import Form, HTTPException, Header, Depends
 from fastapi import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -15,18 +15,34 @@ from loguru import logger
 from starlette.responses import JSONResponse, Response, RedirectResponse
 from starlette.routing import Route
 from starlette.datastructures import URL
+from sqlalchemy.orm import Session
 
 from questions import fixtures, doc_fixtures, tool_fixtures
 from pydantic import BaseModel
 from questions import blog_fixtures
 from questions.db_models import User, Document
+# Import new PostgreSQL models and auth
+try:
+    from questions.db_models_postgres import User as UserPG, Document as DocumentPG, get_db
+    from questions.auth import (
+        login_or_create_user, set_session_for_user, get_current_user, 
+        require_auth, create_user, authenticate_user
+    )
+    USE_POSTGRES = True
+except ImportError:
+    USE_POSTGRES = False
+    print("PostgreSQL modules not available, using fallback auth")
+
 from questions.gameon_utils import GameOnUtils
 from questions.models import CreateUserRequest, GetUserRequest, GenerateParams
 from questions.payments.payments import get_self_hosted_subscription_count_for_user, get_subscription_item_id_for_user_email
 from questions.utils import random_string
 
 # Import the claude_queries module directly
-from questions.inference_server.claude_queries import query_to_claude_async
+from questions.inference_server.claude_queries import (
+    query_to_claude_async,
+    query_to_claude_json_async,
+)
 
 # Import needed types and modules
 from fastapi import BackgroundTasks
@@ -40,6 +56,19 @@ config = {}
 config["webapp2_extras.sessions"] = dict(secret_key="93986c9cdd240540f70efaea56a9e3f2")
 
 templates = Jinja2Templates(directory=".")
+
+def get_base_template_vars(request: Request) -> Dict[str, Any]:
+    """
+    Get base template variables that are common to all templates
+    """
+    return {
+        "request": request,
+        "static_url": "/static",
+        "is_debug": debug if 'debug' in globals() else False,
+        "app_name": "Text Generator",
+        "gcloud_static_bucket_url": GCLOUD_STATIC_BUCKET_URL,
+        "facebook_app_id": FACEBOOK_APP_ID,
+    }
 
 from fastapi import FastAPI
 
@@ -60,7 +89,7 @@ app = FastAPI(
 )
 
 # Import the new router
-from routes import documents 
+from routes import documents
 
 # Include the documents router
 app.include_router(documents.router)
@@ -72,7 +101,23 @@ def user_secret_matches(secret):
         return False
     if secret in session_dict:
         return True
-    # Check in database as fallback
+    
+    # Check in PostgreSQL database first if available
+    if USE_POSTGRES:
+        try:
+            from questions.db_models_postgres import SessionLocal, User as UserPG
+            db = SessionLocal()
+            try:
+                user = UserPG.get_by_secret(db, secret)
+                if user:
+                    session_dict[secret] = user
+                    return True
+            finally:
+                db.close()
+        except Exception:
+            pass
+    
+    # Fallback to old NDB system
     user = User.bySecret(secret)
     if user:
         set_session_for_user(user) # Cache user if found
@@ -90,11 +135,11 @@ def request_authorized(request: Request, secret):
         # Ideally, you'd validate the RapidAPI key against their service or a stored list
         # For now, assuming presence implies authorization
         return True
-        
+
     # Fallback to user secret validation
     if user_secret_matches(secret):
         return True
-        
+
     logger.warning(f"Unauthorized request attempt: secret={'present' if secret else 'missing'}, headers={request.headers}")
     return False
 
@@ -179,10 +224,10 @@ async def ai_text_editor(request: Request):
 @app.get("/tools/{tool_name}")
 async def tool_page(request: Request, tool_name: str):
     base_vars = get_base_template_vars(request)
-    
+
     # Define a dictionary of available tools and their details
     tool_info = tool_fixtures.tools_fixtures.get(tool_name, {})
-    
+
     base_vars.update({
         "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
         "tool_description": tool_info.get("description", ""),
@@ -195,7 +240,7 @@ async def tool_page(request: Request, tool_name: str):
     return templates.TemplateResponse(
         "templates/tool.jinja2", base_vars,
     )
-    
+
 
 
 @app.get("/subscribe")
@@ -241,7 +286,7 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
     elif type == "self-hosted":
         line_item["price"] = 'price_0MuAuxDtz2XsjQROz3Hp5Tcx'
         success_url = YOUR_DOMAIN + "/account"
-    
+
     checkout_session_url: Optional[str] = None
     try:
         # Type hint removed for line_items list to satisfy linter
@@ -264,7 +309,7 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
             if type == "self-hosted":
                  line_item_nzd["price"] = 'price_0MuBEoDtz2XsjQROiRewGRFi'
                  success_url = YOUR_DOMAIN + "/account"
-                 
+
             try:
                  # Type hint removed for line_items list to satisfy linter
                  checkout_items_nzd = [line_item_nzd]
@@ -519,47 +564,88 @@ async def get_user_stripe_usage(get_user_request: GetUserRequest, response: Resp
     return JSONResponse(json.loads(json.dumps(user_to_dict, cls=GameOnUtils.MyEncoder)))
 
 
-def track_stripe_request_usage(secret, quantity: int):
-    # track a request being used in stripe
-    # get the current users stripe subscription
-    existing_user = session_dict.get(secret)
-    if not existing_user:
-        existing_user = User.bySecret(secret)
-        set_session_for_user(existing_user)
-
-    subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
+# New PostgreSQL-based authentication endpoints
+@app.post("/api/login")
+async def api_login(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db) if USE_POSTGRES else None):
+    """Login endpoint for PostgreSQL authentication"""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=500, detail="PostgreSQL authentication not available")
     
-    if subscription_item_id:
-        try:
-            stripe.SubscriptionItem.create_usage_record( # type: ignore
-                subscription_item_id, # Checked not None
-                quantity=quantity,
-            )
-        except Exception as e:
-            logger.error(f"Failed to create usage record for {existing_user.email}: {e}")
-    else:
-        logger.warning(f"Could not find subscription item ID for {existing_user.email} to track usage.")
-
-
-def get_base_template_vars(request: Request):
-    is_mac = False # Default value
     try:
-        user_agent = request.headers.get("User-Agent")
-        if user_agent:
-            is_mac = user_agent.lower().find("mac") != -1
+        user = login_or_create_user(email, password, db)
+        set_session_for_user(user)
+        
+        # Create/update Stripe customer if needed
+        if not user.stripe_id:
+            customer = stripe.Customer.create(email=email, idempotency_key=user.id)
+            user.stripe_id = customer.id
+            db.commit()
+            db.refresh(user)
+        
+        # Check subscription status
+        subscription_item_id = get_subscription_item_id_for_user_email(user.email)
+        user.is_subscribed = subscription_item_id is not None
+        
+        return JSONResponse(user.to_dict())
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.warning(f"Could not determine platform from User-Agent: {e}")
-        is_mac = False # Fallback
+        logger.error(f"Login error: {e}")
+        raise HTTPException(status_code=500, detail="Login failed")
 
-    return {
-        "request": request,
-        "url": request.url,
-        "static_url": GCLOUD_STATIC_BUCKET_URL,
-        "fixtures": json.dumps({
-                                "is_mac": is_mac,
-                                }),
-        "stripe_publishable_key": stripe_keys["publishable_key"],
-    }
+
+@app.post("/api/signup")
+async def api_signup(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db) if USE_POSTGRES else None):
+    """Signup endpoint for PostgreSQL authentication"""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=500, detail="PostgreSQL authentication not available")
+    
+    try:
+        user = create_user(email, password, db)
+        set_session_for_user(user)
+        
+        # Create Stripe customer
+        customer = stripe.Customer.create(email=email, idempotency_key=user.id)
+        user.stripe_id = customer.id
+        db.commit()
+        db.refresh(user)
+        
+        return JSONResponse(user.to_dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Signup error: {e}")
+        raise HTTPException(status_code=500, detail="Signup failed")
+
+
+@app.post("/api/logout")
+async def api_logout(request: Request):
+    """Logout endpoint"""
+    # Clear session - we'll implement more sophisticated session management later
+    return JSONResponse({"message": "Logged out successfully"})
+
+
+@app.get("/api/current-user")
+async def api_current_user(request: Request, db: Session = Depends(get_db) if USE_POSTGRES else None):
+    """Get current user information"""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=500, detail="PostgreSQL authentication not available")
+    
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Check subscription status
+    subscription_item_id = get_subscription_item_id_for_user_email(user.email)
+    user.is_subscribed = subscription_item_id is not None
+    num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
+    user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
+    
+    return JSONResponse(user.to_dict())
+
+
+# ...existing code...
+
 
 @app.get("/privacy")
 async def privacy(request: Request):
@@ -670,7 +756,7 @@ async def text_to_speech(request: Request):
 @app.get("/use-cases/{usecase}")
 async def use_case_route(request: Request, usecase: str):
     use_case_data = deepcopy(fixtures.use_cases.get(usecase))
-    
+
     if not use_case_data:
          raise HTTPException(status_code=404, detail=f"Use case '{usecase}' not found")
 
@@ -682,7 +768,7 @@ async def use_case_route(request: Request, usecase: str):
         if "generated_text" in result and isinstance(result["generated_text"], str):
              if result["generated_text"].startswith(input_text):
                  result["generated_text"] = result["generated_text"][len(input_text) :]
-        
+
     base_vars = get_base_template_vars(request)
     base_vars.update({
             "description": use_case_data["description"],
@@ -713,7 +799,7 @@ async def use_cases(request: Request):
 @app.get("/blog/{name}")
 async def blog_name(request: Request, name: str):
     blog_data = deepcopy(blog_fixtures.blogs.get(name))
-    
+
     if not blog_data:
         raise HTTPException(status_code=404, detail=f"Blog post '{name}' not found")
 
@@ -744,7 +830,7 @@ async def blog(request: Request):
 @app.get("/docs/{name}")
 async def doc_name(request: Request, name: str):
     doc_data = deepcopy(doc_fixtures.docs.get(name))
-    
+
     if not doc_data:
         raise HTTPException(status_code=404, detail=f"Documentation page '{name}' not found")
 
@@ -819,24 +905,24 @@ def validate_generate_params(generate_params):
 async def get_current_user(request: Request):
     # Get the secret from cookie or query param
     secret = request.cookies.get("secret") or request.query_params.get("secret")
-    
+
     if not secret:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
-    
+
     # Get user from session or database
     user = session_dict.get(secret)
     if not user:
         user = User.bySecret(secret)
         if user:
             set_session_for_user(user)
-    
+
     if not user:
         return JSONResponse({"error": "User not found"}, status_code=404)
-    
+
     # Return user data
     user_dict = user.to_dict()
     user_dict["secret"] = secret  # Include secret for client-side storage
-    
+
     return JSONResponse(user_dict)
 
 @app.get("/tools/text-generator-docs")
@@ -844,7 +930,7 @@ async def text_generator_docs_redirect(request: Request):
     # Redirect to the standalone route for backward compatibility
     return RedirectResponse(url="/ai-text-editor", status_code=302)
 
-# --- Moved Claude Generation Routes --- 
+# --- Moved Claude Generation Routes ---
 
 @app.post("/api/v1/generate-long")
 async def generate_long_text(
@@ -864,14 +950,14 @@ async def generate_long_text(
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         if not request_authorized(request, secret):
             return HTTPException(
-                status_code=401, 
+                status_code=401,
                 detail="Please subscribe at https://text-generator.io/subscribe first"
             )
 
     try:
         # Prepare the prompt for Claude
         prompt = generate_params.text
-        
+
         # Set up system message to control generation parameters
         system_message = f"""
 You are a creative text generation assistant. Generate text that continues from the given prompt.
@@ -883,33 +969,33 @@ Important instructions:
 - Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
 - Just generate the continuation text directly
         """
-        
+
         # Set up stop sequences
         stop_sequences = None
         if generate_params.stop_sequences and len(generate_params.stop_sequences) > 0:
             stop_sequences = frozenset(generate_params.stop_sequences)
-        
+
         # Call Claude API
         generated_text = await query_to_claude_async(
             prompt=prompt,
             stop_sequences=stop_sequences,
             system_message=system_message,
         )
-        
+
         # Handle the response
         if generated_text is None:
             return HTTPException(status_code=500, detail="Failed to generate text with Claude")
-        
+
         # Format the response to match the standard API format
         result = [{
             "generated_text": prompt + generated_text,
             "finished_reason": "length",
             "model": "claude-3-sonnet-20240229"
         }]
-        
-        
+
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error generating text with Claude: {e}")
         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
@@ -932,7 +1018,7 @@ This endpoint accepts a model parameter to specify which Claude model to use
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         if not request_authorized(request, secret):
             return HTTPException(
-                status_code=401, 
+                status_code=401,
                 detail="Please subscribe at https://text-generator.io/subscribe first"
             )
 
@@ -940,7 +1026,7 @@ This endpoint accepts a model parameter to specify which Claude model to use
         # Prepare the prompt for Claude
         prompt = generate_params.text
         model_name = "claude-3-7-sonnet-20250219"
-        
+
         # Set up system message to control generation parameters
         system_message = f"""
 You are a creative text generation assistant. Generate text that continues from the given prompt.
@@ -952,12 +1038,12 @@ Important instructions:
 - Do not use phrases like "Here's a continuation" or "Continuing from the prompt"
 - Just generate the continuation text directly
         """
-        
+
         # Set up stop sequences
         stop_sequences = None
         if generate_params.stop_sequences and len(generate_params.stop_sequences) > 0:
             stop_sequences = frozenset(generate_params.stop_sequences)
-        
+
         # Call Claude API with the specified model
         generated_text = await query_to_claude_async(
             prompt=prompt,
@@ -965,26 +1051,24 @@ Important instructions:
             system_message=system_message,
             model=model_name,  # Pass the model name to the Claude API function
         )
-        
+
         # Handle the response
         if generated_text is None:
             return HTTPException(status_code=500, detail="Failed to generate text with Claude")
-        
+
         # Format the response to match the standard API format
         result = [{
             "generated_text": prompt + generated_text,
             "finished_reason": "length",
             "model": model_name
         }]
-        
-        
+
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error generating text with Claude: {e}")
         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
-
-# --- End Moved Routes ---
 
 
 class OptimizePromptParams(BaseModel):
@@ -997,28 +1081,32 @@ class OptimizePromptParams(BaseModel):
 async def evaluate_prompt(prompt: str, judge_prompt: str) -> Dict[str, Any]:
     system_message = (
         "You are a strict judge of prompt quality. "
-        "Return JSON with keys 'score' (0-1) and 'feedback'."
+        "Return JSON with keys 'score' and 'feedback'."
     )
-    query = f"{judge_prompt}\nPrompt:\n{prompt}\nRespond in JSON."
-    result = await query_to_claude_async(prompt=query, system_message=system_message)
-    try:
-        data = json.loads(result)
-    except Exception:
-        data = {"score": 0.0, "feedback": result.strip()}
-    return data
+    schema = {
+        "type": "object",
+        "properties": {
+            "score": {"type": "number"},
+            "feedback": {"type": "string"},
+        },
+        "required": ["score", "feedback"],
+    }
+    query = f"{judge_prompt}\nPrompt:\n{prompt}"
+    return await query_to_claude_json_async(query, schema, system_message=system_message)
 
 
 async def evolve_prompt(prompt: str, evolve_prompt: str) -> str:
     system_message = (
         "You improve prompts. Return JSON with key 'prompt' containing the new prompt."
     )
-    query = f"{evolve_prompt}\nCurrent Prompt:\n{prompt}\nRespond in JSON."
-    result = await query_to_claude_async(prompt=query, system_message=system_message)
-    try:
-        data = json.loads(result)
-        return data.get("prompt", prompt)
-    except Exception:
-        return result.strip()
+    schema = {
+        "type": "object",
+        "properties": {"prompt": {"type": "string"}},
+        "required": ["prompt"],
+    }
+    query = f"{evolve_prompt}\nCurrent Prompt:\n{prompt}"
+    data = await query_to_claude_json_async(query, schema, system_message=system_message)
+    return data.get("prompt", prompt)
 
 
 async def optimize_prompt(params: OptimizePromptParams) -> Dict[str, Any]:
@@ -1046,6 +1134,26 @@ async def optimize_prompt(params: OptimizePromptParams) -> Dict[str, Any]:
 
 
 @app.post("/api/v1/optimize-prompt")
-async def optimize_prompt_route(params: OptimizePromptParams):
-    result = await optimize_prompt(params)
-    return JSONResponse(result)
+async def optimize_prompt_endpoint(
+    params: OptimizePromptParams,
+    request: Request = None,
+    secret: Union[str, None] = Header(default=None),
+):
+    """
+    Optimize a prompt using Claude models to iteratively improve it
+    """
+    # Authorize the request
+    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+        if not request_authorized(request, secret):
+            raise HTTPException(
+                status_code=401,
+                detail="Please subscribe at https://text-generator.io/subscribe first"
+            )
+
+    try:
+        result = await optimize_prompt(params)
+        return result
+    except Exception as e:
+        logger.error(f"Error optimizing prompt: {e}")
+        raise HTTPException(status_code=500, detail=f"Error optimizing prompt: {str(e)}")
+

@@ -18,12 +18,7 @@ wrapt
 # we dont need torchvision-0.12.0+cu113
 
 
-google-api-python-client
-google-api-core
-#google-cloud-storage
-google-cloud-storage
 
-google-cloud-ndb
 loguru
 #jinja2
 jinja2
@@ -34,6 +29,12 @@ stripe
 cachetools
 python-multipart
 rsa
+
+# PostgreSQL dependencies
+sqlalchemy
+psycopg2-binary
+alembic
+bcrypt
 
 # Let compile resolve these based on anthropic and other needs
 # fastapi==0.109.2

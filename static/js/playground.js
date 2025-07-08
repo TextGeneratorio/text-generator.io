@@ -567,34 +567,29 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
 
     $(document).ready(setupSubmitForm);
     initApp = function () {
-        firebase.auth().onAuthStateChanged(function (user) {
-            if (user) {
-                // User is signed in.
-                var displayName = user.displayName;
-                var email = user.email;
-                var emailVerified = user.emailVerified;
-                var photoURL = user.photoURL;
-                var uid = user.uid;
-                var phoneNumber = user.phoneNumber;
-                var providerData = user.providerData;
-                getUserWithStripe(user, function (data) {
-
-                    secret = data['secret'];
-                    // enable submit form
-                    $('#playground-play').removeAttr('disabled');
-                    // if users not subscribed redirect to subscribe page
-                    if (!data['is_subscribed']) {
-                        location.href = '/subscribe'
-                    }
-
-                })
-            } else {
+        // Check if user is authenticated using new system
+        fetch('/api/current-user')
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Not authenticated');
+                }
+            })
+            .then(user => {
+                secret = user.secret;
+                // enable submit form
+                $('#playground-play').removeAttr('disabled');
+                // if users not subscribed redirect to subscribe page
+                if (!user.is_subscribed) {
+                    location.href = '/subscribe'
+                }
+            })
+            .catch(error => {
                 // User is signed out.
+                console.log('User not authenticated:', error);
                 location.href = '/login'
-            }
-        }, function (error) {
-            console.log(error);
-        });
+            });
     };
     var editor;
     var onceOnly = false;

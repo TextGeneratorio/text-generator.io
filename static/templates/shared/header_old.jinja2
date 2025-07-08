@@ -1,0 +1,244 @@
+<!-- Uses a header that scrolls with the text, rather than staying
+  locked at the top -->
+<header class="mdl-layout__header mdl-layout__header--scroll">
+    <div class="mdl-layout__header-row">
+        <!-- Title -->
+        <a class="mdl-navigation__link" href="/">
+            <img class="brain-icon-header" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42"></img>
+            <a href="/" class="mdl-layout-title" title="Text Generator" style="color: white !important; text-decoration: none;">Text Generator</a>
+        </a>
+        <!-- Add spacer, to align navigation to the right -->
+        <div class="mdl-layout-spacer"></div>
+        <!-- Navigation -->
+        <nav class="mdl-navigation">
+
+            <a class="mdl-navigation__link" href="/tools">Tools</a>
+            <a class="mdl-navigation__link" href="/text-to-speech">Text To Speech</a>
+
+            <a class="mdl-navigation__link" href="/bulk-text-generator">Bulk Generator</a>
+            <a class="mdl-navigation__link" href="/playground">Playground</a>
+            <a class="mdl-navigation__link" href="/ai-text-editor">AI Text Editor</a>
+            <a class="mdl-navigation__link" href="/docs">Docs</a>
+            <a class="header-login-signup mdl-navigation__link" href="#" onclick="showLoginModal()">Login</a>
+            <a class="header-login-signup mdl-navigation__link" href="#" onclick="showSignupModal()">Signup</a>
+            <a class="header-login-signout header-subscribe mdl-navigation__link" href="/subscribe"
+               style="display: none;">Subscribe</a>
+            <a class="header-login-signout mdl-navigation__link" id="log-out" href="/logout" onclick="logout()"
+            style="display: none;">Log out</a>
+            <a class="header-account mdl-navigation__link" href="/account" style="display: none;">Account</a>
+        </nav>
+    </div>
+</header>
+<div class="mdl-layout__drawer">
+    <img class="brain-icon-header-draw" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42">
+
+    <a href="/" class="mdl-layout-title" title="Text Generator">Text Generator</a>
+    <nav class="mdl-navigation">
+        <a class="mdl-navigation__link" href="/tools"><i class="material-icons dp48">build</i> Tools</a>
+        <a class="mdl-navigation__link" href="/playground"><i class="material-icons dp48">play_arrow</i> Playground</a>
+        <a class="mdl-navigation__link" href="/ai-text-editor"><i class="material-icons dp48">edit</i> AI Text Editor</a>
+        <a class="mdl-navigation__link" href="/text-to-speech"><i class="material-icons dp48">volume_up</i> Text To Speech</a>
+        <a class="mdl-navigation__link" href="/docs"><i class="material-icons dp48">android</i> Docs</a>
+        <a class="header-login-signup mdl-navigation__link" href="#" onclick="showLoginModal()"><i class="material-icons dp48">login</i> Login</a>
+        <a class="header-subscribe mdl-navigation__link" href="/subscribe"><i class="material-icons dp48">payments</i> Subscribe</a>
+        <a class="header-login-signup mdl-navigation__link" href="#" onclick="showSignupModal()"><i class="material-icons dp48">draw</i> Signup</a>
+        <a class="header-account mdl-navigation__link" href="/account" style="display: none;"><i class="material-icons dp48">person</i> Account</a>
+    </nav>
+</div>
+
+<!-- Login Modal -->
+<dialog id="login-modal" class="mdl-dialog">
+    <div class="mdl-dialog__content">
+        <h4 class="mdl-dialog__title">Login</h4>
+        <form id="login-form">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="email" id="login-email" name="email" required>
+                <label class="mdl-textfield__label" for="login-email">Email</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="password" id="login-password" name="password" required>
+                <label class="mdl-textfield__label" for="login-password">Password</label>
+            </div>
+            <div id="login-error" class="error-message" style="display: none; color: red; margin-top: 10px;"></div>
+        </form>
+    </div>
+    <div class="mdl-dialog__actions">
+        <button type="button" class="mdl-button mdl-button--colored" onclick="submitLogin()">Login</button>
+        <button type="button" class="mdl-button mdl-button--colored" onclick="closeLoginModal()">Cancel</button>
+        <button type="button" class="mdl-button" onclick="switchToSignup()">Need an account? Sign up</button>
+    </div>
+</dialog>
+
+<!-- Signup Modal -->
+<dialog id="signup-modal" class="mdl-dialog">
+    <div class="mdl-dialog__content">
+        <h4 class="mdl-dialog__title">Sign Up</h4>
+        <form id="signup-form">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="email" id="signup-email" name="email" required>
+                <label class="mdl-textfield__label" for="signup-email">Email</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="password" id="signup-password" name="password" required minlength="6">
+                <label class="mdl-textfield__label" for="signup-password">Password</label>
+            </div>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                <input class="mdl-textfield__input" type="password" id="signup-password-confirm" name="password_confirm" required minlength="6">
+                <label class="mdl-textfield__label" for="signup-password-confirm">Confirm Password</label>
+            </div>
+            <div id="signup-error" class="error-message" style="display: none; color: red; margin-top: 10px;"></div>
+        </form>
+    </div>
+    <div class="mdl-dialog__actions">
+        <button type="button" class="mdl-button mdl-button--colored" onclick="submitSignup()">Sign Up</button>
+        <button type="button" class="mdl-button mdl-button--colored" onclick="closeSignupModal()">Cancel</button>
+        <button type="button" class="mdl-button" onclick="switchToLogin()">Already have an account? Login</button>
+    </div>
+</dialog>
+
+<script>
+// Modal management
+function showLoginModal() {
+    document.getElementById('login-modal').showModal();
+}
+
+function showSignupModal() {
+    document.getElementById('signup-modal').showModal();
+}
+
+function closeLoginModal() {
+    document.getElementById('login-modal').close();
+    document.getElementById('login-form').reset();
+    document.getElementById('login-error').style.display = 'none';
+}
+
+function closeSignupModal() {
+    document.getElementById('signup-modal').close();
+    document.getElementById('signup-form').reset();
+    document.getElementById('signup-error').style.display = 'none';
+}
+
+function switchToSignup() {
+    closeLoginModal();
+    showSignupModal();
+}
+
+function switchToLogin() {
+    closeSignupModal();
+    showLoginModal();
+}
+
+// Authentication functions
+async function submitLogin() {
+    const form = document.getElementById('login-form');
+    const formData = new FormData(form);
+    const errorDiv = document.getElementById('login-error');
+    
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Success - set session and redirect
+            document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
+            closeLoginModal();
+            updateHeaderForLoggedInUser(result);
+            window.location.href = '/playground';
+        } else {
+            errorDiv.textContent = result.detail || 'Login failed';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Network error. Please try again.';
+        errorDiv.style.display = 'block';
+    }
+}
+
+async function submitSignup() {
+    const form = document.getElementById('signup-form');
+    const formData = new FormData(form);
+    const errorDiv = document.getElementById('signup-error');
+    
+    const password = formData.get('password');
+    const passwordConfirm = formData.get('password_confirm');
+    
+    if (password !== passwordConfirm) {
+        errorDiv.textContent = 'Passwords do not match';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/signup', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Success - set session and redirect
+            document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
+            closeSignupModal();
+            updateHeaderForLoggedInUser(result);
+            window.location.href = '/subscribe';
+        } else {
+            errorDiv.textContent = result.detail || 'Signup failed';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Network error. Please try again.';
+        errorDiv.style.display = 'block';
+    }
+}
+
+function updateHeaderForLoggedInUser(user) {
+    // Hide login/signup links
+    document.querySelectorAll('.header-login-signup').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Show logout and account links
+    document.querySelectorAll('.header-login-signout').forEach(el => {
+        el.style.display = 'block';
+    });
+    
+    document.querySelectorAll('.header-account').forEach(el => {
+        el.style.display = 'block';
+    });
+}
+
+async function logout() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        window.location.href = '/';
+    } catch (error) {
+        console.error('Logout error:', error);
+        // Force logout on client side even if server request fails
+        document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        window.location.href = '/';
+    }
+}
+
+// Check if user is logged in on page load
+window.addEventListener('load', function() {
+    checkAuthStatus();
+});
+
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/current-user');
+        if (response.ok) {
+            const user = await response.json();
+            updateHeaderForLoggedInUser(user);
+        }
+    } catch (error) {
+        console.log('Not logged in or error checking auth status');
+    }
+}
+</script>

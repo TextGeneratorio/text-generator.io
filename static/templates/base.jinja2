@@ -20,8 +20,6 @@
 
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
-    <link type="text/css" rel="stylesheet"
-          href="https://cdn.firebase.com/libs/firebaseui/3.5.2/firebaseui.css"/>
 
     <link rel="stylesheet" href="{{ static_url }}/css/article.css">
     <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
@@ -53,51 +51,53 @@
 
     <script src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
 
-
-    <script src="https://www.gstatic.com/firebasejs/5.9.1/firebase.js"></script>
-
     <script>
-        // Initialize Firebase
-        var config = {
-            apiKey: "AIzaSyBlt4HTUra_58fYju0I3mkVuNHcbTsmSJQ",
-            authDomain: "questions-346919.firebaseapp.com",
-            databaseURL: "https://questions-346919.firebaseio.com",
-            projectId: "questions-346919",
-            storageBucket: "questions-346919.appspot.com",
-            messagingSenderId: "972112451973"
-        };
-        firebase.initializeApp(config);
-        // User
+        // User authentication - new system
         window.has_purchased = false;
-        firebase.auth().onAuthStateChanged(function (user) {
-            if (user) {
-                // User is signed in.
-                window.firebaseUser = user
-                $('.header-login-signup').hide();
-                $('#log-out').show();
-
-                getUser(user, function (userData) {
-                    if (user.is_subscribed) {
+        
+        // Check authentication status on page load
+        checkAuthenticationStatus();
+        
+        async function checkAuthenticationStatus() {
+            try {
+                const response = await fetch('/api/current-user');
+                if (response.ok) {
+                    const userData = await response.json();
+                    // User is signed in
+                    window.currentUser = userData;
+                    $('.header-login-signup').hide();
+                    $('#log-out').show();
+                    
+                    if (userData.is_subscribed) {
                         $('.header-subscribe').hide()
                     } else {
                         $('.header-subscribe').show()
                     }
-                })
-            } else {
-
-                // User is signed out.
-
+                } else {
+                    // User is signed out
+                    window.currentUser = null;
+                    $('.header-login-signup').show();
+                    $('#log-out').hide();
+                    $('.header-subscribe').show();
+                }
+            } catch (error) {
+                console.log('Auth check error:', error);
+                window.currentUser = null;
             }
-        }, function (error) {
-            console.log(error);
-        });
+        }
 
-        function signout() {
-            firebase.auth().signOut().then(function () {
-                // Sign-out successful.
-            }).catch(function (error) {
-                // An error happened.
-            });
+        async function signout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Force logout on client side even if server request fails
+                document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+                window.location.href = '/';
+            }
+        }
         }
 
         function newUser(user, token, callback) {

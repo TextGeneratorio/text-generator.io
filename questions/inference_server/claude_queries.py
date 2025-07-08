@@ -2,6 +2,8 @@ import asyncio
 from typing import FrozenSet, List, Optional
 
 from anthropic import AsyncAnthropic
+import aiohttp
+import json
 
 import logging
 logger = logging.getLogger(__name__)
@@ -130,6 +132,50 @@ async def query_to_claude_async(
     except Exception as e:
         logger.error(f"Error in Claude query: {e}")
         return None
+
+
+async def query_to_claude_json_async(
+    prompt: str,
+    schema: dict,
+    system_message: Optional[str] = None,
+    model: Optional[str] = "claude-3-7-sonnet-20250219",
+) -> dict:
+    """Query Claude in JSON mode using tool use."""
+    url = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-Key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",
+    }
+    messages = [{"role": "user", "content": prompt}]
+    data = {
+        "messages": messages,
+        "model": model,
+        "max_tokens": 1024,
+        "system": system_message or "",
+        "tools": [
+            {
+                "name": "structured_output",
+                "description": "Return the response in JSON form.",
+                "input_schema": schema,
+            }
+        ],
+        "tool_choice": {"type": "tool", "name": "structured_output"},
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=data) as resp:
+            resp.raise_for_status()
+            result = await resp.json()
+
+    content = result.get("content", [])
+    if content and content[0].get("type") == "tool_use":
+        return content[0].get("input", {})
+    if content and content[0].get("text"):
+        try:
+            return json.loads(content[0]["text"].strip())
+        except Exception:
+            return {"text": content[0]["text"]}
+    return {}
 
 def truncate_to_max_tokens(text, max_tokens):
     """

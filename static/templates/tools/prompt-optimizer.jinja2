@@ -1,10 +1,8 @@
-{% extends 'templates/base.jinja2' %}
 
 {% set default_prompt = 'make an artistic painting of shapes' %}
 {% set default_evolve = 'make this clearer and describing a nicer more complete visual description' %}
 {% set default_judge = 'how well does this do at aesthetics, describing a nice looking scene but also being faithful' %}
 
-{% block mainbody %}
 <div class="demo-ribbon"></div>
 <main class="demo-main mdl-layout mdl-layout__content">
     <div class="demo-container mdl-grid">
@@ -40,8 +38,4 @@
         </div>
     </div>
 </main>
-{% endblock %}
-
-{% block js %}
 <script src="{{ static_url }}/js/prompt-optimizer.js" defer></script>
-{% endblock %}
