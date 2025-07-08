@@ -116,7 +116,7 @@ make download-punkt   # download the punkt dataset for NLTK
 Download models from huggingface.
 
 ```shell
-huggingface-cli download HuggingFaceTB/SmolLM2-1.7B-Instruct --local-dir models/SmolLM-1.7B
+huggingface-cli download HuggingFaceTB/SmolLM3-3B --local-dir models/SmolLM3-3B
 wget -P models https://huggingface.co/geneing/Kokoro/resolve/f610f07c62f8baa30d4ed731530e490230e4ee83/kokoro-v0_19.pth
 
 ```
