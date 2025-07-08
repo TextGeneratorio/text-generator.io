@@ -23,32 +23,13 @@
 {% endblock %}
 
 {% block mainbody %}
-    <script type="text/javascript">
-      // FirebaseUI config.
-      var uiConfig = {
-        signInSuccessUrl: '/',
-        signInOptions: [
-          // Leave the lines as is for the providers you want to offer your users.
-          {
-            provider: firebase.auth.EmailAuthProvider.PROVIDER_ID,
-            requireDisplayName: false
-          }
-        ],
-        credentialHelper: firebaseui.auth.CredentialHelper.NONE,
-
-        // Terms of service url.
-        tosUrl: '/terms'
-      };
-
-      // Initialize the FirebaseUI Widget using Firebase.
-      var ui = new firebaseui.auth.AuthUI(firebase.auth());
-      // The start method will wait until the DOM is loaded.
-      ui.start('#firebaseui-auth-container', uiConfig);
-    </script>
-
-    <div
-    style="padding: 40px">
-        <div id="firebaseui-auth-container"></div>
+    <div style="padding: 40px">
+        <p>If this is your first time logging in after migration, enter your email and choose a password.</p>
+        <form method="post" action="/login">
+            <input type="email" name="email" placeholder="Email" required><br>
+            <input type="password" name="password" placeholder="Password" required><br>
+            <button type="submit">Login / Set Password</button>
+        </form>
     </div>
 {##}
 {#    <div class="demo-ribbon"></div>#}

@@ -19,6 +19,9 @@ from starlette.datastructures import URL
 from questions import fixtures, doc_fixtures, tool_fixtures
 from questions import blog_fixtures
 from questions.db_models import User, Document
+import bcrypt
+BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
+BCRYPT_PEPPER = os.getenv("BCRYPT_PEPPER", "")
 from questions.gameon_utils import GameOnUtils
 from questions.models import CreateUserRequest, GetUserRequest, GenerateParams
 from questions.payments.payments import (
@@ -432,54 +435,43 @@ async def login(request: Request):
     )
 
 
+@app.post("/login")
+async def login_post(
+    request: Request, email: str = Form(...), password: str = Form(...)
+):
+    password_peppered = password + BCRYPT_PEPPER
+    user = User.byEmail(email)
+    if user and user.password_hash:
+        if not bcrypt.checkpw(
+            password_peppered.encode("utf-8"), user.password_hash.encode("utf-8")
+        ):
+            raise HTTPException(status_code=400, detail="Invalid credentials")
+    else:
+        if not user:
+            user = User(id=random_string(16), email=email, secret=random_string(32))
+        user.password_hash = (
+            bcrypt.hashpw(
+                password_peppered.encode("utf-8"),
+                bcrypt.gensalt(rounds=BCRYPT_ROUNDS),
+            ).decode("utf-8")
+        )
+        User.save(user)
+    set_session_for_user(user)
+    if not user.stripe_id:
+        customer = stripe.Customer.create(email=email, idempotency_key=user.id)  # type: ignore
+        user.stripe_id = customer.id
+        User.save(user)
+    return RedirectResponse("/playground", status_code=303)
+
+
 @app.get("/logout")
 async def logout(request: Request):
-    # clear session?
+    secret = request.query_params.get("secret")
+    if secret and secret in session_dict:
+        session_dict.pop(secret)
     return RedirectResponse("/", status_code=303)
 
 
-@app.post("/api/create-user")
-async def create_user(create_user_request: CreateUserRequest):
-    email = create_user_request.email
-    # emailVerified = create_user_request.emailVerified
-    uid = create_user_request.uid
-    photoURL = create_user_request.photoURL
-    token = create_user_request.token
-    # user = current_user
-    # if not user:
-
-    user = User()
-    existing_user = User.byId(uid)
-    if existing_user:
-        user = existing_user
-    # get or create
-    user.id = uid
-    user.email = email
-    # user.token = token # Attribute doesn't exist on User model
-    # user.photoURL = photoURL # Attribute doesn't exist on User model
-    # user.emailVerified = emailVerified
-    if not existing_user:  # never change secret
-        user.secret = random_string(32)
-
-    User.save(user)
-    set_session_for_user(user)
-
-    # get or create user in stripe
-    if not user.stripe_id:
-        customer = stripe.Customer.create(  # type: ignore
-            email=email,
-            idempotency_key=uid,
-        )
-        user.stripe_id = customer.id
-        User.save(user)
-        set_session_for_user(user)
-
-    # send_signup_email(email, referral_url_key)
-    # subscription_item_id = get_subscription_item_id_for_user_email(user.email)
-    # user.is_subscribed = subscription_item_id is not None
-    return JSONResponse(
-        json.loads(json.dumps(user.to_dict(), cls=GameOnUtils.MyEncoder))
-    )
 
 
 def set_session_for_user(user):

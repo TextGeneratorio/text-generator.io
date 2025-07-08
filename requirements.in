@@ -51,3 +51,6 @@ httpcore
 pillow
 pyppeteer
 markitdown[all]==0.1.2
+SQLAlchemy
+psycopg2-binary
+bcrypt
