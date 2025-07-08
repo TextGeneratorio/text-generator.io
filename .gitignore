@@ -1,5 +1,6 @@
 .env
 migration.log
+data.db
 .venv
 .git
 models
