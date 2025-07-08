@@ -19,7 +19,7 @@
             <a class="mdl-navigation__link" href="/playground">Playground</a>
             <a class="mdl-navigation__link" href="/ai-text-editor">AI Text Editor</a>
             <a class="mdl-navigation__link" href="/docs">Docs</a>
-            <a class="header-login-signup mdl-navigation__link" href="/login">Login</a>
+            <a class="header-login-signup mdl-navigation__link" href="#" id="login-link">Login</a>
             <a class="header-login-signup mdl-navigation__link" href="/signup">Signup</a>
             <a class="header-login-signout header-subscribe mdl-navigation__link" href="/subscribe"
                style="display: none;">Subscribe</a>
@@ -29,7 +29,7 @@
         </nav>
     </div>
 </header>
-<div class="mdl-layout__drawer">
+    <div class="mdl-layout__drawer">
     <img class="brain-icon-header-draw" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42">
 
     <a href="/" class="mdl-layout-title" title="Text Generator">Text Generator</a>
@@ -40,10 +40,35 @@
         <a class="mdl-navigation__link" href="/text-to-speech"><i class="material-icons dp48">volume_up</i> Text To Speech</a>
         <a class="mdl-navigation__link" href="/speech-to-text"><i class="material-icons dp48">graphic_eq</i> Speech To Text</a>
         <a class="mdl-navigation__link" href="/docs"><i class="material-icons dp48">android</i> Docs</a>
-        <a class="header-login-signup mdl-navigation__link" href="/login"><i class="material-icons dp48">login</i> Login</a>
+        <a class="header-login-signup mdl-navigation__link" href="#" id="login-link-mobile"><i class="material-icons dp48">login</i> Login</a>
         <a class="header-subscribe mdl-navigation__link" href="/subscribe"><i class="material-icons dp48">payments</i> Subscribe</a>
         <a class="header-login-signup mdl-navigation__link" href="/signup"><i class="material-icons dp48">draw</i> Signup</a>
         <a class="header-account mdl-navigation__link" href="/account"><i class="material-icons dp48">person</i> Account</a>
     </nav>
 </div>
+
+<dialog id="login-dialog">
+    <form method="post" id="login-form">
+        <input type="email" name="email" placeholder="Email" required><br>
+        <input type="password" name="password" placeholder="Password" required><br>
+        <button type="submit">Login / Set Password</button>
+    </form>
+</dialog>
+
+<script>
+    const loginDialog = document.getElementById('login-dialog');
+    function showLogin() { loginDialog.showModal(); }
+    document.getElementById('login-link').addEventListener('click', function(e){ e.preventDefault(); showLogin(); });
+    document.getElementById('login-link-mobile').addEventListener('click', function(e){ e.preventDefault(); showLogin(); });
+    document.getElementById('login-form').addEventListener('submit', async function(e){
+        e.preventDefault();
+        const formData = new FormData(this);
+        const resp = await fetch('/login', { method: 'POST', body: formData });
+        if (resp.status === 303) {
+            window.location.href = '/playground';
+        } else {
+            alert('Invalid credentials');
+        }
+    });
+</script>
 

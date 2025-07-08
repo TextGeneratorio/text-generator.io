@@ -339,3 +339,6 @@ youtube-transcript-api==1.0.3
     # via markitdown
 zipp==3.22.0
     # via importlib-metadata
+SQLAlchemy==2.0.30
+bcrypt==4.1.2
+psycopg2-binary==2.9.9

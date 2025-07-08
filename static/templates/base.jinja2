@@ -23,8 +23,6 @@
 
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
-    <link type="text/css" rel="stylesheet"
-          href="https://cdn.firebase.com/libs/firebaseui/3.5.2/firebaseui.css"/>
 
     <link rel="stylesheet" href="{{ static_url }}/css/article.css">
     <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
@@ -57,147 +55,13 @@
     <script defer src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
 
 
-    <script defer src="https://www.gstatic.com/firebasejs/5.9.1/firebase.js"></script>
-
     <script>
-        // Initialize Firebase
-        var config = {
-            apiKey: "AIzaSyBlt4HTUra_58fYju0I3mkVuNHcbTsmSJQ",
-            authDomain: "questions-346919.firebaseapp.com",
-            databaseURL: "https://questions-346919.firebaseio.com",
-            projectId: "questions-346919",
-            storageBucket: "questions-346919.appspot.com",
-            messagingSenderId: "972112451973"
-        };
-        firebase.initializeApp(config);
-        // User
-        window.has_purchased = false;
-        firebase.auth().onAuthStateChanged(function (user) {
-            if (user) {
-                // User is signed in.
-                window.firebaseUser = user
-                $('.header-login-signup').hide();
-                $('#log-out').show();
-
-                getUser(user, function (userData) {
-                    if (user.is_subscribed) {
-                        $('.header-subscribe').hide()
-                    } else {
-                        $('.header-subscribe').show()
-                    }
-                })
-            } else {
-
-                // User is signed out.
-
-            }
-        }, function (error) {
-            console.log(error);
-        });
-
         function signout() {
-            firebase.auth().signOut().then(function () {
-                // Sign-out successful.
-            }).catch(function (error) {
-                // An error happened.
+            fetch('/logout').then(function () {
+                window.location.href = '/';
             });
         }
-
-        function newUser(user, token, callback) {
-            "use strict";
-
-            fetch("/api/create-user", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    'email': user.email,
-                    'emailVerified': user.emailVerified,
-                    'uid': user.uid,
-                    'photoURL': user.photoURL,
-                    'token': token
-                }),
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        // re login?
-                        console.log('error saving user');
-                        console.log(response);
-
-                    }
-                    return response.json()
-                })
-                .then(data => {
-                    callback(data)
-                }).catch(function (error) {
-                callback(error)
-            });
-        }
-
-        function getUser(user, callback) {
-            "use strict";
-
-            fetch("/api/get-user",
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        'uid': user.uid,
-                        'email': user.email,
-                    })
-                })
-            .then(response => {
-                if (!response.ok) {
-                    console.log(response); // todo err log
-                    newUser(user, '', callback)
-                }
-                return response.json()
-            })
-            .then(data => {
-                callback(data)
-            }).catch(function (error) {
-                console.log(error); // todo err log
-                newUser(user, '', callback)
-            });
-
-        }
-        function getUserWithStripe(user, callback) {
-            "use strict";
-
-            fetch("/api/get-user/stripe-usage",
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        'uid': user.uid,
-                        'email': user.email,
-                    })
-                })
-            .then(response => {
-                if (!response.ok) {
-                    console.log(response); // todo err log
-                    newUser(user, '', callback)
-                }
-                return response.json()
-            })
-            .then(data => {
-                callback(data)
-            }).catch(function (error) {
-                console.log(error); // todo err log
-
-                newUser(user, '', callback)
-            });
-
-        }
-
-
     </script>
-    <script src="https://cdn.firebase.com/libs/firebaseui/3.5.2/firebaseui.js"></script>
 
 
     {#    {% endif %}#}
