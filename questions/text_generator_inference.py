@@ -97,10 +97,10 @@ def load_model(weights_path):
     if (Path("/" + weights_path) / "config.json").exists():
         weights_path = str(Path("/") / weights_path)
 
-    # if (Path("/models")).exists(): # prefer to save in ramdisk
-    #     weights_path = "/" + weights_path
-
-    if not (Path(weights_path) / "config.json").exists():
+    # Only attempt to download weights if a local directory was specified and no
+    # config file is present. When using a HuggingFace model id the directory
+    # will not exist and downloading is handled by `from_pretrained`.
+    if os.path.isdir(weights_path) and not (Path(weights_path) / "config.json").exists():
         download_model(weights_path, weights_path)
 
     logger.info(f"loading model from {weights_path}")

@@ -1,5 +1,10 @@
 import builtins
 from unittest import mock
+import importlib.util
+import pytest
+
+if importlib.util.find_spec("torch") is None:
+    pytest.skip("torch not installed", allow_module_level=True)
 
 import questions.inference_server.inference_server as server
 

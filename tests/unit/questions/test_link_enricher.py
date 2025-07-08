@@ -1,5 +1,9 @@
 import logging
+import importlib.util
 import pytest
+
+if importlib.util.find_spec("transformers") is None:
+    pytest.skip("transformers not installed", allow_module_level=True)
 
 bs4 = pytest.importorskip("bs4", reason="bs4 required for link enrichment tests")
 from questions.link_enricher import get_urls, enrich_links

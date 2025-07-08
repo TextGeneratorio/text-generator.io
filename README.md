@@ -113,10 +113,11 @@ make download-punkt   # download the punkt dataset for NLTK
 
 ### Models
 
-Download models from huggingface.
+Download the Gemma model from HuggingFace. The model is small enough for local
+testing but still supports multimodal input.
 
 ```shell
-huggingface-cli download HuggingFaceTB/SmolLM2-1.7B-Instruct --local-dir models/SmolLM-1.7B
+huggingface-cli download google/gemma-3n-e4b-it --local-dir models/gemma
 wget -P models https://huggingface.co/geneing/Kokoro/resolve/f610f07c62f8baa30d4ed731530e490230e4ee83/kokoro-v0_19.pth
 
 ```

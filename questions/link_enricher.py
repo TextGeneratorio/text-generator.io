@@ -15,8 +15,11 @@ from questions.logging_config import setup_logging
 setup_logging()
 logger = logging.getLogger(__name__)
 from requests_futures.sessions import FuturesSession
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+try:
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    torch = None
+from transformers import pipeline
 from questions.inference_server.model_cache import ModelCache
 
 # change into OFA dir
@@ -97,42 +100,48 @@ ocr_tags = ["receipt", 'screenshot', 'licence', 'document', 'paper', 'sign', 'ad
 
 LINK_MODEL_CACHE = ModelCache()
 
-def load_moondream_model():
-    """Load the Moondream model for image captioning"""
-    model_id = "vikhyatk/moondream2"
-    revision = "2024-08-26"
-    
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id, 
-        trust_remote_code=True, 
-        revision=revision
+def load_gemma_pipe():
+    """Load the Gemma model for image captioning and text generation."""
+    model_id = "google/gemma-3n-e4b-it"
+    device = 0 if torch and torch.cuda.is_available() else -1
+    return pipeline(
+        "image-text-to-text",
+        model=model_id,
+        device=device,
+        torch_dtype=torch.bfloat16 if torch and torch.cuda.is_available() else None,
     )
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_id, 
-        revision=revision
-    )
-    return model, tokenizer
 
 def get_caption_for_image_response(response, prompt="Describe this image."):
-    """Get image caption using Moondream model"""
+    """Generate a caption for an image using Gemma."""
     response.raw.decode_content = True
-    image_bytes = response.content
-    
-    img = Image.open(BytesIO(image_bytes))
-    
+    img = Image.open(BytesIO(response.content))
+
     with log_time("image captioning"):
-        model, tokenizer = LINK_MODEL_CACHE.add_or_get("moondream_model", load_moondream_model)
-        enc_image = model.encode_image(img)
-        caption = model.answer_question(enc_image, prompt, tokenizer)
-        
+        pipe = LINK_MODEL_CACHE.add_or_get("gemma_pipe", load_gemma_pipe)
+        messages = [
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": "You are a helpful assistant."}],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": img},
+                    {"type": "text", "text": prompt},
+                ],
+            },
+        ]
+        output = pipe(text=messages, max_new_tokens=100)
+        caption = output[0]["generated_text"][-1]["content"]
+
         if debug:
             logger.info(f"Image description: {caption}")
-            
+
         if any(ocr_tag in caption.lower() for ocr_tag in ocr_tags):
             with log_time("OCR"):
                 ocr_data = ocr_tess(img)
                 caption += " " + ocr_data
-                
+
     return caption
 
 
