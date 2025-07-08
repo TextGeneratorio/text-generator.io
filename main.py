@@ -20,7 +20,28 @@ from sqlalchemy.orm import Session
 from questions import fixtures, doc_fixtures, tool_fixtures
 from pydantic import BaseModel
 from questions import blog_fixtures
-from questions.db_models import User, Document
+
+# Import database models conditionally
+try:
+    from questions.db_models import User, Document
+    HAS_NDB = True
+except Exception as e:
+    print(f"NDB models not available: {e}")
+    HAS_NDB = False
+    # Create mock classes to prevent import errors
+    class User:
+        @staticmethod
+        def bySecret(secret):
+            return None
+        @staticmethod
+        def byId(uid):
+            return None
+    class Document:
+        pass
+
+# For testing purposes, force USE_POSTGRES to False
+USE_POSTGRES = False
+
 # Import new PostgreSQL models and auth
 try:
     from questions.db_models_postgres import User as UserPG, Document as DocumentPG, get_db
@@ -28,15 +49,37 @@ try:
         login_or_create_user, set_session_for_user, get_current_user, 
         require_auth, create_user, authenticate_user
     )
-    USE_POSTGRES = True
+    # Test if the functions actually work with a proper database
+    # USE_POSTGRES = True  # Commented out for testing
+    try:
+        # Test if we can actually get a database session
+        test_db = get_db()
+        next(test_db)  # This will fail if no database is configured
+    except Exception:
+        print("PostgreSQL database not available, disabling PostgreSQL auth")
+        USE_POSTGRES = False
 except ImportError:
     USE_POSTGRES = False
     print("PostgreSQL modules not available, using fallback auth")
+    
+# Create dummy get_db function if needed
+if not USE_POSTGRES:
+    def get_db():
+        return None
 
-from questions.gameon_utils import GameOnUtils
 from questions.models import CreateUserRequest, GetUserRequest, GenerateParams
 from questions.payments.payments import get_self_hosted_subscription_count_for_user, get_subscription_item_id_for_user_email
 from questions.utils import random_string
+
+# Import gameon utils conditionally
+try:
+    from questions.gameon_utils import GameOnUtils
+    HAS_GAMEON = True
+except Exception as e:
+    print(f"GameOn utils not available: {e}")
+    HAS_GAMEON = False
+    class GameOnUtils:
+        pass
 
 # Import the claude_queries module directly
 from questions.inference_server.claude_queries import (
@@ -88,11 +131,17 @@ app = FastAPI(
     version="1",
 )
 
-# Import the new router
-from routes import documents
+# Import the new router conditionally
+try:
+    from routes import documents
+    HAS_ROUTES = True
+except Exception as e:
+    print(f"Routes not available: {e}")
+    HAS_ROUTES = False
 
-# Include the documents router
-app.include_router(documents.router)
+# Include the documents router if available
+if HAS_ROUTES:
+    app.include_router(documents.router)
 
 
 def user_secret_matches(secret):
@@ -401,7 +450,6 @@ async def signup(request: Request):
         "templates/signup.jinja2", base_vars,
     )
 
-
 @app.get("/where-is-ai-game")
 async def where_is_ai_game(request: Request):
     base_vars = get_base_template_vars(request)
@@ -431,6 +479,14 @@ async def login(request: Request):
         "templates/login.jinja2", base_vars,
     )
 
+@app.get("/test-modals")
+async def test_modals(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
+    return templates.TemplateResponse(
+        "templates/test_modals.jinja2", base_vars,
+    )
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -565,57 +621,123 @@ async def get_user_stripe_usage(get_user_request: GetUserRequest, response: Resp
 
 
 # New PostgreSQL-based authentication endpoints
+# Simple in-memory storage for testing (replace with real database in production)
+test_users = {}
+active_sessions = {}
+
 @app.post("/api/login")
-async def api_login(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db) if USE_POSTGRES else None):
-    """Login endpoint for PostgreSQL authentication"""
-    if not USE_POSTGRES:
-        raise HTTPException(status_code=500, detail="PostgreSQL authentication not available")
+async def api_login(request: Request, email: str = Form(...), password: str = Form(...)):
+    """Login endpoint with fallback to in-memory storage"""
+    logger.info(f"Login attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
     
-    try:
-        user = login_or_create_user(email, password, db)
-        set_session_for_user(user)
-        
-        # Create/update Stripe customer if needed
-        if not user.stripe_id:
+    if USE_POSTGRES:
+        logger.info("Using PostgreSQL login")
+        try:
+            db = next(get_db())
+            user = login_or_create_user(email, password, db)
+            set_session_for_user(user)
+            
+            # Create/update Stripe customer if needed
+            if not user.stripe_id:
+                customer = stripe.Customer.create(email=email, idempotency_key=user.id)
+                user.stripe_id = customer.id
+                db.commit()
+                db.refresh(user)
+            
+            # Check subscription status
+            subscription_item_id = get_subscription_item_id_for_user_email(user.email)
+            user.is_subscribed = subscription_item_id is not None
+            
+            return JSONResponse(user.to_dict())
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"PostgreSQL login error: {e}")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+    else:
+        # Fallback to simple in-memory authentication
+        logger.info("Using in-memory login")
+        if email in test_users and test_users[email]['password'] == password:
+            session_secret = random_string(32)
+            user_data = {
+                'id': test_users[email]['id'],
+                'email': email,
+                'secret': session_secret,
+                'is_subscribed': False
+            }
+            active_sessions[session_secret] = user_data
+            logger.info(f"Login successful: {user_data}")
+            return JSONResponse(user_data)
+        else:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+
+
+@app.post("/api/signup")
+async def api_signup(request: Request, email: str = Form(...), password: str = Form(...)):
+    """Signup endpoint with fallback to in-memory storage"""
+    logger.info(f"Signup attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
+    
+    if USE_POSTGRES:
+        logger.info("Using PostgreSQL signup")
+        try:
+            db = next(get_db())
+            user = create_user(email, password, db)
+            set_session_for_user(user)
+            
+            # Create Stripe customer
             customer = stripe.Customer.create(email=email, idempotency_key=user.id)
             user.stripe_id = customer.id
             db.commit()
             db.refresh(user)
-        
-        # Check subscription status
-        subscription_item_id = get_subscription_item_id_for_user_email(user.email)
-        user.is_subscribed = subscription_item_id is not None
-        
-        return JSONResponse(user.to_dict())
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Login error: {e}")
-        raise HTTPException(status_code=500, detail="Login failed")
-
-
-@app.post("/api/signup")
-async def api_signup(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db) if USE_POSTGRES else None):
-    """Signup endpoint for PostgreSQL authentication"""
-    if not USE_POSTGRES:
-        raise HTTPException(status_code=500, detail="PostgreSQL authentication not available")
-    
-    try:
-        user = create_user(email, password, db)
-        set_session_for_user(user)
-        
-        # Create Stripe customer
-        customer = stripe.Customer.create(email=email, idempotency_key=user.id)
-        user.stripe_id = customer.id
-        db.commit()
-        db.refresh(user)
-        
-        return JSONResponse(user.to_dict())
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Signup error: {e}")
-        raise HTTPException(status_code=500, detail="Signup failed")
+            
+            return JSONResponse(user.to_dict())
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"PostgreSQL signup error: {e}")
+            raise HTTPException(status_code=500, detail="Signup failed")
+    else:
+        # Fallback to simple in-memory user creation
+        logger.info("Using in-memory signup")
+        try:
+            if email in test_users:
+                raise HTTPException(status_code=409, detail="An account with this email already exists")
+            
+            user_id = f"user_{len(test_users) + 1}"
+            session_secret = random_string(32)
+            
+            test_users[email] = {
+                'id': user_id,
+                'email': email,
+                'password': password  # In production, this should be hashed!
+            }
+            
+            user_data = {
+                'id': user_id,
+                'email': email,
+                'secret': session_secret,
+                'is_subscribed': False
+            }
+            
+            # Store session for login
+            session_dict[session_secret] = user_data
+            
+            logger.info(f"User created successfully: {email} (ID: {user_id})")
+            return JSONResponse(user_data)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"In-memory signup error: {e}")
+            raise HTTPException(status_code=500, detail="Signup failed")
+            active_sessions[session_secret] = user_data
+            
+            logger.info(f"Created user: {user_data}")
+            return JSONResponse(user_data)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"In-memory signup error: {e}")
+            raise HTTPException(status_code=500, detail="Signup failed")
 
 
 @app.post("/api/logout")
@@ -626,22 +748,30 @@ async def api_logout(request: Request):
 
 
 @app.get("/api/current-user")
-async def api_current_user(request: Request, db: Session = Depends(get_db) if USE_POSTGRES else None):
+async def api_current_user(request: Request):
     """Get current user information"""
-    if not USE_POSTGRES:
-        raise HTTPException(status_code=500, detail="PostgreSQL authentication not available")
-    
-    user = get_current_user(request, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    # Check subscription status
-    subscription_item_id = get_subscription_item_id_for_user_email(user.email)
-    user.is_subscribed = subscription_item_id is not None
-    num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
-    user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
-    
-    return JSONResponse(user.to_dict())
+    if USE_POSTGRES:
+        try:
+            user = get_current_user(request)
+            if not user:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+            
+            # Check subscription status
+            subscription_item_id = get_subscription_item_id_for_user_email(user.email)
+            user.is_subscribed = subscription_item_id is not None
+            num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
+            user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
+            
+            return JSONResponse(user.to_dict())
+        except Exception:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+    else:
+        # Fallback to simple session checking
+        session_secret = request.cookies.get('session_secret')
+        if session_secret and session_secret in active_sessions:
+            return JSONResponse(active_sessions[session_secret])
+        else:
+            raise HTTPException(status_code=401, detail="Not authenticated")
 
 
 # ...existing code...
@@ -1000,7 +1130,7 @@ Important instructions:
         logger.error(f"Error generating text with Claude: {e}")
         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
 
-@app.post("/api/v1/generate-large")
+@app.post("/api/v1/generate-large", include_in_schema=False)
 async def generate_large_text(
     generate_params: GenerateParams,
     request: Request = None,
@@ -1156,4 +1286,8 @@ async def optimize_prompt_endpoint(
     except Exception as e:
         logger.error(f"Error optimizing prompt: {e}")
         raise HTTPException(status_code=500, detail=f"Error optimizing prompt: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)
 

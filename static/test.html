@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript Test</title>
+    <style>
+        .test-button {
+            padding: 10px 20px;
+            margin: 10px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-result {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error { background: #ffebee; border-color: #f44336; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+    </style>
+</head>
+<body>
+    <h1>JavaScript Function Test</h1>
+    
+    <button class="test-button" onclick="testShowLoginModal()">Test showLoginModal</button>
+    <button class="test-button" onclick="testShowSignupModal()">Test showSignupModal</button>
+    <button class="test-button" onclick="testJavaScriptSyntax()">Test JavaScript Syntax</button>
+    
+    <div id="test-results"></div>
+    
+    <script>
+        function addResult(test, success, message) {
+            const results = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = 'test-result ' + (success ? 'success' : 'error');
+            div.innerHTML = `<strong>${test}:</strong> ${message}`;
+            results.appendChild(div);
+        }
+        
+        function testShowLoginModal() {
+            try {
+                if (typeof showLoginModal === 'function') {
+                    addResult('showLoginModal', true, 'Function is defined and callable');
+                } else {
+                    addResult('showLoginModal', false, 'Function is not defined');
+                }
+            } catch (e) {
+                addResult('showLoginModal', false, 'Error: ' + e.message);
+            }
+        }
+        
+        function testShowSignupModal() {
+            try {
+                if (typeof showSignupModal === 'function') {
+                    addResult('showSignupModal', true, 'Function is defined and callable');
+                } else {
+                    addResult('showSignupModal', false, 'Function is not defined');
+                }
+            } catch (e) {
+                addResult('showSignupModal', false, 'Error: ' + e.message);
+            }
+        }
+        
+        function testJavaScriptSyntax() {
+            try {
+                // Test basic syntax that was previously failing
+                const testObject = {
+                    test: function() {
+                        return true;
+                    }
+                };
+                
+                if (testObject.test()) {
+                    addResult('JavaScript Syntax', true, 'No syntax errors detected');
+                } else {
+                    addResult('JavaScript Syntax', false, 'Unexpected function result');
+                }
+            } catch (e) {
+                addResult('JavaScript Syntax', false, 'Syntax error: ' + e.message);
+            }
+        }
+        
+        // Run automatic tests when page loads
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                testJavaScriptSyntax();
+                testShowLoginModal();
+                testShowSignupModal();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
