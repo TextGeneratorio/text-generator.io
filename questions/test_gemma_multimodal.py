@@ -25,7 +25,6 @@ def test_gemma_image_captioning():
     img = Image.open(image_path)
 
     messages = [
-        {"role": "system", "content": [{"type": "text", "text": "You are a helpful assistant."}]},
         {"role": "user", "content": [{"type": "image", "image": img}, {"type": "text", "text": "Describe this image."}]},
     ]
     output = pipe(text=messages, max_new_tokens=5)

@@ -33,10 +33,6 @@ def main():
     for question in questions:
         messages = [
             {
-                "role": "system",
-                "content": [{"type": "text", "text": "You are a helpful assistant."}],
-            },
-            {
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},

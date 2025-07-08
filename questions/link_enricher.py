@@ -102,8 +102,12 @@ LINK_MODEL_CACHE = ModelCache()
 
 def load_gemma_pipe():
     """Load the Gemma model for image captioning and text generation."""
-    model_id = "google/gemma-3n-e4b-it"
-    device = 0 if torch and torch.cuda.is_available() else -1
+    model_id = os.getenv("GEMMA_MODEL_ID", "google/gemma-3n-e4b-it")
+    device_env = os.getenv("GEMMA_DEVICE")
+    if device_env is not None:
+        device = int(device_env)
+    else:
+        device = 0 if torch and torch.cuda.is_available() else -1
     return pipeline(
         "image-text-to-text",
         model=model_id,
@@ -119,10 +123,6 @@ def get_caption_for_image_response(response, prompt="Describe this image."):
     with log_time("image captioning"):
         pipe = LINK_MODEL_CACHE.add_or_get("gemma_pipe", load_gemma_pipe)
         messages = [
-            {
-                "role": "system",
-                "content": [{"type": "text", "text": "You are a helpful assistant."}],
-            },
             {
                 "role": "user",
                 "content": [

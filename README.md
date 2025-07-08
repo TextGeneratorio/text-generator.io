@@ -128,6 +128,14 @@ models/tg a general model accessible with model=multilingual
 models/tgz an instruct model accessible with model=instruct
 models/tgc a chat model accessible with model=chat
 
+For the Gemma image pipeline you can override the default model or device using
+the following environment variables:
+
+```
+GEMMA_MODEL_ID=myorg/my-gemma-checkpoint
+GEMMA_DEVICE=0  # set to -1 for CPU
+```
+
 model=best is configured to figure out which model to use based on the prompt being scored based on perplexity of each model.
 
 This needs tuning for the avg and std deviation of the perplexity as each model has different ideas about how confidenti it is. Overtrained models are more confident about all text being in the dataset (tend to generate text verbatim from the dataset).
