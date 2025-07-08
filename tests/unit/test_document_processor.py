@@ -1,5 +1,9 @@
 import requests
 import pytest
+import importlib.util
+
+if importlib.util.find_spec("docx") is None:
+    pytest.skip("python-docx not installed", allow_module_level=True)
 
 from questions.document_processor import convert_to_markdown, convert_documents_async
 

@@ -113,10 +113,11 @@ make download-punkt   # download the punkt dataset for NLTK
 
 ### Models
 
-Download models from huggingface.
+Download the Gemma model from HuggingFace. The model is small enough for local
+testing but still supports multimodal input.
 
 ```shell
-huggingface-cli download HuggingFaceTB/SmolLM2-1.7B-Instruct --local-dir models/SmolLM-1.7B
+huggingface-cli download google/gemma-3n-e4b-it --local-dir models/gemma
 wget -P models https://huggingface.co/geneing/Kokoro/resolve/f610f07c62f8baa30d4ed731530e490230e4ee83/kokoro-v0_19.pth
 
 ```
@@ -126,6 +127,14 @@ there CAN be three models placed:
 models/tg a general model accessible with model=multilingual
 models/tgz an instruct model accessible with model=instruct
 models/tgc a chat model accessible with model=chat
+
+For the Gemma image pipeline you can override the default model or device using
+the following environment variables:
+
+```
+GEMMA_MODEL_ID=myorg/my-gemma-checkpoint
+GEMMA_DEVICE=0  # set to -1 for CPU
+```
 
 model=best is configured to figure out which model to use based on the prompt being scored based on perplexity of each model.
 
