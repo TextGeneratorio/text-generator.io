@@ -15,9 +15,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
     {% block headers %}
     {% endblock %}
 
@@ -52,16 +49,152 @@
         f.parentNode.insertBefore(j, f);
     })(window, document, 'script', 'dataLayer', 'GTM-MMLBMCK');</script>
 
-    <script defer src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
-
+    <script src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
 
     <script>
-        function signout() {
-            fetch('/logout').then(function () {
+        // User authentication - new system
+        window.has_purchased = false;
+        
+        // Check authentication status on page load
+        checkAuthenticationStatus();
+        
+        async function checkAuthenticationStatus() {
+            try {
+                const response = await fetch('/api/current-user');
+                if (response.ok) {
+                    const userData = await response.json();
+                    // User is signed in
+                    window.currentUser = userData;
+                    $('.header-login-signup').hide();
+                    $('#log-out').show();
+                    
+                    if (userData.is_subscribed) {
+                        $('.header-subscribe').hide()
+                    } else {
+                        $('.header-subscribe').show()
+                    }
+                } else {
+                    // User is signed out
+                    window.currentUser = null;
+                    $('.header-login-signup').show();
+                    $('#log-out').hide();
+                    $('.header-subscribe').show();
+                }
+            } catch (error) {
+                console.log('Auth check error:', error);
+                window.currentUser = null;
+            }
+        }
+
+        async function signout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
                 window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Force logout on client side even if server request fails
+                document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+                window.location.href = '/';
+            }
+        }
+        }
+
+        function newUser(user, token, callback) {
+            "use strict";
+
+            fetch("/api/create-user", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    'email': user.email,
+                    'emailVerified': user.emailVerified,
+                    'uid': user.uid,
+                    'photoURL': user.photoURL,
+                    'token': token
+                }),
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        // re login?
+                        console.log('error saving user');
+                        console.log(response);
+
+                    }
+                    return response.json()
+                })
+                .then(data => {
+                    callback(data)
+                }).catch(function (error) {
+                callback(error)
             });
         }
+
+        function getUser(user, callback) {
+            "use strict";
+
+            fetch("/api/get-user",
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        'uid': user.uid,
+                        'email': user.email,
+                    })
+                })
+            .then(response => {
+                if (!response.ok) {
+                    console.log(response); // todo err log
+                    newUser(user, '', callback)
+                }
+                return response.json()
+            })
+            .then(data => {
+                callback(data)
+            }).catch(function (error) {
+                console.log(error); // todo err log
+                newUser(user, '', callback)
+            });
+
+        }
+        function getUserWithStripe(user, callback) {
+            "use strict";
+
+            fetch("/api/get-user/stripe-usage",
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        'uid': user.uid,
+                        'email': user.email,
+                    })
+                })
+            .then(response => {
+                if (!response.ok) {
+                    console.log(response); // todo err log
+                    newUser(user, '', callback)
+                }
+                return response.json()
+            })
+            .then(data => {
+                callback(data)
+            }).catch(function (error) {
+                console.log(error); // todo err log
+
+                newUser(user, '', callback)
+            });
+
+        }
+
+
     </script>
+    <script src="https://cdn.firebase.com/libs/firebaseui/3.5.2/firebaseui.js"></script>
 
 
     {#    {% endif %}#}

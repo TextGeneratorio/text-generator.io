@@ -19,92 +19,516 @@
     <meta property="og:site_name" content="Text Generator">
     <meta property="fb:admins" content="337972272904903">
 
-
 {% endblock %}
 
 {% block mainbody %}
-    <script type="text/javascript">
-    function saveUser() {
-      firebase.auth().onAuthStateChanged(function (user) {
-        if (user) {
-          // User is signed in.
-          var displayName = user.displayName;
-          var email = user.email;
-          var emailVerified = user.emailVerified;
-          var photoURL = user.photoURL;
-          var uid = user.uid;
-          var phoneNumber = user.phoneNumber;
-          var providerData = user.providerData;
-        //TODO err handler ?
-        newUser(user, '', function (data) {
-          location.href = '/subscribe'
+    <main class="auth-page">
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <img src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator" width="40" height="40">
+                    </div>
+                    <h1 class="auth-title">Create your account</h1>
+                    <p class="auth-subtitle">to continue to Text Generator</p>
+                </div>
+                
+                <div class="auth-body">
+                    <form id="signup-form" class="auth-form" method="post" action="/api/signup">
+                        <div class="auth-input-group">
+                            <input type="email" id="email" name="email" class="auth-input" placeholder="Email" required>
+                        </div>
+                        <div class="auth-input-group">
+                            <input type="password" id="password" name="password" class="auth-input" placeholder="Password" required minlength="6">
+                            <div class="auth-help-text">Use 8 or more characters with a mix of letters, numbers & symbols</div>
+                        </div>
+                        <div class="auth-input-group">
+                            <input type="password" id="password-confirm" name="password_confirm" class="auth-input" placeholder="Confirm password" required minlength="6">
+                        </div>
+                        <div id="signup-error" class="auth-error" style="display: none;"></div>
+                        
+                        <button type="submit" class="auth-button auth-button-primary">
+                            <span class="auth-button-text">Create account</span>
+                            <div class="auth-loading" style="display: none;">
+                                <div class="auth-spinner"></div>
+                            </div>
+                        </button>
+                    </form>
+                    
+                    <div class="auth-pricing">
+                        <div class="pricing-info">
+                            <span class="pricing-amount">$6.99 USD</span>
+                            <span class="pricing-period">per month</span>
+                        </div>
+                    </div>
+                    
+                    <div class="auth-divider">
+                        <span>or</span>
+                    </div>
+                    
+                    <div class="auth-footer">
+                        <p>Already have an account? <a href="/login" class="auth-link">Sign in</a></p>
+                    </div>
+                    
+                    <div class="auth-security">
+                        <div class="security-note">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 1L10.5 3.5L14.5 2.5L13.5 6.5L16 9L13.5 11.5L14.5 15.5L10.5 14.5L8 17L5.5 14.5L1.5 15.5L2.5 11.5L0 9L2.5 6.5L1.5 2.5L5.5 3.5L8 1Z" fill="#1a73e8"/>
+                                <path d="M11 6L7 10L5 8" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span>All passwords are securely encrypted</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
 
-        })
-        } else {
-
-          // User is signed out.
-        }
-      }, function (error) {
-        console.log(error);
-      });
+    <style>
+    .auth-page {
+        min-height: 100vh;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Google Sans', Roboto, Arial, sans-serif;
+        padding: 20px;
     }
 
-      function signup() {
-        var email = $('#username').val();
-        var password = $('#userpass').val();
-        var isSuccessful = true
-        firebase.auth().createUserWithEmailAndPassword(email, password).catch(function (error) {
-          // Handle Errors here.
-          var errorCode = error.code;
-          var errorMessage = error.message;
-          $('#signupFormError').html(errorMessage);
-          $('#signupFormError').show();
-          $('#signupFormError').css('visibility', 'visible');
-          isSuccessful = false
-        }).then(function (status) {
-          if (isSuccessful) {
-            saveUser();
-            $('#signupFormError').hide();
+    .auth-container {
+        width: 100%;
+        max-width: 450px;
+    }
 
-          }
+    .auth-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
 
-        });
-      }
+    .auth-header {
+        padding: 48px 40px 32px;
+        text-align: center;
+        border-bottom: 1px solid #e8eaed;
+    }
+
+    .auth-logo {
+        margin-bottom: 16px;
+    }
+
+    .auth-title {
+        margin: 0 0 8px 0;
+        font-size: 24px;
+        font-weight: 400;
+        color: #202124;
+        line-height: 1.33;
+    }
+
+    .auth-subtitle {
+        margin: 0;
+        font-size: 16px;
+        color: #5f6368;
+        font-weight: 400;
+        line-height: 1.5;
+    }
+
+    .auth-body {
+        padding: 48px 40px;
+    }
+
+    .auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .auth-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .auth-input {
+        padding: 16px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        font-size: 16px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: white;
+        font-family: inherit;
+    }
+
+    .auth-input::placeholder {
+        color: #9aa0a6;
+    }
+
+    .auth-input:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .auth-input:hover {
+        border-color: #5f6368;
+    }
+
+    .auth-input.auth-input-error {
+        border-color: #d93025;
+    }
+
+    .auth-input.auth-input-error:focus {
+        border-color: #d93025;
+        box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.2);
+    }
+
+    .auth-help-text {
+        font-size: 12px;
+        color: #5f6368;
+        line-height: 1.33;
+    }
+
+    .auth-error {
+        background: #fce8e6;
+        color: #d93025;
+        padding: 12px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        border: 1px solid #fce8e6;
+        line-height: 1.43;
+    }
+
+    .auth-button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s, box-shadow 0.2s;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        font-family: inherit;
+        letter-spacing: 0.25px;
+    }
+
+    .auth-button-primary {
+        background: #1a73e8;
+        color: white;
+    }
+
+    .auth-button-primary:hover:not(:disabled) {
+        background: #1557b0;
+        box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    }
+
+    .auth-button-primary:active:not(:disabled) {
+        background: #1557b0;
+        box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
+    }
+
+    .auth-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .auth-button-text {
+        transition: opacity 0.2s;
+    }
+
+    .auth-loading {
+        position: absolute;
+    }
+
+    .auth-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid transparent;
+        border-top: 2px solid currentColor;
+        border-radius: 50%;
+        animation: auth-spin 1s linear infinite;
+    }
+
+    @keyframes auth-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .auth-pricing {
+        margin-top: 24px;
+        text-align: center;
+    }
+
+    .pricing-info {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+        background: #f8f9fa;
+        padding: 8px 16px;
+        border-radius: 16px;
+        border: 1px solid #e8eaed;
+    }
+
+    .pricing-amount {
+        font-size: 16px;
+        font-weight: 500;
+        color: #202124;
+    }
+
+    .pricing-period {
+        font-size: 14px;
+        color: #5f6368;
+    }
+
+    .auth-divider {
+        margin: 32px 0;
+        position: relative;
+        text-align: center;
+    }
+
+    .auth-divider::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #dadce0;
+    }
+
+    .auth-divider span {
+        background: white;
+        padding: 0 16px;
+        color: #5f6368;
+        font-size: 14px;
+        font-weight: 400;
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-bottom: 24px;
+    }
+
+    .auth-footer p {
+        margin: 0;
+        font-size: 14px;
+        color: #5f6368;
+        line-height: 1.43;
+    }
+
+    .auth-link {
+        color: #1a73e8;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    .auth-link:hover {
+        text-decoration: underline;
+    }
+
+    .auth-security {
+        border-top: 1px solid #e8eaed;
+        padding-top: 24px;
+    }
+
+    .security-note {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #5f6368;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 480px) {
+        .auth-page {
+            padding: 10px;
+        }
+        
+        .auth-header,
+        .auth-body {
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+        
+        .auth-header {
+            padding-top: 32px;
+            padding-bottom: 24px;
+        }
+        
+        .auth-body {
+            padding-top: 32px;
+            padding-bottom: 32px;
+        }
+        
+        .auth-input {
+            padding: 14px 16px;
+            font-size: 16px; /* Prevent zoom on iOS */
+        }
+    }
+    </style>
+    
+    <script>
+    // Email validation
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    // Password validation
+    function isValidPassword(password) {
+        return password && password.length >= 6;
+    }
+
+    function setInputError(inputId, hasError) {
+        const input = document.getElementById(inputId);
+        if (input) {
+            if (hasError) {
+                input.classList.add('auth-input-error');
+            } else {
+                input.classList.remove('auth-input-error');
+            }
+        }
+    }
+
+    function setLoading(loading) {
+        const button = document.querySelector('.auth-button');
+        const buttonText = button?.querySelector('.auth-button-text');
+        const loadingSpinner = button?.querySelector('.auth-loading');
+        
+        if (button) {
+            button.disabled = loading;
+            if (buttonText) buttonText.style.opacity = loading ? '0' : '1';
+            if (loadingSpinner) loadingSpinner.style.display = loading ? 'block' : 'none';
+        }
+    }
+
+    document.getElementById('signup-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const email = formData.get('email');
+        const password = formData.get('password');
+        const passwordConfirm = formData.get('password_confirm');
+        const errorDiv = document.getElementById('signup-error');
+        
+        // Clear previous errors
+        errorDiv.style.display = 'none';
+        setInputError('email', false);
+        setInputError('password', false);
+        setInputError('password-confirm', false);
+        
+        // Client-side validation
+        let hasErrors = false;
+        
+        if (!email || !isValidEmail(email)) {
+            setInputError('email', true);
+            hasErrors = true;
+        }
+        
+        if (!isValidPassword(password)) {
+            setInputError('password', true);
+            hasErrors = true;
+        }
+        
+        if (password !== passwordConfirm) {
+            setInputError('password-confirm', true);
+            errorDiv.textContent = 'Passwords do not match';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        if (hasErrors) {
+            if (!isValidEmail(email)) {
+                errorDiv.textContent = 'Please enter a valid email address';
+            } else if (!isValidPassword(password)) {
+                errorDiv.textContent = 'Password must be at least 6 characters long';
+            }
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        setLoading(true);
+        
+        try {
+            const response = await fetch('/api/signup', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Success - set session and redirect
+                document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
+                window.location.href = '/subscribe';
+            } else {
+                let errorMessage = 'Account creation failed';
+                if (response.status === 409) {
+                    errorMessage = 'An account with this email already exists';
+                } else if (response.status === 429) {
+                    errorMessage = 'Too many attempts. Please try again later.';
+                } else if (result.detail) {
+                    errorMessage = result.detail;
+                }
+                
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+                setLoading(false);
+            }
+        } catch (error) {
+            errorDiv.textContent = 'Network error. Please check your connection and try again.';
+            errorDiv.style.display = 'block';
+            setLoading(false);
+        }
+    });
+
+    // Real-time validation
+    document.getElementById('email').addEventListener('blur', function() {
+        if (this.value && !isValidEmail(this.value)) {
+            setInputError('email', true);
+        } else {
+            setInputError('email', false);
+        }
+    });
+
+    document.getElementById('email').addEventListener('input', function() {
+        if (this.classList.contains('auth-input-error') && isValidEmail(this.value)) {
+            setInputError('email', false);
+        }
+    });
+
+    document.getElementById('password').addEventListener('input', function() {
+        const isValid = isValidPassword(this.value);
+        if (this.classList.contains('auth-input-error') && isValid) {
+            setInputError('password', false);
+        }
+        
+        // Check password confirmation match
+        const confirmInput = document.getElementById('password-confirm');
+        if (confirmInput && confirmInput.value) {
+            if (this.value === confirmInput.value) {
+                setInputError('password-confirm', false);
+            } else {
+                setInputError('password-confirm', true);
+            }
+        }
+    });
+
+    document.getElementById('password-confirm').addEventListener('input', function() {
+        const passwordInput = document.getElementById('password');
+        if (passwordInput && this.value) {
+            if (passwordInput.value === this.value) {
+                setInputError('password-confirm', false);
+            } else {
+                setInputError('password-confirm', true);
+            }
+        }
+    });
     </script>
-    <div id="firebaseui-auth-container"></div>
-
-    <div class="demo-ribbon"></div>
-    <main class="demo-main mdl-layout mdl-layout__content">
-        <div class="demo-container mdl-grid">
-            <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
-            <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
-
-                <h4>Signup</h4>
-                <p>$6.99 USD per month</p>
-                <div class="mdl-card__supporting-text">
-                    <form action="#">
-                        <div class="mdl-textfield mdl-js-textfield">
-                            <input class="mdl-textfield__input" type="text" id="username"/>
-                            <label class="mdl-textfield__label" for="username">Email</label>
-                        </div>
-                        <div class="mdl-textfield mdl-js-textfield">
-                            <input class="mdl-textfield__input" type="password" id="userpass"/>
-                            <label class="mdl-textfield__label" for="userpass">Password</label>
-                        </div>
-                        <p id="signupFormError" class="small-note mdl-textfield__error"></p>
-                    </form>
-                </div>
-                <div class="mdl-card__actions mdl-card--border">
-                    <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect"
-                            onclick="signup()">
-                        Sign Up
-                    </button> or  <a href="/login">login</a>
-                </div>
-                <p class="small-note"><i class="material-icons small-note">lock</i> All passwords are securely one way
-                    encrypted</p>
-            </div>
-
-        </div>
-
-    </main>
 {% endblock %}

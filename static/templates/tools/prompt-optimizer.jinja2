@@ -1,0 +1,41 @@
+
+{% set default_prompt = 'make an artistic painting of shapes' %}
+{% set default_evolve = 'make this clearer and describing a nicer more complete visual description' %}
+{% set default_judge = 'how well does this do at aesthetics, describing a nice looking scene but also being faithful' %}
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/tools" title="Tools">Tools</a> > Prompt Optimizer
+            </div>
+            <h3>Prompt Optimizer</h3>
+            <p>Improve your prompts using Claude. Provide an initial prompt, a judge prompt to evaluate, and an evolution instruction.</p>
+            <div>
+                <label for="initial-prompt">Initial Prompt</label>
+                <textarea id="initial-prompt" rows="3" style="width:100%;">{{ default_prompt }}</textarea>
+            </div>
+            <div>
+                <label for="evolve-prompt">Evolution Prompt</label>
+                <textarea id="evolve-prompt" rows="3" style="width:100%;">{{ default_evolve }}</textarea>
+            </div>
+            <div>
+                <label for="judge-prompt">Judge Prompt</label>
+                <textarea id="judge-prompt" rows="3" style="width:100%;">{{ default_judge }}</textarea>
+            </div>
+            <button id="optimize-btn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="margin-top: 10px;">Optimize</button>
+            <h5>Final Prompt</h5>
+            <pre id="final-prompt"></pre>
+            <h5>Evaluation History</h5>
+            <table class="mdl-data-table mdl-js-data-table" id="results-table" style="width:100%;">
+                <thead>
+                    <tr><th>Prompt</th><th>Feedback</th><th>Score</th></tr>
+                </thead>
+                <tbody id="results-body"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+<script src="{{ static_url }}/js/prompt-optimizer.js" defer></script>

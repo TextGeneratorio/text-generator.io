@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Modals</title>
+    <link rel="stylesheet" href="{{ static_url }}/css/material.min.css">
+    <link rel="stylesheet" href="{{ static_url }}/css/mdl-selectfield.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="{{ static_url }}/css/dialog-polyfill.css">
+</head>
+<body>
+    {% include "/templates/shared/header.jinja2" %}
+    
+    <div style="padding: 40px; text-align: center;">
+        <h1>Modal Test Page</h1>
+        <p>Click the buttons below to test the modal functionality:</p>
+        
+        <button onclick="showLoginModal()" style="margin: 10px; padding: 15px 30px; font-size: 16px; background: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Show Login Modal
+        </button>
+        
+        <button onclick="showSignupModal()" style="margin: 10px; padding: 15px 30px; font-size: 16px; background: #34a853; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Show Signup Modal
+        </button>
+        
+        <div style="margin-top: 40px;">
+            <h2>Navigation Links</h2>
+            <p><a href="/login">Standalone Login Page</a></p>
+            <p><a href="/signup">Standalone Signup Page</a></p>
+            <p><a href="/">Home Page</a></p>
+        </div>
+        
+        <div style="margin-top: 40px;">
+            <h2>Current User Status</h2>
+            <div id="user-status">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        // Test if modal functions are available
+        window.addEventListener('load', function() {
+            console.log('Modal functions available:');
+            console.log('showLoginModal:', typeof showLoginModal);
+            console.log('showSignupModal:', typeof showSignupModal);
+            console.log('closeLoginModal:', typeof closeLoginModal);
+            console.log('closeSignupModal:', typeof closeSignupModal);
+            
+            // Check current user status
+            checkCurrentUserStatus();
+        });
+        
+        async function checkCurrentUserStatus() {
+            try {
+                const response = await fetch('/api/current-user');
+                const statusDiv = document.getElementById('user-status');
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    statusDiv.innerHTML = `<strong>Logged in as:</strong> ${user.email} (ID: ${user.id})`;
+                } else {
+                    statusDiv.innerHTML = '<strong>Not logged in</strong>';
+                }
+            } catch (error) {
+                document.getElementById('user-status').innerHTML = '<strong>Error checking status</strong>';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -19,17 +19,17 @@
             <a class="mdl-navigation__link" href="/playground">Playground</a>
             <a class="mdl-navigation__link" href="/ai-text-editor">AI Text Editor</a>
             <a class="mdl-navigation__link" href="/docs">Docs</a>
-            <a class="header-login-signup mdl-navigation__link" href="#" id="login-link">Login</a>
-            <a class="header-login-signup mdl-navigation__link" href="/signup">Signup</a>
+            <a class="header-login-signup mdl-navigation__link" href="#" onclick="showLoginModal()">Login</a>
+            <a class="header-login-signup mdl-navigation__link" href="#" onclick="showSignupModal()">Signup</a>
             <a class="header-login-signout header-subscribe mdl-navigation__link" href="/subscribe"
                style="display: none;">Subscribe</a>
-            <a class="header-login-signout mdl-navigation__link" id="log-out" href="/logout" onclick="signout()"
+            <a class="header-login-signout mdl-navigation__link" id="log-out" href="/logout" onclick="logout()"
             style="display: none;">Log out</a>
-            <a class="header-account mdl-navigation__link" href="/account">Account</a>
+            <a class="header-account mdl-navigation__link" href="/account" style="display: none;">Account</a>
         </nav>
     </div>
 </header>
-    <div class="mdl-layout__drawer">
+<div class="mdl-layout__drawer">
     <img class="brain-icon-header-draw" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="42" height="42">
 
     <a href="/" class="mdl-layout-title" title="Text Generator">Text Generator</a>
@@ -38,37 +38,865 @@
         <a class="mdl-navigation__link" href="/playground"><i class="material-icons dp48">play_arrow</i> Playground</a>
         <a class="mdl-navigation__link" href="/ai-text-editor"><i class="material-icons dp48">edit</i> AI Text Editor</a>
         <a class="mdl-navigation__link" href="/text-to-speech"><i class="material-icons dp48">volume_up</i> Text To Speech</a>
-        <a class="mdl-navigation__link" href="/speech-to-text"><i class="material-icons dp48">graphic_eq</i> Speech To Text</a>
         <a class="mdl-navigation__link" href="/docs"><i class="material-icons dp48">android</i> Docs</a>
-        <a class="header-login-signup mdl-navigation__link" href="#" id="login-link-mobile"><i class="material-icons dp48">login</i> Login</a>
+        <a class="header-login-signup mdl-navigation__link" href="#" onclick="showLoginModal()"><i class="material-icons dp48">login</i> Login</a>
         <a class="header-subscribe mdl-navigation__link" href="/subscribe"><i class="material-icons dp48">payments</i> Subscribe</a>
-        <a class="header-login-signup mdl-navigation__link" href="/signup"><i class="material-icons dp48">draw</i> Signup</a>
-        <a class="header-account mdl-navigation__link" href="/account"><i class="material-icons dp48">person</i> Account</a>
+        <a class="header-login-signup mdl-navigation__link" href="#" onclick="showSignupModal()"><i class="material-icons dp48">draw</i> Signup</a>
+        <a class="header-account mdl-navigation__link" href="/account" style="display: none;"><i class="material-icons dp48">person</i> Account</a>
     </nav>
 </div>
 
-<dialog id="login-dialog">
-    <form method="post" id="login-form">
-        <input type="email" name="email" placeholder="Email" required><br>
-        <input type="password" name="password" placeholder="Password" required><br>
-        <button type="submit">Login / Set Password</button>
-    </form>
-</dialog>
+<!-- Login Modal -->
+<div id="login-modal" class="auth-modal" style="display: none;">
+    <div class="auth-modal-overlay" onclick="closeLoginModal()"></div>
+    <div class="auth-modal-content">
+        <div class="auth-modal-header">
+            <div class="auth-logo">
+                <img src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator" width="32" height="32">
+            </div>
+            <h3 class="auth-modal-title">Sign in</h3>
+            <p class="auth-modal-subtitle">to continue to Text Generator</p>
+            <button class="auth-modal-close" onclick="closeLoginModal()">&times;</button>
+        </div>
+        <div class="auth-modal-body">
+            <form id="login-form" class="auth-form">
+                <div class="auth-input-group">
+                    <input type="email" id="login-email" name="email" class="auth-input" placeholder="Email" required>
+                </div>
+                <div class="auth-input-group">
+                    <input type="password" id="login-password" name="password" class="auth-input" placeholder="Password" required>
+                </div>
+                <div id="login-error" class="auth-error" style="display: none;"></div>
+                <button type="submit" class="auth-button auth-button-primary">
+                    <span class="auth-button-text">Sign in</span>
+                    <div class="auth-loading" style="display: none;">
+                        <div class="auth-spinner"></div>
+                    </div>
+                </button>
+            </form>
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="#" onclick="switchToSignup()" class="auth-link">Create account</a></p>
+                <div class="auth-help-links">
+                    <a href="#" class="auth-link-small">Forgot password?</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Signup Modal -->
+<div id="signup-modal" class="auth-modal" style="display: none;">
+    <div class="auth-modal-overlay" onclick="closeSignupModal()"></div>
+    <div class="auth-modal-content">
+        <div class="auth-modal-header">
+            <div class="auth-logo">
+                <img src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator" width="32" height="32">
+            </div>
+            <h3 class="auth-modal-title">Create your account</h3>
+            <p class="auth-modal-subtitle">to continue to Text Generator</p>
+            <button class="auth-modal-close" onclick="closeSignupModal()">&times;</button>
+        </div>
+        <div class="auth-modal-body">
+            <form id="signup-form" class="auth-form">
+                <div class="auth-input-group">
+                    <input type="email" id="signup-email" name="email" class="auth-input" placeholder="Email" required>
+                </div>
+                <div class="auth-input-group">
+                    <input type="password" id="signup-password" name="password" class="auth-input" placeholder="Password" required minlength="6">
+                    <div class="auth-help-text">Use 8 or more characters with a mix of letters, numbers & symbols</div>
+                </div>
+                <div class="auth-input-group">
+                    <input type="password" id="signup-password-confirm" name="password_confirm" class="auth-input" placeholder="Confirm password" required minlength="6">
+                </div>
+                <div id="signup-error" class="auth-error" style="display: none;"></div>
+                <button type="submit" class="auth-button auth-button-primary">
+                    <span class="auth-button-text">Create account</span>
+                    <div class="auth-loading" style="display: none;">
+                        <div class="auth-spinner"></div>
+                    </div>
+                </button>
+            </form>
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            <div class="auth-footer">
+                <p>Already have an account? <a href="#" onclick="switchToLogin()" class="auth-link">Sign in</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSS Styles for Firebase-like UI -->
+<style>
+.auth-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Google Sans', Roboto, Arial, sans-serif;
+}
+
+.auth-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.auth-modal-content {
+    position: relative;
+    background: white;
+    border-radius: 8px;
+    max-width: 450px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    animation: auth-modal-appear 0.2s cubic-bezier(0.0, 0.0, 0.2, 1);
+}
+
+@keyframes auth-modal-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(40px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.auth-modal-header {
+    padding: 48px 40px 0;
+    text-align: center;
+    position: relative;
+}
+
+.auth-logo {
+    margin-bottom: 16px;
+}
+
+.auth-modal-title {
+    margin: 0 0 8px 0;
+    font-size: 24px;
+    font-weight: 400;
+    color: #202124;
+    line-height: 1.33;
+}
+
+.auth-modal-subtitle {
+    margin: 0 0 32px 0;
+    font-size: 16px;
+    color: #5f6368;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.auth-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #5f6368;
+    padding: 8px;
+    border-radius: 50%;
+    line-height: 1;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.auth-modal-close:hover {
+    background: #f1f3f4;
+    color: #202124;
+}
+
+.auth-modal-body {
+    padding: 0 40px 48px;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.auth-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.auth-input {
+    padding: 16px;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: white;
+    font-family: inherit;
+}
+
+.auth-input::placeholder {
+    color: #9aa0a6;
+}
+
+.auth-input:focus {
+    outline: none;
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+}
+
+.auth-input:hover {
+    border-color: #5f6368;
+}
+
+.auth-input.auth-input-error {
+    border-color: #d93025;
+}
+
+.auth-input.auth-input-error:focus {
+    border-color: #d93025;
+    box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.2);
+}
+
+.auth-help-text {
+    font-size: 12px;
+    color: #5f6368;
+    line-height: 1.33;
+}
+
+.auth-error {
+    background: #fce8e6;
+    color: #d93025;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    border: 1px solid #fce8e6;
+    line-height: 1.43;
+}
+
+.auth-button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    font-family: inherit;
+    letter-spacing: 0.25px;
+}
+
+.auth-button-primary {
+    background: #ff6b35;
+    color: white;
+}
+
+.auth-button-primary:hover:not(:disabled) {
+    background: #e55a2b;
+    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.auth-button-primary:active:not(:disabled) {
+    background: #cc4d24;
+    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
+}
+
+.auth-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.auth-button-text {
+    transition: opacity 0.2s;
+}
+
+.auth-loading {
+    position: absolute;
+}
+
+.auth-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: auth-spin 1s linear infinite;
+}
+
+@keyframes auth-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.auth-divider {
+    margin: 32px 0;
+    position: relative;
+    text-align: center;
+}
+
+.auth-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #dadce0;
+}
+
+.auth-divider span {
+    background: white;
+    padding: 0 20px;
+    color: #5f6368;
+    font-size: 14px;
+    font-weight: 400;
+    position: relative;
+    z-index: 1;
+}
+
+.auth-footer {
+    text-align: center;
+}
+
+.auth-footer p {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: #5f6368;
+    line-height: 1.43;
+}
+
+.auth-link {
+    color: #1a73e8;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+.auth-link-small {
+    color: #1a73e8;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.auth-link-small:hover {
+    text-decoration: underline;
+}
+
+.auth-help-links {
+    margin-top: 8px;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+    .auth-modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+    
+    .auth-modal-header,
+    .auth-modal-body {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+    
+    .auth-modal-header {
+        padding-top: 32px;
+    }
+    
+    .auth-modal-body {
+        padding-bottom: 32px;
+    }
+    
+    .auth-input {
+        padding: 14px 16px;
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+}
+
+/* Focus trap for accessibility */
+.auth-modal[aria-hidden="false"] {
+    display: flex;
+}
+
+.auth-modal[aria-hidden="true"] {
+    display: none;
+}
+</style>
 
 <script>
-    const loginDialog = document.getElementById('login-dialog');
-    function showLogin() { loginDialog.showModal(); }
-    document.getElementById('login-link').addEventListener('click', function(e){ e.preventDefault(); showLogin(); });
-    document.getElementById('login-link-mobile').addEventListener('click', function(e){ e.preventDefault(); showLogin(); });
-    document.getElementById('login-form').addEventListener('submit', async function(e){
-        e.preventDefault();
-        const formData = new FormData(this);
-        const resp = await fetch('/login', { method: 'POST', body: formData });
-        if (resp.status === 303) {
+// Modal management
+function showLoginModal() {
+    const modal = document.getElementById('login-modal');
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    
+    // Focus management
+    setTimeout(() => {
+        const emailInput = document.getElementById('login-email');
+        if (emailInput) {
+            emailInput.focus();
+        }
+    }, 100);
+}
+
+function showSignupModal() {
+    const modal = document.getElementById('signup-modal');
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    
+    // Focus management
+    setTimeout(() => {
+        const emailInput = document.getElementById('signup-email');
+        if (emailInput) {
+            emailInput.focus();
+        }
+    }, 100);
+}
+
+function closeLoginModal() {
+    const modal = document.getElementById('login-modal');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    
+    // Reset form
+    const form = document.getElementById('login-form');
+    if (form) form.reset();
+    
+    // Clear errors
+    const errorDiv = document.getElementById('login-error');
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    // Clear input states
+    clearInputErrors('login-form');
+    setLoginLoading(false);
+}
+
+function closeSignupModal() {
+    const modal = document.getElementById('signup-modal');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    
+    // Reset form
+    const form = document.getElementById('signup-form');
+    if (form) form.reset();
+    
+    // Clear errors
+    const errorDiv = document.getElementById('signup-error');
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    // Clear input states
+    clearInputErrors('signup-form');
+    setSignupLoading(false);
+}
+
+function switchToSignup() {
+    closeLoginModal();
+    setTimeout(showSignupModal, 100);
+}
+
+function switchToLogin() {
+    closeSignupModal();
+    setTimeout(showLoginModal, 100);
+}
+
+function clearInputErrors(formId) {
+    const form = document.getElementById(formId);
+    if (form) {
+        const inputs = form.querySelectorAll('.auth-input');
+        inputs.forEach(input => {
+            input.classList.remove('auth-input-error');
+        });
+    }
+}
+
+function setInputError(inputId, hasError) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        if (hasError) {
+            input.classList.add('auth-input-error');
+        } else {
+            input.classList.remove('auth-input-error');
+        }
+    }
+}
+
+function setLoginLoading(loading) {
+    const button = document.querySelector('#login-form .auth-button');
+    const buttonText = button?.querySelector('.auth-button-text');
+    const loadingSpinner = button?.querySelector('.auth-loading');
+    
+    if (button) {
+        button.disabled = loading;
+        if (buttonText) buttonText.style.opacity = loading ? '0' : '1';
+        if (loadingSpinner) loadingSpinner.style.display = loading ? 'block' : 'none';
+    }
+}
+
+function setSignupLoading(loading) {
+    const button = document.querySelector('#signup-form .auth-button');
+    const buttonText = button?.querySelector('.auth-button-text');
+    const loadingSpinner = button?.querySelector('.auth-loading');
+    
+    if (button) {
+        button.disabled = loading;
+        if (buttonText) buttonText.style.opacity = loading ? '0' : '1';
+        if (loadingSpinner) loadingSpinner.style.display = loading ? 'block' : 'none';
+    }
+}
+
+// Email validation
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+// Password validation
+function isValidPassword(password) {
+    return password && password.length >= 6;
+}
+
+// Authentication functions
+async function submitLogin() {
+    const form = document.getElementById('login-form');
+    const formData = new FormData(form);
+    const errorDiv = document.getElementById('login-error');
+    
+    const email = formData.get('email');
+    const password = formData.get('password');
+    
+    // Clear previous errors
+    errorDiv.style.display = 'none';
+    clearInputErrors('login-form');
+    
+    // Client-side validation
+    let hasErrors = false;
+    
+    if (!email || !isValidEmail(email)) {
+        setInputError('login-email', true);
+        hasErrors = true;
+    }
+    
+    if (!password) {
+        setInputError('login-password', true);
+        hasErrors = true;
+    }
+    
+    if (hasErrors) {
+        errorDiv.textContent = 'Please enter a valid email and password';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    setLoginLoading(true);
+    
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Success - set session and redirect
+            document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
+            closeLoginModal();
+            updateHeaderForLoggedInUser(result);
             window.location.href = '/playground';
         } else {
-            alert('Invalid credentials');
+            let errorMessage = 'Invalid email or password';
+            if (response.status === 429) {
+                errorMessage = 'Too many attempts. Please try again later.';
+            } else if (result.detail) {
+                errorMessage = result.detail;
+            }
+            
+            errorDiv.textContent = errorMessage;
+            errorDiv.style.display = 'block';
+            setLoginLoading(false);
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Network error. Please check your connection and try again.';
+        errorDiv.style.display = 'block';
+        setLoginLoading(false);
+    }
+}
+
+async function submitSignup() {
+    const form = document.getElementById('signup-form');
+    const formData = new FormData(form);
+    const errorDiv = document.getElementById('signup-error');
+    
+    const email = formData.get('email');
+    const password = formData.get('password');
+    const passwordConfirm = formData.get('password_confirm');
+    
+    // Clear previous errors
+    errorDiv.style.display = 'none';
+    clearInputErrors('signup-form');
+    
+    // Client-side validation
+    let hasErrors = false;
+    
+    if (!email || !isValidEmail(email)) {
+        setInputError('signup-email', true);
+        hasErrors = true;
+    }
+    
+    if (!isValidPassword(password)) {
+        setInputError('signup-password', true);
+        hasErrors = true;
+    }
+    
+    if (password !== passwordConfirm) {
+        setInputError('signup-password-confirm', true);
+        errorDiv.textContent = 'Passwords do not match';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (hasErrors) {
+        if (!isValidEmail(email)) {
+            errorDiv.textContent = 'Please enter a valid email address';
+        } else if (!isValidPassword(password)) {
+            errorDiv.textContent = 'Password must be at least 6 characters long';
+        }
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    setSignupLoading(true);
+    
+    try {
+        const response = await fetch('/api/signup', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Success - set session and redirect
+            document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
+            closeSignupModal();
+            updateHeaderForLoggedInUser(result);
+            window.location.href = '/subscribe';
+        } else {
+            let errorMessage = 'Account creation failed';
+            if (response.status === 409) {
+                errorMessage = 'An account with this email already exists';
+            } else if (response.status === 429) {
+                errorMessage = 'Too many attempts. Please try again later.';
+            } else if (result.detail) {
+                errorMessage = result.detail;
+            }
+            
+            errorDiv.textContent = errorMessage;
+            errorDiv.style.display = 'block';
+            setSignupLoading(false);
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Network error. Please check your connection and try again.';
+        errorDiv.style.display = 'block';
+        setSignupLoading(false);
+    }
+}
+
+// Form submission handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Login form submission
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitLogin();
+        });
+        
+        // Real-time validation for login
+        const loginEmail = document.getElementById('login-email');
+        const loginPassword = document.getElementById('login-password');
+        
+        if (loginEmail) {
+            loginEmail.addEventListener('blur', function() {
+                if (this.value && !isValidEmail(this.value)) {
+                    setInputError('login-email', true);
+                } else {
+                    setInputError('login-email', false);
+                }
+            });
+            
+            loginEmail.addEventListener('input', function() {
+                if (this.classList.contains('auth-input-error') && isValidEmail(this.value)) {
+                    setInputError('login-email', false);
+                }
+            });
+        }
+        
+        if (loginPassword) {
+            loginPassword.addEventListener('input', function() {
+                if (this.classList.contains('auth-input-error') && this.value) {
+                    setInputError('login-password', false);
+                }
+            });
+        }
+    }
+    
+    // Signup form submission
+    const signupForm = document.getElementById('signup-form');
+    if (signupForm) {
+        signupForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitSignup();
+        });
+        
+        // Real-time validation for signup
+        const signupEmail = document.getElementById('signup-email');
+        const signupPassword = document.getElementById('signup-password');
+        const signupPasswordConfirm = document.getElementById('signup-password-confirm');
+        
+        if (signupEmail) {
+            signupEmail.addEventListener('blur', function() {
+                if (this.value && !isValidEmail(this.value)) {
+                    setInputError('signup-email', true);
+                } else {
+                    setInputError('signup-email', false);
+                }
+            });
+            
+            signupEmail.addEventListener('input', function() {
+                if (this.classList.contains('auth-input-error') && isValidEmail(this.value)) {
+                    setInputError('signup-email', false);
+                }
+            });
+        }
+        
+        if (signupPassword) {
+            signupPassword.addEventListener('input', function() {
+                const isValid = isValidPassword(this.value);
+                if (this.classList.contains('auth-input-error') && isValid) {
+                    setInputError('signup-password', false);
+                }
+                
+                // Check password confirmation match
+                const confirmInput = document.getElementById('signup-password-confirm');
+                if (confirmInput && confirmInput.value) {
+                    if (this.value === confirmInput.value) {
+                        setInputError('signup-password-confirm', false);
+                    } else {
+                        setInputError('signup-password-confirm', true);
+                    }
+                }
+            });
+        }
+        
+        if (signupPasswordConfirm) {
+            signupPasswordConfirm.addEventListener('input', function() {
+                const passwordInput = document.getElementById('signup-password');
+                if (passwordInput && this.value) {
+                    if (passwordInput.value === this.value) {
+                        setInputError('signup-password-confirm', false);
+                    } else {
+                        setInputError('signup-password-confirm', true);
+                    }
+                }
+            });
+        }
+    }
+    
+    // Close modals with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeLoginModal();
+            closeSignupModal();
         }
     });
-</script>
+    
+    // Prevent form submission on Enter if in error state
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.classList.contains('auth-input-error')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
 
+function updateHeaderForLoggedInUser(user) {
+    // Hide login/signup links
+    document.querySelectorAll('.header-login-signup').forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Show logout and account links
+    document.querySelectorAll('.header-login-signout').forEach(el => {
+        el.style.display = 'block';
+    });
+    
+    document.querySelectorAll('.header-account').forEach(el => {
+        el.style.display = 'block';
+    });
+}
+
+async function logout() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        window.location.href = '/';
+    } catch (error) {
+        console.error('Logout error:', error);
+        // Force logout on client side even if server request fails
+        document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        window.location.href = '/';
+    }
+}
+
+// Check if user is logged in on page load
+window.addEventListener('load', function() {
+    checkAuthStatus();
+});
+
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/current-user');
+        if (response.ok) {
+            const user = await response.json();
+            updateHeaderForLoggedInUser(user);
+        }
+    } catch (error) {
+        console.log('Not logged in or error checking auth status');
+    }
+}
+</script>
