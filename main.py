@@ -492,7 +492,7 @@ async def logout(request: Request):
 
 
 @app.post("/api/create-user")
-async def create_user(create_user_request: CreateUserRequest):
+async def create_user_legacy(create_user_request: CreateUserRequest):
     email = create_user_request.email
     # emailVerified = create_user_request.emailVerified
     uid = create_user_request.uid
@@ -623,14 +623,13 @@ test_users = {}
 active_sessions = {}
 
 @app.post("/api/login")
-async def api_login(request: Request, email: str = Form(...), password: str = Form(...)):
+async def api_login(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     """Login endpoint with fallback to in-memory storage"""
     logger.info(f"Login attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
     
     if USE_POSTGRES:
         logger.info("Using PostgreSQL login")
         try:
-            db = next(get_db())
             user = login_or_create_user(email, password, db)
             set_session_for_user(user)
             
@@ -670,14 +669,13 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
 
 
 @app.post("/api/signup")
-async def api_signup(request: Request, email: str = Form(...), password: str = Form(...)):
+async def api_signup(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     """Signup endpoint with fallback to in-memory storage"""
     logger.info(f"Signup attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
     
     if USE_POSTGRES:
         logger.info("Using PostgreSQL signup")
         try:
-            db = next(get_db())
             user = create_user(email, password, db)
             set_session_for_user(user)
             
@@ -745,11 +743,11 @@ async def api_logout(request: Request):
 
 
 @app.get("/api/current-user")
-async def api_current_user(request: Request):
+async def api_current_user(request: Request, db: Session = Depends(get_db)):
     """Get current user information"""
     if USE_POSTGRES:
         try:
-            user = get_current_user(request)
+            user = get_current_user(request, db)
             if not user:
                 raise HTTPException(status_code=401, detail="Not authenticated")
             
@@ -1027,30 +1025,6 @@ def validate_generate_params(generate_params):
         validate_result = "Please enter some text"
     return validate_result
 
-
-@app.get("/api/current-user")
-async def get_current_user(request: Request):
-    # Get the secret from cookie or query param
-    secret = request.cookies.get("secret") or request.query_params.get("secret")
-
-    if not secret:
-        return JSONResponse({"error": "Not authenticated"}, status_code=401)
-
-    # Get user from session or database
-    user = session_dict.get(secret)
-    if not user:
-        user = User.bySecret(secret)
-        if user:
-            set_session_for_user(user)
-
-    if not user:
-        return JSONResponse({"error": "User not found"}, status_code=404)
-
-    # Return user data
-    user_dict = user.to_dict()
-    user_dict["secret"] = secret  # Include secret for client-side storage
-
-    return JSONResponse(user_dict)
 
 @app.get("/tools/text-generator-docs")
 async def text_generator_docs_redirect(request: Request):
