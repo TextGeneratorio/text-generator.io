@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, HTTPException
 from starlette.responses import JSONResponse
-from sqlalchemy.orm import Session
 import logging
 from questions.logging_config import setup_logging
-from questions.db_models_postgres import Document, get_db
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Assuming models are accessible like this, adjust if necessary
+from questions.db_models import Document, User 
 
 router = APIRouter(
     prefix="/api/docs",
@@ -14,7 +15,7 @@ router = APIRouter(
 )
 
 @router.get("/list")
-async def list_documents_route(request: Request, db: Session = Depends(get_db)):
+async def list_documents_route(request: Request):
     user_id = request.query_params.get("userId")
     if not user_id:
         # Consider fetching userId from authenticated session/token if possible
@@ -22,8 +23,14 @@ async def list_documents_route(request: Request, db: Session = Depends(get_db)):
         return JSONResponse({"error": "User ID is required"}, status_code=400)
     
     try:
-        documents = Document.get_by_user_id(db, user_id)
-        docs_list = [doc.to_dict() for doc in documents]
+        documents = Document.byUserId(user_id)
+        docs_list = []
+        for doc in documents:
+            doc_dict = doc.to_dict()
+            # Ensure ID is included correctly if key is available
+            if doc.key:
+                 doc_dict["id"] = doc.key.id()
+            docs_list.append(doc_dict)
         
         return JSONResponse({"documents": docs_list})
     except Exception as e:
@@ -31,19 +38,24 @@ async def list_documents_route(request: Request, db: Session = Depends(get_db)):
         return JSONResponse({"error": "Failed to list documents"}, status_code=500)
 
 @router.get("/get")
-async def get_document_route(request: Request, db: Session = Depends(get_db)):
+async def get_document_route(request: Request):
     doc_id_str = request.query_params.get("id")
     if not doc_id_str:
         return JSONResponse({"error": "Document ID is required"}, status_code=400)
     
     try:
-        doc_id = int(doc_id_str)
-        document = Document.get_by_id(db, doc_id)
+        # Assuming ID is numeric, handle potential errors if it's not
+        # doc_id = int(doc_id_str) # NDB keys can be string or int, check model usage
+        document = Document.byId(doc_id_str) # Assuming byId handles string/int ID
         
         if not document:
             return JSONResponse({"error": "Document not found"}, status_code=404)
         
-        return JSONResponse(document.to_dict())
+        doc_dict = document.to_dict()
+        if document.key:
+            doc_dict["id"] = document.key.id()
+        
+        return JSONResponse(doc_dict)
     except ValueError:
          logger.error(f"Invalid Document ID format: {doc_id_str}")
          return JSONResponse({"error": "Invalid Document ID format"}, status_code=400)
@@ -52,7 +64,7 @@ async def get_document_route(request: Request, db: Session = Depends(get_db)):
         return JSONResponse({"error": "Failed to get document"}, status_code=500)
 
 @router.post("/save")
-async def save_document_route(request: Request, db: Session = Depends(get_db)):
+async def save_document_route(request: Request):
     try:
         data = await request.json()
         user_id = data.get("userId")
@@ -66,7 +78,7 @@ async def save_document_route(request: Request, db: Session = Depends(get_db)):
         
         document = None
         if doc_id:
-            document = Document.get_by_id(db, doc_id)
+            document = Document.byId(doc_id)
             if document and document.user_id != user_id:
                  # Prevent user from saving over someone else's doc
                  logger.warning(f"User {user_id} attempted to save document {doc_id} owned by {document.user_id}")
@@ -79,30 +91,30 @@ async def save_document_route(request: Request, db: Session = Depends(get_db)):
                 title=title,
                 content=content
             )
-            db.add(document)
-            db.commit()
-            db.refresh(document)
             logger.info(f"Creating new document for user {user_id}")
         else:
             # Update existing document
             document.title = title
             document.content = content
-            db.commit()
-            db.refresh(document)
             logger.info(f"Updating document {doc_id} for user {user_id}")
 
+        # Save document
+        key = Document.save(document)
+        saved_id = key.id() if key else doc_id # Use key ID if available
+        
         return JSONResponse({
-            "id": document.id,
+            "id": saved_id,
             "success": True,
             "message": "Document saved successfully"
         })
     except Exception as e:
-        logger.exception(f"Error saving document: {e}")
-        db.rollback()
+        logger.exception(f"Error saving document for user {user_id}: {e}") # Use logger.exception for stack trace
         return JSONResponse({"error": "Failed to save document"}, status_code=500)
 
 @router.post("/autosave")
-async def autosave_document_route(request: Request, db: Session = Depends(get_db)):
+async def autosave_document_route(request: Request):
+    # This can reuse the save logic
+    # For simplicity, duplicating logic slightly, could refactor later
     try:
         data = await request.json()
         user_id = data.get("userId")
@@ -116,7 +128,7 @@ async def autosave_document_route(request: Request, db: Session = Depends(get_db
         
         document = None
         if doc_id:
-            document = Document.get_by_id(db, doc_id)
+            document = Document.byId(doc_id)
             if document and document.user_id != user_id:
                  # Prevent user from saving over someone else's doc
                  logger.warning(f"User {user_id} attempted to autosave document {doc_id} owned by {document.user_id}")
@@ -129,23 +141,23 @@ async def autosave_document_route(request: Request, db: Session = Depends(get_db
                 title=title,
                 content=content
             )
-            db.add(document)
-            db.commit()
-            db.refresh(document)
+            # logger.info(f"Creating new document via autosave for user {user_id}") # Less verbose for autosave
         else:
             # Update existing document
             document.title = title
             document.content = content
-            db.commit()
-            db.refresh(document)
+            # logger.info(f"Autosaving document {doc_id} for user {user_id}") # Less verbose
         
+        # Save document
+        key = Document.save(document)
+        saved_id = key.id() if key else doc_id # Use key ID if available
+
         return JSONResponse({
-            "id": document.id,
+            "id": saved_id, # Return the ID (new or existing)
             "success": True,
             "message": "Document autosaved"
         })
     except Exception as e:
         # Avoid logging full exceptions for frequent autosaves unless debugging
-        logger.error(f"Error autosaving document: {e}") 
-        db.rollback()
-        return JSONResponse({"error": "Failed to autosave document"}, status_code=500)
+        logger.error(f"Error autosaving document for user {user_id}: {e}") 
+        return JSONResponse({"error": "Failed to autosave document"}, status_code=500) 

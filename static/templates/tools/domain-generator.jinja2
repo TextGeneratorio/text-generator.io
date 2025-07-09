@@ -40,14 +40,17 @@
 <script>
 
     function initApp() {
-        firebase.auth().onAuthStateChanged(function (user) {
-            if (user) {
-                // User is signed in.
-                var displayName = user.displayName;
-                var email = user.email;
-                var emailVerified = user.emailVerified;
-                var photoURL = user.photoURL;
-                var uid = user.uid;
+        // Check PostgreSQL authentication
+        checkAuthStatus();
+    }
+
+    async function checkAuthStatus() {
+        try {
+            const response = await fetch('/api/current-user');
+            if (response.ok) {
+                const user = await response.json();
+                // User is signed in
+                window.user = user;
                 var phoneNumber = user.phoneNumber;
                 var providerData = user.providerData;
                 getUserWithStripe(user, function (data) {

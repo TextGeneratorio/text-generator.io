@@ -39,8 +39,8 @@ except Exception as e:
     class Document:
         pass
 
-# For testing purposes, force USE_POSTGRES to False
-USE_POSTGRES = False
+# Enable PostgreSQL for production use
+USE_POSTGRES = True
 
 # Import new PostgreSQL models and auth
 try:
@@ -50,7 +50,7 @@ try:
         require_auth, create_user, authenticate_user
     )
     # Test if the functions actually work with a proper database
-    # USE_POSTGRES = True  # Commented out for testing
+    USE_POSTGRES = True  # Enable PostgreSQL for production
     try:
         # Test if we can actually get a database session
         test_db = get_db()

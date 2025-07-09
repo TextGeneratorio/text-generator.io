@@ -1,43 +1,43 @@
 <script type="text/javascript">
-    firebase.auth().onAuthStateChanged(function (user) {
-        if (user) {
-            // User is signed in.
-            var displayName = user.displayName;
-            var email = user.email;
-            var emailVerified = user.emailVerified;
-            var photoURL = user.photoURL;
-            var uid = user.uid;
-            var phoneNumber = user.phoneNumber;
-            var providerData = user.providerData;
-            //TODO err handler ?
+// PostgreSQL-based authentication check
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/current-user');
+        if (response.ok) {
+            const user = await response.json();
             window.user = user;
+            setupSubscription(user);
         } else {
-            window.location.href = '/signup';
-            // User is signed out.
+            // User not logged in, redirect to login
+            window.location.href = '/login';
         }
-    }, function (error) {
-        console.log(error);
-    });
-
-    function signup() {
-        var email = $('#username').val();
-        var password = $('#userpass').val();
-        var isSuccessful = true
-        firebase.auth().createUserWithEmailAndPassword(email, password).catch(function (error) {
-            // Handle Errors here.
-            var errorCode = error.code;
-            var errorMessage = error.message;
-            $('#signupFormError').html(errorMessage);
-            $('#signupFormError').show();
-            $('#signupFormError').css('visibility', 'visible');
-            isSuccessful = false
-        }).then(function (status) {
-            if (isSuccessful) {
-                saveUser();
-                $('#signupFormError').hide();
-            }
-        });
+    } catch (error) {
+        console.log('Auth check error:', error);
+        window.location.href = '/login';
     }
+}
+
+// Setup subscription UI for authenticated user
+function setupSubscription(user) {
+    $('.subscribe-uid').val(user.id);
+    $('.subscribe-secret').val(user.secret);
+    $('.checkout-button').attr('disabled', false);
+    
+    // Show user info if needed
+    if (user.email) {
+        $('.user-email').text(user.email);
+    }
+}
+
+// Legacy signup function (should redirect to main signup)
+function signup() {
+    window.location.href = '/signup';
+}
+
+// Check auth status on page load
+window.addEventListener('load', function() {
+    checkAuthStatus();
+});
 </script>
 <script src="https://checkout.stripe.com/checkout.js"></script>
 <script defer>
@@ -82,22 +82,9 @@
     window.addEventListener('popstate', function () {
         handler.close();
     });
-    firebase.auth().onAuthStateChanged(function (user) {
-        if (user) {
-            window.user = user;
-            // open stripe straight away
-            getUser(user, function (userData) {
-
-                $('.subscribe-uid').val(userData.id)
-                $('.subscribe-secret').val(userData.secret)
-                $('.checkout-button').attr('disabled', false);
-                // keep number field positive
-            })
-        } else {
-            window.location.href = '/signup';
-            // User is signed out.
-        }
-    }, function (error) {
+    
+    // Check auth status and setup subscription
+    checkAuthStatus();
         console.log(error);
     });
 
@@ -173,7 +160,7 @@
         transform: translateX(26px);
     }
 </style>
-<div id="firebaseui-auth-container"></div>
+<!-- Firebase UI container removed - using PostgreSQL authentication -->
 
 <div class="demo-ribbon"></div>
 <main class="demo-main mdl-layout mdl-layout__content">

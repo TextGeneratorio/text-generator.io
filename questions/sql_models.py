@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime
+from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -77,6 +77,47 @@ class User(BaseModel):
             session.commit()
             session.refresh(user)
             return user
+
+
+class Document(BaseModel):
+    __tablename__ = 'documents'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=False, index=True)
+    title = Column(String, default="Untitled Document")
+    content = Column(Text)
+    created = Column(DateTime, default=datetime.utcnow)
+    updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @classmethod
+    def byId(cls, id):
+        with SessionLocal() as session:
+            return session.query(cls).filter_by(id=id).first()
+
+    @classmethod
+    def byUserId(cls, user_id):
+        with SessionLocal() as session:
+            return session.query(cls).filter_by(user_id=user_id).order_by(cls.updated.desc()).all()
+
+    @classmethod
+    def save(cls, document):
+        with SessionLocal() as session:
+            if document.id:
+                # Update existing document
+                existing = session.query(cls).filter_by(id=document.id).first()
+                if existing:
+                    existing.title = document.title
+                    existing.content = document.content
+                    existing.updated = datetime.utcnow()
+                    session.commit()
+                    session.refresh(existing)
+                    return existing
+            else:
+                # Create new document
+                session.add(document)
+                session.commit()
+                session.refresh(document)
+                return document
 
 # Initialize the tables if they don't exist
 Base.metadata.create_all(bind=engine)

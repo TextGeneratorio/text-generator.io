@@ -94,15 +94,23 @@ print(requests.post(url, json=data, headers=headers).json())
     const codeBtn = document.getElementById('toggleCode');
     const codeExamples = document.getElementById('codeExamples');
     let secret = null;
-    if (typeof firebase !== 'undefined') {
-        firebase.auth().onAuthStateChanged(function(user) {
-            if (user) {
-                getUserWithStripe(user, function(data){
-                    secret = data['secret'];
-                });
+    
+    // Check PostgreSQL authentication
+    async function checkAuthAndGetSecret() {
+        try {
+            const response = await fetch('/api/current-user');
+            if (response.ok) {
+                const user = await response.json();
+                secret = user.secret;
             }
-        });
+        } catch (error) {
+            console.log('User not authenticated');
+        }
     }
+    
+    // Get user secret on page load
+    checkAuthAndGetSecret();
+    
     codeBtn.addEventListener('click', () => {
         codeExamples.classList.toggle('hidden');
     });

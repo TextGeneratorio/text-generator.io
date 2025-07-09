@@ -146,11 +146,8 @@ WEIGHTS_PATH=bigscience/bloom
 The embedding model is a smaller model.
 
 ```shell
-cd models
-git clone https://huggingface.co/answerdotai/ModernBERT-base
+huggingface-cli download answerdotai/ModernBERT-base --local-dir models/ModernBERT-base
 ```
-Set `BERT_CHECKPOINT` to override the default model path if needed.
-`BERT_DEVICE` can be set to "cpu" to force CPU embeddings.
 
 Generate embeddings from the command line with:
 ```shell

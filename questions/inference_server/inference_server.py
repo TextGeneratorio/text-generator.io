@@ -1341,5 +1341,3 @@ def tts_demo(request: Request):
 #     except Exception as e:
 #         logger.error(f"Error generating text with Claude: {e}")
 #         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
-
-if __name__ == "__main__":
