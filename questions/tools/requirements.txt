@@ -2,3 +2,4 @@ gradio
 aiohttp
 click
 h11
+python-multipart
