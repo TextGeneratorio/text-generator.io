@@ -189,6 +189,15 @@ class GetUserRequest(BaseModel):
     email: str  # todo fix vuln getting user by email
 
 
+class CreateCheckoutRequest(BaseModel):
+    uid: str = ""
+    secret: str = ""
+    email: Optional[str] = ""
+    type: Optional[str] = "monthly"  # legacy todo rm me
+    subscription_type: Optional[str] = "monthly"
+    referral: Optional[str] = ""
+
+
 def create_generate_params(
     text,
     number_of_results=1,

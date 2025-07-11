@@ -153,6 +153,9 @@ class TextGeneratorDocs {
     // Check user authentication
     const isAuthenticated = await this.checkUserAuthentication();
     
+    // Check subscription status and enforce premium restrictions
+    await this.checkSubscriptionStatus();
+    
     // Load documents if authenticated
     if ((isAuthenticated || this.userId) && this.documentsList) {
       this.loadDocuments();
@@ -435,6 +438,55 @@ class TextGeneratorDocs {
     return Math.abs(hash).toString(16);
   }
   
+  async checkSubscriptionStatus() {
+    try {
+      // Check if user is subscribed
+      const isSubscribed = await checkUserSubscription();
+      
+      if (!isSubscribed) {
+        // User is not subscribed, disable AI features
+        this.disableAIFeatures();
+      } else {
+        // User is subscribed, enable AI features
+        this.enableAIFeatures();
+      }
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      // On error, disable AI features to be safe
+      this.disableAIFeatures();
+    }
+  }
+  
+  disableAIFeatures() {
+    // Disable AI generation buttons
+    if (this.generateContentButton) {
+      this.generateContentButton.disabled = true;
+      this.generateContentButton.title = 'Premium feature - Subscribe to access';
+    }
+    
+    // Add click handlers to show subscription modal
+    if (this.generateContentButton) {
+      this.generateContentButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        showSubscriptionModal();
+      });
+    }
+    
+    // Disable autocomplete by setting a flag
+    this.aiDisabled = true;
+  }
+  
+  enableAIFeatures() {
+    // Enable AI generation buttons
+    if (this.generateContentButton) {
+      this.generateContentButton.disabled = false;
+      this.generateContentButton.title = 'Write from Cursor (Ctrl+Space)';
+    }
+    
+    // Enable autocomplete
+    this.aiDisabled = false;
+  }
+  
   handleEditorChange(delta, oldDelta, source) {
     // If editor isn't initialized, don't proceed
     if (!this.editor) {
@@ -517,6 +569,11 @@ class TextGeneratorDocs {
   
   async generateAutocompleteSuggestion() {
     try {
+      // Check if AI features are disabled due to subscription
+      if (this.aiDisabled) {
+        return;
+      }
+      
       // Check if editor exists
       if (!this.editor) {
         console.warn('Editor not initialized for autocomplete');
@@ -1421,6 +1478,12 @@ class TextGeneratorDocs {
   }
   
   showGenerateContentDialog() {
+    // Check if AI features are disabled due to subscription
+    if (this.aiDisabled) {
+      showSubscriptionModal();
+      return;
+    }
+    
     // Create dialog for generation options
     const dialog = document.createElement('div');
     dialog.className = 'tgdocs-generate-dialog';

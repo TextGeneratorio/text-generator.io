@@ -1,0 +1,444 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'Login - Text Generator ' -%}
+    {% set description = 'Login to Text Generator Machine Learning/AI account' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description"
+          content="{{ description }}">
+
+    <meta name="keywords" content="language generation, text generation, text generator, login">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="{{ url }}">
+    <meta property="og:image" content="{{ static_url }}/img/bitbank-icon128.png">
+    <meta property="og:description"
+          content="{{ description }}">
+    <meta property="og:site_name" content="text generator">
+    <meta property="fb:admins" content="337972272904903">
+
+{% endblock %}
+
+{% block mainbody %}
+    <main class="auth-page">
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <img src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator" width="40" height="40">
+                    </div>
+                    <h1 class="auth-title">Sign in</h1>
+                    <p class="auth-subtitle">to continue to Text Generator</p>
+                </div>
+                
+                <div class="auth-body">
+                    <form id="login-form" class="auth-form" method="post" action="/api/login">
+                        <div class="auth-input-group">
+                            <input type="email" id="email" name="email" class="auth-input" placeholder="Email" required>
+                        </div>
+                        <div class="auth-input-group">
+                            <input type="password" id="password" name="password" class="auth-input" placeholder="Password" required>
+                        </div>
+                        <div id="login-error" class="auth-error" style="display: none;"></div>
+                        <button type="submit" class="auth-button auth-button-primary">
+                            <span class="auth-button-text">Sign in</span>
+                            <div class="auth-loading" style="display: none;">
+                                <div class="auth-spinner"></div>
+                            </div>
+                        </button>
+                    </form>
+                    
+                    <div class="auth-links">
+                        <a href="#" class="auth-link-small">Forgot password?</a>
+                    </div>
+                    
+                    <div class="auth-divider">
+                        <span>or</span>
+                    </div>
+                    
+                    <div class="auth-footer">
+                        <p>Don't have an account? <a href="/signup" class="auth-link">Create account</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <style>
+    .auth-page {
+        min-height: 100vh;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Google Sans', Roboto, Arial, sans-serif;
+        padding: 20px;
+    }
+
+    .auth-container {
+        width: 100%;
+        max-width: 450px;
+    }
+
+    .auth-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .auth-header {
+        padding: 48px 40px 32px;
+        text-align: center;
+        border-bottom: 1px solid #e8eaed;
+    }
+
+    .auth-logo {
+        margin-bottom: 16px;
+    }
+
+    .auth-title {
+        margin: 0 0 8px 0;
+        font-size: 24px;
+        font-weight: 400;
+        color: #202124;
+        line-height: 1.33;
+    }
+
+    .auth-subtitle {
+        margin: 0;
+        font-size: 16px;
+        color: #5f6368;
+        font-weight: 400;
+        line-height: 1.5;
+    }
+
+    .auth-body {
+        padding: 48px 40px;
+    }
+
+    .auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .auth-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .auth-input {
+        padding: 16px;
+        border: 1px solid #dadce0;
+        border-radius: 4px;
+        font-size: 16px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: white;
+        font-family: inherit;
+    }
+
+    .auth-input::placeholder {
+        color: #9aa0a6;
+    }
+
+    .auth-input:focus {
+        outline: none;
+        border-color: #1a73e8;
+        box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .auth-input:hover {
+        border-color: #5f6368;
+    }
+
+    .auth-input.auth-input-error {
+        border-color: #d93025;
+    }
+
+    .auth-input.auth-input-error:focus {
+        border-color: #d93025;
+        box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.2);
+    }
+
+    .auth-error {
+        background: #fce8e6;
+        color: #d93025;
+        padding: 12px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        border: 1px solid #fce8e6;
+        line-height: 1.43;
+    }
+
+    .auth-button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s, box-shadow 0.2s;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        font-family: inherit;
+        letter-spacing: 0.25px;
+    }
+
+    .auth-button-primary {
+        background: #1a73e8;
+        color: white;
+    }
+
+    .auth-button-primary:hover:not(:disabled) {
+        background: #1557b0;
+        box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    }
+
+    .auth-button-primary:active:not(:disabled) {
+        background: #1557b0;
+        box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
+    }
+
+    .auth-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .auth-button-text {
+        transition: opacity 0.2s;
+    }
+
+    .auth-loading {
+        position: absolute;
+    }
+
+    .auth-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid transparent;
+        border-top: 2px solid currentColor;
+        border-radius: 50%;
+        animation: auth-spin 1s linear infinite;
+    }
+
+    @keyframes auth-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .auth-links {
+        text-align: center;
+        margin-top: 24px;
+    }
+
+    .auth-divider {
+        margin: 32px 0;
+        position: relative;
+        text-align: center;
+    }
+
+    .auth-divider::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: #dadce0;
+    }
+
+    .auth-divider span {
+        background: white;
+        padding: 0 16px;
+        color: #5f6368;
+        font-size: 14px;
+        font-weight: 400;
+    }
+
+    .auth-footer {
+        text-align: center;
+    }
+
+    .auth-footer p {
+        margin: 0;
+        font-size: 14px;
+        color: #5f6368;
+        line-height: 1.43;
+    }
+
+    .auth-link {
+        color: #1a73e8;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 14px;
+    }
+
+    .auth-link:hover {
+        text-decoration: underline;
+    }
+
+    .auth-link-small {
+        color: #1a73e8;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 400;
+    }
+
+    .auth-link-small:hover {
+        text-decoration: underline;
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 480px) {
+        .auth-page {
+            padding: 10px;
+        }
+        
+        .auth-header,
+        .auth-body {
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+        
+        .auth-header {
+            padding-top: 32px;
+            padding-bottom: 24px;
+        }
+        
+        .auth-body {
+            padding-top: 32px;
+            padding-bottom: 32px;
+        }
+        
+        .auth-input {
+            padding: 14px 16px;
+            font-size: 16px; /* Prevent zoom on iOS */
+        }
+    }
+    </style>
+    
+    <script>
+    // Email validation
+    function isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    function setInputError(inputId, hasError) {
+        const input = document.getElementById(inputId);
+        if (input) {
+            if (hasError) {
+                input.classList.add('auth-input-error');
+            } else {
+                input.classList.remove('auth-input-error');
+            }
+        }
+    }
+
+    function setLoading(loading) {
+        const button = document.querySelector('.auth-button');
+        const buttonText = button?.querySelector('.auth-button-text');
+        const loadingSpinner = button?.querySelector('.auth-loading');
+        
+        if (button) {
+            button.disabled = loading;
+            if (buttonText) buttonText.style.opacity = loading ? '0' : '1';
+            if (loadingSpinner) loadingSpinner.style.display = loading ? 'block' : 'none';
+        }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const errorDiv = document.getElementById('login-error');
+        const email = formData.get('email');
+        const password = formData.get('password');
+        
+        // Clear previous errors
+        errorDiv.style.display = 'none';
+        setInputError('email', false);
+        setInputError('password', false);
+        
+        // Client-side validation
+        let hasErrors = false;
+        
+        if (!email || !isValidEmail(email)) {
+            setInputError('email', true);
+            hasErrors = true;
+        }
+        
+        if (!password) {
+            setInputError('password', true);
+            hasErrors = true;
+        }
+        
+        if (hasErrors) {
+            errorDiv.textContent = 'Please enter a valid email and password';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        setLoading(true);
+        
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Success - set session and redirect
+                document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
+                window.location.href = '/playground';
+            } else {
+                let errorMessage = 'Invalid email or password';
+                if (response.status === 429) {
+                    errorMessage = 'Too many attempts. Please try again later.';
+                } else if (result.detail) {
+                    errorMessage = result.detail;
+                }
+                
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+                setLoading(false);
+            }
+        } catch (error) {
+            errorDiv.textContent = 'Network error. Please check your connection and try again.';
+            errorDiv.style.display = 'block';
+            setLoading(false);
+        }
+    });
+
+    // Real-time validation
+    document.getElementById('email').addEventListener('blur', function() {
+        if (this.value && !isValidEmail(this.value)) {
+            setInputError('email', true);
+        } else {
+            setInputError('email', false);
+        }
+    });
+
+    document.getElementById('email').addEventListener('input', function() {
+        if (this.classList.contains('auth-input-error') && isValidEmail(this.value)) {
+            setInputError('email', false);
+        }
+    });
+
+    document.getElementById('password').addEventListener('input', function() {
+        if (this.classList.contains('auth-input-error') && this.value) {
+            setInputError('password', false);
+        }
+    });
+    </script>
+
+{% endblock %}

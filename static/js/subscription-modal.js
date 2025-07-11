@@ -19,10 +19,17 @@ class SubscriptionModal {
     }
 
     createModal() {
+        // Wait for DOM to be ready
+        if (!document.body) {
+            console.warn('Document body not ready, deferring modal creation');
+            setTimeout(() => this.createModal(), 100);
+            return;
+        }
+
         const modalHTML = `
             <div id="subscription-modal" class="subscription-modal" style="display: none;">
                 <div class="subscription-modal-content">
-                    <button class="subscription-modal-close" onclick="subscriptionModal.close()">×</button>
+                    <button class="subscription-modal-close" onclick="if(window.subscriptionModal) subscriptionModal.close()">×</button>
                     
                     <div class="subscription-modal-header">
                         <h2 class="subscription-modal-title">Unlock Premium Features</h2>
@@ -64,7 +71,7 @@ class SubscriptionModal {
 
                         <div class="subscription-modal-actions">
                             <a href="/subscribe" class="subscription-btn subscription-btn-primary">Subscribe Now</a>
-                            <button class="subscription-btn subscription-btn-secondary" onclick="subscriptionModal.close()">Maybe Later</button>
+                            <button class="subscription-btn subscription-btn-secondary" onclick="if(window.subscriptionModal) subscriptionModal.close()">Maybe Later</button>
                         </div>
                     </div>
                 </div>
@@ -147,16 +154,37 @@ class SubscriptionModal {
     }
 }
 
-// Create global instance
-const subscriptionModal = new SubscriptionModal();
+// Create global instance when DOM is ready
+let subscriptionModal;
+
+function initSubscriptionModal() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            subscriptionModal = new SubscriptionModal();
+        });
+    } else {
+        subscriptionModal = new SubscriptionModal();
+    }
+}
+
+// Initialize
+initSubscriptionModal();
 
 // Helper function for easy access
 async function requireSubscription(action = 'access this feature') {
+    if (!subscriptionModal) {
+        console.warn('SubscriptionModal not initialized yet');
+        return false;
+    }
     return await subscriptionModal.requireSubscription(action);
 }
 
 // Helper function to check if user is subscribed
 async function isUserSubscribed() {
+    if (!subscriptionModal) {
+        console.warn('SubscriptionModal not initialized yet');
+        return false;
+    }
     return await subscriptionModal.checkSubscription();
 }
 

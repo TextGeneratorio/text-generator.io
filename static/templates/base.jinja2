@@ -23,6 +23,8 @@
 
     <link rel="stylesheet" href="{{ static_url }}/css/article.css">
     <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
+    <link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
+    <link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
 
 
     {% block css %}
@@ -33,6 +35,9 @@
         var self = {{ fixtures|safe }};
         return self;
       })();
+      
+      // Stripe configuration
+      window.STRIPE_PUBLISHABLE_KEY = 'pk_live_51KjJGaDtz2XsjQRO1wdSdz8zS4bXzXq0tJ2m7lzJLdFpGhOdmGzX8fWwO9hm3vHdVVbfQc0XLJlT8l6KZGHJdUdl00zLUOHnMy';
     </script>
 
 
@@ -181,6 +186,9 @@
 
     </script>
     <script defer src="{{ static_url }}/js/material.min.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="{{ static_url }}/js/checkout-dialog.js"></script>
+    <script src="{{ static_url }}/js/subscription-modal.js"></script>
 
     {#    <script src="{{ static_url }}/js/webutils.js"></script>#}
     {#    <script src="{{ static_url }}/js/templates/coins-table.js"></script>#}

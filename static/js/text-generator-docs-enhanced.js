@@ -506,6 +506,11 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    * @override
    */
   async generateAutocompleteSuggestion() {
+    // Check if AI features are disabled due to subscription
+    if (this.aiDisabled) {
+      return;
+    }
+    
     // If editor is not initialized or not focused, don't proceed
     if (!this.editor || !this.editor.hasFocus()) return;
     
@@ -1333,6 +1338,12 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    * @override
    */
   showGenerateContentDialog() {
+    // Check if AI features are disabled due to subscription
+    if (this.aiDisabled) {
+      showSubscriptionModal();
+      return;
+    }
+    
     // Create dialog container
     const dialogContainer = document.createElement('div');
     dialogContainer.className = 'tgdocs-generate-dialog';
@@ -1442,6 +1453,12 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    * Show dialog to get rewrite instructions from user
    */
   showRewriteDialog() {
+    // Check if AI features are disabled due to subscription
+    if (this.aiDisabled) {
+      showSubscriptionModal();
+      return;
+    }
+    
     // Create dialog for rewrite instructions
     const dialogContainer = document.createElement('div');
     dialogContainer.className = 'tgdocs-generate-dialog'; // Reuse the same dialog styling

@@ -85,8 +85,6 @@ window.addEventListener('load', function() {
     
     // Check auth status and setup subscription
     checkAuthStatus();
-        console.log(error);
-    });
 
     $(document).ready(function () {
         setupQuantityForm();
@@ -94,19 +92,33 @@ window.addEventListener('load', function() {
     })
 
     function setupSubscriptionToggle() {
-        $('.subscription-toggle').change(function() {
-            if ($(this).is(':checked')) {
+        // Set initial state based on checkbox
+        function updatePricing() {
+            if ($('.subscription-toggle').is(':checked')) {
                 $('.subscription-period').text('Annually');
-                $('.money-amount').text('$83.99 USD');  // Updated annual price
-                $('.discount-chip').show();
+                $('.money-amount').text('$190.00 USD');
                 $('input[name="type"]').val('annual');
+                $('.discount-chip').show();
             } else {
                 $('.subscription-period').text('Monthly');
-                $('.money-amount').text('$13.99 USD');  // Updated monthly price
-                $('.discount-chip').hide();
+                $('.money-amount').text('$19.00 USD');
                 $('input[name="type"]').val('monthly');
+                $('.discount-chip').hide();
             }
+        }
+        
+        // Set initial state
+        updatePricing();
+        
+        // Handle toggle changes
+        $('.subscription-toggle').change(function() {
+            updatePricing();
         });
+    }
+
+    function openCheckoutDialog() {
+        const subscriptionType = $('.subscription-toggle').is(':checked') ? 'annual' : 'monthly';
+        showCheckoutDialog(subscriptionType);
     }
 </script>
 <style>
@@ -175,13 +187,13 @@ window.addEventListener('load', function() {
 ">cloud</i>
             <h4>Cloud Text Generator</h4>
 
-            <p><b class="money-amount">$83.99 USD</b> <span class="subscription-period">Annually</span></p>
-            <div class="discount-chip" style="display: inline-block; background: #4caf50; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">38% OFF</div>
+            <p><b class="money-amount">$190.00 USD</b> <span class="subscription-period">Annually</span></p>
 
             <label class="switch">
                 <input type="checkbox" class="subscription-toggle" checked>
                 <span class="slider"></span>
             </label>
+            
 
             <ul class="demo-list-icon mdl-list">
                 <li class="mdl-list__item" id="list-item-1">
@@ -224,26 +236,30 @@ window.addEventListener('load', function() {
 
                 <li class="mdl-list__item" id="list-item-5">
                     <span class="mdl-list__item-primary-content">
-                    <i class="material-icons mdl-list__item-icon">money</i>
-                    7 Day Money Back Guarantee
+                    <i class="material-icons mdl-list__item-icon">tune</i>
+                    Prompt Tuning
                   </span>
-                    <!-- tooltip -->
                     <div class="mdl-tooltip" for="list-item-5">
-                        Full refund any time within 7 days.
+                        Advanced prompt optimization for better AI responses.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="list-item-6">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">edit</i>
+                    AI Text Editor
+                  </span>
+                    <div class="mdl-tooltip" for="list-item-6">
+                        Built-in AI-powered text editing and enhancement tools.
                     </div>
                 </li>
             </ul>
 
-            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
-                <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
-                <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
-                <input id="subscribe-type" type="hidden" name="type" value="annual">
-
-                <button type="submit" id="checkout-button"
+            <div class="centered-cta-form">
+                <button type="button" id="checkout-button" onclick="openCheckoutDialog()"
                         class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
                         disabled="disabled">Subscribe Now
                 </button>
-            </form>
+            </div>
         </div>
         <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
         <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
@@ -301,7 +317,7 @@ window.addEventListener('load', function() {
             <form class="centered-cta-form" action="/create-checkout-session" method="POST">
                 <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
                 <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
-                <input id="subscribe-type" type="hidden" name="type" value="self-hosted">
+                <input id="subscribe-type" type="hidden" name="type" value="annual">
 
                 <br><br>
 

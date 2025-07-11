@@ -15,7 +15,57 @@
         </div>
     </div>
 </main>
+
+<!-- Subscription Modal -->
+<div id="subscription-modal" class="subscription-modal" style="display: none;">
+  <div class="subscription-modal-content">
+    <div class="subscription-modal-header">
+      <h2>Upgrade to Premium</h2>
+      <button class="subscription-modal-close" id="subscription-modal-close">&times;</button>
+    </div>
+    <div class="subscription-modal-body">
+      <p>Access the Website UX/SEO Review tool and all premium features with a subscription.</p>
+      <div class="subscription-plans">
+        <div class="plan-card">
+          <h3>Premium</h3>
+          <div class="plan-price">$9.99<span>/month</span></div>
+          <ul class="plan-features">
+            <li>✓ Website UX/SEO Review</li>
+            <li>✓ AI Text Editor</li>
+            <li>✓ Advanced Playground</li>
+            <li>✓ All Premium Tools</li>
+          </ul>
+          <button class="plan-button" onclick="window.location.href='/subscribe'">Subscribe Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
+<script src="{{ static_url }}/js/subscription-modal.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', async function () {
+  // Check subscription status on page load
+  const isSubscribed = await checkUserSubscription();
+  
+  if (!isSubscribed) {
+    // User is not subscribed, disable the tool
+    const form = document.getElementById('feedback-form');
+    const button = form.querySelector('button');
+    button.disabled = true;
+    button.textContent = 'Premium Feature - Subscribe to Access';
+    button.addEventListener('click', function(e) {
+      e.preventDefault();
+      showSubscriptionModal();
+    });
+    return;
+  }
+  
+  // If subscribed, set up the normal form handler
+  document.getElementById('feedback-form').addEventListener('submit', submitForm);
+});
+
 async function submitForm(e){
     e.preventDefault();
     const url = document.getElementById('site-url').value;
@@ -30,6 +80,4 @@ async function submitForm(e){
     const data = await resp.json();
     document.getElementById('feedback-output').textContent = data.feedback || data.detail || 'Failed to get feedback';
 }
-
-document.getElementById('feedback-form').addEventListener('submit', submitForm);
 </script>

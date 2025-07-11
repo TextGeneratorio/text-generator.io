@@ -1,6 +1,20 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
   const btn = document.getElementById('optimize-btn');
   if (!btn) return;
+  
+  // Check subscription status on page load
+  const isSubscribed = await checkUserSubscription();
+  
+  if (!isSubscribed) {
+    // User is not subscribed, disable the tool
+    btn.disabled = true;
+    btn.textContent = 'Premium Feature - Subscribe to Access';
+    btn.addEventListener('click', function() {
+      showSubscriptionModal();
+    });
+    return;
+  }
+  
   btn.addEventListener('click', async function () {
     const initial = document.getElementById('initial-prompt').value;
     const evolve = document.getElementById('evolve-prompt').value;

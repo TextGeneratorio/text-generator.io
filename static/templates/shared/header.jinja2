@@ -21,7 +21,7 @@
             <a class="mdl-navigation__link" href="/docs">Docs</a>
             <a class="header-login-signup mdl-navigation__link" href="#" onclick="showLoginModal()">Login</a>
             <a class="header-login-signup mdl-navigation__link" href="#" onclick="showSignupModal()">Signup</a>
-            <a class="header-login-signout header-subscribe mdl-navigation__link" href="/subscribe"
+            <a class="header-login-signout header-subscribe mdl-navigation__link" href="#" onclick="showCheckoutDialog('monthly')"
                style="display: none;">Subscribe</a>
             <a class="header-login-signout mdl-navigation__link" id="log-out" href="/logout" onclick="logout()"
             style="display: none;">Log out</a>
@@ -40,7 +40,7 @@
         <a class="mdl-navigation__link" href="/text-to-speech"><i class="material-icons dp48">volume_up</i> Text To Speech</a>
         <a class="mdl-navigation__link" href="/docs"><i class="material-icons dp48">android</i> Docs</a>
         <a class="header-login-signup mdl-navigation__link" href="#" onclick="showLoginModal()"><i class="material-icons dp48">login</i> Login</a>
-        <a class="header-subscribe mdl-navigation__link" href="/subscribe"><i class="material-icons dp48">payments</i> Subscribe</a>
+        <a class="header-subscribe mdl-navigation__link" href="#" onclick="showCheckoutDialog('monthly')"><i class="material-icons dp48">payments</i> Subscribe</a>
         <a class="header-login-signup mdl-navigation__link" href="#" onclick="showSignupModal()"><i class="material-icons dp48">draw</i> Signup</a>
         <a class="header-account mdl-navigation__link" href="/account" style="display: none;"><i class="material-icons dp48">person</i> Account</a>
     </nav>

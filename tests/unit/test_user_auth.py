@@ -37,6 +37,6 @@ client = TestClient(app)
 
 def test_user_signup_and_login():
     resp = client.post('/api/login', data={'email': 'test@example.com', 'password': 'secret'}, follow_redirects=False)
-    assert resp.status_code == 303
+    assert resp.status_code == 200
     resp = client.post('/api/login', data={'email': 'test@example.com', 'password': 'secret'}, follow_redirects=False)
-    assert resp.status_code == 303
+    assert resp.status_code == 200

@@ -38,4 +38,33 @@
         </div>
     </div>
 </main>
+
+<!-- Subscription Modal -->
+<div id="subscription-modal" class="subscription-modal" style="display: none;">
+  <div class="subscription-modal-content">
+    <div class="subscription-modal-header">
+      <h2>Upgrade to Premium</h2>
+      <button class="subscription-modal-close" id="subscription-modal-close">&times;</button>
+    </div>
+    <div class="subscription-modal-body">
+      <p>Access the Prompt Optimizer and all premium features with a subscription.</p>
+      <div class="subscription-plans">
+        <div class="plan-card">
+          <h3>Premium</h3>
+          <div class="plan-price">$9.99<span>/month</span></div>
+          <ul class="plan-features">
+            <li>✓ Prompt Optimizer</li>
+            <li>✓ AI Text Editor</li>
+            <li>✓ Advanced Playground</li>
+            <li>✓ All Premium Tools</li>
+          </ul>
+          <button class="plan-button" onclick="window.location.href='/subscribe'">Subscribe Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
+<script src="{{ static_url }}/js/subscription-modal.js"></script>
 <script src="{{ static_url }}/js/prompt-optimizer.js" defer></script>

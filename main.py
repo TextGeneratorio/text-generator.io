@@ -69,7 +69,7 @@ if not USE_POSTGRES:
     def get_db():
         return None
 
-from questions.models import CreateUserRequest, GetUserRequest, GenerateParams
+from questions.models import CreateUserRequest, GetUserRequest, GenerateParams, CreateCheckoutRequest
 from questions.payments.payments import (
     get_self_hosted_subscription_count_for_user, 
     get_subscription_item_id_for_user_email,
@@ -344,18 +344,25 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
 
     # Define line_item with type hint (basic structure)
     # For metered subscriptions, quantity should not be specified
-    line_item: Dict[str, Any] = {
-        "price": "price_0PpIzNDtz2XsjQROUZgNOTaF", # Default monthly
-    }
     success_url = YOUR_DOMAIN + "/playground"
-
+    
     if type == "annual":
-        line_item["price"] = "price_0PpJ10Dtz2XsjQROADWTSIBr"
+        line_item: Dict[str, Any] = {
+            "price": "price_0RXdd4Dtz2XsjQRO5hYsdfjx",  # New annual price ID ($190/year)
+            "quantity": 1
+        }
     elif type == "self-hosted":
-        line_item["price"] = 'price_0MuAuxDtz2XsjQROz3Hp5Tcx'
+        line_item: Dict[str, Any] = {
+            "price": 'price_0MuAuxDtz2XsjQROz3Hp5Tcx',
+            "quantity": quantity  # Only self-hosted subscriptions use quantity
+        }
         success_url = YOUR_DOMAIN + "/account"
-        # Only self-hosted subscriptions use quantity
-        line_item['quantity'] = quantity
+    else:
+        # Default monthly - metered subscription, no quantity
+        line_item: Dict[str, Any] = {
+            "price": "price_0RXdbtDtz2XsjQROW0xgtU8H",  # New monthly price ID ($19/month)
+            "quantity": 1
+        }
 
     checkout_session_url: Optional[str] = None
     try:
@@ -374,6 +381,7 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
             # Fallback for NZD plans
             line_item_nzd: Dict[str, Any] = {
                 "price": "price_0LCAb8Dtz2XsjQROnv1GhCL4",
+                "quantity": 1
             }
             if type == "self-hosted":
                  line_item_nzd["price"] = 'price_0MuBEoDtz2XsjQROiRewGRFi'
@@ -404,6 +412,82 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
         # Handle case where URL wasn't obtained (e.g., error handled internally but no URL)
         logger.error("Checkout session created but URL is missing")
         return JSONResponse({"error": "Failed to create checkout session URL."}, status_code=500)
+
+
+@app.post("/create-checkout-session-embedded")
+def create_checkout_session_embedded(checkoutRequest: CreateCheckoutRequest):
+    uid = checkoutRequest.uid
+    secret = checkoutRequest.secret
+    email = checkoutRequest.email
+    subscription_type = checkoutRequest.subscription_type or checkoutRequest.type
+    referral = checkoutRequest.referral
+    
+    # Get user from session or database
+    from questions.auth import get_user_from_session
+    user = get_user_from_session(secret)
+    stripe_id = None
+    
+    if not user or not user.stripe_id:
+        user = User.byId(uid)
+    if not user or not user.stripe_id:
+        user = User.bySecret(uid)
+    if not user or not user.stripe_id:
+        user = User.byEmail(email)  # todo fix vuln
+        if user:
+            set_session_for_user(user)
+    
+    if not user:
+        logger.error(f"User not found: {uid}")
+        return JSONResponse({"error": "User not found"}, status_code=400)
+    else:
+        stripe_id = user.stripe_id
+    
+    # Set up pricing based on subscription type
+    if subscription_type and subscription_type == "annual":
+        subscription_price = "price_0RXdd4Dtz2XsjQRO5hYsdfjx"  # $190/year
+    else:
+        subscription_price = "price_0RXdbtDtz2XsjQROW0xgtU8H"  # $19/month
+    
+    success_url = YOUR_DOMAIN + "/playground"
+    
+    line_item = {
+        "price": subscription_price,
+        "quantity": 1,
+    }
+    
+    metadata = None
+    if referral:
+        metadata = {"referral": referral}
+    
+    # Create checkout session with embedded UI mode
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            customer=stripe_id,
+            line_items=[line_item],
+            customer_update={"address": "auto"},
+            metadata=metadata,
+            ui_mode="embedded",
+            mode="subscription",
+            return_url=success_url,
+            automatic_tax={"enabled": True},
+        )
+    except Exception as e:
+        logger.error(f"Error creating checkout session: {e}")
+        # Fallback without customer linking
+        try:
+            checkout_session = stripe.checkout.Session.create(
+                line_items=[line_item],
+                metadata=metadata,
+                ui_mode="embedded",
+                mode="subscription",
+                return_url=success_url,
+                automatic_tax={"enabled": True},
+            )
+        except Exception as fallback_e:
+            logger.error(f"Fallback checkout session creation failed: {fallback_e}")
+            return JSONResponse({"error": "Failed to create checkout session"}, status_code=500)
+    
+    return JSONResponse({"clientSecret": checkout_session.client_secret})
 
 
 # @app.post('/webhook')
