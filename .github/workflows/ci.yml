@@ -25,6 +25,8 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
+      - name: Install inference server dependencies
+        run: uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
       - name: Ruff
         run: ruff check .
       - name: Run main server tests (excluding inference)
@@ -51,6 +53,8 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
+      - name: Install inference server dependencies
+        run: uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
       - name: Download NLTK data
         run: python -m nltk.downloader punkt
       - name: Run offline integration tests (excluding inference)
@@ -72,29 +76,9 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
+      - name: Install inference server dependencies
+        run: uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
       - name: Download NLTK data
         run: python -m nltk.downloader punkt
       - name: Run integration tests (excluding inference)
         run: pytest -m "integration and internet and not inference" -q
-
-  inference:
-    runs-on: ubuntu-latest
-    needs: unit
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Cache uv
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('requirements.txt', 'requirements-test.txt') }}
-      - name: Install uv
-        run: pip install uv
-      - name: Install dependencies
-        run: uv pip install --system -r requirements.txt -r requirements-test.txt
-      - name: Download NLTK data
-        run: python -m nltk.downloader punkt punkt_tab
-      - name: Run inference tests
-        run: pytest -m "inference" -q
