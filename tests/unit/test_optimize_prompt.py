@@ -1,6 +1,8 @@
 import pytest
 from main import OptimizePromptParams, optimize_prompt
 
+pytestmark = [pytest.mark.inference]
+
 @pytest.mark.asyncio
 async def test_optimize_prompt(monkeypatch):
     async def fake_query(prompt, schema, system_message=None, model=None):

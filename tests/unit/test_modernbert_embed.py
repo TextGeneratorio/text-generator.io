@@ -3,6 +3,8 @@ import sys
 import types
 import pytest
 
+pytestmark = [pytest.mark.inference]
+
 pytest.skip("torch not available in this environment", allow_module_level=True)
 
 class DummyCache:

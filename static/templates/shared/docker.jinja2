@@ -4,39 +4,8 @@
 
 
 <script>
-
-
         initApp = function () {
-            firebase.auth().onAuthStateChanged(function (user) {
-                if (user) {
-                    // User is signed in.
-                    var displayName = user.displayName;
-                    var email = user.email;
-                    var emailVerified = user.emailVerified;
-                    var photoURL = user.photoURL;
-                    var uid = user.uid;
-                    var phoneNumber = user.phoneNumber;
-                    var providerData = user.providerData;
-                    getUserWithStripe(user, function (data) {
-
-
-                        var api_key = data['secret'];
-                        $("#code-snippet-embed-start").html(`docker load -i text-generator.tar
-mkdir models
-docker run -v $(pwd)/models:/models -p 9000:8080 --gpus all \\
-                -e API_KEY="${api_key}" \\
-                text-generator-customer:v1
-`)
-
-                    })
-                } else {
-
-                    // User is signed out.
-                    location.href = '/login'
-                }
-            }, function (error) {
-                console.log(error);
-            });
+            // This function is now empty as Firebase authentication has been removed.
         };
 
         window.addEventListener('load', function () {

@@ -223,7 +223,7 @@ Then go to localhost:9080/docs to use the API
 Just the Parakeet speech to text part.
 This isn't required as the inference server automatically balances these requests
 ```shell
-PYTHONPATH=$(pwd):$(pwd)/OFA GOOGLE_APPLICATION_CREDENTIALS=secrets/google-credentials.json gunicorn -k uvicorn.workers.UvicornWorker -b :9080 audio_server.audio_server:app --timeout 180000 --workers 1 
+PYTHONPATH=$(pwd):$(pwd)/OFA GOOGLE_APPLICATION_CREDENTIALS=secrets/google-credentials.json gunicorn -k uvicorn.workers.UvicornWorker -b :9080 audio_server.audio_server:app --timeout 180000 --workers 1
 ```
 
 ### Testing
@@ -280,7 +280,10 @@ cd models
 git clone https://huggingface.co/answerdotai/ModernBERT-base
 ```
 
-### maintenence 
+### maintenence
+
+dev you can just use one .venv and install all in there to save space although there are multiple services (main.py and the inference server)
+uv pip install -r questions/inference_server/requirements.in --no-build-isolation
 
 #### run a discord bot
 ```shell
@@ -306,14 +309,124 @@ stretch your body every 30 mins with the say command...
 watch -n 1800 'echo "stretch your body" | espeak -s 120'
 ```
 
-## Logging Configuration
 
-All modules now use the standard `logging` package. Logging is configured via
-`questions.logging_config.setup_logging`. The following environment variables can
-control behaviour:
+### PostgreSQL Database
 
-* `LOG_LEVEL` – override the default log level.
-* `COLOR_LOGS` – set to `0` to disable coloured output.
-* `LOG_FILE` – if set, logs will also be written to this file.
+The application uses PostgreSQL for user authentication and document storage. Here are useful commands for database management and inspection:
 
-`main.py` enables Google Cloud Logging automatically when running on GCP.
+#### Database Setup
+
+Start PostgreSQL with Docker:
+```shell
+docker-compose -f docker-compose-postgres.yml up -d
+```
+
+Run database migrations:
+```shell
+alembic upgrade head
+```
+
+#### Useful SQL Commands
+
+Connect to the database:
+```shell
+psql -h localhost -U postgres -d textgen
+```
+
+View all users:
+```sql
+SELECT id, email, created_at, is_active, stripe_id FROM users ORDER BY created_at DESC LIMIT 10;
+```
+
+Count total users:
+```sql
+SELECT COUNT(*) FROM users;
+```
+
+View recent user registrations:
+```sql
+SELECT email, created_at FROM users WHERE created_at > NOW() - INTERVAL '7 days' ORDER BY created_at DESC;
+```
+
+View users with Stripe subscriptions:
+```sql
+SELECT email, stripe_id, created_at FROM users WHERE stripe_id IS NOT NULL ORDER BY created_at DESC;
+```
+
+View all documents:
+```sql
+SELECT id, title, user_id, created_at FROM documents ORDER BY created_at DESC LIMIT 10;
+```
+
+Count documents by user:
+```sql
+SELECT u.email, COUNT(d.id) as document_count
+FROM users u
+LEFT JOIN documents d ON u.id = d.user_id
+GROUP BY u.id, u.email
+ORDER BY document_count DESC;
+```
+
+View recent document activity:
+```sql
+SELECT d.title, u.email, d.created_at, d.updated_at
+FROM documents d
+JOIN users u ON d.user_id = u.id
+WHERE d.created_at > NOW() - INTERVAL '24 hours'
+ORDER BY d.created_at DESC;
+```
+
+Check database schema:
+```sql
+\dt  -- List all tables
+\d users  -- Describe users table
+\d documents  -- Describe documents table
+```
+
+#### Database Migration Commands
+
+Create a new migration:
+```shell
+alembic revision --autogenerate -m "Description of changes"
+```
+
+Apply migrations:
+```shell
+alembic upgrade head
+```
+
+View migration history:
+```shell
+alembic history --verbose
+```
+
+Rollback to previous migration:
+```shell
+alembic downgrade -1
+```
+
+#### Data Migration Scripts
+
+Migrate users from NDB to PostgreSQL:
+```shell
+python migrate_users_to_postgres.py
+```
+
+Migrate documents from NDB to PostgreSQL:
+```shell
+python migrate_to_postgres.py
+```
+
+Sync users from Google Cloud Datastore:
+```shell
+python sync_users_datastore.py
+```
+
+#### Test Database Sharing
+
+Run the test script to verify all servers can access the same PostgreSQL database:
+
+```shell
+python test_database_sharing.py
+```
+

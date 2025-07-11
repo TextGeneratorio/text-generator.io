@@ -59,14 +59,14 @@
             <button class="auth-modal-close" onclick="closeLoginModal()">&times;</button>
         </div>
         <div class="auth-modal-body">
-            <form id="login-form" class="auth-form">
+            <form id="header-login-form" class="auth-form">
                 <div class="auth-input-group">
-                    <input type="email" id="login-email" name="email" class="auth-input" placeholder="Email" required>
+                    <input type="email" id="header-login-email" name="email" class="auth-input" placeholder="Email" required>
                 </div>
                 <div class="auth-input-group">
-                    <input type="password" id="login-password" name="password" class="auth-input" placeholder="Password" required>
+                    <input type="password" id="header-login-password" name="password" class="auth-input" placeholder="Password" required>
                 </div>
-                <div id="login-error" class="auth-error" style="display: none;"></div>
+                <div id="header-login-error" class="auth-error" style="display: none;"></div>
                 <button type="submit" class="auth-button auth-button-primary">
                     <span class="auth-button-text">Sign in</span>
                     <div class="auth-loading" style="display: none;">
@@ -129,7 +129,6 @@
     </div>
 </div>
 
-<!-- CSS Styles for Firebase-like UI -->
 <style>
 .auth-modal {
     position: fixed;
@@ -310,17 +309,17 @@
 }
 
 .auth-button-primary {
-    background: #ff6b35;
+    background: linear-gradient(90deg, #d79f2a, #d34675);
     color: white;
 }
 
 .auth-button-primary:hover:not(:disabled) {
-    background: #e55a2b;
+    background: linear-gradient(90deg, #c48d24, #c23e67);
     box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
 }
 
 .auth-button-primary:active:not(:disabled) {
-    background: #cc4d24;
+    background: linear-gradient(90deg, #b07e20, #a8355a);
     box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
 }
 
@@ -490,15 +489,15 @@ function closeLoginModal() {
     document.body.style.overflow = '';
     
     // Reset form
-    const form = document.getElementById('login-form');
+    const form = document.getElementById('header-login-form');
     if (form) form.reset();
     
     // Clear errors
-    const errorDiv = document.getElementById('login-error');
+    const errorDiv = document.getElementById('header-login-error');
     if (errorDiv) errorDiv.style.display = 'none';
     
     // Clear input states
-    clearInputErrors('login-form');
+    clearInputErrors('header-login-form');
     setLoginLoading(false);
 }
 
@@ -553,7 +552,7 @@ function setInputError(inputId, hasError) {
 }
 
 function setLoginLoading(loading) {
-    const button = document.querySelector('#login-form .auth-button');
+    const button = document.querySelector('#header-login-form .auth-button');
     const buttonText = button?.querySelector('.auth-button-text');
     const loadingSpinner = button?.querySelector('.auth-loading');
     
@@ -589,27 +588,27 @@ function isValidPassword(password) {
 
 // Authentication functions
 async function submitLogin() {
-    const form = document.getElementById('login-form');
+    const form = document.getElementById('header-login-form');
     const formData = new FormData(form);
-    const errorDiv = document.getElementById('login-error');
+    const errorDiv = document.getElementById('header-login-error');
     
     const email = formData.get('email');
     const password = formData.get('password');
     
     // Clear previous errors
     errorDiv.style.display = 'none';
-    clearInputErrors('login-form');
+    clearInputErrors('header-login-form');
     
     // Client-side validation
     let hasErrors = false;
     
     if (!email || !isValidEmail(email)) {
-        setInputError('login-email', true);
+        setInputError('header-login-email', true);
         hasErrors = true;
     }
     
     if (!password) {
-        setInputError('login-password', true);
+        setInputError('header-login-password', true);
         hasErrors = true;
     }
     
@@ -737,7 +736,7 @@ async function submitSignup() {
 // Form submission handlers
 document.addEventListener('DOMContentLoaded', function() {
     // Login form submission
-    const loginForm = document.getElementById('login-form');
+    const loginForm = document.getElementById('header-login-form');
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -745,21 +744,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Real-time validation for login
-        const loginEmail = document.getElementById('login-email');
-        const loginPassword = document.getElementById('login-password');
+        const loginEmail = document.getElementById('header-login-email');
+        const loginPassword = document.getElementById('header-login-password');
         
         if (loginEmail) {
             loginEmail.addEventListener('blur', function() {
                 if (this.value && !isValidEmail(this.value)) {
-                    setInputError('login-email', true);
+                    setInputError('header-login-email', true);
                 } else {
-                    setInputError('login-email', false);
+                    setInputError('header-login-email', false);
                 }
             });
             
             loginEmail.addEventListener('input', function() {
                 if (this.classList.contains('auth-input-error') && isValidEmail(this.value)) {
-                    setInputError('login-email', false);
+                    setInputError('header-login-email', false);
                 }
             });
         }
@@ -767,7 +766,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (loginPassword) {
             loginPassword.addEventListener('input', function() {
                 if (this.classList.contains('auth-input-error') && this.value) {
-                    setInputError('login-password', false);
+                    setInputError('header-login-password', false);
                 }
             });
         }

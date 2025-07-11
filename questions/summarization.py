@@ -1,5 +1,20 @@
 import torch
+import nltk
 from nltk import sent_tokenize
+
+# Download required NLTK data if not present
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    try:
+        nltk.download('punkt_tab', quiet=True)
+    except Exception:
+        # Fallback to older punkt if punkt_tab fails
+        try:
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            nltk.download('punkt', quiet=True)
+
 from transformers import pipeline
 import logging
 from questions.logging_config import setup_logging

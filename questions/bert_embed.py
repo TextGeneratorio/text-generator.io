@@ -74,7 +74,7 @@ final_sentences = [
     "electrical testing of a switchboard with hand holding a red wire",
     "cat and dog laying on the floor",
     "https://images2.minutemediacdn.com/image/upload/c_fill,w_1080,ar_16:9,f_auto,q_auto,g_auto/shape%2Fcover%2Fsport%2F516438-istock-637689912-981f23c58238ea01a6147d11f4c81765.jpg",
-    "https://static.text-generator.io/static/img/Screenshot%20from%202022-09-12%2010-08-50.png",
+    "https://text-generatorstatic.text-generator.io/static/img/Screenshot%20from%202022-09-12%2010-08-50.png",
 ]
 
 

@@ -8,6 +8,7 @@ from typing import Union, List, Iterator
 from .tts_utils import srt_format_timestamp, write_srt, synthesize_full_text
 
 import torch
+import numpy as np
 import youtube_dl
 from fastapi import BackgroundTasks, UploadFile, File, Form
 from fastapi import Request, Header
@@ -28,7 +29,8 @@ from starlette.responses import (
 
 from questions.audio_server.audio_dl import request_get
 from questions.constants import weights_path_tgz
-from questions.db_models import User
+from questions.db_models_postgres import User, get_db_session_sync
+from questions.auth import get_user_from_session
 from questions.inference_server.model_cache import ModelCache
 from questions.models import (
     GenerateParams,
@@ -75,7 +77,7 @@ templates = Jinja2Templates(directory=".")
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-GCLOUD_STATIC_BUCKET_URL = "https://storage.googleapis.com/questions-346919/static"
+GCLOUD_STATIC_BUCKET_URL = "https://text-generatorstatic.text-generator.io/static"
 import sellerinfo
 import stripe
 
@@ -88,7 +90,13 @@ app = FastAPI(
     version="1",
 )
 
-import nemo.collections.asr as nemo_asr
+# Only import NeMo when needed for ASR functionality
+try:
+    import nemo.collections.asr as nemo_asr
+    NEMO_AVAILABLE = True
+except ImportError:
+    NEMO_AVAILABLE = False
+    nemo_asr = None
 
 MODEL_CACHE = ModelCache()
 
@@ -299,15 +307,34 @@ def track_stripe_request_usage(secret, quantity: int):
     db_user = None
     if existing_user:
         existing_user.charges_monthly += int(quantity * 10)
-        User.save(existing_user)
+        # Update user in database
+        try:
+            db = get_db_session_sync()
+            try:
+                db_user_obj = User.get_by_secret(db, secret)
+                if db_user_obj:
+                    db_user_obj.charges_monthly = existing_user.charges_monthly
+                    db.commit()
+            finally:
+                db.close()
+        except Exception:
+            pass
     if not existing_user:
-        db_user = User.bySecret(secret)
-        if not db_user:
-            logger.error(f"user not found for secret: {secret}")
+        try:
+            db = get_db_session_sync()
+            try:
+                db_user = User.get_by_secret(db, secret)
+                if not db_user:
+                    logger.error(f"user not found for secret: {secret}")
+                    return
+                db_user.charges_monthly += int(quantity * 10)
+                db.commit()
+                set_session_for_user(db_user)
+            finally:
+                db.close()
+        except Exception:
+            logger.error(f"database error for secret: {secret}")
             return
-        db_user.charges_monthly += int(quantity * 10)
-        User.save(db_user)
-        set_session_for_user(db_user)
 
     existing_user = existing_user or db_user
 
@@ -346,6 +373,9 @@ audio_model = None
 def load_audio_model():
     """Load and return the Parakeet ASR model for speech to text."""
     global audio_model
+    if not NEMO_AVAILABLE:
+        raise ImportError("NeMo ASR is not available. Please install nemo-toolkit to use audio transcription.")
+    
     with log_time("load parakeet model"):
         if not audio_model:
             audio_model = nemo_asr.models.ASRModel.from_pretrained(
@@ -569,11 +599,19 @@ def user_secret_matches(secret):
     existing_user = session_dict.get(secret)
     db_user = None
     if not existing_user:
-        db_user = User.bySecret(secret)
-        if not db_user:
-            logger.error(f"user not found for secret: {secret}")
+        try:
+            db = get_db_session_sync()
+            try:
+                db_user = User.get_by_secret(db, secret)
+                if not db_user:
+                    logger.error(f"user not found for secret: {secret}")
+                    return None
+                set_session_for_user(db_user)
+            finally:
+                db.close()
+        except Exception:
+            logger.error(f"database error for secret: {secret}")
             return None
-        set_session_for_user(db_user)
 
     existing_user = existing_user or db_user
     return existing_user

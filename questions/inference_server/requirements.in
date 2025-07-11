@@ -15,16 +15,19 @@ wrapt>=1.16.0
 transformers>=4.47.0
 tokenizers
 accelerate
-flash_attn
+flash-attn>=2.8.0
 
 triton>=2.2.0
 # --find-links https://download.pytorch.org/whl/torch_stable.html
 # pip3 install --pre torch torchvision torchaudio --find-links https://download.pytorch.org/whl/nightly/cu121
 # torch
 # torchaudio
---find-links https://download.pytorch.org/whl/nightly/cu121
+--find-links https://download.pytorch.org/whl/nightly/cu129
 torch
+--find-links https://download.pytorch.org/whl/nightly/cu129
 torchvision
+--find-links https://download.pytorch.org/whl/nightly/cu129
+torchaudio
 
 youtube_dl
 anthropic

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import logging
 from questions.logging_config import setup_logging
 from questions.db_models_postgres import Document, get_db
+from questions.auth import get_current_user
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -15,19 +16,18 @@ router = APIRouter(
 
 @router.get("/list")
 async def list_documents_route(request: Request, db: Session = Depends(get_db)):
-    user_id = request.query_params.get("userId")
-    if not user_id:
-        # Consider fetching userId from authenticated session/token if possible
-        # instead of relying solely on query param for security.
-        return JSONResponse({"error": "User ID is required"}, status_code=400)
+    # Get current user from authentication
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return JSONResponse({"error": "Authentication required"}, status_code=401)
     
     try:
-        documents = Document.get_by_user_id(db, user_id)
+        documents = Document.get_by_user_id(db, current_user.id)
         docs_list = [doc.to_dict() for doc in documents]
         
         return JSONResponse({"documents": docs_list})
     except Exception as e:
-        logger.error(f"Error listing documents for user {user_id}: {e}")
+        logger.error(f"Error listing documents for user {current_user.id}: {e}")
         return JSONResponse({"error": "Failed to list documents"}, status_code=500)
 
 @router.get("/get")
@@ -37,8 +37,7 @@ async def get_document_route(request: Request, db: Session = Depends(get_db)):
         return JSONResponse({"error": "Document ID is required"}, status_code=400)
     
     try:
-        doc_id = int(doc_id_str)
-        document = Document.get_by_id(db, doc_id)
+        document = Document.get_by_id(db, doc_id_str)
         
         if not document:
             return JSONResponse({"error": "Document not found"}, status_code=404)
@@ -54,15 +53,16 @@ async def get_document_route(request: Request, db: Session = Depends(get_db)):
 @router.post("/save")
 async def save_document_route(request: Request, db: Session = Depends(get_db)):
     try:
+        # Get current user from authentication
+        current_user = get_current_user(request, db)
+        if not current_user:
+            return JSONResponse({"error": "Authentication required"}, status_code=401)
+        
         data = await request.json()
-        user_id = data.get("userId")
+        user_id = current_user.id  # Use authenticated user ID
         title = data.get("title", "Untitled Document")
         content = data.get("content", "")
         doc_id = data.get("id") # ID might be present for updates
-        
-        if not user_id:
-            # TODO: Get userId from authenticated session/token
-            return JSONResponse({"error": "User ID is required"}, status_code=400)
         
         document = None
         if doc_id:
@@ -73,8 +73,11 @@ async def save_document_route(request: Request, db: Session = Depends(get_db)):
                  return JSONResponse({"error": "Permission denied"}, status_code=403)
 
         if not document:
-            # Create new document
+            # Create new document with generated ID
+            import time
+            doc_id = f"doc_{int(time.time() * 1000)}"  # Generate ID similar to frontend format
             document = Document(
+                id=doc_id,
                 user_id=user_id,
                 title=title,
                 content=content
@@ -104,15 +107,16 @@ async def save_document_route(request: Request, db: Session = Depends(get_db)):
 @router.post("/autosave")
 async def autosave_document_route(request: Request, db: Session = Depends(get_db)):
     try:
+        # Get current user from authentication
+        current_user = get_current_user(request, db)
+        if not current_user:
+            return JSONResponse({"error": "Authentication required"}, status_code=401)
+        
         data = await request.json()
-        user_id = data.get("userId")
+        user_id = current_user.id  # Use authenticated user ID
         doc_id = data.get("id")
         title = data.get("title", "Untitled Document")
         content = data.get("content", "")
-        
-        if not user_id:
-             # TODO: Get userId from authenticated session/token
-            return JSONResponse({"error": "User ID is required"}, status_code=400)
         
         document = None
         if doc_id:
@@ -124,7 +128,10 @@ async def autosave_document_route(request: Request, db: Session = Depends(get_db
         
         if not document:
             # Create new document if ID doesn't exist or wasn't provided
+            import time
+            doc_id = f"doc_{int(time.time() * 1000)}"  # Generate ID similar to frontend format
             document = Document(
+                id=doc_id,
                 user_id=user_id,
                 title=title,
                 content=content

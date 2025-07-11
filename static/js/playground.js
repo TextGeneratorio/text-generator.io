@@ -489,6 +489,13 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         var form = $('#playground-form');
         form.on('submit', function (event) {
             event.preventDefault();
+            
+            // Check subscription before submitting
+            if (!window.currentUser || !window.currentUser.is_subscribed) {
+                subscriptionModal.requireSubscription('use the playground');
+                return false;
+            }
+            
             var text = editor.getValue();
             setTextData(text);
 
@@ -578,11 +585,20 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             })
             .then(user => {
                 secret = user.secret;
-                // enable submit form
-                $('#playground-play').removeAttr('disabled');
-                // if users not subscribed redirect to subscribe page
-                if (!user.is_subscribed) {
-                    location.href = '/subscribe'
+                window.currentUser = user;
+                // enable submit form only if user is subscribed
+                if (user.is_subscribed) {
+                    $('#playground-play').removeAttr('disabled');
+                } else {
+                    $('#playground-play').attr('disabled', true);
+                    // Show subscription message
+                    $('#response-results').html(`
+                        <div style="text-align: center; padding: 20px; color: #666;">
+                            <h3>Premium Feature</h3>
+                            <p>The playground requires an active subscription to use.</p>
+                            <button onclick="subscriptionModal.show()" style="padding: 10px 20px; background: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer;">Subscribe Now</button>
+                        </div>
+                    `);
                 }
             })
             .catch(error => {
@@ -597,37 +613,70 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
       if (onceOnly) return;
       onceOnly = true;
 
+      console.log('Playground.js loaded');
+      console.log('window.fixtures:', typeof window.fixtures, window.fixtures);
+      console.log('$:', typeof $);
+      console.log('CodeMirror:', typeof CodeMirror);
+
+      try {
         initApp();
+      } catch (e) {
+        console.error('Error in initApp:', e);
+      }
 
         setTimeout(function() {
-          var placeholder = "Write here, then click play or (⌘ + Return) to generate."
-          if (!fixtures.is_mac) {
-            placeholder = "Write here, then click play or (Ctrl + Return) to generate."
-          }
-            editor = CodeMirror.fromTextArea(document.getElementById('playground-text'), {
+          try {
+            var placeholder = "Write here, then click play or (⌘ + Return) to generate."
+            if (typeof window.fixtures !== 'undefined' && window.fixtures && !window.fixtures.is_mac) {
+              placeholder = "Write here, then click play or (Ctrl + Return) to generate."
+            }
+            
+            var textArea = document.getElementById('playground-text');
+            if (!textArea) {
+              console.error('playground-text element not found');
+              return;
+            }
+            
+            if (typeof CodeMirror === 'undefined') {
+              console.error('CodeMirror not available');
+              return;
+            }
+            
+            editor = CodeMirror.fromTextArea(textArea, {
                 mode: "javascript",
                 lineNumbers: true,
                 placeholder: placeholder,
                 lineWrapping: true
-            })
+            });
+            
             editor.setSize("100%", null);
-            editor.on('change', editor => {
-                var value = editor.getValue();
+            editor.on('change', function(editorInstance) {
+                var value = editorInstance.getValue();
                 setTextData(value);
             });
 
+            editor.save();
 
-            editor.save()
-
-            $(document).ready(setupDialog);
+            if (typeof $ !== 'undefined') {
+              $(document).ready(setupDialog);
+            } else {
+              console.error('jQuery not available');
+            }
+          } catch (e) {
+            console.error('Error in setTimeout:', e);
+          }
         }, 2000);
 
 
         $("#open-code-button").click(function (event) {
-            showCode();
-            event.preventDefault();
-            event.stopPropagation();
-            return false;
+            try {
+                showCode();
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            } catch (e) {
+                console.error('Error in open-code-button click:', e);
+            }
         });
 
     });

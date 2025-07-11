@@ -1,4 +1,3 @@
-
 .demo-ribbon {
     width: 100%;
     height: 40vh;
@@ -837,10 +836,6 @@ footer a {
 .mdl-button--raised.mdl-button--colored {
     background: linear-gradient(45deg, #f17d34 0%, #d34675 100%) !important;
     color: white !important;
-}
-.firebaseui-textfield.mdl-textfield .firebaseui-label::after {
-
-    background: linear-gradient(0deg, #f17d34 0%, #d34675 100%) !important;
 }
 .mdl-button--fab.mdl-button--colored {
     background: #f17d34 !important;

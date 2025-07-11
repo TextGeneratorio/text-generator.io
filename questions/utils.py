@@ -26,6 +26,16 @@ def random_string(size=6, chars=string.ascii_letters + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
 
+def get_env_var(name, fallback_env_var=None, default=None):
+    """ Get environment variable with optional fallback """
+    value = os.environ.get(name)
+    if value is None and fallback_env_var:
+        value = os.environ.get(fallback_env_var)
+    if value is None:
+        value = default
+    return value
+
+
 # def hashing(plaintext, salt=""):
 #     """ Returns the hashed and encrypted hexdigest of a plaintext and salt"""
 #     app = webapp2.get_app()

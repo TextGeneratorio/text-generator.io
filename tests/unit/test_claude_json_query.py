@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock
 
 from questions.inference_server.claude_queries import query_to_claude_json_async
 
+pytestmark = [pytest.mark.inference]
+
 @pytest.mark.asyncio
 async def test_query_to_claude_json_async(monkeypatch):
     async def fake_post(self, url, headers=None, json=None):

@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Callable, Iterator, Tuple, List
+from typing import Callable, Iterator, Tuple, List, Optional
 
 
 def srt_format_timestamp(seconds: float) -> str:
@@ -47,7 +47,7 @@ def synthesize_full_text(
     voice: str = "af_nicole",
     speed: float = 1.0,
     chunk_words: int = 100,
-    process_fn: Callable[[str, str, float], Tuple[int, np.ndarray]] | None = None,
+    process_fn: Optional[Callable[[str, str, float], Tuple[int, np.ndarray]]] = None,
     sample_rate: int = 24000,
 ) -> Tuple[int, np.ndarray]:
     """Generate speech for arbitrarily long text by chunking."""

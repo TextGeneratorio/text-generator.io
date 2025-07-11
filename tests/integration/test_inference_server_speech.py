@@ -1,7 +1,7 @@
 import os
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.internet]
+pytestmark = [pytest.mark.integration, pytest.mark.internet, pytest.mark.inference, pytest.mark.audio]
 
 from questions.utils import log_time
 

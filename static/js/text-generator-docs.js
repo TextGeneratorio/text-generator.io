@@ -332,6 +332,9 @@ class TextGeneratorDocs {
       this.editor.root.addEventListener('keydown', this.handleKeyDown.bind(this));
     }
     
+    // Initialize image upload functionality
+    this.initializeImageUpload();
+    
     // Initialize document list events
     if (this.documentsList) {
       this.documentsList.addEventListener('click', (event) => {
@@ -390,8 +393,8 @@ class TextGeneratorDocs {
         const response = await fetch('/api/current-user');
         if (response.ok) {
           const userData = await response.json();
-          if (userData && userData.userId) {
-            this.userId = userData.userId;
+          if (userData && userData.id) {
+            this.userId = userData.id;
             return true;
           }
         }
@@ -872,7 +875,7 @@ class TextGeneratorDocs {
     try {
       // Try to get documents from database via API
       try {
-        const response = await fetch(`/api/docs/list?userId=${this.userId}`, {
+        const response = await fetch(`/api/docs/list`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
@@ -1074,7 +1077,6 @@ class TextGeneratorDocs {
     const title = this.docTitleInput.value || 'Untitled Document';
     
     const documentData = {
-      userId: this.userId,
       title,
       content
     };
@@ -1185,7 +1187,6 @@ class TextGeneratorDocs {
       const title = this.docTitleInput.value || 'Untitled Document';
       
       const documentData = {
-        userId: this.userId,
         title,
         content
       };
@@ -1703,6 +1704,113 @@ class QuillDeltaToMarkdownConverter {
     });
     
     return markdown;
+  }
+  
+  initializeImageUpload() {
+    // Handle paste events for image upload
+    if (this.editor) {
+      this.editor.root.addEventListener('paste', this.handlePaste.bind(this));
+    }
+    
+    // Handle drag and drop for image upload
+    if (this.editor) {
+      this.editor.root.addEventListener('dragover', this.handleDragOver.bind(this));
+      this.editor.root.addEventListener('drop', this.handleDrop.bind(this));
+    }
+  }
+  
+  handlePaste(event) {
+    const items = event.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        event.preventDefault();
+        const file = item.getAsFile();
+        this.uploadImage(file);
+        break;
+      }
+    }
+  }
+  
+  handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }
+  
+  handleDrop(event) {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.indexOf('image') !== -1) {
+        this.uploadImage(file);
+      }
+    }
+  }
+  
+  convertImageToWebP(file, quality = 85) {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to convert image to WebP'));
+          }
+        }, 'image/webp', quality / 100);
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  
+  async uploadImage(file) {
+    try {
+      // Convert to WebP
+      const webpBlob = await this.convertImageToWebP(file, 85);
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', webpBlob, 'image.webp');
+      
+      // Upload to server
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Insert image markdown into editor
+        const selection = this.editor.getSelection();
+        const index = selection ? selection.index : this.editor.getLength();
+        
+        const imageMarkdown = `![Image](${result.url})`;
+        this.editor.insertText(index, imageMarkdown);
+        
+        // Update save status
+        this.updateSaveStatus('Image uploaded');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      this.updateSaveStatus('Image upload failed');
+    }
   }
 }
 

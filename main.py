@@ -2,12 +2,13 @@
 import json
 import os
 import httpx
+import boto3
 from copy import deepcopy
 from pathlib import Path
 from typing import Union, Optional, List, Dict, Any, cast
 from urllib.parse import urlencode, quote_plus
 
-from fastapi import Form, HTTPException, Header, Depends
+from fastapi import Form, HTTPException, Header, Depends, UploadFile, File
 from fastapi import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,38 +17,39 @@ from starlette.responses import JSONResponse, Response, RedirectResponse
 from starlette.routing import Route
 from starlette.datastructures import URL
 from sqlalchemy.orm import Session
+from PIL import Image
+import io
+import base64
 
 from questions import fixtures, doc_fixtures, tool_fixtures
 from pydantic import BaseModel
 from questions import blog_fixtures
 
 # Import database models conditionally
-try:
-    from questions.db_models import User, Document
-    HAS_NDB = True
-except Exception as e:
-    print(f"NDB models not available: {e}")
-    HAS_NDB = False
-    # Create mock classes to prevent import errors
-    class User:
-        @staticmethod
-        def bySecret(secret):
-            return None
-        @staticmethod
-        def byId(uid):
-            return None
-    class Document:
-        pass
+HAS_NDB = False
+print("NDB models disabled - using PostgreSQL only")
+
+# Create mock classes to prevent import errors
+class User:
+    @staticmethod
+    def bySecret(secret):
+        return None
+    @staticmethod
+    def byId(uid):
+        return None
+
+class Document:
+    pass
 
 # Enable PostgreSQL for production use
 USE_POSTGRES = True
 
 # Import new PostgreSQL models and auth
 try:
-    from questions.db_models_postgres import User as UserPG, Document as DocumentPG, get_db
+    from questions.db_models_postgres import get_db
     from questions.auth import (
         login_or_create_user, set_session_for_user, get_current_user, 
-        require_auth, create_user, authenticate_user
+        create_user
     )
     # Test if the functions actually work with a proper database
     USE_POSTGRES = True  # Enable PostgreSQL for production
@@ -68,8 +70,13 @@ if not USE_POSTGRES:
         return None
 
 from questions.models import CreateUserRequest, GetUserRequest, GenerateParams
-from questions.payments.payments import get_self_hosted_subscription_count_for_user, get_subscription_item_id_for_user_email
-from questions.utils import random_string
+from questions.payments.payments import (
+    get_self_hosted_subscription_count_for_user, 
+    get_subscription_item_id_for_user_email,
+    get_or_create_stripe_customer,
+    validate_stripe_customer
+)
+from questions.utils import random_string, get_env_var
 
 # Import gameon utils conditionally
 try:
@@ -104,6 +111,15 @@ def get_base_template_vars(request: Request) -> Dict[str, Any]:
     """
     Get base template variables that are common to all templates
     """
+    # Detect if user is on Mac for keyboard shortcuts
+    is_mac = False
+    try:
+        user_agent = request.headers.get("user-agent", "")
+        if user_agent:
+            is_mac = user_agent.lower().find("mac") != -1
+    except Exception:
+        is_mac = False
+    
     return {
         "request": request,
         "static_url": "/static",
@@ -111,15 +127,19 @@ def get_base_template_vars(request: Request) -> Dict[str, Any]:
         "app_name": "Text Generator",
         "gcloud_static_bucket_url": GCLOUD_STATIC_BUCKET_URL,
         "facebook_app_id": FACEBOOK_APP_ID,
+        "fixtures": json.dumps({
+            "is_mac": is_mac,
+        }),
     }
 
 from fastapi import FastAPI
 
-GCLOUD_STATIC_BUCKET_URL = "https://static.text-generator.io/static"
+GCLOUD_STATIC_BUCKET_URL = "https://text-generatorstatic.text-generator.io/static"
 import sellerinfo
 import stripe
 
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     openapi_url="/static/openapi.json",
@@ -129,6 +149,15 @@ app = FastAPI(
     description="Generate text, control stopping criteria like max_length/max_sentences",
     # root_path="https://api.text-generator.io",
     version="1",
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify actual origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Import the new router conditionally
@@ -148,10 +177,8 @@ def user_secret_matches(secret):
     # check if the secret is valid
     if secret is None:
         return False
-    if secret in session_dict:
-        return True
     
-    # Check in PostgreSQL database first if available
+    # Check in PostgreSQL database if available
     if USE_POSTGRES:
         try:
             from questions.db_models_postgres import SessionLocal, User as UserPG
@@ -159,18 +186,16 @@ def user_secret_matches(secret):
             try:
                 user = UserPG.get_by_secret(db, secret)
                 if user:
-                    session_dict[secret] = user
+                    # Import session management from auth module
+                    from questions.auth import set_session_for_user
+                    set_session_for_user(user)
                     return True
             finally:
                 db.close()
         except Exception:
             pass
     
-    # Fallback to old NDB system
-    user = User.bySecret(secret)
-    if user:
-        set_session_for_user(user) # Cache user if found
-        return True
+    # No user found in PostgreSQL
     return False
 
 def request_authorized(request: Request, secret):
@@ -195,8 +220,6 @@ async def redirect_domain(request: Request, call_next):
     # permanent redirect from language-generator.app.nz   to language-generator.io
     if request.url.hostname == "language-generator.app.nz":
         return RedirectResponse("https://text-generator.io" + request.url.path, status_code=301)
-    if request.url.hostname == "language-generator.app.nz":
-        return RedirectResponse("https://text-generator.io" + request.url.path, status_code=301)
     # if request.url.scheme == "http":
     #     url = request.url.with_scheme("https")
     #     return RedirectResponse(url=url)
@@ -210,8 +233,6 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/gameon/static", StaticFiles(directory="gameon/static"), name="gameon/static")
-
-session_dict = {}
 
 debug = (
     os.environ.get("SERVER_SOFTWARE", "").startswith("Development")
@@ -303,7 +324,8 @@ YOUR_DOMAIN = "https://text-generator.io"
 @app.post("/create-checkout-session")
 async def create_checkout_session(uid: str = Form(default=""), secret: str = Form(default=""), type: str = Form(default=""), quantity: int = Form(default=1)):
     quantity = quantity if quantity else 1
-    user = session_dict.get(secret)
+    from questions.auth import get_user_from_session
+    user = get_user_from_session(secret)
     stripe_id: Optional[str] = None
     if user and user.stripe_id:
         stripe_id = user.stripe_id
@@ -321,9 +343,9 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
         return JSONResponse({"error": "User payment info not found. Please ensure you are logged in."}, status_code=400)
 
     # Define line_item with type hint (basic structure)
+    # For metered subscriptions, quantity should not be specified
     line_item: Dict[str, Any] = {
         "price": "price_0PpIzNDtz2XsjQROUZgNOTaF", # Default monthly
-        'quantity': quantity,
     }
     success_url = YOUR_DOMAIN + "/playground"
 
@@ -332,6 +354,8 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
     elif type == "self-hosted":
         line_item["price"] = 'price_0MuAuxDtz2XsjQROz3Hp5Tcx'
         success_url = YOUR_DOMAIN + "/account"
+        # Only self-hosted subscriptions use quantity
+        line_item['quantity'] = quantity
 
     checkout_session_url: Optional[str] = None
     try:
@@ -350,10 +374,10 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
             # Fallback for NZD plans
             line_item_nzd: Dict[str, Any] = {
                 "price": "price_0LCAb8Dtz2XsjQROnv1GhCL4",
-                'quantity': quantity, # Assuming quantity applies here too
             }
             if type == "self-hosted":
                  line_item_nzd["price"] = 'price_0MuBEoDtz2XsjQROiRewGRFi'
+                 line_item_nzd['quantity'] = quantity  # Only self-hosted uses quantity
                  success_url = YOUR_DOMAIN + "/account"
 
             try:
@@ -533,9 +557,11 @@ async def create_user_legacy(create_user_request: CreateUserRequest):
     return JSONResponse(json.loads(json.dumps(user.to_dict(), cls=GameOnUtils.MyEncoder)))
 
 
-def set_session_for_user(user):
-    if user != None:
-        session_dict[user.secret] = user
+def set_session_for_user_legacy(user):
+    if user is not None:
+        # Use the auth module's session management
+        from questions.auth import set_session_for_user
+        set_session_for_user(user)
 
 
 @app.get("/portal")
@@ -633,10 +659,21 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
             user = login_or_create_user(email, password, db)
             set_session_for_user(user)
             
-            # Create/update Stripe customer if needed
-            if not user.stripe_id:
-                customer = stripe.Customer.create(email=email, idempotency_key=user.id)
-                user.stripe_id = customer.id
+            # Ensure user has a valid Stripe customer
+            valid_stripe_id = validate_stripe_customer(user.stripe_id, email) if user.stripe_id else None
+            if not valid_stripe_id:
+                logger.info(f"Creating/updating Stripe customer for user {email}")
+                stripe_id = get_or_create_stripe_customer(email, user.id)
+                if stripe_id:
+                    user.stripe_id = stripe_id
+                    db.commit()
+                    db.refresh(user)
+                else:
+                    logger.error(f"Failed to create Stripe customer for user {email}")
+            elif valid_stripe_id != user.stripe_id:
+                # Update stored customer ID if we found a different valid one
+                logger.info(f"Updating Stripe customer ID for user {email} from {user.stripe_id} to {valid_stripe_id}")
+                user.stripe_id = valid_stripe_id
                 db.commit()
                 db.refresh(user)
             
@@ -644,7 +681,17 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
             subscription_item_id = get_subscription_item_id_for_user_email(user.email)
             user.is_subscribed = subscription_item_id is not None
             
-            return JSONResponse(user.to_dict())
+            # Set session_secret cookie
+            response = JSONResponse(user.to_dict())
+            response.set_cookie(
+                key="session_secret",
+                value=user.secret,
+                httponly=True,
+                secure=False,  # Set to True in production with HTTPS
+                samesite="lax",
+                path="/"
+            )
+            return response
         except HTTPException:
             raise
         except Exception as e:
@@ -663,7 +710,18 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
             }
             active_sessions[session_secret] = user_data
             logger.info(f"Login successful: {user_data}")
-            return JSONResponse(user_data)
+            
+            # Set session_secret cookie
+            response = JSONResponse(user_data)
+            response.set_cookie(
+                key="session_secret",
+                value=session_secret,
+                httponly=True,
+                secure=False,  # Set to True in production with HTTPS
+                samesite="lax",
+                path="/"
+            )
+            return response
         else:
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -680,12 +738,25 @@ async def api_signup(request: Request, email: str = Form(...), password: str = F
             set_session_for_user(user)
             
             # Create Stripe customer
-            customer = stripe.Customer.create(email=email, idempotency_key=user.id)
-            user.stripe_id = customer.id
-            db.commit()
-            db.refresh(user)
+            stripe_id = get_or_create_stripe_customer(email, user.id)
+            if stripe_id:
+                user.stripe_id = stripe_id
+                db.commit()
+                db.refresh(user)
+            else:
+                logger.error(f"Failed to create Stripe customer for new user {email}")
             
-            return JSONResponse(user.to_dict())
+            # Set session_secret cookie
+            response = JSONResponse(user.to_dict())
+            response.set_cookie(
+                key="session_secret",
+                value=user.secret,
+                httponly=True,
+                secure=False,  # Set to True in production with HTTPS
+                samesite="lax",
+                path="/"
+            )
+            return response
         except HTTPException:
             raise
         except Exception as e:
@@ -714,20 +785,22 @@ async def api_signup(request: Request, email: str = Form(...), password: str = F
                 'is_subscribed': False
             }
             
-            # Store session for login
-            session_dict[session_secret] = user_data
+            # Store session for login - skip for now in fallback mode
+            # session_dict[session_secret] = user_data
             
             logger.info(f"User created successfully: {email} (ID: {user_id})")
-            return JSONResponse(user_data)
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"In-memory signup error: {e}")
-            raise HTTPException(status_code=500, detail="Signup failed")
-            active_sessions[session_secret] = user_data
             
-            logger.info(f"Created user: {user_data}")
-            return JSONResponse(user_data)
+            # Set session_secret cookie
+            response = JSONResponse(user_data)
+            response.set_cookie(
+                key="session_secret",
+                value=session_secret,
+                httponly=True,
+                secure=False,  # Set to True in production with HTTPS
+                samesite="lax",
+                path="/"
+            )
+            return response
         except HTTPException:
             raise
         except Exception as e:
@@ -742,6 +815,72 @@ async def api_logout(request: Request):
     return JSONResponse({"message": "Logged out successfully"})
 
 
+@app.post("/api/upload-image")
+async def upload_image(request: Request, file: UploadFile = File(...)):
+    """Upload image with WebP conversion and upload to S3"""
+    try:
+        # Check if user is authenticated
+        if USE_POSTGRES:
+            from questions.auth import get_current_user
+            current_user = get_current_user(request, next(get_db()))
+            if not current_user:
+                raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Validate file type
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        # Read image data
+        image_data = await file.read()
+        
+        # Convert to WebP with quality 85
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Convert to RGB if necessary (for WebP compatibility)
+        if image.mode in ('RGBA', 'LA', 'P'):
+            image = image.convert('RGB')
+        
+        # Create WebP image
+        webp_buffer = io.BytesIO()
+        image.save(webp_buffer, format='WEBP', quality=85, optimize=True)
+        webp_data = webp_buffer.getvalue()
+        
+        # Generate filename
+        import uuid
+        filename = f"uploaded_{uuid.uuid4().hex}.webp"
+        
+        # Upload to S3 (assuming AWS credentials are configured)
+        s3_client = boto3.client('s3')
+        bucket_name = 'textgeneratorstatic.netwrck.com'
+        
+        try:
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=filename,
+                Body=webp_data,
+                ContentType='image/webp',
+                ACL='public-read'
+            )
+            
+            # Return the URL
+            image_url = f"https://{bucket_name}/{filename}"
+            return JSONResponse({
+                "success": True,
+                "url": image_url,
+                "filename": filename
+            })
+            
+        except Exception as e:
+            logger.error(f"Error uploading to S3: {e}")
+            raise HTTPException(status_code=500, detail="Failed to upload image")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing image upload: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process image")
+
+
 @app.get("/api/current-user")
 async def api_current_user(request: Request, db: Session = Depends(get_db)):
     """Get current user information"""
@@ -751,14 +890,30 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
             if not user:
                 raise HTTPException(status_code=401, detail="Not authenticated")
             
-            # Check subscription status
+            # Ensure user has a valid Stripe customer ID
+            if not user.stripe_id or not validate_stripe_customer(user.stripe_id):
+                logger.info(f"User {user.email} has invalid/missing Stripe ID, creating new customer")
+                stripe_id = get_or_create_stripe_customer(user.email, user.id)
+                if stripe_id:
+                    user.stripe_id = stripe_id
+                    db.commit()
+                    db.refresh(user)
+                else:
+                    logger.error(f"Failed to create Stripe customer for user {user.email}")
+            
+            # Check subscription status with error handling
             subscription_item_id = get_subscription_item_id_for_user_email(user.email)
             user.is_subscribed = subscription_item_id is not None
-            num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
+            
+            # Get self-hosted subscription count with error handling
+            num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id) if user.stripe_id else 0
             user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
             
             return JSONResponse(user.to_dict())
-        except Exception:
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error in current-user endpoint: {e}")
             raise HTTPException(status_code=401, detail="Not authenticated")
     else:
         # Fallback to simple session checking
@@ -1026,6 +1181,19 @@ def validate_generate_params(generate_params):
     return validate_result
 
 
+def strip_images_from_text(text: str) -> str:
+    """Strip markdown images from text to save context tokens"""
+    import re
+    # Remove markdown images ![alt text](url)
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    # Remove HTML img tags
+    text = re.sub(r'<img[^>]*>', '', text)
+    # Clean up extra whitespace
+    text = re.sub(r'\n\s*\n', '\n\n', text)
+    text = text.strip()
+    return text
+
+
 @app.get("/tools/text-generator-docs")
 async def text_generator_docs_redirect(request: Request):
     # Redirect to the standalone route for backward compatibility
@@ -1056,8 +1224,8 @@ async def generate_long_text(
             )
 
     try:
-        # Prepare the prompt for Claude
-        prompt = generate_params.text
+        # Prepare the prompt for Claude - strip images to save context tokens
+        prompt = strip_images_from_text(generate_params.text)
 
         # Set up system message to control generation parameters
         system_message = f"""
@@ -1124,8 +1292,8 @@ This endpoint accepts a model parameter to specify which Claude model to use
             )
 
     try:
-        # Prepare the prompt for Claude
-        prompt = generate_params.text
+        # Prepare the prompt for Claude - strip images to save context tokens
+        prompt = strip_images_from_text(generate_params.text)
         model_name = "claude-3-7-sonnet-20250219"
 
         # Set up system message to control generation parameters
@@ -1257,6 +1425,36 @@ async def optimize_prompt_endpoint(
     except Exception as e:
         logger.error(f"Error optimizing prompt: {e}")
         raise HTTPException(status_code=500, detail=f"Error optimizing prompt: {str(e)}")
+
+
+@app.get("/file-upload-get-signed-url-cloudflare")
+async def file_upload_get_signed_url_cloudflare(
+    request: Request, contentType: str, fileName: str
+):
+    """Generate an R2 presigned URL for uploading to the new bucket."""
+    bucket_name = get_env_var("CLOUDFLARE_BUCKET", fallback_env_var="R2_BUCKET_NAME", default="text-generatorstatic.text-generator.io")
+    id = random_string(10)
+    object_path = f"static/uploads/{id}-{fileName}"
+
+    # For R2, we need to use the proper endpoint URL  
+    account_id = get_env_var("R2_ACCOUNT_ID", default="f76d25b8b86cfa5638f43016510d8f77")
+    endpoint_url = get_env_var("R2_ENDPOINT", default=f"https://{account_id}.r2.cloudflarestorage.com")
+    
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=get_env_var("CLOUDFLARE_R2_ACCESS_KEY_ID", fallback_env_var="R2_ACCESS_KEY_ID"),
+        aws_secret_access_key=get_env_var("CLOUDFLARE_R2_SECRET_ACCESS_KEY", fallback_env_var="R2_SECRET_ACCESS_KEY"),
+        region_name=get_env_var("R2_REGION", default="auto"),
+    )
+
+    url = s3.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket_name, "Key": object_path, "ContentType": contentType},
+        ExpiresIn=3600,
+    )
+    return {"url": url, "object_path": object_path, "bucket_name": bucket_name}
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 from transformers import (
     GPT2TokenizerFast,
     GPTNeoForCausalLM,
-    BloomTokenizerFast,
-    BloomForCausalLM,
     set_seed,
     StoppingCriteriaList,
     pipeline, Pipeline,

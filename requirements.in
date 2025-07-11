@@ -1,35 +1,59 @@
-astroid
-markitdown
-Click
+astroid>=3.0.0
+markitdown[all]
+munch>=4.0.0
+Click>=8.0.0
 colorama
 gunicorn
 h11
-isort
+isort>=5.13.0
 lazy-object-proxy
 mccabe
 six>=1.16.0
 uvicorn
-wrapt
-#transformers
-transformers==4.53.1
-#accelerate
-
-#torch
-#torch
-# we dont need torchvision-0.12.0+cu113
-
-
+wrapt>=1.16.0
+transformers>=4.47.0
+tokenizers
+accelerate
+google-cloud-storage>=2.0.0
+google-api-python-client>=2.0.0
+google-api-core>=2.0.0
+google-cloud-ndb>=2.3.0
+scipy
 
 loguru
-#jinja2
-jinja2
+jinja2>=3.0.0
 websockets
-#nltk
-nltk
-stripe
-cachetools
-python-multipart
+nltk>=3.8.0
+stripe>=7.0.0
+cachetools>=5.0.0
+python-multipart>=0.0.9
 rsa
+
+# Audio/ML dependencies
+librosa>=0.10.0
+sentencepiece>=0.2.0
+omegaconf>=2.3.0
+phonemizer>=3.0.0
+nemo_toolkit[asr]>=2.2.0
+ffmpeg-python>=0.2.0
+pytorch_lightning>=2.2.0
+einops>=0.7.0
+datasets>=2.16.0
+opencv-python>=4.9.0
+ftfy>=6.1.0
+
+# OCR/PDF processing
+pypdf2>=3.0.0
+pytesseract>=0.3.10
+
+# Scientific computing
+numpy>=1.26.0,<2
+pandas>=2.2.3
+python-dateutil>=2.9.0.post0
+Pillow>=10.0.0
+bs4
+requests
+requests-futures
 
 # PostgreSQL dependencies
 sqlalchemy
@@ -38,13 +62,19 @@ alembic
 bcrypt
 
 # Let compile resolve these based on anthropic and other needs
-# fastapi==0.109.2
-# pydantic==2.6.1
-# httpx==0.24.1
-# httpcore==0.17.3
-fastapi
-pydantic
-protobuf<=3.20.0
+fastapi>=0.109.2
+pydantic>=2.6.1
 anthropic==0.49.0
-httpx
-httpcore
+httpx>=0.27.0
+httpcore>=1.0.0
+gradio>=5.12.0
+youtube_dl
+aiohttp
+boto3
+runpod
+setuptools>=69.0.0
+tensorboard>=2.15.0
+pytest>=8.0.0
+pytest-asyncio>=0.21.0
+python-docx
+python-pptx

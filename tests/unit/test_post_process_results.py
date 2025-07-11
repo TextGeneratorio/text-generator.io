@@ -5,7 +5,7 @@ transformers = pytest.importorskip(
 )
 from transformers import AutoTokenizer
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.inference]
 
 from questions.models import GenerateParams
 from questions.post_process_results import post_process_results

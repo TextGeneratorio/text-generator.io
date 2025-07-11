@@ -77,17 +77,17 @@
 			<div
 				class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
 				<div class="demo-crumbs mdl-color-text--grey-500">
-					<a href="/" title="Text Generator">Text Generator</a> > Text-to-Speech Demo
+					<a href="/" title="Text Generator">Text Generator</a> > Text-to-Speech Generator API
 				</div>
 
 				<div class="tts-container">
-					<h1>Custom Text-to-Speech Demo</h1>
+					<h1>Text-to-Speech Generator API</h1>
 					<p>Enter text, select voice, choose speed, and click "Generate Speech".</p>
 
 					<div class="tts-field">
 						<label for="textInput">Text to Synthesize:</label><br />
 						<textarea id="textInput" rows="3" style="width:100%;" class="mdl-textfield__input"
-							placeholder="Enter text here..." autofocus></textarea>
+							placeholder="Enter text here..." autofocus>Hey hows it going</textarea>
 					</div>
 
 					<div class="tts-field">
@@ -200,8 +200,6 @@ response = requests.post(url, headers=headers, json=data)</code></pre>
 		
 		// Get user secret on page load
 		checkAuthAndGetSecret();
-			});
-		}
 
 		speedEl.addEventListener("input", () => {
 			speedValueEl.textContent = speedEl.value;

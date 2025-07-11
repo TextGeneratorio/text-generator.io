@@ -56,16 +56,16 @@ def setup_logging(level: int = logging.INFO, use_cloud: bool = False) -> None:
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
 
-    if use_cloud:
-        try:
-            import google.cloud.logging  # type: ignore
-            client = google.cloud.logging.Client()
-            cloud_handler = client.get_default_handler()
-            cloud_handler.setFormatter(formatter)
-            root_logger.addHandler(cloud_handler)
-            client.setup_logging(log_level=level)
-        except Exception as e:  # pragma: no cover - environment may lack gcloud
-            root_logger.error("Failed to initialize Google Cloud Logging: %s", e)
+    # if use_cloud:
+    #     try:
+    #         import google.cloud.logging  # type: ignore
+    #         client = google.cloud.logging.Client()
+    #         cloud_handler = client.get_default_handler()
+    #         cloud_handler.setFormatter(formatter)
+    #         root_logger.addHandler(cloud_handler)
+    #         client.setup_logging(log_level=level)
+    #     except Exception as e:  # pragma: no cover - environment may lack gcloud
+    #         root_logger.error("Failed to initialize Google Cloud Logging: %s", e)
 
 
 def get_logger(name: str) -> logging.Logger:

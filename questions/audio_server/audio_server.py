@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 from starlette.responses import JSONResponse, Response
 
 from questions.audio_server.audio_dl import request_get
-from questions.db_models import User
+from questions.db_models_postgres import User, get_db_session_sync
+from questions.auth import get_user_from_session
 from questions.gameon_utils import GameOnUtils
 from questions.models import (
     GetUserRequest,
@@ -43,7 +44,7 @@ templates = Jinja2Templates(directory=".")
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-GCLOUD_STATIC_BUCKET_URL = "https://storage.googleapis.com/questions-346919/static"
+GCLOUD_STATIC_BUCKET_URL = "https://text-generatorstatic.text-generator.io/static"
 import sellerinfo
 import stripe
 
@@ -178,14 +179,33 @@ def track_stripe_request_usage(secret, quantity: int):
     db_user = None
     if existing_user:
         existing_user.charges_monthly += int(quantity * 10)
-        User.save(existing_user)
+        try:
+            db = get_db_session_sync()
+            try:
+                db_user_obj = User.get_by_secret(db, secret)
+                if db_user_obj:
+                    db_user_obj.charges_monthly = existing_user.charges_monthly
+                    db.commit()
+            finally:
+                db.close()
+        except Exception:
+            pass
     if not existing_user:
-        db_user = User.bySecret(secret)
-        if not db_user:
-            logger.error(f"user not found for secret: {secret}")
-        db_user.charges_monthly += int(quantity * 10)
-        User.save(db_user)
-        set_session_for_user(db_user)
+        try:
+            db = get_db_session_sync()
+            try:
+                db_user = User.get_by_secret(db, secret)
+                if not db_user:
+                    logger.error(f"user not found for secret: {secret}")
+                    return
+                db_user.charges_monthly += int(quantity * 10)
+                db.commit()
+                set_session_for_user(db_user)
+            finally:
+                db.close()
+        except Exception:
+            logger.error(f"database error for secret: {secret}")
+            return
 
     existing_user = existing_user or db_user
 
@@ -268,12 +288,19 @@ def user_authorized(secret):
     existing_user = session_dict.get(secret)
     db_user = None
     if not existing_user:
-        db_user = User.bySecret(secret)
-        if not db_user:
-            logger.error(f"user not found for secret: {secret}")
-
+        try:
+            db = get_db_session_sync()
+            try:
+                db_user = User.get_by_secret(db, secret)
+                if not db_user:
+                    logger.error(f"user not found for secret: {secret}")
+                    return None
+                set_session_for_user(db_user)
+            finally:
+                db.close()
+        except Exception:
+            logger.error(f"database error for secret: {secret}")
             return None
-        set_session_for_user(db_user)
 
     existing_user = existing_user or db_user
 
