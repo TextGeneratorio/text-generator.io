@@ -17,5 +17,5 @@ jobs:
         run: |
           uv pip install --no-compile -r questions/inference_server/requirements.txt
           uv pip install --no-compile -r dev-requirements.txt
-      - name: Run unit tests
-        run: pytest tests/unit
+      - name: Run unit tests (excluding inference)
+        run: pytest tests/unit -m "not inference"

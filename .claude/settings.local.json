@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python -m pytest tests/unit/test_user_auth.py -v)",
+      "Bash(source:*)",
+      "Bash(PYTHONPATH=. python -m pytest tests/test_doc_api.py -v)",
+      "Bash(source:*)",
+      "Bash(python:*)"
     ],
     "deny": []
   }
