@@ -9,7 +9,9 @@ from unittest.mock import patch, MagicMock
 import logging
 from questions.payments.payments import (
     validate_stripe_customer, 
-    get_or_create_stripe_customer
+    get_or_create_stripe_customer,
+    validate_stripe_customer_async,
+    get_or_create_stripe_customer_async
 )
 
 
@@ -195,3 +197,158 @@ class TestStripeCustomerValidation:
                 
                 results = [future.result() for future in concurrent.futures.as_completed(futures)]
                 assert all(result == "cus_concurrent123" for result in results)
+
+
+class TestStripeCustomerValidationAsync:
+    """Test cases for async Stripe customer validation scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_validate_stripe_customer_async_valid_id(self):
+        """Test async validation with a valid Stripe customer ID."""
+        # Mock a valid customer response
+        mock_customer = {"id": "cus_valid123", "deleted": False}
+        
+        # Create a mock async context manager
+        async def mock_async_context_manager(self):
+            mock_client = MagicMock()
+            
+            async def mock_retrieve_customer(customer_id):
+                return mock_customer
+            
+            mock_client.retrieve_customer = mock_retrieve_customer
+            return mock_client
+        
+        async def mock_async_exit(self, exc_type, exc_val, exc_tb):
+            return None
+        
+        with patch('questions.payments.payments.AsyncStripeClient') as mock_client_class:
+            mock_client_class.return_value.__aenter__ = mock_async_context_manager
+            mock_client_class.return_value.__aexit__ = mock_async_exit
+            
+            result = await validate_stripe_customer_async("cus_valid123")
+            assert result == "cus_valid123"
+
+    @pytest.mark.asyncio
+    async def test_validate_stripe_customer_async_invalid_id(self):
+        """Test async validation with an invalid Stripe customer ID."""
+        with patch('questions.payments.payments.AsyncStripeClient') as mock_client_class:
+            mock_client = mock_client_class.return_value
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client.retrieve_customer.return_value = None
+            
+            result = await validate_stripe_customer_async("cus_invalid123")
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_validate_stripe_customer_async_invalid_id_with_email_fallback(self):
+        """Test async validation with invalid ID but successful email fallback."""
+        # Create a mock async context manager
+        async def mock_async_context_manager(self):
+            mock_client = MagicMock()
+            
+            async def mock_retrieve_customer(customer_id):
+                return None
+            
+            async def mock_list_customers(email=None, limit=100):
+                return {"data": [{"id": "cus_found_by_email", "email": "test@example.com"}]}
+            
+            mock_client.retrieve_customer = mock_retrieve_customer
+            mock_client.list_customers = mock_list_customers
+            return mock_client
+        
+        async def mock_async_exit(self, exc_type, exc_val, exc_tb):
+            return None
+        
+        with patch('questions.payments.payments.AsyncStripeClient') as mock_client_class:
+            mock_client_class.return_value.__aenter__ = mock_async_context_manager
+            mock_client_class.return_value.__aexit__ = mock_async_exit
+            
+            result = await validate_stripe_customer_async("cus_invalid123", email="test@example.com")
+            assert result == "cus_found_by_email"
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_stripe_customer_async_existing(self):
+        """Test async getting existing customer by email."""
+        # Create a mock async context manager
+        async def mock_async_context_manager(self):
+            mock_client = MagicMock()
+            
+            async def mock_list_customers(email=None, limit=100):
+                return {"data": [{"id": "cus_existing123", "email": "test@example.com"}]}
+            
+            mock_client.list_customers = mock_list_customers
+            return mock_client
+        
+        async def mock_async_exit(self, exc_type, exc_val, exc_tb):
+            return None
+        
+        with patch('questions.payments.payments.AsyncStripeClient') as mock_client_class:
+            mock_client_class.return_value.__aenter__ = mock_async_context_manager
+            mock_client_class.return_value.__aexit__ = mock_async_exit
+            
+            result = await get_or_create_stripe_customer_async("test@example.com")
+            assert result == "cus_existing123"
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_stripe_customer_async_create_new(self):
+        """Test async creating new customer when none exists."""
+        # Create a mock async context manager
+        async def mock_async_context_manager(self):
+            mock_client = MagicMock()
+            
+            async def mock_list_customers(email=None, limit=100):
+                return {"data": []}
+            
+            async def mock_create_customer(email, idempotency_key=None):
+                return {"id": "cus_new123"}
+            
+            mock_client.list_customers = mock_list_customers
+            mock_client.create_customer = mock_create_customer
+            return mock_client
+        
+        async def mock_async_exit(self, exc_type, exc_val, exc_tb):
+            return None
+        
+        with patch('questions.payments.payments.AsyncStripeClient') as mock_client_class:
+            mock_client_class.return_value.__aenter__ = mock_async_context_manager
+            mock_client_class.return_value.__aexit__ = mock_async_exit
+            
+            result = await get_or_create_stripe_customer_async("test@example.com", user_id="user123")
+            assert result == "cus_new123"
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_stripe_customer_async_create_fails(self):
+        """Test async when customer creation fails."""
+        with patch('questions.payments.payments.AsyncStripeClient') as mock_client_class:
+            mock_client = mock_client_class.return_value
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client.list_customers.return_value = {"data": []}
+            mock_client.create_customer.return_value = None
+            
+            result = await get_or_create_stripe_customer_async("test@example.com")
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_stripe_customer_async_no_email(self):
+        """Test async with no email provided."""
+        result = await get_or_create_stripe_customer_async(None)
+        assert result is None
+        
+        result = await get_or_create_stripe_customer_async("")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_async_network_error_handling(self):
+        """Test async handling of network errors with retry logic."""
+        import asyncio
+        
+        with patch('questions.payments.payments.AsyncStripeClient') as mock_client_class:
+            mock_client = mock_client_class.return_value
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client.retrieve_customer.side_effect = asyncio.TimeoutError("Network timeout")
+            
+            result = await validate_stripe_customer_async("cus_timeout123")
+            assert result is None

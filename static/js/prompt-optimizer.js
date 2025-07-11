@@ -3,14 +3,14 @@ document.addEventListener('DOMContentLoaded', async function () {
   if (!btn) return;
   
   // Check subscription status on page load
-  const isSubscribed = await checkUserSubscription();
+  const isSubscribed = await isUserSubscribed();
   
   if (!isSubscribed) {
     // User is not subscribed, disable the tool
     btn.disabled = true;
     btn.textContent = 'Premium Feature - Subscribe to Access';
     btn.addEventListener('click', function() {
-      showSubscriptionModal();
+      if (window.subscriptionModal) { window.subscriptionModal.show(); }
     });
     return;
   }

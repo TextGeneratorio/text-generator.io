@@ -6,6 +6,10 @@ from cachetools import cached
 import logging
 import sellerinfo
 from questions.logging_config import setup_logging
+import asyncio
+from typing import Optional, Dict, Any, List
+import aiohttp
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 setup_logging(use_cloud=True)
 logger = logging.getLogger(__name__)
@@ -28,6 +32,107 @@ else:
     }
 
 stripe.api_key = stripe_keys["secret_key"]
+
+class AsyncStripeClient:
+    """Async Stripe client with robust error handling and retry logic."""
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.session = None
+        self.base_url = "https://api.stripe.com/v1"
+        
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=30),
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            }
+        )
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            await self.session.close()
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError))
+    )
+    async def _make_request(self, method: str, endpoint: str, data: dict = None) -> Optional[dict]:
+        """Make an async HTTP request to Stripe API with retry logic."""
+        if not self.session:
+            raise RuntimeError("Session not initialized")
+            
+        url = f"{self.base_url}/{endpoint}"
+        
+        try:
+            if method.upper() == "GET":
+                async with self.session.get(url, params=data) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    else:
+                        logger.error(f"Stripe API error: {response.status} - {await response.text()}")
+                        return None
+            elif method.upper() == "POST":
+                async with self.session.post(url, data=data) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    else:
+                        logger.error(f"Stripe API error: {response.status} - {await response.text()}")
+                        return None
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.error(f"Network error calling Stripe API: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error calling Stripe API: {e}")
+            return None
+    
+    async def list_customers(self, email: str = None, limit: int = 100) -> Optional[dict]:
+        """List customers with optional email filter."""
+        params = {"limit": limit}
+        if email:
+            params["email"] = email
+        return await self._make_request("GET", "customers", params)
+    
+    async def create_customer(self, email: str, idempotency_key: str = None) -> Optional[dict]:
+        """Create a new customer."""
+        data = {"email": email}
+        if idempotency_key:
+            data["idempotency_key"] = idempotency_key
+        return await self._make_request("POST", "customers", data)
+    
+    async def retrieve_customer(self, customer_id: str) -> Optional[dict]:
+        """Retrieve a customer by ID."""
+        return await self._make_request("GET", f"customers/{customer_id}")
+    
+    async def list_subscriptions(self, customer: str = None, limit: int = 100) -> Optional[dict]:
+        """List subscriptions with optional customer filter."""
+        params = {"limit": limit}
+        if customer:
+            params["customer"] = customer
+        return await self._make_request("GET", "subscriptions", params)
+    
+    async def create_subscription(self, customer: str, price: str, idempotency_key: str = None) -> Optional[dict]:
+        """Create a new subscription."""
+        data = {
+            "customer": customer,
+            "items[0][price]": price
+        }
+        if idempotency_key:
+            data["idempotency_key"] = idempotency_key
+        return await self._make_request("POST", "subscriptions", data)
+
+# Global async client instance
+_async_stripe_client = None
+
+async def get_async_stripe_client():
+    """Get or create the global async Stripe client."""
+    global _async_stripe_client
+    if _async_stripe_client is None:
+        _async_stripe_client = AsyncStripeClient(stripe_keys["secret_key"])
+    return _async_stripe_client
 
 
 # todo refactor to get all data in 1 call
@@ -205,6 +310,166 @@ def get_or_create_stripe_customer(email, user_id=None):
     except Exception as e:
         logger.error(f"Error getting or creating Stripe customer for {email}: {e}")
         return None
+
+
+async def get_or_create_stripe_customer_async(email: str, user_id: str = None) -> Optional[str]:
+    """
+    Async version: Get or create a Stripe customer for the given email.
+    Returns the customer ID on success, None on failure.
+    """
+    if not email:
+        logger.warning("No email provided to get_or_create_stripe_customer_async")
+        return None
+    
+    try:
+        async with AsyncStripeClient(stripe_keys["secret_key"]) as client:
+            # First try to find existing customer by email
+            customers_response = await client.list_customers(email=email, limit=1)
+            if customers_response and customers_response.get("data"):
+                customer = customers_response["data"][0]
+                logger.info(f"Found existing Stripe customer for {email}: {customer['id']}")
+                return customer["id"]
+            
+            # If no customer found, create a new one
+            idempotency_key = user_id or email
+            customer = await client.create_customer(email=email, idempotency_key=idempotency_key)
+            if customer:
+                logger.info(f"Created new Stripe customer for {email}: {customer['id']}")
+                return customer["id"]
+            
+            return None
+    except Exception as e:
+        logger.error(f"Error getting or creating Stripe customer for {email}: {e}")
+        return None
+
+
+async def get_subscription_data_for_async(stripe_id: str = None) -> List[Dict[str, Any]]:
+    """
+    Async version: Get subscription data for a specific Stripe customer.
+    Returns list of subscriptions on success, empty list on failure.
+    """
+    if not stripe_id:
+        logger.warning("No stripe_id provided to get_subscription_data_for_async")
+        return []
+    
+    try:
+        async with AsyncStripeClient(stripe_keys["secret_key"]) as client:
+            response = await client.list_subscriptions(customer=stripe_id, limit=100)
+            if response and response.get("data"):
+                return response["data"]
+            return []
+    except Exception as e:
+        logger.error(f"Error getting subscription data for stripe_id {stripe_id}: {e}")
+        return []
+
+
+async def get_subscription_data_for_email_async(email: str) -> List[Dict[str, Any]]:
+    """
+    Async version: Get subscription data for a specific email.
+    Returns list of subscriptions on success, empty list on failure.
+    """
+    if not email:
+        logger.warning("No email provided to get_subscription_data_for_email_async")
+        return []
+    
+    try:
+        async with AsyncStripeClient(stripe_keys["secret_key"]) as client:
+            # All customers with email
+            customers_response = await client.list_customers(email=email)
+            if not customers_response or not customers_response.get("data"):
+                return []
+                
+            all_subscriptions = []
+            for customer in customers_response["data"]:
+                if customer["email"] == email:
+                    stripe_id = customer["id"]
+                    subscriptions = await get_subscription_data_for_async(stripe_id)
+                    if subscriptions:
+                        all_subscriptions.extend(subscriptions)
+                        
+            return all_subscriptions
+    except Exception as e:
+        logger.error(f"Error getting subscription data for email {email}: {e}")
+        return []
+
+
+async def get_subscription_item_id_for_user_email_async(email: str) -> Optional[str]:
+    """
+    Async version: Get subscription item ID for a user by email.
+    Returns subscription item ID on success, None on failure.
+    """
+    if not email:
+        logger.warning("No email provided to get_subscription_item_id_for_user_email_async")
+        return None
+    
+    try:
+        subscriptions = await get_subscription_data_for_email_async(email)
+        for subscription in subscriptions:
+            if subscription.get("items", {}).get("data"):
+                subscription_item_id = subscription["items"]["data"][0]["id"]
+                logger.info(f"Found subscription item ID for {email}: {subscription_item_id}")
+                return subscription_item_id
+        return None
+    except Exception as e:
+        logger.error(f"Error getting subscription item ID for email {email}: {e}")
+        return None
+
+
+async def get_self_hosted_subscription_count_for_user_async(stripe_id: str) -> int:
+    """
+    Async version: Get count of active self-hosted subscriptions for a user.
+    Returns count on success, 0 on failure.
+    """
+    if not stripe_id:
+        logger.warning("No stripe_id provided to get_self_hosted_subscription_count_for_user_async")
+        return 0
+    
+    try:
+        subscriptions = await get_subscription_data_for_async(stripe_id)
+        count = 0
+        for subscription in subscriptions:
+            if subscription["customer"] == stripe_id:
+                if subscription.get("plan", {}).get("name") == "Text Generator - Self Hosted - Per Instance":
+                    if subscription["status"] in ["active", "trialing"]:
+                        count += 1
+                    else:
+                        logger.info(f"subscription not active, status: {subscription['status']}")
+        return count
+    except Exception as e:
+        logger.error(f"Error getting self-hosted subscription count for stripe_id {stripe_id}: {e}")
+        return 0
+
+
+async def validate_stripe_customer_async(stripe_id: str, email: str = None) -> Optional[str]:
+    """
+    Async version: Validate that a Stripe customer ID exists and is valid.
+    If the customer ID is invalid, try to find by email.
+    Returns the valid customer ID if found, None otherwise.
+    """
+    if not stripe_id:
+        return None
+    
+    try:
+        async with AsyncStripeClient(stripe_keys["secret_key"]) as client:
+            customer = await client.retrieve_customer(stripe_id)
+            if customer and customer.get("id") and not customer.get("deleted", False):
+                return customer["id"]
+    except Exception as e:
+        logger.error(f"Error validating Stripe customer {stripe_id}: {e}")
+        # If validation fails and we have email, try to find existing customer by email
+        if email:
+            logger.info(f"Attempting to find existing Stripe customer by email: {email}")
+            try:
+                async with AsyncStripeClient(stripe_keys["secret_key"]) as client:
+                    customers_response = await client.list_customers(email=email, limit=1)
+                    if customers_response and customers_response.get("data"):
+                        customer = customers_response["data"][0]
+                        logger.info(f"Found existing Stripe customer for {email}: {customer['id']}")
+                        return customer["id"]
+            except Exception as email_error:
+                logger.error(f"Error finding Stripe customer by email {email}: {email_error}")
+        
+    return None
 
 
 def validate_stripe_customer(stripe_id, email=None):

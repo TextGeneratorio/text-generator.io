@@ -67,4 +67,19 @@
 
 <link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
 <script src="{{ static_url }}/js/subscription-modal.js"></script>
+<script>
+// Subscription utility functions
+async function isUserSubscribed() {
+  try {
+    const response = await fetch('/api/subscription-status', {
+      credentials: 'include'
+    });
+    const data = await response.json();
+    return data.is_subscribed || false;
+  } catch (error) {
+    console.error('Error checking subscription status:', error);
+    return false;
+  }
+}
+</script>
 <script src="{{ static_url }}/js/prompt-optimizer.js" defer></script>

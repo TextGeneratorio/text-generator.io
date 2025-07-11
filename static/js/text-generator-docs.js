@@ -441,7 +441,7 @@ class TextGeneratorDocs {
   async checkSubscriptionStatus() {
     try {
       // Check if user is subscribed
-      const isSubscribed = await checkUserSubscription();
+      const isSubscribed = await isUserSubscribed();
       
       if (!isSubscribed) {
         // User is not subscribed, disable AI features
@@ -468,7 +468,7 @@ class TextGeneratorDocs {
     if (this.generateContentButton) {
       this.generateContentButton.addEventListener('click', (e) => {
         e.preventDefault();
-        showSubscriptionModal();
+        if (window.subscriptionModal) { subscriptionModal.show(); };
       });
     }
     
@@ -1480,7 +1480,7 @@ class TextGeneratorDocs {
   showGenerateContentDialog() {
     // Check if AI features are disabled due to subscription
     if (this.aiDisabled) {
-      showSubscriptionModal();
+      if (window.subscriptionModal) { subscriptionModal.show(); };
       return;
     }
     
@@ -1731,43 +1731,6 @@ class TextGeneratorDocs {
       }
     `;
   }
-}
-
-/**
- * Utility class to convert Quill Delta format to Markdown
- */
-class QuillDeltaToMarkdownConverter {
-  constructor(delta) {
-    this.delta = delta;
-  }
-  
-  convert() {
-    let markdown = '';
-    const ops = this.delta.ops || [];
-    
-    ops.forEach(op => {
-      if (op.insert) {
-        if (typeof op.insert === 'string') {
-          let text = op.insert;
-          
-          // Apply formatting based on attributes
-          if (op.attributes) {
-            if (op.attributes.bold) text = `**${text}**`;
-            if (op.attributes.italic) text = `*${text}*`;
-            if (op.attributes.code) text = '`' + text + '`';
-            if (op.attributes.link) text = `[${text}](${op.attributes.link})`;
-            // More formatting options...
-          }
-          
-          markdown += text;
-        } else if (op.insert.image) {
-          markdown += `![Image](${op.insert.image})\n\n`;
-        }
-      }
-    });
-    
-    return markdown;
-  }
   
   initializeImageUpload() {
     // Handle paste events for image upload
@@ -1874,6 +1837,43 @@ class QuillDeltaToMarkdownConverter {
       console.error('Error uploading image:', error);
       this.updateSaveStatus('Image upload failed');
     }
+  }
+}
+
+/**
+ * Utility class to convert Quill Delta format to Markdown
+ */
+class QuillDeltaToMarkdownConverter {
+  constructor(delta) {
+    this.delta = delta;
+  }
+  
+  convert() {
+    let markdown = '';
+    const ops = this.delta.ops || [];
+    
+    ops.forEach(op => {
+      if (op.insert) {
+        if (typeof op.insert === 'string') {
+          let text = op.insert;
+          
+          // Apply formatting based on attributes
+          if (op.attributes) {
+            if (op.attributes.bold) text = `**${text}**`;
+            if (op.attributes.italic) text = `*${text}*`;
+            if (op.attributes.code) text = '`' + text + '`';
+            if (op.attributes.link) text = `[${text}](${op.attributes.link})`;
+            // More formatting options...
+          }
+          
+          markdown += text;
+        } else if (op.insert.image) {
+          markdown += `![Image](${op.insert.image})\n\n`;
+        }
+      }
+    });
+    
+    return markdown;
   }
 }
 

@@ -72,9 +72,9 @@
                     // User is signed out.
                     location.href = '/login'
                 }
-            }, function (error) {
+            } catch (error) {
                 console.log(error);
-            });
+            }
         };
 
         /**

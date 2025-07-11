@@ -45,6 +45,26 @@
 <link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
 <script src="{{ static_url }}/js/subscription-modal.js"></script>
 <script>
+// Subscription utility functions
+async function checkUserSubscription() {
+  try {
+    const response = await fetch('/api/subscription-status', {
+      credentials: 'include'
+    });
+    const data = await response.json();
+    return data.is_subscribed || false;
+  } catch (error) {
+    console.error('Error checking subscription status:', error);
+    return false;
+  }
+}
+
+function showSubscriptionModal() {
+  if (window.subscriptionModal) {
+    window.subscriptionModal.show();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
   // Check subscription status on page load
   const isSubscribed = await checkUserSubscription();

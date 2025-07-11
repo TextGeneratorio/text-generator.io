@@ -42,7 +42,7 @@ class CheckoutDialog {
         const modalHTML = `
             <div id="checkout-dialog" class="checkout-dialog" style="display: none;">
                 <div class="checkout-dialog-content">
-                    <button class="checkout-dialog-close" onclick="if(window.checkoutDialog) checkoutDialog.close()">×</button>
+                    <button class="checkout-dialog-close" onclick="window.checkoutDialog && window.checkoutDialog.close()">×</button>
                     
                     <div class="checkout-dialog-header">
                         <h2 class="checkout-dialog-title">Cloud AI Text Generator</h2>
@@ -204,9 +204,11 @@ function initCheckoutDialog() {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             checkoutDialog = new CheckoutDialog();
+            window.checkoutDialog = checkoutDialog;
         });
     } else {
         checkoutDialog = new CheckoutDialog();
+        window.checkoutDialog = checkoutDialog;
     }
 }
 

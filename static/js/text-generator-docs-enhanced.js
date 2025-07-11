@@ -1340,7 +1340,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   showGenerateContentDialog() {
     // Check if AI features are disabled due to subscription
     if (this.aiDisabled) {
-      showSubscriptionModal();
+      if (window.subscriptionModal) { subscriptionModal.show(); };
       return;
     }
     
@@ -1455,7 +1455,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
   showRewriteDialog() {
     // Check if AI features are disabled due to subscription
     if (this.aiDisabled) {
-      showSubscriptionModal();
+      if (window.subscriptionModal) { subscriptionModal.show(); };
       return;
     }
     

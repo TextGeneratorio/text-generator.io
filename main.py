@@ -74,7 +74,11 @@ from questions.payments.payments import (
     get_self_hosted_subscription_count_for_user, 
     get_subscription_item_id_for_user_email,
     get_or_create_stripe_customer,
-    validate_stripe_customer
+    validate_stripe_customer,
+    get_self_hosted_subscription_count_for_user_async,
+    get_subscription_item_id_for_user_email_async,
+    get_or_create_stripe_customer_async,
+    validate_stripe_customer_async
 )
 from questions.utils import random_string, get_env_var
 
@@ -581,7 +585,7 @@ async def login(request: Request):
     base_vars.update({
     })
     return templates.TemplateResponse(
-        "templates/login.jinja2", base_vars,
+        "static/templates/login.jinja2", base_vars,
     )
 
 @app.get("/test-modals")
@@ -975,9 +979,9 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
                 raise HTTPException(status_code=401, detail="Not authenticated")
             
             # Ensure user has a valid Stripe customer ID
-            if not user.stripe_id or not validate_stripe_customer(user.stripe_id):
+            if not user.stripe_id or not await validate_stripe_customer_async(user.stripe_id):
                 logger.info(f"User {user.email} has invalid/missing Stripe ID, creating new customer")
-                stripe_id = get_or_create_stripe_customer(user.email, user.id)
+                stripe_id = await get_or_create_stripe_customer_async(user.email, user.id)
                 if stripe_id:
                     user.stripe_id = stripe_id
                     db.commit()
@@ -986,11 +990,11 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
                     logger.error(f"Failed to create Stripe customer for user {user.email}")
             
             # Check subscription status with error handling
-            subscription_item_id = get_subscription_item_id_for_user_email(user.email)
+            subscription_item_id = await get_subscription_item_id_for_user_email_async(user.email)
             user.is_subscribed = subscription_item_id is not None
             
             # Get self-hosted subscription count with error handling
-            num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id) if user.stripe_id else 0
+            num_self_hosted_instances = await get_self_hosted_subscription_count_for_user_async(user.stripe_id) if user.stripe_id else 0
             user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
             
             return JSONResponse(user.to_dict())
@@ -1008,7 +1012,30 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
             raise HTTPException(status_code=401, detail="Not authenticated")
 
 
-# ...existing code...
+@app.get("/api/subscription-status")
+async def api_subscription_status(request: Request, db: Session = Depends(get_db)):
+    """Get current user subscription status"""
+    if USE_POSTGRES:
+        try:
+            user = get_current_user(request, db)
+            if not user:
+                return JSONResponse({"is_subscribed": False, "authenticated": False})
+            
+            # Check subscription status
+            subscription_item_id = await get_subscription_item_id_for_user_email_async(user.email)
+            is_subscribed = subscription_item_id is not None
+            
+            return JSONResponse({
+                "is_subscribed": is_subscribed,
+                "authenticated": True,
+                "user_email": user.email
+            })
+        except Exception as e:
+            logger.error(f"Error checking subscription status: {str(e)}")
+            return JSONResponse({"is_subscribed": False, "authenticated": False, "error": str(e)})
+    else:
+        # For non-PostgreSQL setup, return default
+        return JSONResponse({"is_subscribed": False, "authenticated": False})
 
 
 @app.get("/privacy")
