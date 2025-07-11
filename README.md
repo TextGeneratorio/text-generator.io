@@ -218,6 +218,18 @@ PYTHONPATH=$(pwd):$(pwd)/OFA GOOGLE_APPLICATION_CREDENTIALS=secrets/google-crede
 PYTHONPATH=$HOME/code/20-questions:$HOME/code/20-questions/OFA:$HOME/code/20-questions/OFA/fairseq GOOGLE_APPLICATION_CREDENTIALS=secrets/google-credentials.json gunicorn -k uvicorn.workers.UvicornWorker -b :9080 questions.inference_server.inference_server:app --timeout 180000 --workers 1
 ```
 Then go to localhost:9080/docs to use the API
+
+### Speech To Text Endpoint
+
+The API supports transcription of audio via the `/api/v1/audio-extraction` and `/api/v1/audio-file-extraction` routes.
+Example usage with `curl`:
+
+```bash
+curl -X POST "http://localhost:9080/api/v1/audio-extraction" \
+     -H "Content-Type: application/json" \
+     -d '{"audio_url": "AUDIO_URL", "translate_to_english": false}'
+```
+
 #### run audio server only
 
 Just the Parakeet speech to text part.

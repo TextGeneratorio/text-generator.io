@@ -878,6 +878,16 @@ async def text_to_speech(request: Request):
         "templates/text-to-speech.jinja2", base_vars,
     )
 
+
+@app.get("/speech-to-text")
+async def speech_to_text(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+    })
+    return templates.TemplateResponse(
+        "templates/speech-to-text.jinja2", base_vars,
+    )
+
 @app.get("/use-cases/{usecase}")
 async def use_case_route(request: Request, usecase: str):
     use_case_data = deepcopy(fixtures.use_cases.get(usecase))
