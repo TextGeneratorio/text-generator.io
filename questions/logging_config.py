@@ -2,9 +2,23 @@ import logging
 import os
 import sys
 
-from colorama import Fore, Style, init as colorama_init
-
-colorama_init()
+# Optional colorama import for colored output
+try:
+    from colorama import Fore, Style, init as colorama_init
+    colorama_init()
+    HAS_COLORAMA = True
+except ImportError:
+    HAS_COLORAMA = False
+    # Fallback color codes or empty strings
+    class Fore:
+        CYAN = ''
+        GREEN = ''
+        YELLOW = ''
+        RED = ''
+        MAGENTA = ''
+    
+    class Style:
+        RESET_ALL = ''
 
 LEVEL_COLORS = {
     logging.DEBUG: Fore.CYAN,
@@ -41,7 +55,7 @@ def setup_logging(level: int = logging.INFO, use_cloud: bool = False) -> None:
     if root_logger.handlers:
         return
     root_logger.setLevel(level)
-    use_color = os.environ.get("COLOR_LOGS", "1") != "0"
+    use_color = os.environ.get("COLOR_LOGS", "1") != "0" and HAS_COLORAMA
     fmt = '%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d - %(message)s'
     formatter_cls = ColorFormatter if use_color else logging.Formatter
     formatter = formatter_cls(fmt, '%Y-%m-%d %H:%M:%S')

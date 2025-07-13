@@ -5,12 +5,13 @@
       "Bash(python -m pytest tests/unit/test_user_auth.py -v)",
       "Bash(source:*)",
       "Bash(PYTHONPATH=. python -m pytest tests/test_doc_api.py -v)",
-      "Bash(source:*)",
       "Bash(python:*)",
       "Bash(PYTHONPATH=. python -m pytest tests/integration/test_stripe_customer_validation.py -v)",
       "Bash(PYTHONPATH=. python -m pytest tests/integration/test_stripe_customer_validation.py::TestStripeCustomerValidationAsync::test_validate_stripe_customer_async_valid_id -v)",
       "Bash(PYTHONPATH=. python -m pytest tests/integration/test_auth_stripe_integration.py -v)",
-      "Bash(PYTHONPATH=. python -m pytest tests/integration/questions/payments/test_payments.py -v)"
+      "Bash(PYTHONPATH=. python -m pytest tests/integration/questions/payments/test_payments.py -v)",
+      "Bash(PYTHONPATH=. python test_simple.py)",
+      "Bash(PGPASSWORD=password psql:*)"
     ],
     "deny": []
   }

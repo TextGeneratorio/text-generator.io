@@ -5,7 +5,7 @@ from io import BytesIO
 from tempfile import NamedTemporaryFile
 from typing import Union, List, Iterator
 
-from .tts_utils import srt_format_timestamp, write_srt, synthesize_full_text
+from questions.inference_server.tts_utils import srt_format_timestamp, write_srt, synthesize_full_text
 
 import torch
 import numpy as np
@@ -58,8 +58,8 @@ from questions.text_generator_inference import (
 )
 from questions.utils import log_time
 from sellerinfo import session_secret
-from .models import build_model
-from .kokoro import generate, generate_full
+from questions.inference_server.models import build_model
+from questions.inference_server.kokoro import generate, generate_full
 
 import librosa
 
@@ -376,16 +376,26 @@ def load_audio_model():
     if not NEMO_AVAILABLE:
         raise ImportError("NeMo ASR is not available. Please install nemo-toolkit to use audio transcription.")
     
-    with log_time("load parakeet model"):
-        if not audio_model:
-            audio_model = nemo_asr.models.ASRModel.from_pretrained(
-                model_name="nvidia/parakeet-tdt-0.6b-v2", download_root="models"
-            )
-            audio_model.freeze()
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        audio_model = audio_model.to(device)
-        logger.info(f"Model loaded on {device}")
-        return audio_model
+    try:
+        with log_time("load parakeet model"):
+            if not audio_model:
+                logger.info("Loading Parakeet model from HuggingFace...")
+                # Try without download_root parameter first
+                audio_model = nemo_asr.models.ASRModel.from_pretrained(
+                    model_name="nvidia/parakeet-tdt-0.6b-v2"
+                )
+                audio_model.freeze()
+                logger.info("Parakeet model loaded and frozen")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            audio_model = audio_model.to(device)
+            logger.info(f"Model loaded on {device}")
+            return audio_model
+    except Exception as e:
+        logger.error(f"Error loading audio model: {e}")
+        logger.error(f"Error type: {type(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
 
 
 def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
@@ -512,10 +522,23 @@ async def audio_extract_shared(
     #         status_code=401,
     #         detail="Please subscribe at https://text-generator.io/subscribe first, also make sure there is an up to date credit card saved in your account"
     #     )
-    inference_result = fast_audio_extract_inference(feature_extract_params)
+    try:
+        logger.info("Starting audio extraction")
+        inference_result = fast_audio_extract_inference(feature_extract_params)
+        logger.info("Audio extraction completed successfully")
+    except Exception as e:
+        logger.error(f"Error in audio extraction: {e}")
+        logger.error(f"Error type: {type(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Audio extraction failed: {str(e)}")
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
-        seconds_taken = inference_result["segments"][-1]["end"]
+        if inference_result["segments"] and len(inference_result["segments"]) > 0:
+            seconds_taken = inference_result["segments"][-1]["end"]
+        else:
+            # Default to 1 second if no segments found
+            seconds_taken = 1.0
         # price of quantity is 1 for .01
         price = seconds_taken * 0.00005
         quantity = price // 0.01
@@ -1379,3 +1402,16 @@ def tts_demo(request: Request):
 #     except Exception as e:
 #         logger.error(f"Error generating text with Claude: {e}")
 #         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    logger.info("Starting inference server on port 9081")
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=9081, 
+        log_level="info",
+        access_log=True
+    )

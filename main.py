@@ -1,6 +1,8 @@
 #!/usr/bin/env python
+import asyncio
 import json
 import os
+import time
 import httpx
 import boto3
 from copy import deepcopy
@@ -12,7 +14,7 @@ from fastapi import Form, HTTPException, Header, Depends, UploadFile, File
 from fastapi import Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from loguru import logger
+from questions.logging_config import get_logger
 from starlette.responses import JSONResponse, Response, RedirectResponse
 from starlette.routing import Route
 from starlette.datastructures import URL
@@ -49,7 +51,7 @@ try:
     from questions.db_models_postgres import get_db
     from questions.auth import (
         login_or_create_user, set_session_for_user, get_current_user, 
-        create_user
+        create_user, get_user_from_session
     )
     # Test if the functions actually work with a proper database
     USE_POSTGRES = True  # Enable PostgreSQL for production
@@ -133,6 +135,7 @@ def get_base_template_vars(request: Request) -> Dict[str, Any]:
         "facebook_app_id": FACEBOOK_APP_ID,
         "fixtures": json.dumps({
             "is_mac": is_mac,
+            "inference_server_url": INFERENCE_SERVER_URL,
         }),
     }
 
@@ -154,6 +157,42 @@ app = FastAPI(
     # root_path="https://api.text-generator.io",
     version="1",
 )
+
+# Initialize logger
+logger = get_logger(__name__)
+
+# Add logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    logger.info(f"Starting request: {request.method} {request.url}")
+    
+    # Process the request
+    response = await call_next(request)
+    
+    # Calculate processing time
+    process_time = time.time() - start_time
+    
+    # Log the response
+    logger.info(
+        f"Completed request: {request.method} {request.url} "
+        f"- Status: {response.status_code} "
+        f"- Time: {process_time:.3f}s"
+    )
+    
+    return response
+
+@app.on_event("startup")
+async def startup_event():
+    """Configure logging on startup"""
+    logger.info("Starting 20-questions application")
+    logger.info(f"USE_POSTGRES: {USE_POSTGRES}")
+    logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Log shutdown event"""
+    logger.info("Shutting down 20-questions application")
 
 # Add CORS middleware
 app.add_middleware(
@@ -243,6 +282,12 @@ debug = (
     or os.environ.get("IS_DEVELOP", "") == 1
     or Path("models/debug.env").exists()
 )
+
+# Configure inference server URL
+INFERENCE_SERVER_URL = os.environ.get("INFERENCE_SERVER_URL", "https://api.text-generator.io")
+if debug:
+    # Default to local inference server in development
+    INFERENCE_SERVER_URL = os.environ.get("INFERENCE_SERVER_URL", "http://0.0.0.0:9909")
 if debug:
     # stripe_keys = {
     #     "secret_key": sellerinfo.STRIPE_TEST_SECRET,
@@ -978,26 +1023,32 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
             if not user:
                 raise HTTPException(status_code=401, detail="Not authenticated")
             
-            # Ensure user has a valid Stripe customer ID
-            if not user.stripe_id or not await validate_stripe_customer_async(user.stripe_id):
-                logger.info(f"User {user.email} has invalid/missing Stripe ID, creating new customer")
-                stripe_id = await get_or_create_stripe_customer_async(user.email, user.id)
-                if stripe_id:
-                    user.stripe_id = stripe_id
-                    db.commit()
-                    db.refresh(user)
-                else:
-                    logger.error(f"Failed to create Stripe customer for user {user.email}")
+            # Return basic user info immediately, skip Stripe validation to prevent blocking
+            # Stripe validation can be done asynchronously in the background if needed
+            user_dict = user.to_dict()
             
-            # Check subscription status with error handling
-            subscription_item_id = await get_subscription_item_id_for_user_email_async(user.email)
-            user.is_subscribed = subscription_item_id is not None
+            # Only check subscription status if user has a Stripe ID
+            if user.stripe_id:
+                try:
+                    # Add timeout to prevent blocking
+                    subscription_item_id = await asyncio.wait_for(
+                        get_subscription_item_id_for_user_email_async(user.email), 
+                        timeout=3.0
+                    )
+                    user_dict['is_subscribed'] = subscription_item_id is not None
+                except asyncio.TimeoutError:
+                    logger.warning(f"Subscription check timed out for user {user.email}")
+                    user_dict['is_subscribed'] = False
+                except Exception as e:
+                    logger.error(f"Error checking subscription for user {user.email}: {e}")
+                    user_dict['is_subscribed'] = False
+            else:
+                user_dict['is_subscribed'] = False
             
-            # Get self-hosted subscription count with error handling
-            num_self_hosted_instances = await get_self_hosted_subscription_count_for_user_async(user.stripe_id) if user.stripe_id else 0
-            user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
+            # Set default values for optional fields
+            user_dict['num_self_hosted_instances'] = 0
             
-            return JSONResponse(user.to_dict())
+            return JSONResponse(user_dict)
         except HTTPException:
             raise
         except Exception as e:

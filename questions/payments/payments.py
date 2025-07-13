@@ -66,27 +66,49 @@ class AsyncStripeClient:
             raise RuntimeError("Session not initialized")
             
         url = f"{self.base_url}/{endpoint}"
+        request_id = f"{method}:{endpoint}"
+        
+        logger.info(f"Starting Stripe API request: {request_id}")
+        logger.debug(f"Stripe API request details - URL: {url}, Method: {method}, Data: {data}")
+        
+        start_time = asyncio.get_event_loop().time()
         
         try:
             if method.upper() == "GET":
+                logger.debug(f"Making GET request to Stripe: {endpoint}")
                 async with self.session.get(url, params=data) as response:
+                    elapsed_time = asyncio.get_event_loop().time() - start_time
+                    logger.info(f"Stripe API GET response: {response.status} in {elapsed_time:.2f}s for {endpoint}")
+                    
                     if response.status == 200:
-                        return await response.json()
+                        response_data = await response.json()
+                        logger.debug(f"Stripe API GET success: {endpoint} returned {len(str(response_data))} chars")
+                        return response_data
                     else:
-                        logger.error(f"Stripe API error: {response.status} - {await response.text()}")
+                        error_text = await response.text()
+                        logger.error(f"Stripe API GET error: {response.status} - {error_text} for {endpoint}")
                         return None
             elif method.upper() == "POST":
+                logger.debug(f"Making POST request to Stripe: {endpoint}")
                 async with self.session.post(url, data=data) as response:
+                    elapsed_time = asyncio.get_event_loop().time() - start_time
+                    logger.info(f"Stripe API POST response: {response.status} in {elapsed_time:.2f}s for {endpoint}")
+                    
                     if response.status == 200:
-                        return await response.json()
+                        response_data = await response.json()
+                        logger.debug(f"Stripe API POST success: {endpoint} returned {len(str(response_data))} chars")
+                        return response_data
                     else:
-                        logger.error(f"Stripe API error: {response.status} - {await response.text()}")
+                        error_text = await response.text()
+                        logger.error(f"Stripe API POST error: {response.status} - {error_text} for {endpoint}")
                         return None
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.error(f"Network error calling Stripe API: {e}")
+            elapsed_time = asyncio.get_event_loop().time() - start_time
+            logger.error(f"Network error calling Stripe API {endpoint} after {elapsed_time:.2f}s: {e}")
             raise
         except Exception as e:
-            logger.error(f"Unexpected error calling Stripe API: {e}")
+            elapsed_time = asyncio.get_event_loop().time() - start_time
+            logger.error(f"Unexpected error calling Stripe API {endpoint} after {elapsed_time:.2f}s: {e}")
             return None
     
     async def list_customers(self, email: str = None, limit: int = 100) -> Optional[dict]:
@@ -168,17 +190,23 @@ def get_subscription_item_id_for_user_email(email):
         return None
 
 def create_subscription_for_user(stripe_id, price="price_0MWaBRDtz2XsjQRO51QQkAGs"):
-    subscription = stripe.Subscription.create(
-        customer=stripe_id,
-        items=[
-            {
-                "price": price,
-            },
-        ],
-        idempotency_key=stripe_id + price,
-    )
-
-    return subscription
+    logger.info(f"Creating subscription for stripe_id: {stripe_id}, price: {price}")
+    
+    try:
+        subscription = stripe.Subscription.create(
+            customer=stripe_id,
+            items=[
+                {
+                    "price": price,
+                },
+            ],
+            idempotency_key=stripe_id + price,
+        )
+        logger.info(f"Successfully created subscription {subscription.id} for customer {stripe_id}")
+        return subscription
+    except Exception as e:
+        logger.error(f"Failed to create subscription for stripe_id {stripe_id}: {e}")
+        raise
 
 
 def get_self_hosted_subscription_item_id_for_user(stripe_id):
@@ -220,22 +248,31 @@ def get_self_hosted_subscription_count_for_user(stripe_id):
 
 @cached(cachetools.TTLCache(maxsize=10000, ttl=60))  # 60 seconds
 def get_subscription_data():
+    logger.info("Fetching all subscription data from Stripe")
     subscriptions = []
     starting_after = None
     has_more = True
+    page_count = 0
 
-    while has_more:
-        params = {
-            "limit": 10000,
-            "starting_after": starting_after,
-        }
-        response = stripe.Subscription.list(**params)
-        subscriptions.extend(response["data"])
-        has_more = response["has_more"]
-        if has_more:
-            starting_after = response["data"][-1]["id"]
-
-    return subscriptions
+    try:
+        while has_more:
+            page_count += 1
+            params = {
+                "limit": 10000,
+                "starting_after": starting_after,
+            }
+            logger.debug(f"Fetching subscription page {page_count}, starting_after: {starting_after}")
+            response = stripe.Subscription.list(**params)
+            subscriptions.extend(response["data"])
+            has_more = response["has_more"]
+            if has_more:
+                starting_after = response["data"][-1]["id"]
+                
+        logger.info(f"Successfully fetched {len(subscriptions)} subscriptions across {page_count} pages")
+        return subscriptions
+    except Exception as e:
+        logger.error(f"Error fetching subscription data on page {page_count}: {e}")
+        return subscriptions  # Return what we have so far
 
 
 @cached(cachetools.TTLCache(maxsize=10000, ttl=60))  # 60 seconds
@@ -244,6 +281,7 @@ def get_subscription_data_for(stripe_id=None):
         logger.warning("No stripe_id provided to get_subscription_data_for")
         return []
     
+    logger.debug(f"Fetching subscription data for customer: {stripe_id}")
     try:
         starting_after = None
         params = {
@@ -252,6 +290,7 @@ def get_subscription_data_for(stripe_id=None):
             "customer": stripe_id
         }
         response = stripe.Subscription.list(**params)
+        logger.debug(f"Found {len(response['data'])} subscriptions for customer {stripe_id}")
         return response["data"]
     except Exception as e:
         logger.error(f"Error getting subscription data for stripe_id {stripe_id}: {e}")
@@ -264,18 +303,26 @@ def get_subscription_data_for_email(email):
         logger.warning("No email provided to get_subscription_data_for_email")
         return []
     
+    logger.debug(f"Fetching subscription data for email: {email}")
     try:
         # All customers with email
+        logger.debug(f"Looking up Stripe customers for email: {email}")
         customers = stripe.Customer.list(email=email)
+        logger.debug(f"Found {len(customers.data)} customers for email {email}")
+        
         all_subscriptions = []
         for (i, customer) in enumerate(customers):
             if customer["email"] == email:
                 stripe_id = customer["id"]
+                logger.debug(f"Fetching subscriptions for customer {stripe_id} (email: {email})")
                 subscriptions = get_subscription_data_for(stripe_id)
                 if subscriptions:
                     all_subscriptions.append(subscriptions)
                 if len(all_subscriptions) > 0:
+                    logger.debug(f"Returning {len(all_subscriptions[0])} subscriptions for email {email}")
                     return all_subscriptions[0]
+        
+        logger.debug(f"No subscriptions found for email {email}")
         return []
     except Exception as e:
         logger.error(f"Error getting subscription data for email {email}: {e}")
@@ -291,8 +338,10 @@ def get_or_create_stripe_customer(email, user_id=None):
         logger.warning("No email provided to get_or_create_stripe_customer")
         return None
     
+    logger.info(f"Getting or creating Stripe customer for email: {email}")
     try:
         # First try to find existing customer by email
+        logger.debug(f"Searching for existing Stripe customer with email: {email}")
         customers = stripe.Customer.list(email=email, limit=1)
         if customers.data:
             customer = customers.data[0]
@@ -301,11 +350,12 @@ def get_or_create_stripe_customer(email, user_id=None):
         
         # If no customer found, create a new one
         idempotency_key = user_id or email
+        logger.info(f"Creating new Stripe customer for {email} with idempotency_key: {idempotency_key}")
         customer = stripe.Customer.create(
             email=email,
             idempotency_key=idempotency_key
         )
-        logger.info(f"Created new Stripe customer for {email}: {customer.id}")
+        logger.info(f"Successfully created new Stripe customer for {email}: {customer.id}")
         return customer.id
     except Exception as e:
         logger.error(f"Error getting or creating Stripe customer for {email}: {e}")
@@ -479,12 +529,17 @@ def validate_stripe_customer(stripe_id, email=None):
     Returns the valid customer ID if found, None otherwise.
     """
     if not stripe_id:
+        logger.warning("No stripe_id provided to validate_stripe_customer")
         return None
     
+    logger.debug(f"Validating Stripe customer: {stripe_id}")
     try:
         customer = stripe.Customer.retrieve(stripe_id)
         if customer and customer.id and not customer.get('deleted', False):
+            logger.debug(f"Successfully validated Stripe customer: {stripe_id}")
             return customer.id
+        else:
+            logger.warning(f"Stripe customer {stripe_id} is deleted or invalid")
     except Exception as e:
         logger.error(f"Error validating Stripe customer {stripe_id}: {e}")
         # If validation fails and we have email, try to find existing customer by email
@@ -496,6 +551,8 @@ def validate_stripe_customer(stripe_id, email=None):
                     customer = customers.data[0]
                     logger.info(f"Found existing Stripe customer for {email}: {customer.id}")
                     return customer.id
+                else:
+                    logger.warning(f"No Stripe customer found for email: {email}")
             except Exception as email_error:
                 logger.error(f"Error finding Stripe customer by email {email}: {email_error}")
         

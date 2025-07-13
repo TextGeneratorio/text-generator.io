@@ -2,7 +2,6 @@ astroid>=3.0.0
 markitdown[all]
 munch>=4.0.0
 Click>=8.0.0
-colorama
 gunicorn
 h11
 isort>=5.13.0
@@ -20,7 +19,6 @@ google-api-core>=2.0.0
 google-cloud-ndb>=2.3.0
 scipy
 
-loguru
 jinja2>=3.0.0
 websockets
 nltk>=3.8.0

@@ -283,6 +283,11 @@ docker run -i -t -u root -v $(pwd)/models:/models --entrypoint=/bin/bash questio
 ```
 
 
+running prodish:
+webapp:
+DEV=False gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8083 --timeout 300
+AI server:
+
 
 #### new models
 clone from huggingface

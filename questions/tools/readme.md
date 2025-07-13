@@ -11,7 +11,8 @@ Explore our diverse range of intelligent tools and revolutionize the way you app
 
 ### Running
 
-
+```bash
 pip install -r questions/tools/requirements.txt
 
 PYTHONPATH=$(pwd) python questions/tools/domain_availability_checker.py
+```

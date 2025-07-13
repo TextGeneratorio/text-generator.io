@@ -135,11 +135,6 @@ cloudpickle==3.1.1
     # via nemo-toolkit
 cobble==0.1.4
     # via mammoth
-colorama==0.4.3
-    # via
-    #   -r requirements.in
-    #   csvw
-    #   runpod
 coloredlogs==15.0.1
     # via onnxruntime
 colorlog==6.9.0
@@ -440,10 +435,6 @@ lilcom==1.8.1
     # via lhotse
 llvmlite==0.44.0
     # via numba
-loguru==0.5.3
-    # via
-    #   -r requirements.in
-    #   texterrors
 lxml==6.0.0
     # via
     #   markitdown

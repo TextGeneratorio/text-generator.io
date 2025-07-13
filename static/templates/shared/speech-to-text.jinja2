@@ -118,7 +118,7 @@ print(requests.post(url, json=data, headers=headers).json())
         const audioUrl = document.getElementById('audioUrl').value;
         const translate = document.getElementById('translate').checked;
         if (!audioUrl) { alert('Enter audio URL'); return; }
-        const base = window.location.hostname.includes('localhost') ? 'http://localhost:9080' : 'https://api.text-generator.io';
+        const base = window.fixtures?.inference_server_url || 'https://api.text-generator.io';
         const resp = await fetch(`${base}/api/v1/audio-extraction`, {
             method: 'POST',
             headers: {'Content-Type':'application/json', ...(secret?{secret}:{})},
@@ -130,7 +130,7 @@ print(requests.post(url, json=data, headers=headers).json())
         const file = document.getElementById('audioFile').files[0];
         const translate = document.getElementById('translate').checked;
         if (!file) { alert('Choose a file'); return; }
-        const base = window.location.hostname.includes('localhost') ? 'http://localhost:9080' : 'https://api.text-generator.io';
+        const base = window.fixtures?.inference_server_url || 'https://api.text-generator.io';
         const formData = new FormData();
         formData.append('audio_file', file);
         formData.append('translate_to_english', translate);

@@ -35,7 +35,6 @@ def setup_package():
         install_requires=[
             'astroid==2.3.3',
             'Click==7.0',
-            'colorama==0.4.3',
             'fastapi==0.75.1',
             'gunicorn==20.1.0',
             'h11==0.9.0',

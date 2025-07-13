@@ -11,7 +11,7 @@ os.environ['GOOGLE_CLOUD_PROJECT'] = 'local'
 os.environ['DATASTORE_EMULATOR_HOST'] = 'localhost:1234'
 
 # Use the PostgreSQL models with SQLite for testing
-from questions.db_models_postgres import Base
+from questions.db_models_postgres import Base, get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -32,7 +32,21 @@ from main import app
 import stripe
 stripe.Customer.create = lambda **kwargs: types.SimpleNamespace(id="cus_test")
 
+# Create test database tables
 Base.metadata.create_all(bind=engine)
+
+# Create test session maker
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Override the get_db dependency to use our test database
+def override_get_db():
+    try:
+        db = TestSessionLocal()
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 def test_user_signup_and_login():

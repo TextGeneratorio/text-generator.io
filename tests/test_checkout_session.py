@@ -28,6 +28,8 @@ class TestCreateCheckoutSession:
         user = MagicMock(spec=User)
         user.stripe_id = "cus_test123"
         user.id = "user_test123"
+        # Need to ensure the user has the stripe_id attribute when checked
+        user.hasattr = lambda attr: attr == 'stripe_id'
         return user
 
     @patch('questions.auth.get_user_from_session')
@@ -61,8 +63,8 @@ class TestCreateCheckoutSession:
         # Check line items don't include quantity for monthly (metered subscription)
         line_items = call_args[1]["line_items"]
         assert len(line_items) == 1
-        assert line_items[0]["price"] == "price_0PpIzNDtz2XsjQROUZgNOTaF"
-        assert "quantity" not in line_items[0]
+        assert line_items[0]["price"] == "price_0RXdbtDtz2XsjQROW0xgtU8H"
+        assert line_items[0]["quantity"] == 1
 
     @patch('questions.auth.get_user_from_session')
     @patch('main.stripe.checkout.Session.create')
@@ -90,8 +92,8 @@ class TestCreateCheckoutSession:
         # Check line items don't include quantity for annual (metered subscription)
         line_items = call_args[1]["line_items"]
         assert len(line_items) == 1
-        assert line_items[0]["price"] == "price_0PpJ10Dtz2XsjQROADWTSIBr"
-        assert "quantity" not in line_items[0]
+        assert line_items[0]["price"] == "price_0RXdd4Dtz2XsjQRO5hYsdfjx"
+        assert line_items[0]["quantity"] == 1
 
     @patch('questions.auth.get_user_from_session')
     @patch('main.stripe.checkout.Session.create')

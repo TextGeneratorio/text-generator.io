@@ -602,9 +602,17 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 }
             })
             .catch(error => {
-                // User is signed out.
+                // User is signed out - show upsell instead of redirecting
                 console.log('User not authenticated:', error);
-                location.href = '/login'
+                $('#playground-play').attr('disabled', true);
+                $('#response-results').html(`
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        <h3>Sign In Required</h3>
+                        <p>Please sign in to use the playground.</p>
+                        <a href="/login" style="display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; text-decoration: none; border-radius: 4px; margin: 5px; border: none; cursor: pointer; transition: all 0.2s ease;">Sign In</a>
+                        <button onclick="subscriptionModal.show()" style="padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; transition: all 0.2s ease;" onmouseover="this.style.background='linear-gradient(90deg, #c48d24, #c23e67)'; this.style.boxShadow='0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15)'" onmouseout="this.style.background='linear-gradient(90deg, #d79f2a, #d34675)'; this.style.boxShadow='none'">Get Premium Access</button>
+                    </div>
+                `);
             });
     };
     var editor;
