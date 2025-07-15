@@ -409,7 +409,7 @@ multiprocess==0.70.15
     # via datasets
 munch==4.0.0
     # via -r requirements.in
-nemo-toolkit==2.3.2
+nemo-toolkit==2.3.0
     # via -r requirements.in
 networkx==3.4.2
     # via torch
@@ -901,7 +901,7 @@ traitlets==5.14.3
     # via
     #   ipython
     #   matplotlib-inline
-transformers==4.51.3
+transformers==4.53.2
     # via
     #   -r requirements.in
     #   nemo-toolkit

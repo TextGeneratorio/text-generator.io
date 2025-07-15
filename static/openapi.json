@@ -353,6 +353,61 @@
         }
       }
     },
+    "/api/v1/image-caption": {
+      "post": {
+        "summary": "Image Caption Generation",
+        "operationId": "image_caption_api_v1_image_caption_post",
+        "parameters": [
+          {
+            "required": false,
+            "schema": {
+              "title": "Secret",
+              "type": "string"
+            },
+            "name": "secret",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_image_caption_api_v1_image_caption_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageCaptionResponse"
+                },
+                "example": {
+                  "caption": "a red car parked on the street",
+                  "filename": "example.jpg", 
+                  "fast_mode": true,
+                  "model": "microsoft/git-base"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/engines/{engine_name}/completions": {
       "post": {
         "summary": "Openai Compatibility Route",
@@ -726,6 +781,61 @@
             "type": "integer"
           }
         }
+      },
+      "Body_image_caption_api_v1_image_caption_post": {
+        "title": "Body_image_caption_api_v1_image_caption_post",
+        "type": "object",
+        "properties": {
+          "image_file": {
+            "title": "Image File",
+            "type": "string",
+            "description": "Image file (JPEG, PNG, etc.)",
+            "format": "binary"
+          },
+          "image_url": {
+            "title": "Image URL",
+            "type": "string",
+            "description": "URL of image to caption (alternative to image_file)"
+          },
+          "fast_mode": {
+            "title": "Fast Mode",
+            "type": "boolean",
+            "default": true,
+            "description": "Use fast captioning mode for speed"
+          }
+        }
+      },
+      "ImageCaptionResponse": {
+        "title": "ImageCaptionResponse",
+        "type": "object",
+        "properties": {
+          "caption": {
+            "title": "Caption",
+            "type": "string",
+            "description": "Generated caption for the image"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string",
+            "description": "Original filename of the uploaded image"
+          },
+          "fast_mode": {
+            "title": "Fast Mode",
+            "type": "boolean",
+            "description": "Whether fast mode was used"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string",
+            "description": "Model used for captioning"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string",
+            "description": "Whether image came from file upload or URL"
+          }
+        },
+        "required": ["caption", "filename", "fast_mode", "model", "source"]
       },
       "ValidationError": {
         "title": "ValidationError",

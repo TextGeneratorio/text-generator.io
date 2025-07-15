@@ -48,7 +48,7 @@ USE_POSTGRES = True
 
 # Import new PostgreSQL models and auth
 try:
-    from questions.db_models_postgres import get_db
+    from questions.db_models_postgres import get_db, DATABASE_URL
     from questions.auth import (
         login_or_create_user, set_session_for_user, get_current_user, 
         create_user, get_user_from_session
@@ -59,12 +59,14 @@ try:
         # Test if we can actually get a database session
         test_db = get_db()
         next(test_db)  # This will fail if no database is configured
-    except Exception:
-        print("PostgreSQL database not available, disabling PostgreSQL auth")
+        print(f"✅ PostgreSQL connection successful: {DATABASE_URL}")
+    except Exception as e:
+        print(f"❌ PostgreSQL database connection failed: {e}")
+        print(f"Database URL: {DATABASE_URL}")
         USE_POSTGRES = False
-except ImportError:
+except ImportError as e:
     USE_POSTGRES = False
-    print("PostgreSQL modules not available, using fallback auth")
+    print(f"PostgreSQL modules not available: {e}, using fallback auth")
     
 # Create dummy get_db function if needed
 if not USE_POSTGRES:

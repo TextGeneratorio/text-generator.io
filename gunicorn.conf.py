@@ -1,5 +1,6 @@
 # Gunicorn configuration file
 import os
+from questions.logging_config import ColorFormatter
 
 # Server socket
 bind = "0.0.0.0:8083"
@@ -31,10 +32,12 @@ logconfig_dict = {
     'disable_existing_loggers': False,
     'formatters': {
         'default': {
+            '()': ColorFormatter,
             'format': '%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d - %(message)s',
             'datefmt': '%Y-%m-%d %H:%M:%S'
         },
         'access': {
+            '()': ColorFormatter,
             'format': '%(asctime)s [%(levelname)s] %(name)s - %(message)s',
             'datefmt': '%Y-%m-%d %H:%M:%S'
         }

@@ -23,12 +23,19 @@ def test_postgres_connection(setup_db):
 
 
 def test_user_crud(setup_db):
+    import uuid
     session = SessionLocal()
-    user = User(id="test_user", email="test@example.com", secret="s", password_hash="h")
+    
+    # Use a unique email to avoid conflicts
+    unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+    user_id = f"test_user_{uuid.uuid4().hex[:8]}"
+    
+    user = User(id=user_id, email=unique_email, secret="s", password_hash="h")
     session.add(user)
     session.commit()
-    fetched = session.query(User).filter_by(id="test_user").first()
+    fetched = session.query(User).filter_by(id=user_id).first()
     assert fetched is not None
+    assert fetched.email == unique_email
     session.delete(fetched)
     session.commit()
     session.close()
