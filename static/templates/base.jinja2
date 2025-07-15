@@ -132,26 +132,47 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        'uid': user.uid,
-                        'email': user.email,
-                    })
+                    body: JSON.stringify({})
                 })
             .then(response => {
+                console.log('getUser response:', response.status, response.statusText);
                 if (!response.ok) {
-                    console.log(response); // todo err log
-                    newUser(user, '', callback)
+                    console.log('getUser error:', response.status, response.statusText);
+                    // Don't redirect immediately, let's see what the error is
+                    return response.text().then(text => {
+                        console.log('getUser error body:', text);
+                        throw new Error('Request failed with status: ' + response.status + ', body: ' + text);
+                    });
                 }
                 return response.json()
             })
             .then(data => {
+                console.log('getUser success:', data);
+                // Store user data in localStorage
+                storeUserData(data);
                 callback(data)
             }).catch(function (error) {
-                console.log(error); // todo err log
-                newUser(user, '', callback)
+                console.log('getUser catch error:', error);
+                // Don't redirect automatically - let's see what the error is first
+                console.error('Error getting user data:', error.message);
             });
 
         }
+        
+        // Local storage utilities for user data
+        function storeUserData(userData) {
+            localStorage.setItem('userData', JSON.stringify(userData));
+        }
+        
+        function getUserDataFromStorage() {
+            const stored = localStorage.getItem('userData');
+            return stored ? JSON.parse(stored) : null;
+        }
+        
+        function clearUserDataFromStorage() {
+            localStorage.removeItem('userData');
+        }
+        
         function getUserWithStripe(user, callback) {
             "use strict";
 
@@ -161,24 +182,29 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        'uid': user.uid,
-                        'email': user.email,
-                    })
+                    body: JSON.stringify({})
                 })
             .then(response => {
+                console.log('getUserWithStripe response:', response.status, response.statusText);
                 if (!response.ok) {
-                    console.log(response); // todo err log
-                    newUser(user, '', callback)
+                    console.log('getUserWithStripe error:', response.status, response.statusText);
+                    // Don't redirect immediately, let's see what the error is
+                    return response.text().then(text => {
+                        console.log('getUserWithStripe error body:', text);
+                        throw new Error('Request failed with status: ' + response.status + ', body: ' + text);
+                    });
                 }
                 return response.json()
             })
             .then(data => {
+                console.log('getUserWithStripe success:', data);
+                // Store user data in localStorage
+                storeUserData(data);
                 callback(data)
             }).catch(function (error) {
-                console.log(error); // todo err log
-
-                newUser(user, '', callback)
+                console.log('getUserWithStripe catch error:', error);
+                // Don't redirect automatically - let's see what the error is first
+                console.error('Error getting user data:', error.message);
             });
 
         }

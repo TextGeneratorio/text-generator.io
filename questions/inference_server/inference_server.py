@@ -538,13 +538,6 @@ async def audio_extract_shared(
         remainder = price % 0.01
         if random.random() < remainder * 100:
             quantity += 1
-        if quantity:
-            if (
-                not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET
-            ):  # skip logging for our secret
-                background_tasks.add_task(
-                    track_stripe_request_usage, secret=secret, quantity=int(quantity)
-                )
     if feature_extract_params.output_filetype == "srt":
         # response = StreamingResponse(
         # non streaming response
@@ -571,9 +564,9 @@ async def feature_extraction(
         # todo fix
         if random.randint(1, 10) == 10:
             if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                background_tasks.add_task(
-                    track_stripe_request_usage, secret=secret, quantity=1
-                )
+                #background_tasks.add_task(
+                 #   track_stripe_request_usage, secret=secret, quantity=1
+                #)
     return inference_result[: feature_extract_params.num_features]
 
 
@@ -1161,16 +1154,6 @@ async def generate_route(
     #         )
     # todo validate api key and user
     inference_result = fast_inference(generate_params, MODEL_CACHE)
-    # todo vuln
-    if request and background_tasks:
-        if (
-            "X-Rapid-API-Key" not in request.headers
-            and "x-rapid-api-key" not in request.headers
-        ):
-            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                background_tasks.add_task(
-                    track_stripe_request_usage, secret=secret, quantity=1
-                )
     return inference_result
 
 
@@ -1228,13 +1211,6 @@ async def generate_route_bulk(
     for generate_params in bulk_params:
         inference_result = fast_inference(generate_params)
         inference_results.append(inference_result)
-    # todo vuln
-    if request and background_tasks:
-        if "X-Rapid-API-Key" not in request.headers:
-            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                background_tasks.add_task(
-                    track_stripe_request_usage, secret=secret, quantity=len(bulk_params)
-                )
     return inference_results
 
 
@@ -1312,16 +1288,6 @@ async def openai_route_named(
             inference_result[i]["generated_text"] = inference_result[i][
                 "generated_text"
             ][len(openai_params.prompt) :]
-    # todo vuln
-    if request and background_tasks:
-        if (
-            "X-Rapid-API-Key" not in request.headers
-            and "x-rapid-api-key" not in request.headers
-        ):
-            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                background_tasks.add_task(
-                    track_stripe_request_usage, secret=secret, quantity=1
-                )
     # map to openai response
     return map_to_openai_response(inference_result, generate_params)
 

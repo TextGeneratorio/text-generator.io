@@ -144,8 +144,10 @@ async function isUserSubscribed() {
 <script src="{{ static_url }}/js/text-generator-docs-enhanced.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the Enhanced Text Generator Docs app
-    const textGeneratorDocs = new EnhancedTextGeneratorDocs({
+    // Check authentication status first
+    checkAuthStatus().then(() => {
+      // Initialize the Enhanced Text Generator Docs app
+      const textGeneratorDocs = new EnhancedTextGeneratorDocs({
       editorContainer: document.getElementById('editor'),
       suggestionElement: document.getElementById('autocomplete-suggestion'),
       documentsList: document.getElementById('documents-list'),

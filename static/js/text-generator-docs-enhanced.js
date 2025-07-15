@@ -79,7 +79,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       await super.init();
 
       // Add other enhanced UI elements immediately (assuming they don't depend on the buttons yet)
-      this.addWideModeToggle();
+      // this.addWideModeToggle(); // Removed fullscreen icon
       this.initDebounceSettings(); // Needs this.editor from super.init()
       this.initEnhancedEventListeners(); // Needs this.editor from super.init()
       this.addToolbarTooltips(); // Should be safe
