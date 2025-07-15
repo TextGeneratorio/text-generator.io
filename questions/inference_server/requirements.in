@@ -1,4 +1,6 @@
 astroid>=3.0.0  # Updated for Python 3.12+ compatibility
+tenacity
+pybind11
 Click>=8.0.0
 colorama
 
@@ -12,21 +14,15 @@ mccabe
 six>=1.16.0
 uvicorn
 wrapt>=1.16.0
-transformers>=4.47.0
+transformers>=4.53.0
 tokenizers
 accelerate
-flash-attn>=2.8.0
+flash-attn
 
 triton>=2.2.0
-# --find-links https://download.pytorch.org/whl/torch_stable.html
-# pip3 install --pre torch torchvision torchaudio --find-links https://download.pytorch.org/whl/nightly/cu121
-# torch
-# torchaudio
 --find-links https://download.pytorch.org/whl/nightly/cu129
 torch
---find-links https://download.pytorch.org/whl/nightly/cu129
 torchvision
---find-links https://download.pytorch.org/whl/nightly/cu129
 torchaudio
 
 youtube_dl
@@ -87,10 +83,6 @@ sentencepiece>=0.2.0
 omegaconf>=2.3.0
 pytest>=8.0.0
 
-# --find-links https://download.pytorch.org/whl/cu121
-torch>=2.6.0
-torchvision>=0.17.0
-torchaudio>=2.2.0
 httpx>=0.27.0
 gradio>=5.12.0
 httpcore>=1.0.0
