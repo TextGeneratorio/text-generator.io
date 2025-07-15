@@ -23,7 +23,6 @@
 {% endblock %}
 
 {% block mainbody %}
-    <script src="https://cdn.plot.ly/plotly-2.13.2.min.js"></script>
     <script>
         function displayDates() {
             $.each($('.moment-date'), function (idx, el) {
@@ -42,13 +41,19 @@
 
         async function checkAuthStatus() {
             try {
+                console.log('checkAuthStatus: checking authentication...');
                 const response = await fetch('/api/current-user');
+                console.log('checkAuthStatus: current-user response:', response.status, response.statusText);
+                
                 if (response.ok) {
                     const user = await response.json();
+                    console.log('checkAuthStatus: user authenticated:', user);
                     // User is signed in
                     window.user = user;
+                    
+                    // Get user data with Stripe usage
                     getUserWithStripe(user, function (data) {
-
+                        console.log('checkAuthStatus: got user data with stripe:', data);
                         var email = data['email'];
                         $('.email').html(email);
 
@@ -57,119 +62,29 @@
 
                         {#var referral_url_key = data['referral_url_key'];#}
                         {#$('.referral_url_key').html('https://bitbank.nz?r=' + referral_url_key)#}
-                        $('#manage-subscriptions-link').html(`<a href="/portal?customer_id=${data['stripe_id']}" target="_blank" class="mdl-button mdl-js-button">Manage Subscriptions</a>`)
-                        if (data['stripe_usage']) {
-                            plotPlotlyGraph(data['stripe_usage']);
-                        }
+                        $('#manage-subscriptions-link').html(`<a href="/portal" target="_blank" class="mdl-button mdl-js-button">Manage Subscriptions</a>`)
+                        // No usage tracking anymore - we don't do metering
 
                         $('#self-hosting').html("<h4>Download Self Hosted Server</h4> <h5>Direct Docker Image Download</h5><p> <a href='https://storage.googleapis.com/questions-346919/text-generator.tar'>Docker Container .tar Download</a></p>" +
                           "<h5>Container download script</h5><p> <pre><code>curl https://static.text-generator.io/static/resources/download_container.sh | bash</code></pre></p>" +
                           "<p>After downloading the container with either method, proceed to follow the <a href='/self-hosting'>self host instructions</a> available for <a href='/docs/kubernetes'>Kubernetes</a>, <a href='/docs/docker'>Docker</a></p>" );
 
-                    })
+                    });
                 } else {
-
-                    // User is signed out.
-                    location.href = '/login'
+                    // User is signed out - let's see what the error is
+                    const errorText = await response.text();
+                    console.log('checkAuthStatus: authentication failed:', response.status, errorText);
+                    console.error('Authentication failed:', response.status, '-', errorText);
+                    // Don't redirect automatically for now
                 }
             } catch (error) {
-                console.log(error);
+                console.log('checkAuthStatus: error:', error);
+                console.error('Error checking authentication:', error.message);
+                // Don't redirect automatically for now
             }
         };
 
-        /**
-         * @param usages an object of the form
-         * [
-         {
-                    "id": "sis_0LPEYiDtz2XsjQRO94CnJwB6",
-                    "object": "usage_record_summary",
-                    "invoice": null,
-                    "livemode": true,
-                    "period": {
-                        "end": null,
-                        "start": null
-                    },
-                    "subscription_item": "si_M5dQCs7soUlTER",
-                    "total_usage": 7
-                }
-         ]
-         * graphs total usages over 12 months in a bar chart in plotly
-         */
-        function plotPlotlyGraph(usages) {
-            var monthName = new Array("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December");
-            var d = new Date();
-            d.setDate(1);
-            var months = [];
-            for (var i = 0; i <= 11; i++) {
-                months.push(monthName[d.getMonth()] + ' ' + d.getFullYear());
-                d.setMonth(d.getMonth() - 1);
-            }
-            var total_monthly_usages = [];
-            for (var i = 0; i < usages.length; i++) {
-                let total_monthly = usages[i]['total_usage'];
-                total_monthly = Math.round(total_monthly);
-                total_monthly_usages.push(total_monthly)
-            }
-            // plotly bar chart
-
-            Plotly.newPlot("usage-graph", {
-                "data": [{
-                    "y": total_monthly_usages, x: months, "type": "bar",
-                    marker: {
-                        color: 'rgba(64,219,85,0.7)',
-                        line: {
-                            color: 'rgba(64,219,85,1)',
-                            width: 2
-                        }
-                    }
-                }],
-                // put a marker at 100 on the y-axis to show free tier
-
-                "layout": {
-                    "width": 600, "height": 400,
-                    // y axis cant go below 0
-                    yaxis: {
-                        autorange: false,
-                        range: [0, Math.max(...total_monthly_usages, 100) * 1.1],
-                        "title": "Requests"
-                    },
-                },
-
-
-            }, {barmode: 'stack'})
-            var costs = []
-            for (var i = 0; i < usages.length; i++) {
-
-                let usages_above_100 = Math.max(usages[i]['total_usage'] - 100, 0);
-                let total_monthly = usages_above_100 * 0.01;
-                costs.push(total_monthly)
-            }
-            Plotly.newPlot("cost-graph", {
-                "type": "bar",
-                "data": [{
-                    "y": costs, x: months, "type": "bar",
-                    marker: {
-                        color: 'rgba(64,219,85,0.7)',
-                        line: {
-                            color: 'rgba(64,219,85,1)',
-                            width: 2
-                        }
-                    }
-                }],
-                //USD formatting
-                // y axis cant go below 0
-
-                "layout": {
-                    "width": 600, "height": 400, "yaxis": {
-
-                        "title": "USD",
-                        autorange: false,
-                        range: [0, Math.max(...costs) * 1.1]
-                    }
-                },
-
-            }, {barmode: 'stack'})
-        }
+        // Removed plotPlotlyGraph function - no longer needed since we don't do metering
 
         window.addEventListener('load', function () {
             initApp()
@@ -191,17 +106,29 @@
                 {#                <p>Your referral url: <span class="referral_url_key"></span></p>#}
                 <p>Your API key: <code><span class="api_key"></span></code></p>
 
-                <h3>Usage</h3>
-                <div id="usage-graph"></div>
-                <h3>Estimated Cost</h3>
-
-                <div id="cost-graph"></div>
                 <h4>Settings</h4>
                 <p id="manage-subscriptions-link"></p>
                 <h4>Self Hosting</h4>
                 <div id="self-hosting"></div>
 
                 <button class="mdl-button mdl-js-button mdl-button--raised" onclick="signout()">Log out</button>
+                <script>
+                    function signout() {
+                        fetch('/api/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                        }).then(() => {
+                            clearUserDataFromStorage();
+                            location.href = '/login';
+                        }).catch(error => {
+                            console.error('Error signing out:', error);
+                            clearUserDataFromStorage();
+                            location.href = '/login';
+                        });
+                    }
+                </script>
             </div>
         </div>
 

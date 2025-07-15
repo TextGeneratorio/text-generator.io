@@ -190,9 +190,6 @@ class GetUserRequest(BaseModel):
 
 
 class CreateCheckoutRequest(BaseModel):
-    uid: str = ""
-    secret: str = ""
-    email: Optional[str] = ""
     type: Optional[str] = "monthly"  # legacy todo rm me
     subscription_type: Optional[str] = "monthly"
     referral: Optional[str] = ""

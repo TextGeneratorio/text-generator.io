@@ -2,6 +2,20 @@ document.addEventListener('DOMContentLoaded', async function () {
   const btn = document.getElementById('optimize-btn');
   if (!btn) return;
   
+  // Function to get the secret key
+  function getSecretKey() {
+    // First check if there's a secret in the cookie
+    const match = document.cookie.match(new RegExp('(^| )secret=([^;]+)'));
+    if (match) return match[2];
+    
+    // Then check local storage
+    const storedSecret = localStorage.getItem('textGeneratorSecret');
+    if (storedSecret) return storedSecret;
+    
+    // Use default API key if none found
+    return 'YIvld9Ih72n0BgfrW81mSEqm08Pm0nO2';
+  }
+  
   // Check subscription status on page load
   const isSubscribed = await isUserSubscribed();
   
@@ -27,7 +41,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     try {
       const resp = await fetch('/api/v1/optimize-prompt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'secret': getSecretKey()
+        },
         body: JSON.stringify({ prompt: initial, evolve_prompt: evolve, judge_prompt: judge })
       });
       

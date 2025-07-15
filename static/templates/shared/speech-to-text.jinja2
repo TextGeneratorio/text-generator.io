@@ -46,6 +46,11 @@
                 <div>
                     <input type="file" id="audioFile" accept="audio/*">
                 </div>
+                <div style="margin: 10px 0;">
+                    <button id="recordBtn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">🎤 Record Audio</button>
+                    <button id="stopBtn" class="mdl-button mdl-js-button mdl-button--raised" disabled>⏹️ Stop Recording</button>
+                    <span id="recordingStatus" style="margin-left: 10px; font-weight: bold; color: #f44336;"></span>
+                </div>
                 <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="translate">
                     <input type="checkbox" id="translate" class="mdl-checkbox__input">
                     <span class="mdl-checkbox__label">Translate to English</span>
@@ -140,6 +145,62 @@ print(requests.post(url, json=data, headers=headers).json())
             body: formData
         });
         resultEl.textContent = JSON.stringify(await resp.json(), null, 2);
+    });
+
+    // Audio recording functionality
+    let mediaRecorder;
+    let audioChunks = [];
+    const recordBtn = document.getElementById('recordBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const recordingStatus = document.getElementById('recordingStatus');
+    const audioFileInput = document.getElementById('audioFile');
+
+    recordBtn.addEventListener('click', async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
+            
+            mediaRecorder.addEventListener('stop', () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
+                
+                // Create a new FileList-like object and assign it to the file input
+                const dt = new DataTransfer();
+                dt.items.add(audioFile);
+                audioFileInput.files = dt.files;
+                
+                // Stop all tracks to release microphone
+                stream.getTracks().forEach(track => track.stop());
+                
+                recordingStatus.textContent = 'Recording saved! Click "Transcribe File" to process.';
+                recordingStatus.style.color = '#4caf50';
+                
+                // Reset buttons
+                recordBtn.disabled = false;
+                stopBtn.disabled = true;
+            });
+            
+            mediaRecorder.start();
+            recordBtn.disabled = true;
+            stopBtn.disabled = false;
+            recordingStatus.textContent = 'Recording...';
+            recordingStatus.style.color = '#f44336';
+            
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            alert('Error accessing microphone. Please check your browser permissions.');
+        }
+    });
+
+    stopBtn.addEventListener('click', () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
     });
 </script>
 </body>

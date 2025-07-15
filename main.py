@@ -371,25 +371,29 @@ async def subscribe(request: Request):
 YOUR_DOMAIN = "https://text-generator.io"
 
 @app.post("/create-checkout-session")
-async def create_checkout_session(uid: str = Form(default=""), secret: str = Form(default=""), type: str = Form(default=""), quantity: int = Form(default=1)):
+async def create_checkout_session(request: Request, type: str = Form(default=""), quantity: int = Form(default=1), db: Session = Depends(get_db)):
     quantity = quantity if quantity else 1
-    from questions.auth import get_user_from_session
-    user = get_user_from_session(secret)
-    stripe_id: Optional[str] = None
-    if user and user.stripe_id:
-        stripe_id = user.stripe_id
+    
+    # Get user from cookie-based authentication
+    if USE_POSTGRES:
+        try:
+            user = get_current_user(request, db)
+            if not user:
+                raise HTTPException(status_code=401, detail="Authentication required")
+            
+            stripe_id = user.stripe_id
+            if not stripe_id:
+                # Handle case where user or stripe_id is not found
+                logger.error(f"Stripe ID not found for user: {user.email}")
+                return JSONResponse({"error": "User payment info not found. Please ensure you are logged in."}, status_code=400)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error in create_checkout_session: {e}")
+            raise HTTPException(status_code=500, detail="Authentication failed")
     else:
-        db_user = User.byId(uid)
-        if db_user and db_user.stripe_id:
-            user = db_user # Update user if found in DB
-            stripe_id = db_user.stripe_id
-            set_session_for_user(user) # Update session cache
-
-    if not stripe_id:
-        # Handle case where user or stripe_id is not found - maybe redirect to login/error?
-        logger.error(f"Stripe ID not found for user: {uid}")
-        # For now, returning an error response, adjust as needed
-        return JSONResponse({"error": "User payment info not found. Please ensure you are logged in."}, status_code=400)
+        # Fallback for non-PostgreSQL setup
+        raise HTTPException(status_code=501, detail="Checkout not available without PostgreSQL")
 
     # Define line_item with type hint (basic structure)
     # For metered subscriptions, quantity should not be specified
@@ -464,32 +468,29 @@ async def create_checkout_session(uid: str = Form(default=""), secret: str = For
 
 
 @app.post("/create-checkout-session-embedded")
-def create_checkout_session_embedded(checkoutRequest: CreateCheckoutRequest):
-    uid = checkoutRequest.uid
-    secret = checkoutRequest.secret
-    email = checkoutRequest.email
+async def create_checkout_session_embedded(request: Request, checkoutRequest: CreateCheckoutRequest, db: Session = Depends(get_db)):
     subscription_type = checkoutRequest.subscription_type or checkoutRequest.type
     referral = checkoutRequest.referral
     
-    # Get user from session or database
-    from questions.auth import get_user_from_session
-    user = get_user_from_session(secret)
-    stripe_id = None
-    
-    if not user or not user.stripe_id:
-        user = User.byId(uid)
-    if not user or not user.stripe_id:
-        user = User.bySecret(uid)
-    if not user or not user.stripe_id:
-        user = User.byEmail(email)  # todo fix vuln
-        if user:
-            set_session_for_user(user)
-    
-    if not user:
-        logger.error(f"User not found: {uid}")
-        return JSONResponse({"error": "User not found"}, status_code=400)
+    # Get user from cookie-based authentication
+    if USE_POSTGRES:
+        try:
+            user = get_current_user(request, db)
+            if not user:
+                raise HTTPException(status_code=401, detail="Authentication required")
+            
+            stripe_id = user.stripe_id
+            if not stripe_id:
+                logger.error(f"Stripe ID not found for user: {user.email}")
+                return JSONResponse({"error": "User payment info not found"}, status_code=400)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error in create_checkout_session_embedded: {e}")
+            raise HTTPException(status_code=500, detail="Authentication failed")
     else:
-        stripe_id = user.stripe_id
+        # Fallback for non-PostgreSQL setup
+        raise HTTPException(status_code=501, detail="Checkout not available without PostgreSQL")
     
     # Set up pricing based on subscription type
     if subscription_type and subscription_type == "annual":
@@ -698,82 +699,113 @@ def set_session_for_user_legacy(user):
 
 
 @app.get("/portal")
-async def portal_redirect(request: Request, customer_id):
+async def portal_redirect(request: Request, db: Session = Depends(get_db)):
     """redirect to the stripe customer portal"""
-    session = stripe.billing_portal.Session.create(
-        customer=customer_id,
-        return_url="https://text-generator.io/playground",
-    )
-    return RedirectResponse(session.url, status_code=303) # type: ignore
+    if USE_POSTGRES:
+        try:
+            user = get_current_user(request, db)
+            if not user:
+                raise HTTPException(status_code=401, detail="Authentication required")
+            
+            if not user.stripe_id:
+                raise HTTPException(status_code=400, detail="No Stripe customer ID found")
+            
+            session = stripe.billing_portal.Session.create(
+                customer=user.stripe_id,
+                return_url="https://text-generator.io/playground",
+            )
+            return RedirectResponse(session.url, status_code=303) # type: ignore
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating portal session: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create portal session")
+    else:
+        # Fallback for non-PostgreSQL setup
+        raise HTTPException(status_code=501, detail="Portal not available without PostgreSQL")
 
 
 @app.post("/api/get-user")
-async def get_user(get_user_request: GetUserRequest, response: Response):
-    email = get_user_request.email
-    user = User.byEmail(email)  # todo fix vuln
-    # create the user?
-    set_session_for_user(user)
+async def get_user(request: Request, db: Session = Depends(get_db)):
+    """Get user data using cookie-based authentication"""
+    if USE_POSTGRES:
+        try:
+            user = get_current_user(request, db)
+            if not user:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+            
+            # Check subscription status
+            subscription_item_id = get_subscription_item_id_for_user_email(user.email)
+            user.is_subscribed = subscription_item_id is not None
+            num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
+            user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
 
-    # get if the user is subscribed to a plan in stripe
-    subscription_item_id = get_subscription_item_id_for_user_email(user.email)
-    user.is_subscribed = subscription_item_id is not None
-    num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
-    user.num_self_hosted_instances = int(num_self_hosted_instances) or 0
+            if not user.is_subscribed:
+                # recreate stripe customer if required - remediates users being created in test mode
+                customer = stripe.Customer.retrieve(user.stripe_id)
+                if not customer or not customer.id:
+                    customer = stripe.Customer.create( # type: ignore
+                        email=user.email,
+                        idempotency_key=user.email,
+                    )
+                    user.stripe_id = customer.id
+                    db.commit()
+                    db.refresh(user)
+                    set_session_for_user(user)
+            
+            return JSONResponse(user.to_dict())
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting user data: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get user data")
+    else:
+        # Fallback for non-PostgreSQL setup
+        raise HTTPException(status_code=501, detail="User data not available without PostgreSQL")
 
-    if not user.is_subscribed:
-        # recreate stripe customer if required - remediates users being created in test mode
-        # stripe get customer by
-        customer = stripe.Customer.retrieve(user.stripe_id)
-        if not customer or not customer.id:
-            customer = stripe.Customer.create( # type: ignore
-                email=email,
-                idempotency_key=email,
-            )
-            user.stripe_id = customer.id
-            User.save(user)
-            set_session_for_user(user)
-    return JSONResponse(json.loads(json.dumps(user.to_dict(), cls=GameOnUtils.MyEncoder)))
 
-
-def get_stripe_usage(subscription_item_id):
-    """return the monthly usage of the user"""
-    # get the usage for the user
-    record_summary = stripe.SubscriptionItem.list_usage_record_summaries( # type: ignore
-        subscription_item_id, limit=12
-    )
-    return record_summary.data
+# Removed get_stripe_usage function - no longer needed since we don't do metering
 
 
 @app.post("/api/get-user/stripe-usage")
-async def get_user_stripe_usage(get_user_request: GetUserRequest, response: Response):
-    email = get_user_request.email
-    user = User.byEmail(email)  # todo fix vuln
-    # create the user?
-    set_session_for_user(user)
+async def get_user_stripe_usage(request: Request, db: Session = Depends(get_db)):
+    """Get user data using cookie-based authentication (no usage tracking since we don't do metering)"""
+    if USE_POSTGRES:
+        try:
+            user = get_current_user(request, db)
+            if not user:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+            
+            # Check subscription status
+            subscription_item_id = get_subscription_item_id_for_user_email(user.email)
+            user.is_subscribed = subscription_item_id is not None
+            
+            if not user.is_subscribed:
+                # recreate stripe customer if required - remediates users being created in test mode
+                customer = stripe.Customer.retrieve(user.stripe_id)
+                if not customer or not customer.id:
+                    customer = stripe.Customer.create( # type: ignore
+                        email=user.email,
+                        idempotency_key=user.email,
+                    )
+                    user.stripe_id = customer.id
+                    db.commit()
+                    db.refresh(user)
+                    set_session_for_user(user)
 
-    # get if the user is subscribed to a plan in stripe
-    subscription_item_id = get_subscription_item_id_for_user_email(user.email)
-    user.is_subscribed = subscription_item_id is not None
-    if not user.is_subscribed:
-        # recreate stripe customer if required - remediates users being created in test mode
-        # stripe get customer by
-        customer = stripe.Customer.retrieve(user.stripe_id)
-        if not customer or not customer.id:
-            customer = stripe.Customer.create( # type: ignore
-                email=email,
-                idempotency_key=email,
-            )
-            user.stripe_id = customer.id
-            User.save(user)
-            set_session_for_user(user)
+            user.num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
 
-    user.num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
-
-    user_to_dict = user.to_dict()
-    # add info on stripe usage
-    if subscription_item_id:
-        user_to_dict["stripe_usage"] = get_stripe_usage(subscription_item_id) # if theres no subscription item id this will fail
-    return JSONResponse(json.loads(json.dumps(user_to_dict, cls=GameOnUtils.MyEncoder)))
+            user_to_dict = user.to_dict()
+            # No usage tracking anymore - we don't do metering
+            return JSONResponse(user_to_dict)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting user data: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get user data")
+    else:
+        # Fallback for non-PostgreSQL setup
+        raise HTTPException(status_code=501, detail="User data not available without PostgreSQL")
 
 
 # New PostgreSQL-based authentication endpoints
@@ -944,8 +976,9 @@ async def api_signup(request: Request, email: str = Form(...), password: str = F
 @app.post("/api/logout")
 async def api_logout(request: Request):
     """Logout endpoint"""
-    # Clear session - we'll implement more sophisticated session management later
-    return JSONResponse({"message": "Logged out successfully"})
+    response = JSONResponse({"message": "Logged out successfully"})
+    response.delete_cookie("session_secret", path="/")
+    return response
 
 
 @app.post("/api/upload-image")
