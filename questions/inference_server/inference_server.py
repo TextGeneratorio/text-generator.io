@@ -43,6 +43,8 @@ from questions.models import (
     AudioParamsOrAudioFile,
     SummarizationParams,
 )
+from pydantic import BaseModel
+from typing import Optional
 from questions.payments.payments import (
     get_subscription_item_id_for_user,
     create_subscription_for_user,
@@ -64,6 +66,7 @@ from questions.inference_server.kokoro import generate, generate_full
 import librosa
 
 from questions.inference_server.claude_queries import query_to_claude_async
+from questions.image_captioning.gitbase_captioner import caption_image_bytes
 
 assert TextGenPipeline is not None  # needed to override
 
@@ -300,11 +303,11 @@ def set_session_for_user(user):
 
 
 def track_stripe_request_usage(secret, quantity: int):
-    # track a request being used in stripe
-    # get the current users stripe subscription
-    # todo fix this collection for when running multiple instances (lock?)
+    # Validate user subscription status without metering usage
+    # get the current user
     existing_user = session_dict.get(secret)
     db_user = None
+    
     if existing_user:
         existing_user.charges_monthly += int(quantity * 10)
         # Update user in database
@@ -338,26 +341,14 @@ def track_stripe_request_usage(secret, quantity: int):
 
     existing_user = existing_user or db_user
 
-    subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
-    if not subscription_item_id:
-        logger.info(
-            f"no subscription item id for user: {existing_user.email} {existing_user.stripe_id}"
-        )
-        # Create a new subscription item
-        subscription = create_subscription_for_user(existing_user.stripe_id)
-        logger.info(f"created subscription: {subscription}")
-        try:
-            subscription_item_id = subscription["items"].data[0]["id"]
-        except Exception as e:
-            logger.error(e)
-            logger.error(subscription)
-    # TODO batching
-    # todo block if none
-    stripe.SubscriptionItem.create_usage_record(
-        subscription_item_id,
-        quantity=quantity,
-        # timestamp=int(time.time()),
-    )
+    # Check if user has active subscription (no metering)
+    from ..subscription_utils import check_user_subscription
+    
+    has_subscription = check_user_subscription(existing_user)
+    if not has_subscription:
+        logger.warning(f"User {existing_user.email} does not have an active subscription")
+    else:
+        logger.info(f"User {existing_user.email} has active subscription - request allowed")
 
 
 def validate_generate_params(generate_params):
@@ -400,7 +391,9 @@ def load_audio_model():
 
 def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
     audio_model = MODEL_CACHE.add_or_get("audio_model", load_audio_model)
-    if audio_params.audio_url is None:
+    
+    # Prioritize audio_file if present, otherwise use audio_url
+    if audio_params.audio_file is not None:
         audio_file = audio_params.audio_file
         audio_bytes = audio_file.file.read()
     elif "youtube.com" in audio_params.audio_url:
@@ -804,6 +797,149 @@ def audio_process(text, voice="af_nicole", speed=1.0):
     return (24000, audio)
 
 
+class ImageCaptionParams(BaseModel):
+    """Parameters for image captioning"""
+    image_url: Optional[str] = None
+    fast_mode: bool = True
+    custom_prompt: Optional[str] = None  # For future use if needed
+
+
+@app.post("/api/v1/image-caption")
+async def image_caption(
+    image_file: Optional[UploadFile] = File(None, description="Image file (JPEG, PNG, etc.)"),
+    image_url: Optional[str] = Form(None, description="URL of image to caption"),
+    fast_mode: bool = Form(True, description="Use fast captioning mode for speed"),
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
+    secret: Union[str, None] = Header(default=None),
+):
+    """
+    Generate caption for uploaded image or image URL using GitBase model.
+    
+    - **image_file**: Image file to caption (JPEG, PNG, WebP, etc.) OR
+    - **image_url**: URL of image to caption
+    - **fast_mode**: Use fast mode (true) or quality mode (false)
+    - **secret**: Your API secret for authentication
+    
+    Returns JSON with the generated caption.
+    """
+    # Validate that either file or URL is provided
+    if not image_file and not image_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Either image_file or image_url must be provided"
+        )
+    
+    if image_file and image_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either image_file or image_url, not both"
+        )
+    
+    # Check authorization
+    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            if not request_authorized(request, secret):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid secret. Please subscribe at https://text-generator.io/subscribe and use your API secret"
+                )
+    
+    try:
+        image_bytes = None
+        filename = None
+        
+        if image_file:
+            # Handle uploaded file
+            if not image_file.content_type or not image_file.content_type.startswith('image/'):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="File must be an image (JPEG, PNG, WebP, etc.)"
+                )
+            
+            image_bytes = await image_file.read()
+            filename = image_file.filename
+            
+        elif image_url:
+            # Handle image URL
+            import requests
+            from requests_futures.sessions import FuturesSession
+            
+            logger.info(f"Downloading image from URL: {image_url}")
+            
+            # Use existing session from link_enricher
+            try:
+                response = session.get(image_url, timeout=10).result()
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to download image from URL: HTTP {response.status_code}"
+                    )
+                
+                # Validate content type
+                content_type = response.headers.get('Content-Type', '')
+                if not content_type.startswith('image/'):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"URL does not point to an image. Content-Type: {content_type}"
+                    )
+                
+                image_bytes = response.content
+                filename = image_url.split('/')[-1] or 'image_from_url'
+                
+            except requests.exceptions.RequestException as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to download image from URL: {str(e)}"
+                )
+        
+        # Validate image size (limit to 10MB)
+        if len(image_bytes) > 10 * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail="Image file too large. Maximum size is 10MB."
+            )
+        
+        logger.info(f"Processing image captioning request: {filename}, size: {len(image_bytes)} bytes, fast_mode: {fast_mode}")
+        
+        # Generate caption using GitBase
+        with log_time("image captioning"):
+            caption = caption_image_bytes(
+                image_bytes=image_bytes, 
+                fast_mode=fast_mode
+            )
+        
+        logger.info(f"Generated caption: {caption}")
+        
+        # Track usage for billing
+        if request and background_tasks:
+            if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+                if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+                    # Image captioning costs 1 unit
+                    background_tasks.add_task(
+                        track_stripe_request_usage, 
+                        secret=secret, 
+                        quantity=1
+                    )
+        
+        return JSONResponse({
+            "caption": caption,
+            "filename": filename,
+            "fast_mode": fast_mode,
+            "model": "microsoft/git-base",
+            "source": "file" if image_file else "url"
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in image captioning: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Image captioning failed: {str(e)}"
+        )
 
 
 # gradio web app at https://text-generator.io/gradio_tts

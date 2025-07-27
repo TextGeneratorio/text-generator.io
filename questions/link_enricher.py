@@ -15,14 +15,13 @@ from questions.logging_config import setup_logging
 setup_logging()
 logger = logging.getLogger(__name__)
 from requests_futures.sessions import FuturesSession
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 from questions.inference_server.model_cache import ModelCache
 
 # change into OFA dir
 from questions.image_utils.scaler import scale_down
 from questions.ocr_tess import ocr_tess
 from questions.utils import log_time, debug
+from questions.image_captioning.gitbase_captioner import caption_image_bytes
 
 
 session = FuturesSession(max_workers=10)
@@ -97,38 +96,24 @@ ocr_tags = ["receipt", 'screenshot', 'licence', 'document', 'paper', 'sign', 'ad
 
 LINK_MODEL_CACHE = ModelCache()
 
-def load_moondream_model():
-    """Load the Moondream model for image captioning"""
-    model_id = "vikhyatk/moondream2"
-    revision = "2024-08-26"
-    
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id, 
-        trust_remote_code=True, 
-        revision=revision
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_id, 
-        revision=revision
-    )
-    return model, tokenizer
-
 def get_caption_for_image_response(response, prompt="Describe this image."):
-    """Get image caption using Moondream model"""
+    """Get image caption using GitBase model"""
     response.raw.decode_content = True
     image_bytes = response.content
     
-    img = Image.open(BytesIO(image_bytes))
-    
     with log_time("image captioning"):
-        model, tokenizer = LINK_MODEL_CACHE.add_or_get("moondream_model", load_moondream_model)
-        enc_image = model.encode_image(img)
-        caption = model.answer_question(enc_image, prompt, tokenizer)
+        # Use GitBase for image captioning
+        caption = caption_image_bytes(
+            image_bytes=image_bytes,
+            fast_mode=True  # Use fast mode for link enrichment
+        )
         
         if debug:
             logger.info(f"Image description: {caption}")
             
+        # Check if OCR might be needed based on caption content
         if any(ocr_tag in caption.lower() for ocr_tag in ocr_tags):
+            img = Image.open(BytesIO(image_bytes))
             with log_time("OCR"):
                 ocr_data = ocr_tess(img)
                 caption += " " + ocr_data

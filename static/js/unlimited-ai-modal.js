@@ -1,17 +1,16 @@
-// Subscription Modal JavaScript
-if (typeof window.SubscriptionModal === 'undefined') {
-window.SubscriptionModal = class SubscriptionModal {
+// Unlimited AI Offerings Modal JavaScript
+if (typeof window.UnlimitedAIModal === 'undefined') {
+window.UnlimitedAIModal = class UnlimitedAIModal {
     constructor() {
         this.modal = null;
         this.isOpen = false;
-        this.currentUser = null;
         this.init();
     }
 
     init() {
         // Check if modal already exists
-        if (document.getElementById('subscription-modal')) {
-            this.modal = document.getElementById('subscription-modal');
+        if (document.getElementById('unlimited-ai-modal')) {
+            this.modal = document.getElementById('unlimited-ai-modal');
             return;
         }
 
@@ -29,63 +28,63 @@ window.SubscriptionModal = class SubscriptionModal {
         }
 
         const modalHTML = `
-            <div id="subscription-modal" class="subscription-modal" style="display: none;">
-                <div class="subscription-modal-content">
-                    <button class="subscription-modal-close" onclick="if(window.subscriptionModal) subscriptionModal.close()">×</button>
+            <div id="unlimited-ai-modal" class="unlimited-ai-modal" style="display: none;">
+                <div class="unlimited-ai-modal-content">
+                    <button class="unlimited-ai-modal-close" onclick="if(window.unlimitedAIModal) unlimitedAIModal.close()">×</button>
                     
-                    <div class="subscription-modal-header">
-                        <h2 class="subscription-modal-title">Subscription Required</h2>
-                        <p class="subscription-modal-subtitle">You need an active subscription to use advanced AI features</p>
+                    <div class="unlimited-ai-modal-header">
+                        <h2 class="unlimited-ai-modal-title">Unlimited AI Text Editing & Speech Generation</h2>
+                        <p class="unlimited-ai-modal-subtitle">Access all premium AI features with your subscription</p>
                     </div>
 
-                    <div class="subscription-modal-body">
-                        <div class="subscription-pricing">
-                            <div class="subscription-price">$19.00</div>
-                            <div class="subscription-period">per month</div>
+                    <div class="unlimited-ai-modal-body">
+                        <div class="unlimited-ai-pricing">
+                            <div class="unlimited-ai-price">$19.00 USD</div>
+                            <div class="unlimited-ai-period">Monthly</div>
                         </div>
 
-                        <ul class="subscription-features">
-                            <li class="subscription-feature">
-                                <svg class="subscription-feature-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <ul class="unlimited-ai-features">
+                            <li class="unlimited-ai-feature">
+                                <svg class="unlimited-ai-feature-icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                                 </svg>
-                                Unlimited AI text generation
+                                Quick Start - The fastest way to get started using the API
                             </li>
-                            <li class="subscription-feature">
-                                <svg class="subscription-feature-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <li class="unlimited-ai-feature">
+                                <svg class="unlimited-ai-feature-icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                                 </svg>
-                                AI Text Editor with advanced editing tools
+                                Multi-lingual generation - Instruction following, logic and creativity in almost all languages
                             </li>
-                            <li class="subscription-feature">
-                                <svg class="subscription-feature-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <li class="unlimited-ai-feature">
+                                <svg class="unlimited-ai-feature-icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                                 </svg>
-                                AI Voices & Speech Understanding
+                                Code generation - Polyglot Code, Autocomplete, Translation, Explanation generation
                             </li>
-                            <li class="subscription-feature">
-                                <svg class="subscription-feature-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <li class="unlimited-ai-feature">
+                                <svg class="unlimited-ai-feature-icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                                 </svg>
-                                Multi-lingual code generation
+                                Complete data privacy - We do not store any private data sent to the APIs
                             </li>
-                            <li class="subscription-feature">
-                                <svg class="subscription-feature-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <li class="unlimited-ai-feature">
+                                <svg class="unlimited-ai-feature-icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                                 </svg>
-                                Advanced prompt optimization
+                                Prompt Tuning - Advanced prompt optimization for better AI responses
                             </li>
-                            <li class="subscription-feature">
-                                <svg class="subscription-feature-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <li class="unlimited-ai-feature">
+                                <svg class="unlimited-ai-feature-icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                                 </svg>
-                                Complete data privacy protection
+                                AI Text Editor - Built-in AI-powered text editing and enhancement tools
                             </li>
                         </ul>
 
-                        <div class="subscription-modal-actions">
-                            <a href="/subscribe" class="subscription-btn subscription-btn-primary">Subscribe Now</a>
-                            <button class="subscription-btn subscription-btn-secondary" onclick="if(window.subscriptionModal) subscriptionModal.close()">Maybe Later</button>
+                        <div class="unlimited-ai-modal-actions">
+                            <a href="/subscribe" class="unlimited-ai-btn unlimited-ai-btn-primary">Subscribe Now</a>
+                            <button class="unlimited-ai-btn unlimited-ai-btn-secondary" onclick="if(window.unlimitedAIModal) unlimitedAIModal.close()">Maybe Later</button>
                         </div>
                     </div>
                 </div>
@@ -95,7 +94,7 @@ window.SubscriptionModal = class SubscriptionModal {
         // Add CSS styles for the modal
         const styles = `
             <style>
-                .subscription-modal {
+                .unlimited-ai-modal {
                     position: fixed;
                     top: 0;
                     left: 0;
@@ -105,11 +104,11 @@ window.SubscriptionModal = class SubscriptionModal {
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    z-index: 1000;
+                    z-index: 1001;
                     backdrop-filter: blur(4px);
                 }
 
-                .subscription-modal-content {
+                .unlimited-ai-modal-content {
                     background: linear-gradient(135deg, #fff 0%, #fef7f7 100%);
                     border-radius: 16px;
                     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
@@ -121,7 +120,7 @@ window.SubscriptionModal = class SubscriptionModal {
                     border: 1px solid rgba(255, 182, 193, 0.3);
                 }
 
-                .subscription-modal-close {
+                .unlimited-ai-modal-close {
                     position: absolute;
                     top: 16px;
                     right: 16px;
@@ -139,22 +138,18 @@ window.SubscriptionModal = class SubscriptionModal {
                     transition: all 0.2s ease;
                 }
 
-                .subscription-modal-close:hover {
+                .unlimited-ai-modal-close:hover {
                     background: rgba(255, 182, 193, 0.2);
                     color: #333;
                 }
 
-                .subscription-modal-header {
+                .unlimited-ai-modal-header {
                     text-align: center;
                     padding: 32px 32px 16px;
-                    background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A  50%, #FF6347 100%);
-                    background-clip: text;
-                    -webkit-background-clip: text;
-                    color: transparent;
                 }
 
-                .subscription-modal-title {
-                    font-size: 28px;
+                .unlimited-ai-modal-title {
+                    font-size: 24px;
                     font-weight: 700;
                     margin: 0 0 8px;
                     background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 50%, #FF6347 100%);
@@ -163,18 +158,18 @@ window.SubscriptionModal = class SubscriptionModal {
                     color: transparent;
                 }
 
-                .subscription-modal-subtitle {
+                .unlimited-ai-modal-subtitle {
                     font-size: 16px;
                     color: #666;
                     margin: 0;
                     font-weight: 400;
                 }
 
-                .subscription-modal-body {
+                .unlimited-ai-modal-body {
                     padding: 0 32px 32px;
                 }
 
-                .subscription-pricing {
+                .unlimited-ai-pricing {
                     text-align: center;
                     margin: 24px 0 32px;
                     padding: 20px;
@@ -183,7 +178,7 @@ window.SubscriptionModal = class SubscriptionModal {
                     border: 1px solid rgba(255, 182, 193, 0.3);
                 }
 
-                .subscription-price {
+                .unlimited-ai-price {
                     font-size: 36px;
                     font-weight: 700;
                     background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 50%, #FF6347 100%);
@@ -193,46 +188,48 @@ window.SubscriptionModal = class SubscriptionModal {
                     margin-bottom: 4px;
                 }
 
-                .subscription-period {
+                .unlimited-ai-period {
                     font-size: 16px;
                     color: #666;
                     font-weight: 500;
                 }
 
-                .subscription-features {
+                .unlimited-ai-features {
                     list-style: none;
                     padding: 0;
                     margin: 0 0 32px;
                 }
 
-                .subscription-feature {
+                .unlimited-ai-feature {
                     display: flex;
-                    align-items: center;
+                    align-items: flex-start;
                     padding: 12px 0;
                     font-size: 15px;
                     color: #333;
                     border-bottom: 1px solid rgba(255, 182, 193, 0.2);
+                    line-height: 1.4;
                 }
 
-                .subscription-feature:last-child {
+                .unlimited-ai-feature:last-child {
                     border-bottom: none;
                 }
 
-                .subscription-feature-icon {
+                .unlimited-ai-feature-icon {
                     width: 20px;
                     height: 20px;
                     margin-right: 12px;
+                    margin-top: 2px;
                     color: #FF6347;
                     flex-shrink: 0;
                 }
 
-                .subscription-modal-actions {
+                .unlimited-ai-modal-actions {
                     display: flex;
                     gap: 12px;
                     flex-direction: column;
                 }
 
-                .subscription-btn {
+                .unlimited-ai-btn {
                     padding: 16px 24px;
                     border-radius: 12px;
                     font-size: 16px;
@@ -245,14 +242,14 @@ window.SubscriptionModal = class SubscriptionModal {
                     display: block;
                 }
 
-                .subscription-btn-primary {
+                .unlimited-ai-btn-primary {
                     background: linear-gradient(90deg, #d79f2a, #d34675);
                     color: white;
                     box-shadow: 0 4px 15px rgba(215, 159, 42, 0.4);
                     transition: all 0.2s ease;
                 }
 
-                .subscription-btn-primary:hover {
+                .unlimited-ai-btn-primary:hover {
                     background: linear-gradient(90deg, #c48d24, #c23e67);
                     transform: translateY(-2px);
                     box-shadow: 0 6px 20px rgba(215, 159, 42, 0.5);
@@ -260,39 +257,39 @@ window.SubscriptionModal = class SubscriptionModal {
                     color: white;
                 }
 
-                .subscription-btn-secondary {
+                .unlimited-ai-btn-secondary {
                     background: rgba(255, 182, 193, 0.1);
                     color: #666;
                     border: 1px solid rgba(255, 182, 193, 0.3);
                 }
 
-                .subscription-btn-secondary:hover {
+                .unlimited-ai-btn-secondary:hover {
                     background: rgba(255, 182, 193, 0.2);
                     color: #333;
                 }
 
-                .subscription-modal.show {
+                .unlimited-ai-modal.show {
                     opacity: 1;
                     visibility: visible;
                 }
 
                 @media (max-width: 600px) {
-                    .subscription-modal-content {
+                    .unlimited-ai-modal-content {
                         margin: 20px;
                         width: calc(100% - 40px);
                     }
                     
-                    .subscription-modal-header,
-                    .subscription-modal-body {
+                    .unlimited-ai-modal-header,
+                    .unlimited-ai-modal-body {
                         padding-left: 24px;
                         padding-right: 24px;
                     }
                     
-                    .subscription-modal-title {
-                        font-size: 24px;
+                    .unlimited-ai-modal-title {
+                        font-size: 20px;
                     }
                     
-                    .subscription-price {
+                    .unlimited-ai-price {
                         font-size: 32px;
                     }
                 }
@@ -301,7 +298,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
         document.head.insertAdjacentHTML('beforeend', styles);
         document.body.insertAdjacentHTML('beforeend', modalHTML);
-        this.modal = document.getElementById('subscription-modal');
+        this.modal = document.getElementById('unlimited-ai-modal');
     }
 
     bindEvents() {
@@ -318,43 +315,6 @@ window.SubscriptionModal = class SubscriptionModal {
                 this.close();
             }
         });
-    }
-
-    async checkSubscription() {
-        try {
-            const response = await fetch('/api/current-user');
-            if (response.ok) {
-                const user = await response.json();
-                this.currentUser = user;
-                return user.is_subscribed === true;
-            }
-            return false;
-        } catch (error) {
-            console.error('Error checking subscription:', error);
-            return false;
-        }
-    }
-
-    async requireSubscription(action = 'access this feature') {
-        const isSubscribed = await this.checkSubscription();
-        
-        if (!isSubscribed) {
-            // Update modal title based on action
-            const titleElement = this.modal.querySelector('.subscription-modal-title');
-            if (titleElement) {
-                titleElement.textContent = `Subscription Required`;
-            }
-            
-            const subtitleElement = this.modal.querySelector('.subscription-modal-subtitle');
-            if (subtitleElement) {
-                subtitleElement.textContent = `You need an active subscription to ${action}`;
-            }
-            
-            this.show();
-            return false;
-        }
-        
-        return true;
     }
 
     show() {
@@ -378,44 +338,35 @@ window.SubscriptionModal = class SubscriptionModal {
 }
 
 // Create global instance when DOM is ready
-if (typeof window.subscriptionModal === 'undefined') {
-    let subscriptionModal;
+if (typeof window.unlimitedAIModal === 'undefined') {
+    let unlimitedAIModal;
 
-    function initSubscriptionModal() {
+    function initUnlimitedAIModal() {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
-                subscriptionModal = new window.SubscriptionModal();
-                window.subscriptionModal = subscriptionModal;
+                unlimitedAIModal = new window.UnlimitedAIModal();
+                window.unlimitedAIModal = unlimitedAIModal;
             });
         } else {
-            subscriptionModal = new window.SubscriptionModal();
-            window.subscriptionModal = subscriptionModal;
+            unlimitedAIModal = new window.UnlimitedAIModal();
+            window.unlimitedAIModal = unlimitedAIModal;
         }
     }
 
     // Initialize
-    initSubscriptionModal();
+    initUnlimitedAIModal();
 
     // Helper function for easy access
-    window.requireSubscription = async function(action = 'access this feature') {
-        if (!window.subscriptionModal) {
-            console.warn('SubscriptionModal not initialized yet');
-            return false;
+    window.showUnlimitedAIModal = function() {
+        if (!window.unlimitedAIModal) {
+            console.warn('UnlimitedAIModal not initialized yet');
+            return;
         }
-        return await window.subscriptionModal.requireSubscription(action);
-    };
-
-    // Helper function to check if user is subscribed
-    window.isUserSubscribed = async function() {
-        if (!window.subscriptionModal) {
-            console.warn('SubscriptionModal not initialized yet');
-            return false;
-        }
-        return await window.subscriptionModal.checkSubscription();
+        window.unlimitedAIModal.show();
     };
 }
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { SubscriptionModal, subscriptionModal, requireSubscription, isUserSubscribed };
+    module.exports = { UnlimitedAIModal, unlimitedAIModal, showUnlimitedAIModal };
 }

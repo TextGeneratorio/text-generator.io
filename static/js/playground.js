@@ -596,7 +596,7 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                         <div style="text-align: center; padding: 20px; color: #666;">
                             <h3>Premium Feature</h3>
                             <p>The playground requires an active subscription to use.</p>
-                            <button onclick="subscriptionModal.show()" style="padding: 10px 20px; background: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer;">Subscribe Now</button>
+                            <button onclick="subscriptionModal.show()" style="padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.background='linear-gradient(90deg, #c48d24, #c23e67)'; this.style.boxShadow='0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15)'" onmouseout="this.style.background='linear-gradient(90deg, #d79f2a, #d34675)'; this.style.boxShadow='none'">Subscribe Now</button>
                         </div>
                     `);
                 }

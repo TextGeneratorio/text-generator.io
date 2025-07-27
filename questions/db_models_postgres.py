@@ -1,14 +1,65 @@
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON
+from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
 import os
 from typing import Optional
 
-# Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/textgen")
+# Database configuration - Environment-aware and simplified
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # development, production
+IS_PRODUCTION = ENVIRONMENT == "production"
 
-engine = create_engine(DATABASE_URL)
+# Database credentials - hardcoded as requested
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_USER = os.getenv("DB_USER", "postgres") 
+DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
+# Database selection based on environment - strict separation
+if IS_PRODUCTION:
+    DB_NAME = "textgen_prod"
+    print(f"🎯 Production environment: using {DB_NAME} database")
+    # In production, use explicit production database URL
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+else:
+    DB_NAME = "textgen"
+    print(f"🔧 Development environment: using {DB_NAME} database")
+    # In development, prioritize DATABASE_URL env var if set, otherwise use textgen
+    DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+    # Ensure we never accidentally use production database in development
+    if "textgen_prod" in DATABASE_URL:
+        print("⚠️  Detected textgen_prod in development, forcing textgen database")
+        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/textgen"
+
+# Create engine with connection testing
+def create_engine_with_testing():
+    """Create database engine and test the connection."""
+    try:
+        engine = create_engine(DATABASE_URL)
+        # Test the connection
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print(f"✅ Database connection successful: {DATABASE_URL}")
+        return engine
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+        print(f"Database URL: {DATABASE_URL}")
+        
+        # Only allow fallback in development and only to safe alternatives
+        if not IS_PRODUCTION:
+            # Try alternative local database names if current fails
+            if "textgen" in DATABASE_URL and "textgen_prod" not in DATABASE_URL:
+                print("🔄 Development fallback disabled - check your local database setup")
+            print("💡 Make sure your local PostgreSQL is running and the textgen database exists")
+        
+        raise
+
+try:
+    engine = create_engine_with_testing()
+except Exception as e:
+    print(f"⚠️  Using basic engine configuration: {e}")
+    engine = create_engine(DATABASE_URL)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -40,37 +91,33 @@ class User(Base):
     access_token = Column(String, nullable=True)
 
     # Relationships
-    documents = relationship("Document", back_populates="user")
-    ai_characters = relationship("AICharacter", back_populates="user")
-    voices = relationship("Voice", back_populates="user")
+    documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
+    chat_rooms = relationship("ChatRoom", back_populates="user", cascade="all, delete-orphan")
+    save_games = relationship("SaveGame", back_populates="user", cascade="all, delete-orphan")
 
     @classmethod
-    def get_by_id(cls, session, user_id: str) -> Optional['User']:
-        return session.query(cls).filter(cls.id == user_id).first()
+    def get_by_email(cls, db, email: str):
+        return db.query(cls).filter(cls.email == email).first()
 
     @classmethod
-    def get_by_email(cls, session, email: str) -> Optional['User']:
-        return session.query(cls).filter(cls.email == email).first()
-
-    @classmethod
-    def get_by_secret(cls, session, secret: str) -> Optional['User']:
-        return session.query(cls).filter(cls.secret == secret).first()
+    def get_by_secret(cls, db, secret: str):
+        return db.query(cls).filter(cls.secret == secret).first()
 
     def to_dict(self):
         return {
             'id': self.id,
             'email': self.email,
             'name': self.name,
-            'created': self.created.isoformat() if self.created else None,
-            'updated': self.updated.isoformat() if self.updated else None,
+            'profile_url': self.profile_url,
+            'photo_url': self.photo_url,
             'is_subscribed': self.is_subscribed,
             'stripe_id': self.stripe_id,
             'secret': self.secret,
             'free_credits': self.free_credits,
             'charges_monthly': self.charges_monthly,
             'num_self_hosted_instances': self.num_self_hosted_instances,
-            'profile_url': self.profile_url,
-            'photo_url': self.photo_url,
+            'created': self.created.isoformat() if self.created else None,
+            'updated': self.updated.isoformat() if self.updated else None
         }
 
 
@@ -78,31 +125,25 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(String, primary_key=True)
-    user_id = Column(String, ForeignKey('users.id'), nullable=False)
-    title = Column(String, default="Untitled Document")
+    title = Column(String, nullable=False)
     content = Column(Text, nullable=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     created = Column(DateTime, default=func.now())
     updated = Column(DateTime, default=func.now(), onupdate=func.now())
+    is_public = Column(Boolean, default=False)
 
     # Relationships
     user = relationship("User", back_populates="documents")
 
-    @classmethod
-    def get_by_id(cls, session, doc_id: str) -> Optional['Document']:
-        return session.query(cls).filter(cls.id == doc_id).first()
-
-    @classmethod
-    def get_by_user_id(cls, session, user_id: str):
-        return session.query(cls).filter(cls.user_id == user_id).order_by(cls.updated.desc()).all()
-
     def to_dict(self):
         return {
             'id': self.id,
-            'user_id': self.user_id,
             'title': self.title,
             'content': self.content,
-            'created': self.created.isoformat() if self.created else None,
-            'updated': self.updated.isoformat() if self.updated else None,
+            'user_id': self.user_id,
+            'created_at': self.created.isoformat() if self.created else None,
+            'updated_at': self.updated.isoformat() if self.updated else None,
+            'is_public': self.is_public
         }
 
 
@@ -110,57 +151,40 @@ class AICharacter(Base):
     __tablename__ = "ai_characters"
 
     id = Column(String, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    title = Column(String, nullable=True)
-    greeting = Column(Text, nullable=True)
+    name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    avatar_file_name = Column(String, nullable=True)
-    bucket_name = Column(String, nullable=True)
-    tags = Column(JSON, nullable=True)
-    visibility = Column(String, nullable=True)
-    url_name = Column(String, nullable=True)
-    num_interactions = Column(Integer, default=0)
-    user__id = Column(String, ForeignKey('users.id'), nullable=True)  # Using existing column name
-    user__username = Column(String, nullable=True)
-    gender = Column(String, nullable=True)
-    voice = Column(String, nullable=True)
-    img_gen_enabled = Column(Boolean, default=False)
-    priority = Column(Integer, default=0)
-    search_score = Column(Integer, default=0)
-    updated = Column(DateTime, default=func.now(), onupdate=func.now())
-
-    # Relationships
-    user = relationship("User", back_populates="ai_characters", foreign_keys=[user__id])
-
-    @classmethod
-    def get_by_id(cls, session, character_id: str) -> Optional['AICharacter']:
-        return session.query(cls).filter(cls.id == character_id).first()
-
-    @classmethod
-    def get_by_name(cls, session, name: str) -> Optional['AICharacter']:
-        return session.query(cls).filter(cls.name == name).first()
-
+    system_prompt = Column(Text, nullable=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    is_public = Column(Boolean, default=False)
+    
+    # Personality and behavior settings
+    temperature = Column(String, nullable=True)  # Stored as string for flexibility
+    max_tokens = Column(Integer, nullable=True)
+    
+    # Appearance and avatar
+    avatar_url = Column(String, nullable=True)
+    voice_id = Column(String, nullable=True)
+    
+    # Usage statistics
+    usage_count = Column(Integer, default=0)
+    
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
-            'title': self.title,
-            'greeting': self.greeting,
             'description': self.description,
-            'avatar_file_name': self.avatar_file_name,
-            'bucket_name': self.bucket_name,
-            'tags': self.tags,
-            'visibility': self.visibility,
-            'url_name': self.url_name,
-            'num_interactions': self.num_interactions,
-            'user__id': self.user__id,
-            'user__username': self.user__username,
-            'gender': self.gender,
-            'voice': self.voice,
-            'img_gen_enabled': self.img_gen_enabled,
-            'priority': self.priority,
-            'search_score': self.search_score,
-            'updated': self.updated.isoformat() if self.updated else None,
+            'system_prompt': self.system_prompt,
+            'user_id': self.user_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'is_public': self.is_public,
+            'temperature': self.temperature,
+            'max_tokens': self.max_tokens,
+            'avatar_url': self.avatar_url,
+            'voice_id': self.voice_id,
+            'usage_count': self.usage_count
         }
 
 
@@ -168,35 +192,31 @@ class ChatRoom(Base):
     __tablename__ = "chat_rooms"
 
     id = Column(String, primary_key=True)
-    name = Column(String, nullable=True)
-    urlkey = Column(String, nullable=True)
-    description = Column(String, nullable=True)
-    visibility = Column(String, nullable=True)
-    invite_code = Column(String, nullable=True)
-    user_count = Column(Integer, default=0)
-    users_names = Column(JSON, nullable=True)
-    characters = Column(JSON, nullable=True)
-    admins = Column(JSON, nullable=True)
-
+    name = Column(String, nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    ai_character_id = Column(String, ForeignKey("ai_characters.id"), nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Room settings
+    is_active = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)
+    
     # Relationships
-    messages = relationship("ChatMessage", back_populates="chat_room")
-
-    @classmethod
-    def get_by_id(cls, session, room_id: str) -> Optional['ChatRoom']:
-        return session.query(cls).filter(cls.id == room_id).first()
-
+    user = relationship("User", back_populates="chat_rooms")
+    ai_character = relationship("AICharacter")
+    messages = relationship("ChatMessage", back_populates="chat_room", cascade="all, delete-orphan")
+    
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
-            'urlkey': self.urlkey,
-            'description': self.description,
-            'visibility': self.visibility,
-            'invite_code': self.invite_code,
-            'user_count': self.user_count,
-            'users_names': self.users_names,
-            'characters': self.characters,
-            'admins': self.admins,
+            'user_id': self.user_id,
+            'ai_character_id': self.ai_character_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'is_active': self.is_active,
+            'is_public': self.is_public
         }
 
 
@@ -204,31 +224,28 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
     id = Column(String, primary_key=True)
-    chat_room_id = Column(String, ForeignKey('chat_rooms.id'), nullable=True)
-    text = Column(Text, nullable=True)
-    username = Column(String, nullable=True)
-    avatar_file_name = Column(String, nullable=True)
-    timestamp = Column(DateTime, default=func.now())
-
+    chat_room_id = Column(String, ForeignKey("chat_rooms.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)  # None for AI messages
+    content = Column(Text, nullable=False)
+    message_type = Column(String, nullable=False)  # 'user', 'ai', 'system'
+    created_at = Column(DateTime, default=func.now())
+    
+    # Message metadata
+    message_metadata = Column(JSON, nullable=True)  # For storing additional message data
+    
     # Relationships
     chat_room = relationship("ChatRoom", back_populates="messages")
-
-    @classmethod
-    def get_by_id(cls, session, message_id: str) -> Optional['ChatMessage']:
-        return session.query(cls).filter(cls.id == message_id).first()
-
-    @classmethod
-    def get_by_chat_room_id(cls, session, chat_room_id: str):
-        return session.query(cls).filter(cls.chat_room_id == chat_room_id).order_by(cls.timestamp.asc()).all()
-
+    user = relationship("User")
+    
     def to_dict(self):
         return {
             'id': self.id,
             'chat_room_id': self.chat_room_id,
-            'text': self.text,
-            'username': self.username,
-            'avatar_file_name': self.avatar_file_name,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'user_id': self.user_id,
+            'content': self.content,
+            'message_type': self.message_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'metadata': self.metadata
         }
 
 
@@ -237,40 +254,29 @@ class Voice(Base):
 
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
-    url_name = Column(String, nullable=True)
-    description = Column(String, nullable=True)
-    avatar_file_name = Column(String, nullable=True)
-    voice_sample_url = Column(String, nullable=True)
-    voice_input_url = Column(String, nullable=True)
-    sample_text = Column(String, nullable=True)
-    user__id = Column(String, ForeignKey('users.id'), nullable=True)  # Using existing column name
-    user__username = Column(String, nullable=True)
-    visibility = Column(String, nullable=True)
-    created = Column(DateTime, default=func.now())
-    updated = Column(DateTime, default=func.now(), onupdate=func.now())
-
-    # Relationships
-    user = relationship("User", back_populates="voices", foreign_keys=[user__id])
-
-    @classmethod
-    def get_by_id(cls, session, voice_id: str) -> Optional['Voice']:
-        return session.query(cls).filter(cls.id == voice_id).first()
-
+    description = Column(Text, nullable=True)
+    voice_id = Column(String, nullable=False)  # External voice service ID
+    provider = Column(String, nullable=False)  # 'elevenlabs', 'openai', etc.
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    
+    # Voice characteristics
+    gender = Column(String, nullable=True)
+    accent = Column(String, nullable=True)
+    age_range = Column(String, nullable=True)
+    
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
-            'url_name': self.url_name,
             'description': self.description,
-            'avatar_file_name': self.avatar_file_name,
-            'voice_sample_url': self.voice_sample_url,
-            'voice_input_url': self.voice_input_url,
-            'sample_text': self.sample_text,
-            'user__id': self.user__id,
-            'user__username': self.user__username,
-            'visibility': self.visibility,
-            'created': self.created.isoformat() if self.created else None,
-            'updated': self.updated.isoformat() if self.updated else None,
+            'voice_id': self.voice_id,
+            'provider': self.provider,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'gender': self.gender,
+            'accent': self.accent,
+            'age_range': self.age_range
         }
 
 
@@ -278,34 +284,40 @@ class SaveGame(Base):
     __tablename__ = "save_games"
 
     id = Column(String, primary_key=True)
-    title = Column(String, nullable=True)
-    input_outputs = Column(JSON, nullable=True)
-    backstory = Column(String, nullable=True)
-
-    @classmethod
-    def get_by_id(cls, session, save_id: str) -> Optional['SaveGame']:
-        return session.query(cls).filter(cls.id == save_id).first()
-
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    game_type = Column(String, nullable=False)  # '20-questions', 'chat', etc.
+    game_state = Column(JSON, nullable=False)  # JSON representation of game state
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    # Game metadata
+    name = Column(String, nullable=True)  # User-friendly name for the save
+    is_completed = Column(Boolean, default=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="save_games")
+    
     def to_dict(self):
         return {
             'id': self.id,
-            'title': self.title,
-            'input_outputs': self.input_outputs,
-            'backstory': self.backstory,
+            'user_id': self.user_id,
+            'game_type': self.game_type,
+            'game_state': self.game_state,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'name': self.name,
+            'is_completed': self.is_completed
         }
 
 
 # Database session handling
 def get_db_session():
     """
-    Get a database session that can be used in both main.py and inference_server.
-    This ensures consistent database access across both servers.
+    Get a database session for use in async contexts.
+    Remember to close the session when done.
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    return SessionLocal()
+
 
 def get_db():
     """
@@ -316,6 +328,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 def get_db_session_sync():
     """
