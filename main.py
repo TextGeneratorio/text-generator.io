@@ -130,7 +130,7 @@ def get_base_template_vars(request: Request) -> Dict[str, Any]:
     
     return {
         "request": request,
-        "static_url": "/static",
+        "static_url": GCLOUD_STATIC_BUCKET_URL,
         "is_debug": debug if 'debug' in globals() else False,
         "app_name": "Text Generator",
         "gcloud_static_bucket_url": GCLOUD_STATIC_BUCKET_URL,

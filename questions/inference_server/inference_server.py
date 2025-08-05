@@ -560,13 +560,6 @@ async def feature_extraction(
     inference_result = fast_feature_extract_inference(
         feature_extract_params, MODEL_CACHE
     )
-    if "X-Rapid-API-Key" not in request.headers:
-        # todo fix
-        if random.randint(1, 10) == 10:
-            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                #background_tasks.add_task(
-                 #   track_stripe_request_usage, secret=secret, quantity=1
-                #)
     return inference_result[: feature_extract_params.num_features]
 
 
