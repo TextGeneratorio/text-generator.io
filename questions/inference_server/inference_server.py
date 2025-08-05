@@ -574,7 +574,7 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
-    text = get_extractive_summary(summarization_params.text, MODEL_CACHE)
+    text = get_extractive_summary(summarization_params.text, MODEL_CACHE, max_length=summarization_params.max_length or 0)
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
         if random.randint(1, 10) == 10:

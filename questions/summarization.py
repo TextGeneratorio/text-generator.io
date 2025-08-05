@@ -139,5 +139,5 @@ def get_extractive_summary_inner(summarizer, text: str, max_length: int = 0, ret
             # logger.info(f"Generated summary is too long: {len(final_summary)} > {max_length}")
             # try again with a smaller max_length
             if retries > 0:
-                return get_extractive_summary(summarizer, text, max_length=max_length, retries=retries - 1)
+                return get_extractive_summary_inner(summarizer, text, max_length=max_length, retries=retries - 1)
         return final_summary
