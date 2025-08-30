@@ -438,6 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentFile = null;
     let userApiSecret = null;
+    let secretLoaded = false;
 
     // Fetch user's API secret
     async function fetchUserApiSecret() {
@@ -461,7 +462,17 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.api-secret-value').forEach(el => {
                 el.textContent = 'Please login to get your API secret';
             });
+        } finally {
+            secretLoaded = true;
         }
+    }
+
+    // Wait for secret to be loaded
+    async function waitForSecret() {
+        while (!secretLoaded) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return userApiSecret;
     }
 
     // Load user API secret on page load
@@ -545,6 +556,13 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsSection.style.display = 'none';
 
         try {
+            // Wait for the API secret to be loaded
+            const apiSecret = await waitForSecret();
+            
+            if (!apiSecret) {
+                throw new Error('API secret not available. Please login to get your API secret.');
+            }
+
             const formData = new FormData();
             formData.append('image_file', currentFile);
             formData.append('fast_mode', fastModeCheckbox.checked);
@@ -554,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('https://api.text-generator.io/api/v1/image-caption', {
                 method: 'POST',
                 headers: {
-                    'secret': userApiSecret || ''
+                    'secret': apiSecret
                 },
                 body: formData
             });

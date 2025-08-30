@@ -31,7 +31,7 @@ window.SubscriptionModal = class SubscriptionModal {
         const modalHTML = `
             <div id="subscription-modal" class="subscription-modal" style="display: none;">
                 <div class="subscription-modal-content">
-                    <button class="subscription-modal-close" onclick="if(window.subscriptionModal) subscriptionModal.close()">×</button>
+                    <button class="subscription-modal-close" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">×</button>
                     
                     <div class="subscription-modal-header">
                         <h2 class="subscription-modal-title">Subscription Required</h2>
@@ -85,7 +85,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
                         <div class="subscription-modal-actions">
                             <a href="/subscribe" class="subscription-btn subscription-btn-primary">Subscribe Now</a>
-                            <button class="subscription-btn subscription-btn-secondary" onclick="if(window.subscriptionModal) subscriptionModal.close()">Maybe Later</button>
+                            <button class="subscription-btn subscription-btn-secondary" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">Maybe Later</button>
                         </div>
                     </div>
                 </div>
