@@ -567,6 +567,7 @@ async def feature_extraction(
                 #background_tasks.add_task(
                  #   track_stripe_request_usage, secret=secret, quantity=1
                 #)
+                pass
     return inference_result[: feature_extract_params.num_features]
 
 
@@ -863,13 +864,12 @@ async def image_caption(
         elif image_url:
             # Handle image URL
             import requests
-            from requests_futures.sessions import FuturesSession
             
             logger.info(f"Downloading image from URL: {image_url}")
             
-            # Use existing session from link_enricher
+            # Download image from URL
             try:
-                response = session.get(image_url, timeout=10).result()
+                response = requests.get(image_url, timeout=10)
                 if response.status_code != 200:
                     raise HTTPException(
                         status_code=400,
