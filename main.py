@@ -130,7 +130,7 @@ def get_base_template_vars(request: Request) -> Dict[str, Any]:
     
     return {
         "request": request,
-        "static_url": "/static",
+        "static_url": GCLOUD_STATIC_BUCKET_URL,
         "is_debug": debug if 'debug' in globals() else False,
         "app_name": "Text Generator",
         "gcloud_static_bucket_url": GCLOUD_STATIC_BUCKET_URL,
@@ -246,17 +246,46 @@ def user_secret_matches(secret):
 def request_authorized(request: Request, secret):
     if secret == "hey you, please purchase for real":
         return True
-    # Allow RapidAPI keys
-    if "X-Rapid-API-Key" in request.headers or "x-rapid-api-key" in request.headers:
-        # Ideally, you'd validate the RapidAPI key against their service or a stored list
-        # For now, assuming presence implies authorization
-        return True
 
-    # Fallback to user secret validation
+    # User secret validation
     if user_secret_matches(secret):
         return True
 
     logger.warning(f"Unauthorized request attempt: secret={'present' if secret else 'missing'}, headers={request.headers}, url={request.url}")
+    return False
+
+
+def request_authorized_with_subscription_validation(request: Request, secret):
+    """
+    Enhanced authorization that validates both user authentication and subscription status.
+    This should be used for Claude API calls to prevent unauthorized access.
+    """
+    # First do basic authorization
+    if not request_authorized(request, secret):
+        return False
+        
+    # Validate subscription for all requests (no exceptions)
+    try:
+        from questions.db_models_postgres import SessionLocal, User as UserPG
+        from questions.subscription_utils import validate_subscription_with_backend_secret_cached
+        
+        if secret and secret != "hey you, please purchase for real":
+            db = SessionLocal()
+            try:
+                user = UserPG.get_by_secret(db, secret)
+                if user:
+                    # Get validation token from headers
+                    validation_token = request.headers.get("X-Validation-Token")
+                    if not validate_subscription_with_backend_secret_cached(user, validation_token):
+                        logger.warning(f"Subscription validation failed for user {user.email}")
+                        return False
+                    return True
+            finally:
+                db.close()
+    except Exception as e:
+        logger.error(f"Error during subscription validation: {e}")
+        return False
+    
     return False
 
 @app.middleware("http")
@@ -340,11 +369,40 @@ async def ai_text_editor(request: Request):
     )
 
 @app.get("/tools/{tool_name}")
-async def tool_page(request: Request, tool_name: str):
+async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_db)):
     base_vars = get_base_template_vars(request)
 
     # Define a dictionary of available tools and their details
     tool_info = tool_fixtures.tools_fixtures.get(tool_name, {})
+
+    # Check if this tool requires subscription access
+    subscription_required = tool_name == "domain-generator"
+    subscription_status = None
+    
+    if subscription_required and USE_POSTGRES:
+        try:
+            from questions.subscription_utils import get_subscription_status
+            user = get_current_user(request, db)
+            subscription_status = get_subscription_status(user)
+            
+            # If user is not subscribed, show subscription required message
+            if subscription_status["subscription_required"]:
+                base_vars.update({
+                    "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
+                    "tool_description": tool_info.get("description", ""),
+                    "tool_keywords": tool_info.get("keywords", ""),
+                    "tool_url": f"/tools/{tool_name}",
+                    "tool_image": tool_info.get("image", ""),
+                    "subscription_required": True,
+                    "subscription_message": subscription_status["message"],
+                    "tooltemplate": f"templates/tools/{tool_name}.jinja2"
+                })
+        except Exception as e:
+            logger.error(f"Error checking subscription for tool {tool_name}: {e}")
+            subscription_status = {
+                "subscription_required": True,
+                "message": "Please log in and subscribe to access premium features"
+            }
 
     base_vars.update({
         "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
@@ -352,7 +410,9 @@ async def tool_page(request: Request, tool_name: str):
         "tool_keywords": tool_info.get("keywords", ""),
         "tool_url": f"/tools/{tool_name}",
         "tool_image": tool_info.get("image", ""),
-        "tooltemplate": f"templates/tools/{tool_name}.jinja2"
+        "tooltemplate": f"templates/tools/{tool_name}.jinja2",
+        "subscription_required": subscription_required and subscription_status and subscription_status.get("subscription_required", False) if subscription_status else False,
+        "subscription_message": subscription_status.get("message") if subscription_status else None
     })
 
     return templates.TemplateResponse(
@@ -1124,6 +1184,39 @@ async def api_subscription_status(request: Request, db: Session = Depends(get_db
         return JSONResponse({"is_subscribed": False, "authenticated": False})
 
 
+@app.get("/api/validation-token")
+async def get_validation_token(request: Request, db: Session = Depends(get_db)):
+    """Get validation token for enhanced subscription verification."""
+    if not USE_POSTGRES:
+        return JSONResponse({"error": "PostgreSQL required for validation tokens"}, status_code=500)
+        
+    try:
+        from questions.subscription_utils import generate_subscription_validation_token
+        
+        user = get_current_user(request, db)
+        if not user:
+            return JSONResponse({"error": "Authentication required"}, status_code=401)
+        
+        # Check if user has active subscription (using cache for performance)
+        from questions.subscription_utils import get_subscription_item_id_cached
+        subscription_item_id = get_subscription_item_id_cached(user.email)
+        if not subscription_item_id:
+            return JSONResponse({"error": "Active subscription required"}, status_code=403)
+        
+        # Generate validation token
+        validation_token = generate_subscription_validation_token(user.email, subscription_item_id)
+        
+        return JSONResponse({
+            "validation_token": validation_token,
+            "user_email": user.email,
+            "subscription_item_id": subscription_item_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error generating validation token: {e}")
+        return JSONResponse({"error": "Failed to generate validation token"}, status_code=500)
+
+
 @app.get("/privacy")
 async def privacy(request: Request):
     base_vars = get_base_template_vars(request)
@@ -1422,12 +1515,12 @@ async def generate_long_text(
     if validation_result:
         return HTTPException(status_code=400, detail=validation_result)
 
-    # Authorize the request
-    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-        if not request_authorized(request, secret):
+    # Authorize the request with enhanced subscription validation
+    if request:
+        if not request_authorized_with_subscription_validation(request, secret):
             return HTTPException(
                 status_code=401,
-                detail="Please subscribe at https://text-generator.io/subscribe first"
+                detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required."
             )
 
     try:
@@ -1466,7 +1559,7 @@ Important instructions:
         result = [{
             "generated_text": prompt + generated_text,
             "finished_reason": "length",
-            "model": "claude-3-sonnet-20240229"
+            "model": "claude-sonnet-4-20250514"
         }]
 
 
@@ -1490,18 +1583,18 @@ This endpoint accepts a model parameter to specify which Claude model to use
     if validation_result:
         return HTTPException(status_code=400, detail=validation_result)
 
-    # Authorize the request
-    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-        if not request_authorized(request, secret):
+    # Authorize the request with enhanced subscription validation
+    if request:
+        if not request_authorized_with_subscription_validation(request, secret):
             return HTTPException(
                 status_code=401,
-                detail="Please subscribe at https://text-generator.io/subscribe first"
+                detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required."
             )
 
     try:
         # Prepare the prompt for Claude - strip images to save context tokens
         prompt = strip_images_from_text(generate_params.text)
-        model_name = "claude-3-7-sonnet-20250219"
+        model_name = "claude-sonnet-4-20250514"
 
         # Set up system message to control generation parameters
         system_message = f"""

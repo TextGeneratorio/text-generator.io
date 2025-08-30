@@ -560,6 +560,7 @@ async def feature_extraction(
     inference_result = fast_feature_extract_inference(
         feature_extract_params, MODEL_CACHE
     )
+<<<<<<< HEAD
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
         if random.randint(1, 10) == 10:
@@ -568,6 +569,16 @@ async def feature_extraction(
                  #   track_stripe_request_usage, secret=secret, quantity=1
                 #)
                 pass
+||||||| 3920d14
+    if "X-Rapid-API-Key" not in request.headers:
+        # todo fix
+        if random.randint(1, 10) == 10:
+            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+                #background_tasks.add_task(
+                 #   track_stripe_request_usage, secret=secret, quantity=1
+                #)
+=======
+>>>>>>> f3b511605688f6d89b9be686daca02f8b0a08773
     return inference_result[: feature_extract_params.num_features]
 
 
@@ -1405,7 +1416,7 @@ def tts_demo(request: Request):
 #         result = [{
 #             "generated_text": prompt + generated_text,
 #             "finished_reason": "length",
-#             "model": "claude-3-sonnet-20240229"
+#             "model": "claude-sonnet-4-20250514"
 #         }]
 #
 #         # Track usage if needed
@@ -1448,7 +1459,7 @@ def tts_demo(request: Request):
 #     try:
 #         # Prepare the prompt for Claude
 #         prompt = generate_params.text
-#         model_name = "claude-3-7-sonnet-20250219"
+#         model_name = "claude-sonnet-4-20250514"
 #
 #         # Set up system message to control generation parameters
 #         system_message = f"""

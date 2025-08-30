@@ -28,7 +28,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       TYPING_TIMEOUT_MS: 2000,
       
       // Claude API settings
-      CLAUDE_MODEL: "claude-3-sonnet-20240229",
+      CLAUDE_MODEL: "claude-sonnet-4-20250514",
       CLAUDE_MAX_TOKENS: 5999,
       CLAUDE_TEMPERATURE: 0.8,
       
@@ -297,6 +297,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
           this.autosaveCurrentDocument();
         }, EnhancedTextGeneratorDocs.CONFIG.AUTOSAVE_INTERVAL || 60000); // Add default
     });
+  }
   }
   
   //------------------------------------------------------
