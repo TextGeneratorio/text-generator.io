@@ -22,7 +22,7 @@ async def query_to_claude_async(
     extra_data: Optional[dict] = None,
     prefill: Optional[str] = None,
     system_message: Optional[str] = None,
-    model: Optional[str] = "claude-3-7-sonnet-20250219",
+    model: Optional[str] = "claude-sonnet-4-20250514",
 ) -> Optional[str]:
     """Async Claude query with caching"""
     
@@ -138,7 +138,7 @@ async def query_to_claude_json_async(
     prompt: str,
     schema: dict,
     system_message: Optional[str] = None,
-    model: Optional[str] = "claude-3-7-sonnet-20250219",
+    model: Optional[str] = "claude-sonnet-4-20250514",
 ) -> dict:
     """Query Claude in JSON mode using tool use."""
     url = "https://api.anthropic.com/v1/messages"

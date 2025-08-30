@@ -334,7 +334,7 @@
                 "example": [
                   {
                     "generated_text": "Once upon a time there was a magical kingdom where dreams came true. The people lived in harmony with nature and with each other.",
-                    "model": "claude-3-sonnet-20240229"
+                    "model": "claude-sonnet-4-20250514"
                   }
                 ]
               }

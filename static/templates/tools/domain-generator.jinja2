@@ -10,12 +10,32 @@
             <h3>Domain Name Generator</h3>
             <p>Generate creative domain names and check their availability instantly.</p>
 
+            {% if subscription_required %}
+            <div class="subscription-required-message" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 20px; margin: 20px 0; text-align: center;">
+                <h4 style="color: #856404; margin-top: 0;">Premium Tool - Subscription Required</h4>
+                <p style="color: #856404; margin-bottom: 20px;">{{ subscription_message }}</p>
+                <div style="margin-bottom: 15px;">
+                    <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect" 
+                       href="/subscribe" style="margin-right: 10px;">
+                        Subscribe Now
+                    </a>
+                    <a class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" 
+                       href="/login">
+                        Login
+                    </a>
+                </div>
+                <p style="color: #6c757d; font-size: 0.9em; margin-bottom: 0;">
+                    Get unlimited access to our premium domain generation tools and more!
+                </p>
+            </div>
+            {% else %}
             <div class="iframe-container" style="position: relative; overflow: hidden; padding-top: 56.25%;">
                 <iframe src="https://domains.netwrck.com" 
                         style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" 
                         allowfullscreen>
                 </iframe>
             </div>
+            {% endif %}
 
             <h5>About this tool</h5>
             <p>Our Domain Name Generator helps you brainstorm and find available domain names for your next project. Simply enter your keywords, and the tool will suggest creative domain names and check their availability in real-time.</p>
@@ -37,39 +57,9 @@
         </div>
     </div>
 </main>
+{% if not subscription_required %}
 <script>
-
-    function initApp() {
-        // Check PostgreSQL authentication
-        checkAuthStatus();
-    }
-
-    async function checkAuthStatus() {
-        try {
-            const response = await fetch('/api/current-user');
-            if (response.ok) {
-                const user = await response.json();
-                // User is signed in
-                window.user = user;
-                var phoneNumber = user.phoneNumber;
-                var providerData = user.providerData;
-                getUserWithStripe(user, function (data) {
-
-                    secret = data['secret'];
-                    // if users not subscribed redirect to subscribe page
-                    if (!data['is_subscribed']) {
-                        location.href = '/subscribe'
-                    }
-
-                })
-            } else {
-                // User is signed out.
-                location.href = '/login'
-            }
-        }, function (error) {
-            console.log(error);
-        });
-    }
-
-    window.addEventListener('load', initApp);
+    // Domain generator tool is now accessible - subscription verification handled server-side
+    console.log('Domain Name Generator tool loaded successfully');
 </script>
+{% endif %}

@@ -26,7 +26,7 @@ async def generate_with_claude(prompt, prefill="", retries=3):
     data = {
         "messages": messages,
         "max_tokens": 2024,
-        "model": "claude-3-5-sonnet-20240620"
+        "model": "claude-sonnet-4-20250514"
     }
     
     async with aiohttp.ClientSession() as session:
