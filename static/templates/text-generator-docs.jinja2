@@ -176,6 +176,7 @@ async function isUserSubscribed() {
     document.getElementById('close-shortcuts-btn').addEventListener('click', function() {
       document.getElementById('keyboard-shortcuts-dialog').style.display = 'none';
     });
-  });
+    }); // Close the then() callback
+  }); // Close the DOMContentLoaded event listener
 </script>
 {% endblock %} 

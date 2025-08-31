@@ -65,6 +65,7 @@ class GenerateParams(BaseModel):
     repetition_penalty: Optional[float] = 1.2
 
     model: Optional[str] = None
+    system_message: Optional[str] = None
 
 class GenerateSpeechParams(BaseModel):
     text: str

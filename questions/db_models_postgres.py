@@ -11,8 +11,8 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 
 # Database credentials - hardcoded as requested
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_USER = os.getenv("DB_USER", "postgres") 
-DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
+DB_USER = os.getenv("DB_USER", "lee") 
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_PORT = os.getenv("DB_PORT", "5432")
 
 # Database selection based on environment - strict separation
@@ -20,16 +20,26 @@ if IS_PRODUCTION:
     DB_NAME = "textgen_prod"
     print(f"🎯 Production environment: using {DB_NAME} database")
     # In production, use explicit production database URL
-    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    if DB_PASSWORD:
+        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    else:
+        # Use Unix socket for local connections without password
+        DATABASE_URL = f"postgresql://{DB_USER}@/{DB_NAME}?host=/var/run/postgresql"
 else:
     DB_NAME = "textgen"
     print(f"🔧 Development environment: using {DB_NAME} database")
     # In development, prioritize DATABASE_URL env var if set, otherwise use textgen
-    DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+    if os.getenv("DATABASE_URL"):
+        DATABASE_URL = os.getenv("DATABASE_URL")
+    elif DB_PASSWORD:
+        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    else:
+        # Use Unix socket for local connections without password
+        DATABASE_URL = f"postgresql://{DB_USER}@/{DB_NAME}?host=/var/run/postgresql"
     # Ensure we never accidentally use production database in development
     if "textgen_prod" in DATABASE_URL:
         print("⚠️  Detected textgen_prod in development, forcing textgen database")
-        DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/textgen"
+        DATABASE_URL = f"postgresql://{DB_USER}@/textgen?host=/var/run/postgresql"
 
 # Create engine with connection testing
 def create_engine_with_testing():
@@ -145,6 +155,16 @@ class Document(Base):
             'updated_at': self.updated.isoformat() if self.updated else None,
             'is_public': self.is_public
         }
+    
+    @classmethod
+    def get_by_id(cls, db, doc_id):
+        """Get a document by its ID."""
+        return db.query(cls).filter(cls.id == doc_id).first()
+    
+    @classmethod
+    def get_by_user_id(cls, db, user_id):
+        """Get all documents for a specific user."""
+        return db.query(cls).filter(cls.user_id == user_id).all()
 
 
 class AICharacter(Base):

@@ -365,7 +365,7 @@ async def ai_text_editor(request: Request):
         # No additional variables needed
     })
     return templates.TemplateResponse(
-        "templates/text-generator-docs.jinja2", base_vars,
+        "templates/ai-text-editor.jinja2", base_vars,
     )
 
 @app.get("/tools/{tool_name}")
@@ -1476,8 +1476,12 @@ async def file(file_path: str, request: Request):
 
 def validate_generate_params(generate_params):
     validate_result = ""
-    if generate_params.text == "":
+    # Check for empty or whitespace-only text
+    if not generate_params.text or generate_params.text.strip() == "":
         validate_result = "Please enter some text"
+    # Check for very short text that might cause issues with Claude
+    elif len(generate_params.text.strip()) < 2:
+        validate_result = "Text is too short. Please provide at least a few characters."
     return validate_result
 
 
@@ -1594,10 +1598,19 @@ This endpoint accepts a model parameter to specify which Claude model to use
     try:
         # Prepare the prompt for Claude - strip images to save context tokens
         prompt = strip_images_from_text(generate_params.text)
-        model_name = "claude-sonnet-4-20250514"
+        
+        # Validate that prompt has content after stripping
+        if not prompt or len(prompt.strip()) < 2:
+            return HTTPException(status_code=400, detail="Text is too short or empty after processing. Please provide more content.")
+        
+        # Use model from request or default
+        model_name = generate_params.model or "claude-sonnet-4-20250514"
 
-        # Set up system message to control generation parameters
-        system_message = f"""
+        # Use system message from request if provided, otherwise use default
+        if generate_params.system_message:
+            system_message = generate_params.system_message
+        else:
+            system_message = f"""
 You are a creative text generation assistant. Generate text that continues from the given prompt.
 
 Important instructions:

@@ -298,7 +298,6 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         }, EnhancedTextGeneratorDocs.CONFIG.AUTOSAVE_INTERVAL || 60000); // Add default
     });
   }
-  }
   
   //------------------------------------------------------
   // UI Enhancement Methods
@@ -616,10 +615,12 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       
       // Use the correct API endpoint with the secret key in header
       // Determine the correct API endpoint based on hostname
-      const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+      const isLocal = window.location.hostname.includes('localhost') || 
+                     window.location.hostname.includes('127.0.0.1') || 
+                     window.location.hostname.includes('0.0.0.0');
       const generateEndpoint = isLocal ? 
-          'http://localhost:8000/api/v1/generate' : 
-          'https://api.text-generator.io/api/v1/generate'; 
+          '/api/v1/generate' : 
+          'https://text-generator.io/api/v1/generate'; 
 
       const response = await fetch(generateEndpoint, {
         method: 'POST',
@@ -811,7 +812,11 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     
     try {
       // Use the correct API endpoint with the secret key in header
-      const response = await fetch('https://text-generator.io/api/v1/generate', {
+      const isLocal = window.location.hostname.includes('localhost') || 
+                     window.location.hostname.includes('127.0.0.1') || 
+                     window.location.hostname.includes('0.0.0.0');
+      const apiEndpoint = isLocal ? '/api/v1/generate' : 'https://text-generator.io/api/v1/generate';
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -868,7 +873,9 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         this.updateSaveStatus('Using Claude for high-quality generation...');
         
         // Determine the correct API endpoint based on hostname
-        const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+        const isLocal = window.location.hostname.includes('localhost') || 
+                     window.location.hostname.includes('127.0.0.1') || 
+                     window.location.hostname.includes('0.0.0.0');
         const largeGenerateEndpoint = isLocal ? 
             '/api/v1/generate-large' : 
             'https://text-generator.io/api/v1/generate-large';
@@ -1541,16 +1548,22 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
 
     try {
       const fullDocumentText = this.editor.getText();
-      if (!fullDocumentText || fullDocumentText.trim() === '\n') {
-        this.updateSaveStatus('Document is empty, nothing to rewrite.');
+      // Check if document has meaningful content (not just whitespace/newlines)
+      const trimmedText = fullDocumentText.trim();
+      if (!trimmedText || trimmedText.length < 3) {
+        this.updateSaveStatus('Document is empty or too short to rewrite. Please add some content first.');
         this.setButtonLoadingState(button, false); // Reset loading state
+        // Show a user-friendly alert
+        alert('Please add some content to the document before trying to rewrite it.');
         return;
       }
 
       this.updateSaveStatus('Rewriting document...');
 
       // Determine the API endpoint (always use Claude for rewriting for better quality)
-      const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+      const isLocal = window.location.hostname.includes('localhost') || 
+                     window.location.hostname.includes('127.0.0.1') || 
+                     window.location.hostname.includes('0.0.0.0');
       const largeGenerateEndpoint = isLocal ? 
           '/api/v1/generate-large' : 
           'https://text-generator.io/api/v1/generate-large';
@@ -1665,7 +1678,9 @@ And finally also output the full text again if its used, as we are doing a full 
       this.updateSaveStatus('Autowriting...');
 
       // Determine the API endpoint (Claude for better continuation)
-      const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+      const isLocal = window.location.hostname.includes('localhost') || 
+                     window.location.hostname.includes('127.0.0.1') || 
+                     window.location.hostname.includes('0.0.0.0');
       const largeGenerateEndpoint = isLocal ? 
           '/api/v1/generate-large' : 
           'https://text-generator.io/api/v1/generate-large';
