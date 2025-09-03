@@ -3,19 +3,19 @@ tools_fixtures = {
         "name": "Domain Name Generator",
         "description": "Generate creative domain names and check their availability instantly.",
         "url": "/tools/domain-generator",
-        "image": "img/domain-name-generator.webp"
+        "image": "img/domain-name-generator.webp",
     },
     "text-generator-docs": {
         "name": "AI Text Editor",
         "description": "Create and edit documents with AI-powered autocomplete in a beautiful WYSIWYG editor.",
         "url": "/ai-text-editor",
-        "image": "img/text-generator-docs.webp"
+        "image": "img/text-generator-docs.webp",
     },
     "prompt-optimizer": {
         "name": "Prompt Optimizer",
         "description": "Iteratively improve prompts using Claude to get better results.",
         "url": "/tools/prompt-optimizer",
-        "image": "img/prompt-optimizer.webp"
+        "image": "img/prompt-optimizer.webp",
     },
     "image-captioning": {
         "name": "Image Captioning AI",
@@ -59,8 +59,8 @@ print(f"Caption: {result['caption']}")""",
                 "caption": "a red car parked on the street",
                 "filename": "example.jpg",
                 "fast_mode": True,
-                "model": "microsoft/git-base"
-            }
+                "model": "microsoft/git-base",
+            },
         },
         "features": [
             "Drag & drop interface with visual feedback",
@@ -68,7 +68,7 @@ print(f"Caption: {result['caption']}")""",
             "Fast mode (~200ms) and quality mode (~500ms)",
             "Live code examples in JavaScript, Python, and cURL",
             "Performance metrics and model information",
-            "Supports JPEG, PNG, WebP, GIF, BMP, TIFF up to 10MB"
+            "Supports JPEG, PNG, WebP, GIF, BMP, TIFF up to 10MB",
         ],
         "model_info": {
             "name": "microsoft/git-base",
@@ -76,12 +76,12 @@ print(f"Caption: {result['caption']}")""",
                 "Mixed precision (FP16) for 2x speed improvement",
                 "Torch compile JIT optimization",
                 "Channels-last memory layout for GPU",
-                "Persistent model caching"
+                "Persistent model caching",
             ],
             "generation_params": {
                 "fast_mode": {"max_length": 10, "num_beams": 1},
-                "quality_mode": {"max_length": 30, "num_beams": 3}
-            }
-        }
-    }
+                "quality_mode": {"max_length": 30, "num_beams": 3},
+            },
+        },
+    },
 }

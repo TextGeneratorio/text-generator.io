@@ -1,7 +1,9 @@
 from __future__ import annotations
-from typing import Iterable, Dict
-from markitdown import MarkItDown
+
 import asyncio
+from typing import Dict, Iterable
+
+from markitdown import MarkItDown
 
 _converter = MarkItDown()
 

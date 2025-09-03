@@ -7,25 +7,21 @@ from questions.db_models import BaseModel
 
 
 class GameOnUtils(object):
-    debug = os.environ.get('SERVER_SOFTWARE', '').startswith('Development/')
+    debug = os.environ.get("SERVER_SOFTWARE", "").startswith("Development/")
 
     @classmethod
     def json_serializer(cls, obj):
-
         """Default JSON serializer."""
-        import calendar, datetime
+        import calendar
+        import datetime
 
         if isinstance(obj, datetime.datetime):
             if obj.utcoffset() is not None:
                 obj = obj - obj.utcoffset()
-        millis = int(
-            calendar.timegm(obj.timetuple()) * 1000 +
-            obj.microsecond / 1000
-        )
+        millis = int(calendar.timegm(obj.timetuple()) * 1000 + obj.microsecond / 1000)
         return millis
 
     class MyEncoder(json.JSONEncoder):
-
         def default(self, obj):
             if isinstance(obj, datetime.datetime):
                 return int(mktime(obj.timetuple()))

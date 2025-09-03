@@ -1,58 +1,62 @@
 #!/usr/bin/env python
 import asyncio
+import io
 import json
 import os
 import time
-import httpx
-import boto3
 from copy import deepcopy
 from pathlib import Path
-from typing import Union, Optional, List, Dict, Any, cast
-from urllib.parse import urlencode, quote_plus
+from typing import Any, Dict, List, Optional, Union
+from urllib.parse import quote_plus, urlencode
 
-from fastapi import Form, HTTPException, Header, Depends, UploadFile, File
-from fastapi import Request
+import boto3
+from fastapi import Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from questions.logging_config import get_logger
-from starlette.responses import JSONResponse, Response, RedirectResponse
-from starlette.routing import Route
-from starlette.datastructures import URL
-from sqlalchemy.orm import Session
 from PIL import Image
-import io
-import base64
-
-from questions import fixtures, doc_fixtures, tool_fixtures
 from pydantic import BaseModel
-from questions import blog_fixtures
+from sqlalchemy.orm import Session
+from starlette.datastructures import URL
+from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.routing import Route
+
+from questions import blog_fixtures, doc_fixtures, fixtures, tool_fixtures
+from questions.logging_config import get_logger
 
 # Import database models conditionally
 HAS_NDB = False
 print("NDB models disabled - using PostgreSQL only")
+
 
 # Create mock classes to prevent import errors
 class User:
     @staticmethod
     def bySecret(secret):
         return None
+
     @staticmethod
     def byId(uid):
         return None
 
+
 class Document:
     pass
+
 
 # Enable PostgreSQL for production use
 USE_POSTGRES = True
 
 # Import new PostgreSQL models and auth
 try:
-    from questions.db_models_postgres import get_db, DATABASE_URL
     from questions.auth import (
-        login_or_create_user, set_session_for_user, get_current_user, 
-        create_user, get_user_from_session
+        create_user,
+        get_current_user,
+        get_user_from_session,
+        login_or_create_user,
+        set_session_for_user,
     )
+    from questions.db_models_postgres import DATABASE_URL, get_db
+
     # Test if the functions actually work with a proper database
     USE_POSTGRES = True  # Enable PostgreSQL for production
     try:
@@ -67,34 +71,36 @@ try:
 except ImportError as e:
     USE_POSTGRES = False
     print(f"PostgreSQL modules not available: {e}, using fallback auth")
-    
+
 # Create dummy get_db function if needed
 if not USE_POSTGRES:
+
     def get_db():
         return None
 
-from questions.models import CreateUserRequest, GetUserRequest, GenerateParams, CreateCheckoutRequest
+
+from questions.models import CreateCheckoutRequest, CreateUserRequest, GenerateParams
 from questions.payments.payments import (
-    get_self_hosted_subscription_count_for_user, 
-    get_subscription_item_id_for_user_email,
     get_or_create_stripe_customer,
-    validate_stripe_customer,
-    get_self_hosted_subscription_count_for_user_async,
+    get_self_hosted_subscription_count_for_user,
+    get_subscription_item_id_for_user_email,
     get_subscription_item_id_for_user_email_async,
-    get_or_create_stripe_customer_async,
-    validate_stripe_customer_async
+    validate_stripe_customer,
 )
-from questions.utils import random_string, get_env_var
+from questions.utils import get_env_var, random_string
 
 # Import gameon utils conditionally
 try:
     from questions.gameon_utils import GameOnUtils
+
     HAS_GAMEON = True
 except Exception as e:
     print(f"GameOn utils not available: {e}")
     HAS_GAMEON = False
+
     class GameOnUtils:
         pass
+
 
 # Import the claude_queries module directly
 from questions.inference_server.claude_queries import (
@@ -103,7 +109,6 @@ from questions.inference_server.claude_queries import (
 )
 
 # Import needed types and modules
-from fastapi import BackgroundTasks
 
 # pip install google-api-python-client google-cloud-storage google-auth-httplib2 google-auth-oauthlib
 
@@ -114,6 +119,7 @@ config = {}
 config["webapp2_extras.sessions"] = dict(secret_key="93986c9cdd240540f70efaea56a9e3f2")
 
 templates = Jinja2Templates(directory=".")
+
 
 def get_base_template_vars(request: Request) -> Dict[str, Any]:
     """
@@ -127,28 +133,31 @@ def get_base_template_vars(request: Request) -> Dict[str, Any]:
             is_mac = user_agent.lower().find("mac") != -1
     except Exception:
         is_mac = False
-    
+
     return {
         "request": request,
         "static_url": GCLOUD_STATIC_BUCKET_URL,
-        "is_debug": debug if 'debug' in globals() else False,
+        "is_debug": debug if "debug" in globals() else False,
         "app_name": "Text Generator",
         "gcloud_static_bucket_url": GCLOUD_STATIC_BUCKET_URL,
         "facebook_app_id": FACEBOOK_APP_ID,
-        "fixtures": json.dumps({
-            "is_mac": is_mac,
-            "inference_server_url": INFERENCE_SERVER_URL,
-        }),
+        "fixtures": json.dumps(
+            {
+                "is_mac": is_mac,
+                "inference_server_url": INFERENCE_SERVER_URL,
+            }
+        ),
     }
+
 
 from fastapi import FastAPI
 
 GCLOUD_STATIC_BUCKET_URL = "https://text-generatorstatic.text-generator.io/static"
-import sellerinfo
 import stripe
-
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+
+import sellerinfo
 
 app = FastAPI(
     openapi_url="/static/openapi.json",
@@ -163,26 +172,28 @@ app = FastAPI(
 # Initialize logger
 logger = get_logger(__name__)
 
+
 # Add logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
     logger.info(f"Starting request: {request.method} {request.url}")
-    
+
     # Process the request
     response = await call_next(request)
-    
+
     # Calculate processing time
     process_time = time.time() - start_time
-    
+
     # Log the response
     logger.info(
         f"Completed request: {request.method} {request.url} "
         f"- Status: {response.status_code} "
         f"- Time: {process_time:.3f}s"
     )
-    
+
     return response
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -191,10 +202,12 @@ async def startup_event():
     logger.info(f"USE_POSTGRES: {USE_POSTGRES}")
     logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
 
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """Log shutdown event"""
     logger.info("Shutting down 20-questions application")
+
 
 # Add CORS middleware
 app.add_middleware(
@@ -208,6 +221,7 @@ app.add_middleware(
 # Import the new router conditionally
 try:
     from routes import documents
+
     HAS_ROUTES = True
 except Exception as e:
     print(f"Routes not available: {e}")
@@ -222,26 +236,30 @@ def user_secret_matches(secret):
     # check if the secret is valid
     if secret is None:
         return False
-    
+
     # Check in PostgreSQL database if available
     if USE_POSTGRES:
         try:
-            from questions.db_models_postgres import SessionLocal, User as UserPG
+            from questions.db_models_postgres import SessionLocal
+            from questions.db_models_postgres import User as UserPG
+
             db = SessionLocal()
             try:
                 user = UserPG.get_by_secret(db, secret)
                 if user:
                     # Import session management from auth module
                     from questions.auth import set_session_for_user
+
                     set_session_for_user(user)
                     return True
             finally:
                 db.close()
         except Exception:
             pass
-    
+
     # No user found in PostgreSQL
     return False
+
 
 def request_authorized(request: Request, secret):
     if secret == "hey you, please purchase for real":
@@ -251,7 +269,9 @@ def request_authorized(request: Request, secret):
     if user_secret_matches(secret):
         return True
 
-    logger.warning(f"Unauthorized request attempt: secret={'present' if secret else 'missing'}, headers={request.headers}, url={request.url}")
+    logger.warning(
+        f"Unauthorized request attempt: secret={'present' if secret else 'missing'}, headers={request.headers}, url={request.url}"
+    )
     return False
 
 
@@ -263,12 +283,13 @@ def request_authorized_with_subscription_validation(request: Request, secret):
     # First do basic authorization
     if not request_authorized(request, secret):
         return False
-        
+
     # Validate subscription for all requests (no exceptions)
     try:
-        from questions.db_models_postgres import SessionLocal, User as UserPG
+        from questions.db_models_postgres import SessionLocal
+        from questions.db_models_postgres import User as UserPG
         from questions.subscription_utils import validate_subscription_with_backend_secret_cached
-        
+
         if secret and secret != "hey you, please purchase for real":
             db = SessionLocal()
             try:
@@ -285,12 +306,12 @@ def request_authorized_with_subscription_validation(request: Request, secret):
     except Exception as e:
         logger.error(f"Error during subscription validation: {e}")
         return False
-    
+
     return False
+
 
 @app.middleware("http")
 async def redirect_domain(request: Request, call_next):
-
     # permanent redirect from language-generator.app.nz   to language-generator.io
     if request.url.hostname == "language-generator.app.nz":
         return RedirectResponse("https://text-generator.io" + request.url.path, status_code=301)
@@ -341,32 +362,41 @@ stripe.api_key = stripe_keys["secret_key"]
 @app.get("/")
 async def index(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/index.jinja2", base_vars,
+        "templates/index.jinja2",
+        base_vars,
     )
+
 
 @app.get("/tools")
 async def tools(request: Request):
     base_vars = get_base_template_vars(request)
     tools_list = list(tool_fixtures.tools_fixtures.values())
-    base_vars.update({
-        "tools": tools_list,
-    })
-    return templates.TemplateResponse(
-        "templates/tools.jinja2", base_vars,
+    base_vars.update(
+        {
+            "tools": tools_list,
+        }
     )
+    return templates.TemplateResponse(
+        "templates/tools.jinja2",
+        base_vars,
+    )
+
 
 @app.get("/ai-text-editor")
 async def ai_text_editor(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-        # No additional variables needed
-    })
-    return templates.TemplateResponse(
-        "templates/ai-text-editor.jinja2", base_vars,
+    base_vars.update(
+        {
+            # No additional variables needed
+        }
     )
+    return templates.TemplateResponse(
+        "templates/ai-text-editor.jinja2",
+        base_vars,
+    )
+
 
 @app.get("/tools/{tool_name}")
 async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_db)):
@@ -378,76 +408,91 @@ async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_
     # Check if this tool requires subscription access
     subscription_required = tool_name == "domain-generator"
     subscription_status = None
-    
+
     if subscription_required and USE_POSTGRES:
         try:
             from questions.subscription_utils import get_subscription_status
+
             user = get_current_user(request, db)
             subscription_status = get_subscription_status(user)
-            
+
             # If user is not subscribed, show subscription required message
             if subscription_status["subscription_required"]:
-                base_vars.update({
-                    "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
-                    "tool_description": tool_info.get("description", ""),
-                    "tool_keywords": tool_info.get("keywords", ""),
-                    "tool_url": f"/tools/{tool_name}",
-                    "tool_image": tool_info.get("image", ""),
-                    "subscription_required": True,
-                    "subscription_message": subscription_status["message"],
-                    "tooltemplate": f"templates/tools/{tool_name}.jinja2"
-                })
+                base_vars.update(
+                    {
+                        "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
+                        "tool_description": tool_info.get("description", ""),
+                        "tool_keywords": tool_info.get("keywords", ""),
+                        "tool_url": f"/tools/{tool_name}",
+                        "tool_image": tool_info.get("image", ""),
+                        "subscription_required": True,
+                        "subscription_message": subscription_status["message"],
+                        "tooltemplate": f"templates/tools/{tool_name}.jinja2",
+                    }
+                )
         except Exception as e:
             logger.error(f"Error checking subscription for tool {tool_name}: {e}")
             subscription_status = {
                 "subscription_required": True,
-                "message": "Please log in and subscribe to access premium features"
+                "message": "Please log in and subscribe to access premium features",
             }
 
-    base_vars.update({
-        "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
-        "tool_description": tool_info.get("description", ""),
-        "tool_keywords": tool_info.get("keywords", ""),
-        "tool_url": f"/tools/{tool_name}",
-        "tool_image": tool_info.get("image", ""),
-        "tooltemplate": f"templates/tools/{tool_name}.jinja2",
-        "subscription_required": subscription_required and subscription_status and subscription_status.get("subscription_required", False) if subscription_status else False,
-        "subscription_message": subscription_status.get("message") if subscription_status else None
-    })
-
-    return templates.TemplateResponse(
-        "templates/tool.jinja2", base_vars,
+    base_vars.update(
+        {
+            "tool_name": tool_info.get("name", tool_name.replace("-", " ").title()),
+            "tool_description": tool_info.get("description", ""),
+            "tool_keywords": tool_info.get("keywords", ""),
+            "tool_url": f"/tools/{tool_name}",
+            "tool_image": tool_info.get("image", ""),
+            "tooltemplate": f"templates/tools/{tool_name}.jinja2",
+            "subscription_required": subscription_required
+            and subscription_status
+            and subscription_status.get("subscription_required", False)
+            if subscription_status
+            else False,
+            "subscription_message": subscription_status.get("message") if subscription_status else None,
+        }
     )
 
+    return templates.TemplateResponse(
+        "templates/tool.jinja2",
+        base_vars,
+    )
 
 
 @app.get("/subscribe")
 async def subscribe(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/subscribe.jinja2", base_vars,
+        "templates/subscribe.jinja2",
+        base_vars,
     )
+
 
 YOUR_DOMAIN = "https://text-generator.io"
 
+
 @app.post("/create-checkout-session")
-async def create_checkout_session(request: Request, type: str = Form(default=""), quantity: int = Form(default=1), db: Session = Depends(get_db)):
+async def create_checkout_session(
+    request: Request, type: str = Form(default=""), quantity: int = Form(default=1), db: Session = Depends(get_db)
+):
     quantity = quantity if quantity else 1
-    
+
     # Get user from cookie-based authentication
     if USE_POSTGRES:
         try:
             user = get_current_user(request, db)
             if not user:
                 raise HTTPException(status_code=401, detail="Authentication required")
-            
+
             stripe_id = user.stripe_id
             if not stripe_id:
                 # Handle case where user or stripe_id is not found
                 logger.error(f"Stripe ID not found for user: {user.email}")
-                return JSONResponse({"error": "User payment info not found. Please ensure you are logged in."}, status_code=400)
+                return JSONResponse(
+                    {"error": "User payment info not found. Please ensure you are logged in."}, status_code=400
+                )
         except HTTPException:
             raise
         except Exception as e:
@@ -460,23 +505,23 @@ async def create_checkout_session(request: Request, type: str = Form(default="")
     # Define line_item with type hint (basic structure)
     # For metered subscriptions, quantity should not be specified
     success_url = YOUR_DOMAIN + "/playground"
-    
+
     if type == "annual":
         line_item: Dict[str, Any] = {
             "price": "price_0RXdd4Dtz2XsjQRO5hYsdfjx",  # New annual price ID ($190/year)
-            "quantity": 1
+            "quantity": 1,
         }
     elif type == "self-hosted":
         line_item: Dict[str, Any] = {
-            "price": 'price_0MuAuxDtz2XsjQROz3Hp5Tcx',
-            "quantity": quantity  # Only self-hosted subscriptions use quantity
+            "price": "price_0MuAuxDtz2XsjQROz3Hp5Tcx",
+            "quantity": quantity,  # Only self-hosted subscriptions use quantity
         }
         success_url = YOUR_DOMAIN + "/account"
     else:
         # Default monthly - metered subscription, no quantity
         line_item: Dict[str, Any] = {
             "price": "price_0RXdbtDtz2XsjQROW0xgtU8H",  # New monthly price ID ($19/month)
-            "quantity": 1
+            "quantity": 1,
         }
 
     checkout_session_url: Optional[str] = None
@@ -484,42 +529,39 @@ async def create_checkout_session(request: Request, type: str = Form(default="")
         # Type hint removed for line_items list to satisfy linter
         checkout_items = [line_item]
         checkout_session = stripe.checkout.Session.create(
-            customer=stripe_id, # stripe_id is confirmed not None here
-            line_items=checkout_items, # type: ignore
+            customer=stripe_id,  # stripe_id is confirmed not None here
+            line_items=checkout_items,  # type: ignore
             mode="subscription",
             success_url=success_url,
             cancel_url=YOUR_DOMAIN + "/",
         )
-        checkout_session_url = checkout_session.url # type: ignore
+        checkout_session_url = checkout_session.url  # type: ignore
     except Exception as e:
         if "combine currencies" in str(e):
             # Fallback for NZD plans
-            line_item_nzd: Dict[str, Any] = {
-                "price": "price_0LCAb8Dtz2XsjQROnv1GhCL4",
-                "quantity": 1
-            }
+            line_item_nzd: Dict[str, Any] = {"price": "price_0LCAb8Dtz2XsjQROnv1GhCL4", "quantity": 1}
             if type == "self-hosted":
-                 line_item_nzd["price"] = 'price_0MuBEoDtz2XsjQROiRewGRFi'
-                 line_item_nzd['quantity'] = quantity  # Only self-hosted uses quantity
-                 success_url = YOUR_DOMAIN + "/account"
+                line_item_nzd["price"] = "price_0MuBEoDtz2XsjQROiRewGRFi"
+                line_item_nzd["quantity"] = quantity  # Only self-hosted uses quantity
+                success_url = YOUR_DOMAIN + "/account"
 
             try:
-                 # Type hint removed for line_items list to satisfy linter
-                 checkout_items_nzd = [line_item_nzd]
-                 checkout_session_nzd = stripe.checkout.Session.create(
-                     customer=stripe_id, # Still checked
-                     line_items=checkout_items_nzd, # type: ignore
-                     mode="subscription",
-                     success_url=success_url,
-                     cancel_url=YOUR_DOMAIN + "/",
-                 )
-                 checkout_session_url = checkout_session_nzd.url # type: ignore
+                # Type hint removed for line_items list to satisfy linter
+                checkout_items_nzd = [line_item_nzd]
+                checkout_session_nzd = stripe.checkout.Session.create(
+                    customer=stripe_id,  # Still checked
+                    line_items=checkout_items_nzd,  # type: ignore
+                    mode="subscription",
+                    success_url=success_url,
+                    cancel_url=YOUR_DOMAIN + "/",
+                )
+                checkout_session_url = checkout_session_nzd.url  # type: ignore
             except Exception as ex:
-                 logger.error(f"Error creating fallback checkout session: {ex}")
-                 return Response(str(ex), status_code=500)
+                logger.error(f"Error creating fallback checkout session: {ex}")
+                return Response(str(ex), status_code=500)
         else:
-             logger.error(f"Error creating checkout session: {e}")
-             return Response(str(e), status_code=500)
+            logger.error(f"Error creating checkout session: {e}")
+            return Response(str(e), status_code=500)
 
     if checkout_session_url:
         return RedirectResponse(checkout_session_url, status_code=303)
@@ -530,17 +572,19 @@ async def create_checkout_session(request: Request, type: str = Form(default="")
 
 
 @app.post("/create-checkout-session-embedded")
-async def create_checkout_session_embedded(request: Request, checkoutRequest: CreateCheckoutRequest, db: Session = Depends(get_db)):
+async def create_checkout_session_embedded(
+    request: Request, checkoutRequest: CreateCheckoutRequest, db: Session = Depends(get_db)
+):
     subscription_type = checkoutRequest.subscription_type or checkoutRequest.type
     referral = checkoutRequest.referral
-    
+
     # Get user from cookie-based authentication
     if USE_POSTGRES:
         try:
             user = get_current_user(request, db)
             if not user:
                 raise HTTPException(status_code=401, detail="Authentication required")
-            
+
             stripe_id = user.stripe_id
             if not stripe_id:
                 logger.error(f"Stripe ID not found for user: {user.email}")
@@ -553,24 +597,24 @@ async def create_checkout_session_embedded(request: Request, checkoutRequest: Cr
     else:
         # Fallback for non-PostgreSQL setup
         raise HTTPException(status_code=501, detail="Checkout not available without PostgreSQL")
-    
+
     # Set up pricing based on subscription type
     if subscription_type and subscription_type == "annual":
         subscription_price = "price_0RXdd4Dtz2XsjQRO5hYsdfjx"  # $190/year
     else:
         subscription_price = "price_0RXdbtDtz2XsjQROW0xgtU8H"  # $19/month
-    
+
     success_url = YOUR_DOMAIN + "/playground"
-    
+
     line_item = {
         "price": subscription_price,
         "quantity": 1,
     }
-    
+
     metadata = None
     if referral:
         metadata = {"referral": referral}
-    
+
     # Create checkout session with embedded UI mode
     try:
         checkout_session = stripe.checkout.Session.create(
@@ -598,7 +642,7 @@ async def create_checkout_session_embedded(request: Request, checkoutRequest: Cr
         except Exception as fallback_e:
             logger.error(f"Fallback checkout session creation failed: {fallback_e}")
             return JSONResponse({"error": "Failed to create checkout session"}, status_code=500)
-    
+
     return JSONResponse({"clientSecret": checkout_session.client_secret})
 
 
@@ -650,60 +694,62 @@ async def create_checkout_session_embedded(request: Request, checkoutRequest: Cr
 @app.get("/questions-game")
 async def questions_game(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates-game/questions-game.jinja2", base_vars,
-
+        "templates-game/questions-game.jinja2",
+        base_vars,
     )
 
 
 @app.get("/signup")
 async def signup(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/signup.jinja2", base_vars,
+        "templates/signup.jinja2",
+        base_vars,
     )
+
 
 @app.get("/where-is-ai-game")
 async def where_is_ai_game(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/where-is-ai-game.jinja2", base_vars,
-
+        "templates/where-is-ai-game.jinja2",
+        base_vars,
     )
 
 
 @app.get("/success")
 async def success(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/success.jinja2", base_vars,
+        "templates/success.jinja2",
+        base_vars,
     )
+
 
 @app.get("/login")
 async def login(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "static/templates/login.jinja2", base_vars,
+        "static/templates/login.jinja2",
+        base_vars,
     )
+
 
 @app.get("/test-modals")
 async def test_modals(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/test_modals.jinja2", base_vars,
+        "templates/test_modals.jinja2",
+        base_vars,
     )
+
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -716,8 +762,6 @@ async def create_user_legacy(create_user_request: CreateUserRequest):
     email = create_user_request.email
     # emailVerified = create_user_request.emailVerified
     uid = create_user_request.uid
-    photoURL = create_user_request.photoURL
-    token = create_user_request.token
     # user = current_user
     # if not user:
 
@@ -739,7 +783,7 @@ async def create_user_legacy(create_user_request: CreateUserRequest):
 
     # get or create user in stripe
     if not user.stripe_id:
-        customer = stripe.Customer.create( # type: ignore
+        customer = stripe.Customer.create(  # type: ignore
             email=email,
             idempotency_key=uid,
         )
@@ -757,6 +801,7 @@ def set_session_for_user_legacy(user):
     if user is not None:
         # Use the auth module's session management
         from questions.auth import set_session_for_user
+
         set_session_for_user(user)
 
 
@@ -768,15 +813,15 @@ async def portal_redirect(request: Request, db: Session = Depends(get_db)):
             user = get_current_user(request, db)
             if not user:
                 raise HTTPException(status_code=401, detail="Authentication required")
-            
+
             if not user.stripe_id:
                 raise HTTPException(status_code=400, detail="No Stripe customer ID found")
-            
+
             session = stripe.billing_portal.Session.create(
                 customer=user.stripe_id,
                 return_url="https://text-generator.io/playground",
             )
-            return RedirectResponse(session.url, status_code=303) # type: ignore
+            return RedirectResponse(session.url, status_code=303)  # type: ignore
         except HTTPException:
             raise
         except Exception as e:
@@ -795,7 +840,7 @@ async def get_user(request: Request, db: Session = Depends(get_db)):
             user = get_current_user(request, db)
             if not user:
                 raise HTTPException(status_code=401, detail="Not authenticated")
-            
+
             # Check subscription status
             subscription_item_id = get_subscription_item_id_for_user_email(user.email)
             user.is_subscribed = subscription_item_id is not None
@@ -806,7 +851,7 @@ async def get_user(request: Request, db: Session = Depends(get_db)):
                 # recreate stripe customer if required - remediates users being created in test mode
                 customer = stripe.Customer.retrieve(user.stripe_id)
                 if not customer or not customer.id:
-                    customer = stripe.Customer.create( # type: ignore
+                    customer = stripe.Customer.create(  # type: ignore
                         email=user.email,
                         idempotency_key=user.email,
                     )
@@ -814,7 +859,7 @@ async def get_user(request: Request, db: Session = Depends(get_db)):
                     db.commit()
                     db.refresh(user)
                     set_session_for_user(user)
-            
+
             return JSONResponse(user.to_dict())
         except HTTPException:
             raise
@@ -837,16 +882,16 @@ async def get_user_stripe_usage(request: Request, db: Session = Depends(get_db))
             user = get_current_user(request, db)
             if not user:
                 raise HTTPException(status_code=401, detail="Not authenticated")
-            
+
             # Check subscription status
             subscription_item_id = get_subscription_item_id_for_user_email(user.email)
             user.is_subscribed = subscription_item_id is not None
-            
+
             if not user.is_subscribed:
                 # recreate stripe customer if required - remediates users being created in test mode
                 customer = stripe.Customer.retrieve(user.stripe_id)
                 if not customer or not customer.id:
-                    customer = stripe.Customer.create( # type: ignore
+                    customer = stripe.Customer.create(  # type: ignore
                         email=user.email,
                         idempotency_key=user.email,
                     )
@@ -875,17 +920,18 @@ async def get_user_stripe_usage(request: Request, db: Session = Depends(get_db))
 test_users = {}
 active_sessions = {}
 
+
 @app.post("/api/login")
 async def api_login(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     """Login endpoint with fallback to in-memory storage"""
     logger.info(f"Login attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
-    
+
     if USE_POSTGRES:
         logger.info("Using PostgreSQL login")
         try:
             user = login_or_create_user(email, password, db)
             set_session_for_user(user)
-            
+
             # Ensure user has a valid Stripe customer
             valid_stripe_id = validate_stripe_customer(user.stripe_id, email) if user.stripe_id else None
             if not valid_stripe_id:
@@ -903,11 +949,11 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
                 user.stripe_id = valid_stripe_id
                 db.commit()
                 db.refresh(user)
-            
+
             # Check subscription status
             subscription_item_id = get_subscription_item_id_for_user_email(user.email)
             user.is_subscribed = subscription_item_id is not None
-            
+
             # Set session_secret cookie
             response = JSONResponse(user.to_dict())
             response.set_cookie(
@@ -916,7 +962,7 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
                 httponly=True,
                 secure=False,  # Set to True in production with HTTPS
                 samesite="lax",
-                path="/"
+                path="/",
             )
             return response
         except HTTPException:
@@ -927,17 +973,17 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
     else:
         # Fallback to simple in-memory authentication
         logger.info("Using in-memory login")
-        if email in test_users and test_users[email]['password'] == password:
+        if email in test_users and test_users[email]["password"] == password:
             session_secret = random_string(32)
             user_data = {
-                'id': test_users[email]['id'],
-                'email': email,
-                'secret': session_secret,
-                'is_subscribed': False
+                "id": test_users[email]["id"],
+                "email": email,
+                "secret": session_secret,
+                "is_subscribed": False,
             }
             active_sessions[session_secret] = user_data
             logger.info(f"Login successful: {user_data}")
-            
+
             # Set session_secret cookie
             response = JSONResponse(user_data)
             response.set_cookie(
@@ -946,7 +992,7 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
                 httponly=True,
                 secure=False,  # Set to True in production with HTTPS
                 samesite="lax",
-                path="/"
+                path="/",
             )
             return response
         else:
@@ -954,16 +1000,18 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
 
 
 @app.post("/api/signup")
-async def api_signup(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+async def api_signup(
+    request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)
+):
     """Signup endpoint with fallback to in-memory storage"""
     logger.info(f"Signup attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
-    
+
     if USE_POSTGRES:
         logger.info("Using PostgreSQL signup")
         try:
             user = create_user(email, password, db)
             set_session_for_user(user)
-            
+
             # Create Stripe customer
             stripe_id = get_or_create_stripe_customer(email, user.id)
             if stripe_id:
@@ -972,7 +1020,7 @@ async def api_signup(request: Request, email: str = Form(...), password: str = F
                 db.refresh(user)
             else:
                 logger.error(f"Failed to create Stripe customer for new user {email}")
-            
+
             # Set session_secret cookie
             response = JSONResponse(user.to_dict())
             response.set_cookie(
@@ -981,7 +1029,7 @@ async def api_signup(request: Request, email: str = Form(...), password: str = F
                 httponly=True,
                 secure=False,  # Set to True in production with HTTPS
                 samesite="lax",
-                path="/"
+                path="/",
             )
             return response
         except HTTPException:
@@ -995,28 +1043,23 @@ async def api_signup(request: Request, email: str = Form(...), password: str = F
         try:
             if email in test_users:
                 raise HTTPException(status_code=409, detail="An account with this email already exists")
-            
+
             user_id = f"user_{len(test_users) + 1}"
             session_secret = random_string(32)
-            
+
             test_users[email] = {
-                'id': user_id,
-                'email': email,
-                'password': password  # In production, this should be hashed!
+                "id": user_id,
+                "email": email,
+                "password": password,  # In production, this should be hashed!
             }
-            
-            user_data = {
-                'id': user_id,
-                'email': email,
-                'secret': session_secret,
-                'is_subscribed': False
-            }
-            
+
+            user_data = {"id": user_id, "email": email, "secret": session_secret, "is_subscribed": False}
+
             # Store session for login - skip for now in fallback mode
             # session_dict[session_secret] = user_data
-            
+
             logger.info(f"User created successfully: {email} (ID: {user_id})")
-            
+
             # Set session_secret cookie
             response = JSONResponse(user_data)
             response.set_cookie(
@@ -1025,7 +1068,7 @@ async def api_signup(request: Request, email: str = Form(...), password: str = F
                 httponly=True,
                 secure=False,  # Set to True in production with HTTPS
                 samesite="lax",
-                path="/"
+                path="/",
             )
             return response
         except HTTPException:
@@ -1050,58 +1093,52 @@ async def upload_image(request: Request, file: UploadFile = File(...)):
         # Check if user is authenticated
         if USE_POSTGRES:
             from questions.auth import get_current_user
+
             current_user = get_current_user(request, next(get_db()))
             if not current_user:
                 raise HTTPException(status_code=401, detail="Authentication required")
-        
+
         # Validate file type
-        if not file.content_type or not file.content_type.startswith('image/'):
+        if not file.content_type or not file.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="File must be an image")
-        
+
         # Read image data
         image_data = await file.read()
-        
+
         # Convert to WebP with quality 85
         image = Image.open(io.BytesIO(image_data))
-        
+
         # Convert to RGB if necessary (for WebP compatibility)
-        if image.mode in ('RGBA', 'LA', 'P'):
-            image = image.convert('RGB')
-        
+        if image.mode in ("RGBA", "LA", "P"):
+            image = image.convert("RGB")
+
         # Create WebP image
         webp_buffer = io.BytesIO()
-        image.save(webp_buffer, format='WEBP', quality=85, optimize=True)
+        image.save(webp_buffer, format="WEBP", quality=85, optimize=True)
         webp_data = webp_buffer.getvalue()
-        
+
         # Generate filename
         import uuid
+
         filename = f"uploaded_{uuid.uuid4().hex}.webp"
-        
+
         # Upload to S3 (assuming AWS credentials are configured)
-        s3_client = boto3.client('s3')
-        bucket_name = 'textgeneratorstatic.netwrck.com'
-        
+        s3_client = boto3.client("s3")
+        bucket_name = "textgeneratorstatic.netwrck.com"
+
         try:
             s3_client.put_object(
-                Bucket=bucket_name,
-                Key=filename,
-                Body=webp_data,
-                ContentType='image/webp',
-                ACL='public-read'
+                Bucket=bucket_name, Key=filename, Body=webp_data, ContentType="image/webp", ACL="public-read"
             )
-            
+
             # Return the URL
             image_url = f"https://{bucket_name}/{filename}"
-            return JSONResponse({
-                "success": True,
-                "url": image_url,
-                "filename": filename
-            })
-            
+            return JSONResponse({"success": True, "url": image_url, "filename": filename})
+
         except Exception as e:
             logger.error(f"Error uploading to S3: {e}")
             raise HTTPException(status_code=500, detail="Failed to upload image")
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1117,32 +1154,31 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
             user = get_current_user(request, db)
             if not user:
                 raise HTTPException(status_code=401, detail="Not authenticated")
-            
+
             # Return basic user info immediately, skip Stripe validation to prevent blocking
             # Stripe validation can be done asynchronously in the background if needed
             user_dict = user.to_dict()
-            
+
             # Only check subscription status if user has a Stripe ID
             if user.stripe_id:
                 try:
                     # Add timeout to prevent blocking
                     subscription_item_id = await asyncio.wait_for(
-                        get_subscription_item_id_for_user_email_async(user.email), 
-                        timeout=3.0
+                        get_subscription_item_id_for_user_email_async(user.email), timeout=3.0
                     )
-                    user_dict['is_subscribed'] = subscription_item_id is not None
+                    user_dict["is_subscribed"] = subscription_item_id is not None
                 except asyncio.TimeoutError:
                     logger.warning(f"Subscription check timed out for user {user.email}")
-                    user_dict['is_subscribed'] = False
+                    user_dict["is_subscribed"] = False
                 except Exception as e:
                     logger.error(f"Error checking subscription for user {user.email}: {e}")
-                    user_dict['is_subscribed'] = False
+                    user_dict["is_subscribed"] = False
             else:
-                user_dict['is_subscribed'] = False
-            
+                user_dict["is_subscribed"] = False
+
             # Set default values for optional fields
-            user_dict['num_self_hosted_instances'] = 0
-            
+            user_dict["num_self_hosted_instances"] = 0
+
             return JSONResponse(user_dict)
         except HTTPException:
             raise
@@ -1151,7 +1187,7 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
             raise HTTPException(status_code=401, detail="Not authenticated")
     else:
         # Fallback to simple session checking
-        session_secret = request.cookies.get('session_secret')
+        session_secret = request.cookies.get("session_secret")
         if session_secret and session_secret in active_sessions:
             return JSONResponse(active_sessions[session_secret])
         else:
@@ -1166,16 +1202,12 @@ async def api_subscription_status(request: Request, db: Session = Depends(get_db
             user = get_current_user(request, db)
             if not user:
                 return JSONResponse({"is_subscribed": False, "authenticated": False})
-            
+
             # Check subscription status
             subscription_item_id = await get_subscription_item_id_for_user_email_async(user.email)
             is_subscribed = subscription_item_id is not None
-            
-            return JSONResponse({
-                "is_subscribed": is_subscribed,
-                "authenticated": True,
-                "user_email": user.email
-            })
+
+            return JSONResponse({"is_subscribed": is_subscribed, "authenticated": True, "user_email": user.email})
         except Exception as e:
             logger.error(f"Error checking subscription status: {str(e)}")
             return JSONResponse({"is_subscribed": False, "authenticated": False, "error": str(e)})
@@ -1189,29 +1221,32 @@ async def get_validation_token(request: Request, db: Session = Depends(get_db)):
     """Get validation token for enhanced subscription verification."""
     if not USE_POSTGRES:
         return JSONResponse({"error": "PostgreSQL required for validation tokens"}, status_code=500)
-        
+
     try:
         from questions.subscription_utils import generate_subscription_validation_token
-        
+
         user = get_current_user(request, db)
         if not user:
             return JSONResponse({"error": "Authentication required"}, status_code=401)
-        
+
         # Check if user has active subscription (using cache for performance)
         from questions.subscription_utils import get_subscription_item_id_cached
+
         subscription_item_id = get_subscription_item_id_cached(user.email)
         if not subscription_item_id:
             return JSONResponse({"error": "Active subscription required"}, status_code=403)
-        
+
         # Generate validation token
         validation_token = generate_subscription_validation_token(user.email, subscription_item_id)
-        
-        return JSONResponse({
-            "validation_token": validation_token,
-            "user_email": user.email,
-            "subscription_item_id": subscription_item_id
-        })
-        
+
+        return JSONResponse(
+            {
+                "validation_token": validation_token,
+                "user_email": user.email,
+                "subscription_item_id": subscription_item_id,
+            }
+        )
+
     except Exception as e:
         logger.error(f"Error generating validation token: {e}")
         return JSONResponse({"error": "Failed to generate validation token"}, status_code=500)
@@ -1220,125 +1255,129 @@ async def get_validation_token(request: Request, db: Session = Depends(get_db)):
 @app.get("/privacy")
 async def privacy(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/privacy.jinja2", base_vars,
+        "templates/privacy.jinja2",
+        base_vars,
     )
 
 
 @app.get("/account")
 async def account(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/account.jinja2", base_vars,
+        "templates/account.jinja2",
+        base_vars,
     )
 
 
 @app.get("/terms")
 async def terms(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/terms.jinja2", base_vars,
+        "templates/terms.jinja2",
+        base_vars,
     )
 
 
 @app.get("/contact")
 async def contact(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/contact.jinja2", base_vars,
+        "templates/contact.jinja2",
+        base_vars,
     )
 
 
 @app.get("/about")
 async def about(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/about.jinja2", base_vars,
+        "templates/about.jinja2",
+        base_vars,
     )
+
 
 @app.get("/self-hosting")
 async def selfhosting(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/selfhosting.jinja2", base_vars,
+        "templates/selfhosting.jinja2",
+        base_vars,
     )
+
 
 @app.get("/how-it-works")
 async def howitworks(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/howitworks.jinja2", base_vars,
+        "templates/howitworks.jinja2",
+        base_vars,
     )
 
 
 @app.get("/playground")
 async def playground(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/playground.jinja2", base_vars,
+        "templates/playground.jinja2",
+        base_vars,
     )
 
 
 @app.get("/sitemap")
 async def sitemap(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/sitemap.jinja2", base_vars,
+        "templates/sitemap.jinja2",
+        base_vars,
     )
 
 
 @app.get("/docs")
 async def docs(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/docs.jinja2", base_vars,
+        "templates/docs.jinja2",
+        base_vars,
     )
+
 
 @app.get("/text-to-speech")
 async def text_to_speech(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/text-to-speech.jinja2", base_vars,
+        "templates/text-to-speech.jinja2",
+        base_vars,
     )
 
 
 @app.get("/speech-to-text")
 async def speech_to_text(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/speech-to-text.jinja2", base_vars,
+        "templates/speech-to-text.jinja2",
+        base_vars,
     )
+
 
 @app.get("/use-cases/{usecase}")
 async def use_case_route(request: Request, usecase: str):
     use_case_data = deepcopy(fixtures.use_cases.get(usecase))
 
     if not use_case_data:
-         raise HTTPException(status_code=404, detail=f"Use case '{usecase}' not found")
+        raise HTTPException(status_code=404, detail=f"Use case '{usecase}' not found")
 
     url_key = urlencode(use_case_data["generate_params"], quote_via=quote_plus)
     input_text = use_case_data["generate_params"]["text"]
@@ -1346,20 +1385,23 @@ async def use_case_route(request: Request, usecase: str):
     results = use_case_data["results"]
     for result in results:
         if "generated_text" in result and isinstance(result["generated_text"], str):
-             if result["generated_text"].startswith(input_text):
-                 result["generated_text"] = result["generated_text"][len(input_text) :]
+            if result["generated_text"].startswith(input_text):
+                result["generated_text"] = result["generated_text"][len(input_text) :]
 
     base_vars = get_base_template_vars(request)
-    base_vars.update({
+    base_vars.update(
+        {
             "description": use_case_data["description"],
             "title": use_case_data["title"],
             "results": results,
             "text": input_text,
             "use_case": use_case_data,
             "url_key": url_key,
-        })
+        }
+    )
     return templates.TemplateResponse(
-        "templates/use-case.jinja2", base_vars,
+        "templates/use-case.jinja2",
+        base_vars,
     )
 
 
@@ -1368,11 +1410,14 @@ async def use_cases(request: Request):
     use_cases = deepcopy(fixtures.use_cases).items()
 
     base_vars = get_base_template_vars(request)
-    base_vars.update({
+    base_vars.update(
+        {
             "use_cases": use_cases,
-        })
+        }
+    )
     return templates.TemplateResponse(
-        "templates/use-cases.jinja2", base_vars,
+        "templates/use-cases.jinja2",
+        base_vars,
     )
 
 
@@ -1384,26 +1429,32 @@ async def blog_name(request: Request, name: str):
         raise HTTPException(status_code=404, detail=f"Blog post '{name}' not found")
 
     base_vars = get_base_template_vars(request)
-    base_vars.update({
+    base_vars.update(
+        {
             "blog": blog_data,
             "description": blog_data["description"],
             "title": blog_data["title"],
             "keywords": blog_data["keywords"],
             "blogtemplate": "/templates/shared/" + name + ".jinja2",
-        })
+        }
+    )
     return templates.TemplateResponse(
-        "templates/blog.jinja2", base_vars,
+        "templates/blog.jinja2",
+        base_vars,
     )
 
 
 @app.get("/blog")
 async def blog(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
+    base_vars.update(
+        {
             "blogs": blog_fixtures.blogs.items(),
-        })
+        }
+    )
     return templates.TemplateResponse(
-        "templates/blogs.jinja2", base_vars,
+        "templates/blogs.jinja2",
+        base_vars,
     )
 
 
@@ -1415,24 +1466,28 @@ async def doc_name(request: Request, name: str):
         raise HTTPException(status_code=404, detail=f"Documentation page '{name}' not found")
 
     base_vars = get_base_template_vars(request)
-    base_vars.update({
+    base_vars.update(
+        {
             "doc": doc_data,
             "description": doc_data["description"],
             "title": doc_data["title"],
             "keywords": doc_data["keywords"],
             "blogtemplate": "/templates/shared/" + name + ".jinja2",
-        })
-    return templates.TemplateResponse(
-        "templates/doc.jinja2", base_vars,
+        }
     )
+    return templates.TemplateResponse(
+        "templates/doc.jinja2",
+        base_vars,
+    )
+
 
 @app.get("/bulk-text-generator")
 async def bulk_text_generator(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/bulk.jinja2", base_vars,
+        "templates/bulk.jinja2",
+        base_vars,
     )
 
 
@@ -1441,15 +1496,19 @@ async def sitemap_xml(request: Request, response: Response):
     response.headers["Content-Type"] = "text/xml; charset=utf-8"
 
     base_vars = get_base_template_vars(request)
-    base_vars.update({
-    })
+    base_vars.update({})
     return templates.TemplateResponse(
-        "templates/sitemap.xml.jinja2", base_vars,
+        "templates/sitemap.xml.jinja2",
+        base_vars,
     )
 
 
 # Filter out openapi route definition more safely
-app.router.routes = [route for route in app.routes if not (isinstance(route, Route) and hasattr(route, 'name') and route.name == "openapi")]
+app.router.routes = [
+    route
+    for route in app.routes
+    if not (isinstance(route, Route) and hasattr(route, "name") and route.name == "openapi")
+]
 
 
 @app.get("/openapi.json")
@@ -1462,6 +1521,7 @@ async def openapi(request: Request):
         # set api key in example
 
         return JSONResponse(j)
+
 
 @app.get("/file{file_path:path}")
 async def file(file_path: str, request: Request):
@@ -1488,12 +1548,13 @@ def validate_generate_params(generate_params):
 def strip_images_from_text(text: str) -> str:
     """Strip markdown images from text to save context tokens"""
     import re
+
     # Remove markdown images ![alt text](url)
-    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    text = re.sub(r"!\[.*?\]\(.*?\)", "", text)
     # Remove HTML img tags
-    text = re.sub(r'<img[^>]*>', '', text)
+    text = re.sub(r"<img[^>]*>", "", text)
     # Clean up extra whitespace
-    text = re.sub(r'\n\s*\n', '\n\n', text)
+    text = re.sub(r"\n\s*\n", "\n\n", text)
     text = text.strip()
     return text
 
@@ -1503,7 +1564,9 @@ async def text_generator_docs_redirect(request: Request):
     # Redirect to the standalone route for backward compatibility
     return RedirectResponse(url="/ai-text-editor", status_code=302)
 
+
 # --- Moved Claude Generation Routes ---
+
 
 @app.post("/api/v1/generate-long")
 async def generate_long_text(
@@ -1524,7 +1587,7 @@ async def generate_long_text(
         if not request_authorized_with_subscription_validation(request, secret):
             return HTTPException(
                 status_code=401,
-                detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required."
+                detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required.",
             )
 
     try:
@@ -1532,7 +1595,7 @@ async def generate_long_text(
         prompt = strip_images_from_text(generate_params.text)
 
         # Set up system message to control generation parameters
-        system_message = f"""
+        system_message = """
 You are a creative text generation assistant. Generate text that continues from the given prompt.
 
 Important instructions:
@@ -1560,18 +1623,20 @@ Important instructions:
             return HTTPException(status_code=500, detail="Failed to generate text with Claude")
 
         # Format the response to match the standard API format
-        result = [{
-            "generated_text": prompt + generated_text,
-            "finished_reason": "length",
-            "model": "claude-sonnet-4-20250514"
-        }]
-
+        result = [
+            {
+                "generated_text": prompt + generated_text,
+                "finished_reason": "length",
+                "model": "claude-sonnet-4-20250514",
+            }
+        ]
 
         return result
 
     except Exception as e:
         logger.error(f"Error generating text with Claude: {e}")
         return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+
 
 @app.post("/api/v1/generate-large", include_in_schema=False)
 async def generate_large_text(
@@ -1580,8 +1645,8 @@ async def generate_large_text(
     secret: Union[str, None] = Header(default=None),
 ):
     """
-Generate large amounts of text using Claude models
-This endpoint accepts a model parameter to specify which Claude model to use
+    Generate large amounts of text using Claude models
+    This endpoint accepts a model parameter to specify which Claude model to use
     """
     validation_result = validate_generate_params(generate_params)
     if validation_result:
@@ -1592,17 +1657,19 @@ This endpoint accepts a model parameter to specify which Claude model to use
         if not request_authorized_with_subscription_validation(request, secret):
             return HTTPException(
                 status_code=401,
-                detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required."
+                detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required.",
             )
 
     try:
         # Prepare the prompt for Claude - strip images to save context tokens
         prompt = strip_images_from_text(generate_params.text)
-        
+
         # Validate that prompt has content after stripping
         if not prompt or len(prompt.strip()) < 2:
-            return HTTPException(status_code=400, detail="Text is too short or empty after processing. Please provide more content.")
-        
+            return HTTPException(
+                status_code=400, detail="Text is too short or empty after processing. Please provide more content."
+            )
+
         # Use model from request or default
         model_name = generate_params.model or "claude-sonnet-4-20250514"
 
@@ -1610,7 +1677,7 @@ This endpoint accepts a model parameter to specify which Claude model to use
         if generate_params.system_message:
             system_message = generate_params.system_message
         else:
-            system_message = f"""
+            system_message = """
 You are a creative text generation assistant. Generate text that continues from the given prompt.
 
 Important instructions:
@@ -1639,12 +1706,7 @@ Important instructions:
             return HTTPException(status_code=500, detail="Failed to generate text with Claude")
 
         # Format the response to match the standard API format
-        result = [{
-            "generated_text": prompt + generated_text,
-            "finished_reason": "length",
-            "model": model_name
-        }]
-
+        result = [{"generated_text": prompt + generated_text, "finished_reason": "length", "model": model_name}]
 
         return result
 
@@ -1661,10 +1723,7 @@ class OptimizePromptParams(BaseModel):
 
 
 async def evaluate_prompt(prompt: str, judge_prompt: str) -> Dict[str, Any]:
-    system_message = (
-        "You are a strict judge of prompt quality. "
-        "Return JSON with keys 'score' and 'feedback'."
-    )
+    system_message = "You are a strict judge of prompt quality. Return JSON with keys 'score' and 'feedback'."
     schema = {
         "type": "object",
         "properties": {
@@ -1678,9 +1737,7 @@ async def evaluate_prompt(prompt: str, judge_prompt: str) -> Dict[str, Any]:
 
 
 async def evolve_prompt(prompt: str, evolve_prompt: str) -> str:
-    system_message = (
-        "You improve prompts. Return JSON with key 'prompt' containing the new prompt."
-    )
+    system_message = "You improve prompts. Return JSON with key 'prompt' containing the new prompt."
     schema = {
         "type": "object",
         "properties": {"prompt": {"type": "string"}},
@@ -1696,20 +1753,24 @@ async def optimize_prompt(params: OptimizePromptParams) -> Dict[str, Any]:
     evaluations: List[Dict[str, Any]] = []
     for i in range(params.iterations):
         current_eval = await evaluate_prompt(current_prompt, params.judge_prompt)
-        evaluations.append({
-            "prompt": current_prompt,
-            "feedback": current_eval.get("feedback", ""),
-            "score": current_eval.get("score", 0)
-        })
+        evaluations.append(
+            {
+                "prompt": current_prompt,
+                "feedback": current_eval.get("feedback", ""),
+                "score": current_eval.get("score", 0),
+            }
+        )
         if i == params.iterations - 1:
             break
         candidate = await evolve_prompt(current_prompt, params.evolve_prompt)
         candidate_eval = await evaluate_prompt(candidate, params.judge_prompt)
-        evaluations.append({
-            "prompt": candidate,
-            "feedback": candidate_eval.get("feedback", ""),
-            "score": candidate_eval.get("score", 0)
-        })
+        evaluations.append(
+            {
+                "prompt": candidate,
+                "feedback": candidate_eval.get("feedback", ""),
+                "score": candidate_eval.get("score", 0),
+            }
+        )
         if candidate_eval.get("score", 0) > current_eval.get("score", 0):
             current_prompt = candidate
     return {"final_prompt": current_prompt, "evaluations": evaluations}
@@ -1727,10 +1788,7 @@ async def optimize_prompt_endpoint(
     # Authorize the request
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         if not request_authorized(request, secret):
-            raise HTTPException(
-                status_code=401,
-                detail="Please subscribe at https://text-generator.io/subscribe first"
-            )
+            raise HTTPException(status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first")
 
     try:
         result = await optimize_prompt(params)
@@ -1741,18 +1799,18 @@ async def optimize_prompt_endpoint(
 
 
 @app.get("/file-upload-get-signed-url-cloudflare")
-async def file_upload_get_signed_url_cloudflare(
-    request: Request, contentType: str, fileName: str
-):
+async def file_upload_get_signed_url_cloudflare(request: Request, contentType: str, fileName: str):
     """Generate an R2 presigned URL for uploading to the new bucket."""
-    bucket_name = get_env_var("CLOUDFLARE_BUCKET", fallback_env_var="R2_BUCKET_NAME", default="text-generatorstatic.text-generator.io")
+    bucket_name = get_env_var(
+        "CLOUDFLARE_BUCKET", fallback_env_var="R2_BUCKET_NAME", default="text-generatorstatic.text-generator.io"
+    )
     id = random_string(10)
     object_path = f"static/uploads/{id}-{fileName}"
 
-    # For R2, we need to use the proper endpoint URL  
+    # For R2, we need to use the proper endpoint URL
     account_id = get_env_var("R2_ACCOUNT_ID", default="f76d25b8b86cfa5638f43016510d8f77")
     endpoint_url = get_env_var("R2_ENDPOINT", default=f"https://{account_id}.r2.cloudflarestorage.com")
-    
+
     s3 = boto3.client(
         "s3",
         endpoint_url=endpoint_url,
@@ -1771,5 +1829,5 @@ async def file_upload_get_signed_url_cloudflare(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
 
+    uvicorn.run(app, host="0.0.0.0", port=8080)

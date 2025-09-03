@@ -1,15 +1,14 @@
 import asyncio
-from typing import FrozenSet, List, Optional
-
-from anthropic import AsyncAnthropic
-import aiohttp
 import json
-
 import logging
+from typing import FrozenSet, Optional
+
+import aiohttp
+from anthropic import AsyncAnthropic
+
 logger = logging.getLogger(__name__)
 
 from questions.utils import log_time
-
 from sellerinfo import CLAUDE_API_KEY
 
 # Initialize client
@@ -25,7 +24,7 @@ async def query_to_claude_async(
     model: Optional[str] = "claude-sonnet-4-20250514",
 ) -> Optional[str]:
     """Async Claude query with caching"""
-    
+
     if extra_data and type(extra_data) != dict:
         extra_data = dict(extra_data)
     else:
@@ -35,7 +34,7 @@ async def query_to_claude_async(
         truncated_prompt = truncate_to_max_tokens(prompt, max_tokens=80000)
         if truncated_prompt != prompt:
             logger.warning("Prompt was truncated due to token limit")
-        
+
         messages = [
             {
                 "role": "user",
@@ -51,7 +50,7 @@ async def query_to_claude_async(
             )
 
         timeout = extra_data.get("timeout", 30) if extra_data else 30
-        
+
         # Possibly truncate system message if too long
         truncated_system = ""
         if system_message:
@@ -69,9 +68,7 @@ async def query_to_claude_async(
                         messages=messages,
                         model=model,
                         system=truncated_system,
-                        stop_sequences=[s for s in list(stop_sequences) if s and s.strip()]
-                        if stop_sequences
-                        else [],
+                        stop_sequences=[s for s in list(stop_sequences) if s and s.strip()] if stop_sequences else [],
                     ),
                     timeout=timeout,
                 )
@@ -81,13 +78,13 @@ async def query_to_claude_async(
                     logger.info(f"Claude Generated text length: {len(generated_text)}")
                     return generated_text
                 return None
-            
+
             except Exception as token_error:
                 if isinstance(token_error, (asyncio.TimeoutError)):
                     # Just re-raise timeout errors
                     raise
-                
-                # Check if this is a token limit error from Anthropic 
+
+                # Check if this is a token limit error from Anthropic
                 if "too many tokens" in str(token_error).lower():
                     logger.error(f"Token limit exceeded in Claude async query: {token_error}")
                     # Try again with more aggressive truncation
@@ -105,8 +102,10 @@ async def query_to_claude_async(
                                 "content": prefill.strip(),
                             }
                         )
-                    
-                    logger.info(f"Retrying with more aggressive truncation, prompt length: {len(more_truncated_prompt)}")
+
+                    logger.info(
+                        f"Retrying with more aggressive truncation, prompt length: {len(more_truncated_prompt)}"
+                    )
                     message = await asyncio.wait_for(
                         claude_client.messages.create(
                             max_tokens=2024,
@@ -119,7 +118,7 @@ async def query_to_claude_async(
                         ),
                         timeout=timeout,
                     )
-                    
+
                     if message.content:
                         generated_text = message.content[0].text
                         logger.info(f"Claude Generated text (after retry): {len(generated_text)}")
@@ -177,48 +176,49 @@ async def query_to_claude_json_async(
             return {"text": content[0]["text"]}
     return {}
 
+
 def truncate_to_max_tokens(text, max_tokens):
     """
     Truncate text to approximately fit within max_tokens.
     Uses a simple character-to-token ratio estimation (roughly 4 characters per token).
     Middle-out truncation approach that preserves the beginning and end of the text.
-    
+
     Args:
         text (str): The text to truncate
         max_tokens (int): Maximum number of tokens to allow
-        
+
     Returns:
         str: Truncated text that should fit within the token limit
     """
     # Estimate 4 characters per token as a rough approximation
     char_per_token = 4
     max_chars = max_tokens * char_per_token
-    
+
     if len(text) <= max_chars:
         return text
-    
+
     # Split into words to do middle-out truncation
     words = text.split()
-    
+
     if len(words) <= 2:
         return text[:max_chars]
-    
+
     # Calculate how many words to keep from beginning and end
     total_words_to_keep = int(max_chars / (sum(len(w) for w in words) / len(words)))
     words_per_side = total_words_to_keep // 2
-    
+
     # Ensure we keep at least some words from each side
     words_per_side = max(1, min(words_per_side, len(words) // 2 - 1))
-    
+
     # Get beginning and ending portions
-    beginning = ' '.join(words[:words_per_side])
-    ending = ' '.join(words[-words_per_side:])
-    
+    beginning = " ".join(words[:words_per_side])
+    ending = " ".join(words[-words_per_side:])
+
     # Add an ellipsis to indicate truncation
     result = beginning + " ... " + ending
-    
+
     # If still too long, just truncate the end
     if len(result) > max_chars:
         return result[:max_chars]
-    
+
     return result

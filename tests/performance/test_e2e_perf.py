@@ -3,15 +3,16 @@ import traceback
 import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.internet]
-import requests
 import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-from questions.utils import log_time
 from requests_futures.sessions import FuturesSession
+
+from questions.utils import log_time
 
 session = FuturesSession(max_workers=10)
 """
@@ -32,9 +33,7 @@ async def test_model_performance():
     with log_time("performance test"):
         for end_idx in range(100):
             with log_time("one run"):
-                requests = [
-                    make_request() for _ in range(CONCURRENT_REQUESTS)
-                ]
+                requests = [make_request() for _ in range(CONCURRENT_REQUESTS)]
                 for request in requests:
                     try:
                         response = request.result()
@@ -58,7 +57,6 @@ async def test_model_performance():
 
 
 def make_request():
-
     return session.post(
         SERVER_URL + "/api/v1/generate",
         json={
@@ -72,6 +70,6 @@ def make_request():
             "top_p": 0.9,
             "top_k": 40,
             "temperature": 0.7,
-            "seed": 0
+            "seed": 0,
         },
     )

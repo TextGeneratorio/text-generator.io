@@ -13,8 +13,12 @@ def test_example_smollm3(monkeypatch):
     fake_model.generate.return_value = [[0, 1, 2]]
     fake_model.to.return_value = fake_model
 
-    monkeypatch.setattr(example_smollm3, "AutoTokenizer", mock.MagicMock(from_pretrained=mock.MagicMock(return_value=fake_tokenizer)))
-    monkeypatch.setattr(example_smollm3, "AutoModelForCausalLM", mock.MagicMock(from_pretrained=mock.MagicMock(return_value=fake_model)))
+    monkeypatch.setattr(
+        example_smollm3, "AutoTokenizer", mock.MagicMock(from_pretrained=mock.MagicMock(return_value=fake_tokenizer))
+    )
+    monkeypatch.setattr(
+        example_smollm3, "AutoModelForCausalLM", mock.MagicMock(from_pretrained=mock.MagicMock(return_value=fake_model))
+    )
 
     example_smollm3.main()
     fake_model.generate.assert_called_once()

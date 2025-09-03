@@ -1,8 +1,9 @@
 import json
+import logging
 import os
 
 import requests
-import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging()
@@ -30,7 +31,7 @@ use_cases = {
         "title": "Spanish sentiment analysis - Text Generator API",
         "description": "Spanish tweet analysis - Decide si el sentimiento de un Tweet es positivo, neutral o negativo.",
         "generate_params": {
-            "text": "Decide si el sentimiento de un Tweet es positivo, neutral o negativo.\n\nTweet: \"¡Me encantó la nueva película de Batman!\"\nSentimiento: ",
+            "text": 'Decide si el sentimiento de un Tweet es positivo, neutral o negativo.\n\nTweet: "¡Me encantó la nueva película de Batman!"\nSentimiento: ',
             "number_of_results": 4,
             "max_length": 100,
             "max_sentences": 4,
@@ -1189,7 +1190,6 @@ Thousands of startups around the world use NVIDIA technologies to accelerate the
         },
     },
 }
-from scripts.openai_examples import openai_examples_map
 
 
 def make_request(use_case, retries=0):

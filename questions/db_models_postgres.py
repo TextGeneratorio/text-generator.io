@@ -1,9 +1,9 @@
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON, text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.sql import func
 import os
-from typing import Optional
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, create_engine, text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.sql import func
 
 # Database configuration - Environment-aware and simplified
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")  # development, production
@@ -11,7 +11,7 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 
 # Database credentials - hardcoded as requested
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_USER = os.getenv("DB_USER", "lee") 
+DB_USER = os.getenv("DB_USER", "lee")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_PORT = os.getenv("DB_PORT", "5432")
 
@@ -41,6 +41,7 @@ else:
         print("⚠️  Detected textgen_prod in development, forcing textgen database")
         DATABASE_URL = f"postgresql://{DB_USER}@/textgen?host=/var/run/postgresql"
 
+
 # Create engine with connection testing
 def create_engine_with_testing():
     """Create database engine and test the connection."""
@@ -54,15 +55,16 @@ def create_engine_with_testing():
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
         print(f"Database URL: {DATABASE_URL}")
-        
+
         # Only allow fallback in development and only to safe alternatives
         if not IS_PRODUCTION:
             # Try alternative local database names if current fails
             if "textgen" in DATABASE_URL and "textgen_prod" not in DATABASE_URL:
                 print("🔄 Development fallback disabled - check your local database setup")
             print("💡 Make sure your local PostgreSQL is running and the textgen database exists")
-        
+
         raise
+
 
 try:
     engine = create_engine_with_testing()
@@ -82,12 +84,12 @@ class User(Base):
     password_hash = Column(String, nullable=True)  # nullable for migration from Firebase
     created = Column(DateTime, default=func.now())
     updated = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # User profile fields
     name = Column(String, nullable=True)
     profile_url = Column(String, nullable=True)
     photo_url = Column(String, nullable=True)
-    
+
     # Subscription and payment fields
     is_subscribed = Column(Boolean, default=False)
     stripe_id = Column(String, nullable=True)
@@ -95,7 +97,7 @@ class User(Base):
     free_credits = Column(Integer, default=0)
     charges_monthly = Column(Integer, default=0)
     num_self_hosted_instances = Column(Integer, default=0)
-    
+
     # Legacy fields
     cookie_user = Column(Integer, nullable=True)
     access_token = Column(String, nullable=True)
@@ -115,19 +117,19 @@ class User(Base):
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'email': self.email,
-            'name': self.name,
-            'profile_url': self.profile_url,
-            'photo_url': self.photo_url,
-            'is_subscribed': self.is_subscribed,
-            'stripe_id': self.stripe_id,
-            'secret': self.secret,
-            'free_credits': self.free_credits,
-            'charges_monthly': self.charges_monthly,
-            'num_self_hosted_instances': self.num_self_hosted_instances,
-            'created': self.created.isoformat() if self.created else None,
-            'updated': self.updated.isoformat() if self.updated else None
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "profile_url": self.profile_url,
+            "photo_url": self.photo_url,
+            "is_subscribed": self.is_subscribed,
+            "stripe_id": self.stripe_id,
+            "secret": self.secret,
+            "free_credits": self.free_credits,
+            "charges_monthly": self.charges_monthly,
+            "num_self_hosted_instances": self.num_self_hosted_instances,
+            "created": self.created.isoformat() if self.created else None,
+            "updated": self.updated.isoformat() if self.updated else None,
         }
 
 
@@ -147,20 +149,20 @@ class Document(Base):
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'title': self.title,
-            'content': self.content,
-            'user_id': self.user_id,
-            'created_at': self.created.isoformat() if self.created else None,
-            'updated_at': self.updated.isoformat() if self.updated else None,
-            'is_public': self.is_public
+            "id": self.id,
+            "title": self.title,
+            "content": self.content,
+            "user_id": self.user_id,
+            "created_at": self.created.isoformat() if self.created else None,
+            "updated_at": self.updated.isoformat() if self.updated else None,
+            "is_public": self.is_public,
         }
-    
+
     @classmethod
     def get_by_id(cls, db, doc_id):
         """Get a document by its ID."""
         return db.query(cls).filter(cls.id == doc_id).first()
-    
+
     @classmethod
     def get_by_user_id(cls, db, user_id):
         """Get all documents for a specific user."""
@@ -178,33 +180,33 @@ class AICharacter(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     is_public = Column(Boolean, default=False)
-    
+
     # Personality and behavior settings
     temperature = Column(String, nullable=True)  # Stored as string for flexibility
     max_tokens = Column(Integer, nullable=True)
-    
+
     # Appearance and avatar
     avatar_url = Column(String, nullable=True)
     voice_id = Column(String, nullable=True)
-    
+
     # Usage statistics
     usage_count = Column(Integer, default=0)
-    
+
     def to_dict(self):
         return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'system_prompt': self.system_prompt,
-            'user_id': self.user_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'is_public': self.is_public,
-            'temperature': self.temperature,
-            'max_tokens': self.max_tokens,
-            'avatar_url': self.avatar_url,
-            'voice_id': self.voice_id,
-            'usage_count': self.usage_count
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "system_prompt": self.system_prompt,
+            "user_id": self.user_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "is_public": self.is_public,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "avatar_url": self.avatar_url,
+            "voice_id": self.voice_id,
+            "usage_count": self.usage_count,
         }
 
 
@@ -217,26 +219,26 @@ class ChatRoom(Base):
     ai_character_id = Column(String, ForeignKey("ai_characters.id"), nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Room settings
     is_active = Column(Boolean, default=True)
     is_public = Column(Boolean, default=False)
-    
+
     # Relationships
     user = relationship("User", back_populates="chat_rooms")
     ai_character = relationship("AICharacter")
     messages = relationship("ChatMessage", back_populates="chat_room", cascade="all, delete-orphan")
-    
+
     def to_dict(self):
         return {
-            'id': self.id,
-            'name': self.name,
-            'user_id': self.user_id,
-            'ai_character_id': self.ai_character_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'is_active': self.is_active,
-            'is_public': self.is_public
+            "id": self.id,
+            "name": self.name,
+            "user_id": self.user_id,
+            "ai_character_id": self.ai_character_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "is_active": self.is_active,
+            "is_public": self.is_public,
         }
 
 
@@ -249,23 +251,23 @@ class ChatMessage(Base):
     content = Column(Text, nullable=False)
     message_type = Column(String, nullable=False)  # 'user', 'ai', 'system'
     created_at = Column(DateTime, default=func.now())
-    
+
     # Message metadata
     message_metadata = Column(JSON, nullable=True)  # For storing additional message data
-    
+
     # Relationships
     chat_room = relationship("ChatRoom", back_populates="messages")
     user = relationship("User")
-    
+
     def to_dict(self):
         return {
-            'id': self.id,
-            'chat_room_id': self.chat_room_id,
-            'user_id': self.user_id,
-            'content': self.content,
-            'message_type': self.message_type,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'metadata': self.metadata
+            "id": self.id,
+            "chat_room_id": self.chat_room_id,
+            "user_id": self.user_id,
+            "content": self.content,
+            "message_type": self.message_type,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "metadata": self.metadata,
         }
 
 
@@ -279,24 +281,24 @@ class Voice(Base):
     provider = Column(String, nullable=False)  # 'elevenlabs', 'openai', etc.
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
-    
+
     # Voice characteristics
     gender = Column(String, nullable=True)
     accent = Column(String, nullable=True)
     age_range = Column(String, nullable=True)
-    
+
     def to_dict(self):
         return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'voice_id': self.voice_id,
-            'provider': self.provider,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'gender': self.gender,
-            'accent': self.accent,
-            'age_range': self.age_range
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "voice_id": self.voice_id,
+            "provider": self.provider,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "gender": self.gender,
+            "accent": self.accent,
+            "age_range": self.age_range,
         }
 
 
@@ -309,24 +311,24 @@ class SaveGame(Base):
     game_state = Column(JSON, nullable=False)  # JSON representation of game state
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
+
     # Game metadata
     name = Column(String, nullable=True)  # User-friendly name for the save
     is_completed = Column(Boolean, default=False)
-    
+
     # Relationships
     user = relationship("User", back_populates="save_games")
-    
+
     def to_dict(self):
         return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'game_type': self.game_type,
-            'game_state': self.game_state,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'name': self.name,
-            'is_completed': self.is_completed
+            "id": self.id,
+            "user_id": self.user_id,
+            "game_type": self.game_type,
+            "game_state": self.game_state,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "name": self.name,
+            "is_completed": self.is_completed,
         }
 
 

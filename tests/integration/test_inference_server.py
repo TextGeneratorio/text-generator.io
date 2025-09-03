@@ -1,10 +1,9 @@
-import dataclasses
 import os
+
 import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.internet, pytest.mark.inference]
 
-from fastapi import UploadFile
 
 # set environment var
 os.environ["API_KEY"] = "AIzaSyDQX"  # not testing the stripe stuff
@@ -12,9 +11,8 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "secrets/google-credentials.json"
 
 from starlette.testclient import TestClient
 
-from questions.inference_server.inference_server import app, audio_process
-from questions.post_process_results import post_process_results
-from questions.models import GenerateParams, create_generate_params, AudioParams
+from questions.inference_server.inference_server import app
+from questions.models import AudioParams
 
 client = TestClient(app)
 
@@ -28,7 +26,7 @@ def test_audio_extraction_audio_file():
         translate_to_english=False,
         output_filetype="txt",
     ).__dict__
-    files = {'audio_file': ("audiof.wav", open(audio_file, 'rb'))}
+    files = {"audio_file": ("audiof.wav", open(audio_file, "rb"))}
     response = client.post("/api/v1/audio-file-extraction", files=files, data=audio_params)
     assert response.status_code == 200, response.text
     completions = response.json()
@@ -44,7 +42,7 @@ def test_audio_extraction_audio_file_srt():
         translate_to_english=False,
         output_filetype="srt",
     ).__dict__
-    files = {'audio_file': ("audiof.wav", open(audio_file, 'rb'))}
+    files = {"audio_file": ("audiof.wav", open(audio_file, "rb"))}
     response = client.post("/api/v1/audio-file-extraction", files=files, data=audio_params)
     assert response.status_code == 200, response.text
     completions = response.json()

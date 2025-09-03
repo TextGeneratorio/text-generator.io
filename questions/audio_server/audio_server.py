@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 import json
+import logging
 import os
 import random
 from tempfile import NamedTemporaryFile
 from typing import Union
 
 import torch
-from fastapi import BackgroundTasks
-from fastapi import Request, Header
+from fastapi import BackgroundTasks, Header, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging()
@@ -19,11 +19,10 @@ from starlette.responses import JSONResponse, Response
 
 from questions.audio_server.audio_dl import request_get
 from questions.db_models_postgres import User, get_db_session_sync
-from questions.auth import get_user_from_session
 from questions.gameon_utils import GameOnUtils
 from questions.models import (
-    GetUserRequest,
     AudioParams,
+    GetUserRequest,
 )
 from questions.payments.payments import get_subscription_item_id_for_user_email
 from questions.text_gen_pipeline import TextGenPipeline
@@ -45,8 +44,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 GCLOUD_STATIC_BUCKET_URL = "https://text-generatorstatic.text-generator.io/static"
-import sellerinfo
 import stripe
+
+import sellerinfo
 
 app = FastAPI(
     openapi_url="/openapi.json",
@@ -57,8 +57,8 @@ app = FastAPI(
     version="1",
 )
 
-import whisper
 import numpy as np
+import whisper
 
 # about 10s
 with log_time("load whisper model"):
@@ -70,18 +70,101 @@ with log_time("load whisper model"):
 # async def create_files(files: bytes = File()):
 #     return {"file_sizes": [len(file) for file in files]}
 
-languages = {"af_za": "Afrikaans", "am_et": "Amharic", "ar_eg": "Arabic", "as_in": "Assamese", "az_az": "Azerbaijani", "be_by": "Belarusian", "bg_bg": "Bulgarian", "bn_in": "Bengali", "bs_ba": "Bosnian", "ca_es": "Catalan", "cmn_hans_cn": "Chinese", "cs_cz": "Czech", "cy_gb": "Welsh", "da_dk": "Danish", "de_de": "German", "el_gr": "Greek", "en_us": "English", "es_419": "Spanish", "et_ee": "Estonian", "fa_ir": "Persian", "fi_fi": "Finnish", "fil_ph": "Tagalog", "fr_fr": "French", "gl_es": "Galician", "gu_in": "Gujarati", "ha_ng": "Hausa", "he_il": "Hebrew", "hi_in": "Hindi", "hr_hr": "Croatian", "hu_hu": "Hungarian", "hy_am": "Armenian", "id_id": "Indonesian", "is_is": "Icelandic", "it_it": "Italian", "ja_jp": "Japanese", "jv_id": "Javanese", "ka_ge": "Georgian", "kk_kz": "Kazakh", "km_kh": "Khmer", "kn_in": "Kannada", "ko_kr": "Korean", "lb_lu": "Luxembourgish", "ln_cd": "Lingala", "lo_la": "Lao", "lt_lt": "Lithuanian", "lv_lv": "Latvian", "mi_nz": "Maori", "mk_mk": "Macedonian", "ml_in": "Malayalam", "mn_mn": "Mongolian", "mr_in": "Marathi", "ms_my": "Malay", "mt_mt": "Maltese", "my_mm": "Myanmar", "nb_no": "Norwegian", "ne_np": "Nepali", "nl_nl": "Dutch", "oc_fr": "Occitan", "pa_in": "Punjabi", "pl_pl": "Polish", "ps_af": "Pashto", "pt_br": "Portuguese", "ro_ro": "Romanian", "ru_ru": "Russian", "sd_in": "Sindhi", "sk_sk": "Slovak", "sl_si": "Slovenian", "sn_zw": "Shona", "so_so": "Somali", "sr_rs": "Serbian", "sv_se": "Swedish", "sw_ke": "Swahili", "ta_in": "Tamil", "te_in": "Telugu", "tg_tj": "Tajik", "th_th": "Thai", "tr_tr": "Turkish", "uk_ua": "Ukrainian", "ur_pk": "Urdu", "uz_uz": "Uzbek", "vi_vn": "Vietnamese", "yo_ng": "Yoruba"}
+languages = {
+    "af_za": "Afrikaans",
+    "am_et": "Amharic",
+    "ar_eg": "Arabic",
+    "as_in": "Assamese",
+    "az_az": "Azerbaijani",
+    "be_by": "Belarusian",
+    "bg_bg": "Bulgarian",
+    "bn_in": "Bengali",
+    "bs_ba": "Bosnian",
+    "ca_es": "Catalan",
+    "cmn_hans_cn": "Chinese",
+    "cs_cz": "Czech",
+    "cy_gb": "Welsh",
+    "da_dk": "Danish",
+    "de_de": "German",
+    "el_gr": "Greek",
+    "en_us": "English",
+    "es_419": "Spanish",
+    "et_ee": "Estonian",
+    "fa_ir": "Persian",
+    "fi_fi": "Finnish",
+    "fil_ph": "Tagalog",
+    "fr_fr": "French",
+    "gl_es": "Galician",
+    "gu_in": "Gujarati",
+    "ha_ng": "Hausa",
+    "he_il": "Hebrew",
+    "hi_in": "Hindi",
+    "hr_hr": "Croatian",
+    "hu_hu": "Hungarian",
+    "hy_am": "Armenian",
+    "id_id": "Indonesian",
+    "is_is": "Icelandic",
+    "it_it": "Italian",
+    "ja_jp": "Japanese",
+    "jv_id": "Javanese",
+    "ka_ge": "Georgian",
+    "kk_kz": "Kazakh",
+    "km_kh": "Khmer",
+    "kn_in": "Kannada",
+    "ko_kr": "Korean",
+    "lb_lu": "Luxembourgish",
+    "ln_cd": "Lingala",
+    "lo_la": "Lao",
+    "lt_lt": "Lithuanian",
+    "lv_lv": "Latvian",
+    "mi_nz": "Maori",
+    "mk_mk": "Macedonian",
+    "ml_in": "Malayalam",
+    "mn_mn": "Mongolian",
+    "mr_in": "Marathi",
+    "ms_my": "Malay",
+    "mt_mt": "Maltese",
+    "my_mm": "Myanmar",
+    "nb_no": "Norwegian",
+    "ne_np": "Nepali",
+    "nl_nl": "Dutch",
+    "oc_fr": "Occitan",
+    "pa_in": "Punjabi",
+    "pl_pl": "Polish",
+    "ps_af": "Pashto",
+    "pt_br": "Portuguese",
+    "ro_ro": "Romanian",
+    "ru_ru": "Russian",
+    "sd_in": "Sindhi",
+    "sk_sk": "Slovak",
+    "sl_si": "Slovenian",
+    "sn_zw": "Shona",
+    "so_so": "Somali",
+    "sr_rs": "Serbian",
+    "sv_se": "Swedish",
+    "sw_ke": "Swahili",
+    "ta_in": "Tamil",
+    "te_in": "Telugu",
+    "tg_tj": "Tajik",
+    "th_th": "Thai",
+    "tr_tr": "Turkish",
+    "uk_ua": "Ukrainian",
+    "ur_pk": "Urdu",
+    "uz_uz": "Uzbek",
+    "vi_vn": "Vietnamese",
+    "yo_ng": "Yoruba",
+}
 
 print(
     f"Model is {'multilingual' if model.is_multilingual else 'English-only'} "
     f"and has {sum(np.prod(p.shape) for p in model.parameters()):,} parameters."
 )
 # expose best of?
-options = {} # dict(beam_size=5, best_of=5) (makes it slower)
+options = {}  # dict(beam_size=5, best_of=5) (makes it slower)
 transcribe_options = dict(task="transcribe", **options)
 translate_options = dict(task="translate", **options)
 
-#%%
+# %%
 references = []
 transcriptions = []
 translations = []
@@ -211,9 +294,7 @@ def track_stripe_request_usage(secret, quantity: int):
 
     subscription_item_id = get_subscription_item_id_for_user_email(existing_user.email)
     if not subscription_item_id:
-        logger.info(
-            f"no subscription item id for user: {existing_user.email} {existing_user.stripe_id}"
-        )
+        logger.info(f"no subscription item id for user: {existing_user.email} {existing_user.stripe_id}")
     # TODO batching
     # todo block if none
     stripe.SubscriptionItem.create_usage_record(
@@ -229,17 +310,16 @@ def validate_generate_params(generate_params):
         validate_result = "Please enter some text"
     return validate_result
 
+
 def fast_audio_extract_inference(audio_params: AudioParams):
     audio_request = request_get(audio_params.audio_url)
     response = audio_request.result()
     if response.status_code != 200:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to download audio file at {audio_params.audio_url}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to download audio file at {audio_params.audio_url}")
     response.raw.decode_content = True
     audio_bytes = response.content
     with torch.inference_mode():
-        opts = transcribe_options # dict(beam_size=5, best_of=5)
+        opts = transcribe_options  # dict(beam_size=5, best_of=5)
         if audio_params.translate_to_english:
             opts = translate_options
         # write to /dev/shm ... assume mp3
@@ -249,38 +329,35 @@ def fast_audio_extract_inference(audio_params: AudioParams):
 
         # clean data
         tmp_file.close()
-        for segment in result['segments']:
-            del segment['tokens']
-        result['text'] = result['text'].strip()
+        for segment in result["segments"]:
+            del segment["tokens"]
+        result["text"] = result["text"].strip()
         return result
 
 
 @app.post("/api/v1/audio-extraction")
 async def audio_extraction(
-    feature_extract_params: AudioParams, # wav files or mp3 supported
+    feature_extract_params: AudioParams,  # wav files or mp3 supported
     # audio_file: UploadFile,
     background_tasks: BackgroundTasks,
     request: Request,
     secret: Union[str, None] = Header(default=None),
 ):
     if not request_authorized(request, secret):
-        return HTTPException(
-            status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
-        )
+        return HTTPException(status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first")
     inference_result = fast_audio_extract_inference(feature_extract_params)
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
-        seconds_taken = inference_result['segments'][-1]['end']
+        seconds_taken = inference_result["segments"][-1]["end"]
         # price of quantity is 1 for .01
         price = seconds_taken * 0.00005
-        quantity = price // .01
-        remainder = price % .01
+        quantity = price // 0.01
+        remainder = price % 0.01
         if random.random() < remainder * 100:
             quantity += 1
         if quantity:
             if not API_KEY:
-
-               background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=int(quantity))
+                background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=int(quantity))
     return inference_result
 
 
@@ -348,4 +425,3 @@ def request_authorized(request: Request, secret):
 #     if "X-Rapid-API-Key" not in request.headers:
 #         background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
 #     return inference_result
-

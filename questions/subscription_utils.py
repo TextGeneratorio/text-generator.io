@@ -1,13 +1,15 @@
-import os
 import hashlib
+import logging
+import os
 import secrets
 import time
-from typing import Dict, Tuple, Optional
-from fastapi import HTTPException, Depends, Header
+from typing import Dict, Optional, Tuple
+
+from fastapi import Depends, Header, HTTPException
+
+from .auth import get_current_user
 from .db_models_postgres import User
 from .payments.payments import get_subscription_item_id_for_user_email
-from .auth import get_current_user
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +32,12 @@ def require_subscription(user: User = Depends(get_current_user)) -> User:
     """
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
-    
+
     # Check if user has active subscription
     subscription_item_id = get_subscription_item_id_for_user_email(user.email)
     if not subscription_item_id:
-        raise HTTPException(
-            status_code=403, 
-            detail="Active subscription required to access this feature"
-        )
-    
+        raise HTTPException(status_code=403, detail="Active subscription required to access this feature")
+
     return user
 
 
@@ -48,14 +47,14 @@ def get_subscription_item_id_cached(user_email: str) -> Optional[str]:
     Cache expires after SUBSCRIPTION_CACHE_TTL seconds.
     """
     current_time = time.time()
-    
+
     # Check cache first
     if user_email in _subscription_cache:
         subscription_item_id, cached_time = _subscription_cache[user_email]
         if current_time - cached_time < SUBSCRIPTION_CACHE_TTL:
             logger.debug(f"Using cached subscription status for {user_email}")
             return subscription_item_id
-    
+
     # Cache miss or expired, fetch from Stripe
     try:
         subscription_item_id = get_subscription_item_id_for_user_email(user_email)
@@ -74,7 +73,7 @@ def check_user_subscription(user: User) -> bool:
     """
     if not user or not user.email:
         return False
-    
+
     try:
         subscription_item_id = get_subscription_item_id_cached(user.email)
         return subscription_item_id is not None
@@ -114,24 +113,24 @@ def validate_subscription_with_backend_secret(user: User, validation_token: str 
     if not user or not user.email:
         logger.warning("Subscription validation failed: No user or email")
         return False
-    
+
     try:
         # First check if user has active subscription
         subscription_item_id = get_subscription_item_id_for_user_email(user.email)
         if not subscription_item_id:
             logger.warning(f"Subscription validation failed: No active subscription for {user.email}")
             return False
-        
+
         # If validation token is provided, verify it matches
         if validation_token:
             expected_token = generate_subscription_validation_token(user.email, subscription_item_id)
             if validation_token != expected_token:
                 logger.error(f"Subscription validation failed: Invalid backend token for {user.email}")
                 return False
-        
+
         logger.info(f"Subscription validation successful for {user.email}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Subscription validation error for {user.email}: {e}")
         return False
@@ -148,32 +147,31 @@ def validate_subscription_with_backend_secret_cached(user: User, validation_toke
     if not user or not user.email:
         logger.warning("Subscription validation failed: No user or email")
         return False
-    
+
     try:
         # First check if user has active subscription (using cache)
         subscription_item_id = get_subscription_item_id_cached(user.email)
         if not subscription_item_id:
             logger.warning(f"Subscription validation failed: No active subscription for {user.email}")
             return False
-        
+
         # If validation token is provided, verify it matches
         if validation_token:
             expected_token = generate_subscription_validation_token(user.email, subscription_item_id)
             if validation_token != expected_token:
                 logger.error(f"Subscription validation failed: Invalid backend token for {user.email}")
                 return False
-        
+
         logger.info(f"Subscription validation successful for {user.email} (cached)")
         return True
-        
+
     except Exception as e:
         logger.error(f"Subscription validation error for {user.email}: {e}")
         return False
 
 
 def require_subscription_with_backend_validation(
-    user: User = Depends(get_current_user),
-    x_validation_token: str = Header(default=None, alias="X-Validation-Token")
+    user: User = Depends(get_current_user), x_validation_token: str = Header(default=None, alias="X-Validation-Token")
 ) -> User:
     """
     Enhanced subscription requirement with backend secret validation.
@@ -181,13 +179,10 @@ def require_subscription_with_backend_validation(
     """
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
-    
+
     if not validate_subscription_with_backend_secret(user, x_validation_token):
-        raise HTTPException(
-            status_code=403, 
-            detail="Active subscription with valid backend validation required"
-        )
-    
+        raise HTTPException(status_code=403, detail="Active subscription with valid backend validation required")
+
     return user
 
 
@@ -200,23 +195,23 @@ def get_subscription_status(user: User) -> dict:
         return {
             "is_subscribed": False,
             "subscription_required": True,
-            "message": "Please log in to access premium features"
+            "message": "Please log in to access premium features",
         }
-    
+
     try:
         subscription_item_id = get_subscription_item_id_cached(user.email)
         is_subscribed = subscription_item_id is not None
-        
+
         return {
             "is_subscribed": is_subscribed,
             "subscription_required": not is_subscribed,
             "message": "Subscribe to unlock premium features" if not is_subscribed else "Active subscription",
-            "subscription_item_id": subscription_item_id
+            "subscription_item_id": subscription_item_id,
         }
     except Exception as e:
         return {
             "is_subscribed": False,
             "subscription_required": True,
             "message": "Error checking subscription status",
-            "error": str(e)
+            "error": str(e),
         }

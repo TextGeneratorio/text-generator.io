@@ -1,14 +1,18 @@
-import gradio as gr
-import subprocess
 import logging
+import subprocess
+
+import gradio as gr
+
 from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
-import requests
-import re
 import asyncio
+import re
+
 import aiohttp
+import requests
+
 from questions.ai_wrapper import generate_with_claude
 
 
@@ -18,10 +22,12 @@ def is_domain_name(domain):
 
 def check_domain_availability(domain):
     command = f"whois {domain}"
-    whois_output = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True
-    )
-    if "No Object" in whois_output.stdout or "No Objects" in whois_output.stdout or "No Data Found" in whois_output.stdout:
+    whois_output = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
+    if (
+        "No Object" in whois_output.stdout
+        or "No Objects" in whois_output.stdout
+        or "No Data Found" in whois_output.stdout
+    ):
         return "Available"
     else:
         return "Taken"
@@ -44,9 +50,7 @@ def generate_domains(business_name, api_key):
         "seed": 0,
     }
 
-    res = requests.post(
-        "https://api.text-generator.io/api/v1/generate", json=data, headers=headers
-    )
+    res = requests.post("https://api.text-generator.io/api/v1/generate", json=data, headers=headers)
     logger.info(f"Response from Text-Generator.io: {res.text}")
 
     json_response = res.json()
@@ -61,6 +65,7 @@ def generate_domains(business_name, api_key):
 
     return list(domains)
 
+
 available_indicators = [
     "No Objects",
     "No Data Found",
@@ -71,12 +76,11 @@ available_indicators = [
     "No entries found",
 ]
 
+
 async def check_domain_availability_async(domain, session):
     command = f"whois {domain}"
     proc = await asyncio.create_subprocess_shell(
-        command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     stdout, stderr = await proc.communicate()
     output = stdout.decode().lower()
@@ -106,24 +110,22 @@ async def create_domain_spreadsheet_new(business_name, current_ideas):
     domains = await generate_domains_new(business_name, current_ideas)
     logger.info(f"Generated {len(domains)} domains for {business_name}")
     logger.info(f"Domains: {domains}")
-    
+
     async with aiohttp.ClientSession() as session:
         tasks = [check_domain_availability_async(domain, session) for domain in domains]
         availabilities = await asyncio.gather(*tasks)
-    
+
     results = list(zip(domains, availabilities))
     return results
 
 
 # Update the Gradio interface to use the new async function
 iface = gr.Interface(
-    fn=lambda business_name, current_ideas: asyncio.run(
-        create_domain_spreadsheet_new(business_name, current_ideas)
-    ),
+    fn=lambda business_name, current_ideas: asyncio.run(create_domain_spreadsheet_new(business_name, current_ideas)),
     inputs=[
         gr.Textbox(
             label="Business Description + search criteria etc",
-            placeholder="A coffee shop that specializes in artisanal roasts, short catchy names two words or less .com ideally"
+            placeholder="A coffee shop that specializes in artisanal roasts, short catchy names two words or less .com ideally",
         ),
         gr.Textbox(
             label="Current Domain Ideas",
@@ -139,7 +141,7 @@ iface = gr.Interface(
         ["An eco-friendly clothing brand", "greenthreads.com\nearthwear.org"],
         ["Architecture company, .com ideally, short ish but bold names", "architecturaly.com\narchitech.com"],
     ],
-    allow_flagging="never"
+    allow_flagging="never",
 )
 
 

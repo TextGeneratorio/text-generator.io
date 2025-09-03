@@ -1,14 +1,15 @@
 """
 Simple model cache that loads models from disk and caches them in memory. with a least recently used eviction policy.
 """
+
+import gc
 import logging
+import os
 from collections import OrderedDict
 from typing import Callable
-import os
-import gc
 
 import torch.cuda
-import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging()
@@ -48,18 +49,18 @@ class ModelCache:
                 try:
                     if type(evicted_model) == list or type(evicted_model) == tuple:
                         for model in evicted_model:
-                            model.to("cpu") # todo try each model to sometimes can fail/dont rely o
+                            model.to("cpu")  # todo try each model to sometimes can fail/dont rely o
                             # if model_name == "chat":
                             #     del model
 
-                except Exception as e:
+                except Exception:
                     # logging.info(e) # is probably fine
                     pass
                 try:
                     evicted_model.to("cpu")
                     # if model_name == "chat":
                     #     del evicted_model
-                except Exception as e:
+                except Exception:
                     pass
 
                 # chat_model needs hard eviction/reloading for some reason???
@@ -69,8 +70,7 @@ class ModelCache:
                 #     del evicted_model
                 #     del self.cache[evicted_model_name]
 
-
-                #breaks things
+                # breaks things
                 # from numba import cuda
                 # device = cuda.get_current_device()
                 # device.reset()
@@ -79,7 +79,7 @@ class ModelCache:
                 try:
                     gc.collect()
                     torch.cuda.empty_cache()
-                except Exception as e:
+                except Exception:
                     logger.info("restarting to fix cuda issues")
                     os.system("/usr/bin/bash kill -SIGHUP `pgrep gunicorn`")
                     os.system("kill -1 `pgrep gunicorn`")
@@ -95,7 +95,9 @@ class ModelCache:
                     if current_device != DEVICE:
                         model.to(DEVICE)
                         logging.info(f"switched model {model_name} to gpu")
-                        self.cache[model_name] = add_model_func() # should load idempotently/be used to reload custom model if needed?
+                        self.cache[model_name] = (
+                            add_model_func()
+                        )  # should load idempotently/be used to reload custom model if needed?
                         break
             except Exception as e:
                 logger.error(e)
@@ -108,8 +110,10 @@ class ModelCache:
                     # but if we forget to move to the gpu its a big deal/crashes
 
                     # self.cache[model_name].to(DEVICE)
-                    self.cache[model_name] = add_model_func() # should load idempotently/be used to reload custom model if needed?
-            except Exception as e:
+                    self.cache[model_name] = (
+                        add_model_func()
+                    )  # should load idempotently/be used to reload custom model if needed?
+            except Exception:
                 pass
             logging.info(f"ensured model {model_name} on gpu")
 
@@ -134,12 +138,12 @@ class ModelCache:
                     model.to("cpu")
                     del model
 
-            except Exception as e:
+            except Exception:
                 # logging.info(e) # is probably fine
                 pass
             try:
                 evicted_model.to("cpu")
-            except Exception as e:
+            except Exception:
                 pass
 
             # chat_model needs hard eviction/reloading for some reason???
@@ -154,10 +158,10 @@ class ModelCache:
                 # logger.info("restarting to fix cuda issues")
                 # os.system("/usr/bin/bash kill -SIGHUP `pgrep gunicorn`")
                 # os.system("kill -1 `pgrep gunicorn`")
+
     def unload_all_but_current_model_save_mem(self):
         models_to_evict = []
         for evicted_model_name, evicted_model in self.cache.items():
-
             logging.info(f"Evicting model {evicted_model_name} from cache")
             # iterate if is iterable
             try:
@@ -167,7 +171,7 @@ class ModelCache:
                         del model
                         models_to_evict.append(evicted_model_name)
             except Exception as e:
-                logging.info(e) # is probably fine
+                logging.info(e)  # is probably fine
                 pass
             try:
                 current_device = next(evicted_model.parameters()).device
@@ -175,7 +179,7 @@ class ModelCache:
                     del evicted_model
                     models_to_evict.append(evicted_model_name)
 
-            except Exception as e:
+            except Exception:
                 pass
 
             # chat_model needs hard eviction/reloading for some reason???
@@ -185,8 +189,8 @@ class ModelCache:
             # except Exception as e:
             #     logger.error("cuda error")
             #     logger.error(e)
-                # logger.info("restarting to fix cuda issues")
-                # os.system("/usr/bin/bash kill -SIGHUP `pgrep gunicorn`")
-                # os.system("kill -1 `pgrep gunicorn`")
+            # logger.info("restarting to fix cuda issues")
+            # os.system("/usr/bin/bash kill -SIGHUP `pgrep gunicorn`")
+            # os.system("kill -1 `pgrep gunicorn`")
         for model_name in models_to_evict:
             del self.cache[model_name]

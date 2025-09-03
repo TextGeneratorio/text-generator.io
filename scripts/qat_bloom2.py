@@ -1,20 +1,20 @@
-
 import torch
 from torch import nn
+
 """
 pip install intel-extension-for-pytorch
 pip install torch-quantization
 """
 backend = "fbgemm"  # running on a x86 CPU. Use "qnnpack" if running on ARM.
 from training_data import training_data_chunks
-from main import model, daemon
+
+from main import daemon, model
+
 daemon.join()
 
 from main import tokenizer
-from main import model
 
 model_fp32 = model
-
 
 
 # model must be set to train mode for QAT logic to work
@@ -25,12 +25,11 @@ model_fp32.train()
 # 'qnnpack' for mobile inference. Other quantization configurations such
 # as selecting symmetric or assymetric quantization and MinMax or L2Norm
 # calibration techniques can be specified here.
-model_fp32.qconfig = torch.quantization.get_default_qat_qconfig('fbgemm')
+model_fp32.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
 
 # fuse the activations to preceding layers, where applicable
 # this needs to be done manually depending on the model architecture
-model_fp32_fused = torch.quantization.fuse_modules(model_fp32,
-    [['conv', 'bn', 'relu']])
+model_fp32_fused = torch.quantization.fuse_modules(model_fp32, [["conv", "bn", "relu"]])
 
 # Prepare the model for QAT. This inserts observers and fake_quants in
 # the model that will observe weight and activation tensors during calibration.
@@ -47,9 +46,7 @@ quant_nn.QuantLinear.set_default_quant_desc_weight(weight_desc)
 # torch.quantization.fuse_modules(m, ['2','3'], inplace=True) # fuse second Conv-ReLU pair
 
 """Insert stubs"""
-m = nn.Sequential(torch.quantization.QuantStub(),
-                  m,
-                  torch.quantization.DeQuantStub())
+m = nn.Sequential(torch.quantization.QuantStub(), m, torch.quantization.DeQuantStub())
 
 
 """create dataset"""
@@ -63,11 +60,17 @@ torch.quantization.prepare_qat(m, inplace=True)
 """Training Loop"""
 n_epochs = 1
 opt = torch.optim.SGD(m.parameters(), lr=0.1)
-loss_fn = lambda out, tgt: torch.pow(tgt-out, 2).mean()
+
+
+def loss_fn(out, tgt):
+    return torch.pow(tgt - out, 2).mean()
+
+
 for epoch in range(n_epochs):
     for datum in xx_v:
-
-        out = m(input_ids=datum, )
+        out = m(
+            input_ids=datum,
+        )
         loss = loss_fn(out, torch.rand_like(out))
         opt.zero_grad()
         loss.backward()

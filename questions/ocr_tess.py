@@ -1,14 +1,14 @@
-from PIL import Image
+import re
 
 import pytesseract
-import re
-# from PyPDF2 import PdfReader
 
+# from PyPDF2 import PdfReader
 from questions.utils import log_time
 
 # If you don't have tesseract executable in your PATH, include the following:
 pytesseract.pytesseract.tesseract_cmd = r"/usr/bin/tesseract"
 # Example tesseract_cmd = r'C:\Program Files (x86)\Tesseract-OCR\tesseract'
+
 
 def ocr_tess(image) -> str:
     with log_time("OCR"):

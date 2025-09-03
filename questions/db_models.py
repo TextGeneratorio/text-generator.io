@@ -8,14 +8,10 @@ in NDB for now as the migration is focused on the authentication flow.
 
 import os
 
-from .sql_models import (
-    BaseModel,  # SQLAlchemy BaseModel
-    User,  # SQLAlchemy User model
-)
-
 # Only import NDB when needed for migration
 try:
     from google.cloud import ndb
+
     project = os.environ.get("GOOGLE_CLOUD_PROJECT", "local")
     client = ndb.Client(project=project, credentials=None)
     NDB_AVAILABLE = True
@@ -25,6 +21,7 @@ except ImportError:
     client = None
 
 if NDB_AVAILABLE:
+
     class NDBBaseModel(ndb.Model):
         """Base model for NDB entities with helper serialisation."""
 
@@ -44,17 +41,17 @@ if NDB_AVAILABLE:
         content = ndb.TextProperty()
         created = ndb.DateTimeProperty(auto_now_add=True)
         updated = ndb.DateTimeProperty(auto_now=True)
-        
+
         @classmethod
         def byId(cls, id):
             with client.context():
                 return ndb.Key(cls, id).get()
-        
+
         @classmethod
         def byUserId(cls, user_id):
             with client.context():
                 return cls.query(cls.user_id == user_id).order(-cls.updated).fetch()
-        
+
         @classmethod
         def save(cls, document):
             with client.context():
@@ -64,12 +61,13 @@ else:
     # Provide stub classes when NDB is not available
     class NDBBaseModel:
         """Stub class when NDB is not available."""
+
         pass
-    
+
     class Document(NDBBaseModel):
         """Stub class when NDB is not available."""
+
         pass
 
 # The :class:`User` model is now provided by ``questions.sql_models`` and
 # re-exported here for backwards compatibility with existing imports.
-

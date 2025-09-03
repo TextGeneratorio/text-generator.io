@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.inference, pytest.mark.audio]

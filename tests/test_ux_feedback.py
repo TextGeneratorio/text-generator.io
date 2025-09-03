@@ -1,7 +1,8 @@
-import pytest
-from questions.screenshot_utils import process_image
-from PIL import Image
 import io
+
+from PIL import Image
+
+from questions.screenshot_utils import process_image
 
 
 def test_process_image_downscales():

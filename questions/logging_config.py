@@ -4,21 +4,25 @@ import sys
 
 # Optional colorama import for colored output
 try:
-    from colorama import Fore, Style, init as colorama_init
+    from colorama import Fore, Style
+    from colorama import init as colorama_init
+
     colorama_init()
     HAS_COLORAMA = True
 except ImportError:
     HAS_COLORAMA = False
+
     # Fallback color codes or empty strings
     class Fore:
-        CYAN = ''
-        GREEN = ''
-        YELLOW = ''
-        RED = ''
-        MAGENTA = ''
-    
+        CYAN = ""
+        GREEN = ""
+        YELLOW = ""
+        RED = ""
+        MAGENTA = ""
+
     class Style:
-        RESET_ALL = ''
+        RESET_ALL = ""
+
 
 LEVEL_COLORS = {
     logging.DEBUG: Fore.CYAN,
@@ -28,11 +32,13 @@ LEVEL_COLORS = {
     logging.CRITICAL: Fore.MAGENTA,
 }
 
+
 class ColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        level_color = LEVEL_COLORS.get(record.levelno, '')
+        level_color = LEVEL_COLORS.get(record.levelno, "")
         record.levelname = f"{level_color}{record.levelname}{Style.RESET_ALL}"
         return super().format(record)
+
 
 def setup_logging(level: int = logging.INFO, use_cloud: bool = False) -> None:
     """Configure root logger.
@@ -48,17 +54,16 @@ def setup_logging(level: int = logging.INFO, use_cloud: bool = False) -> None:
     if env_level:
         level = logging.getLevelName(env_level.upper())  # type: ignore[arg-type]
     if os.environ.get("GOOGLE_CLOUD_LOGGING"):
-        use_cloud = True
-
+        pass
 
     root_logger = logging.getLogger()
     if root_logger.handlers:
         return
     root_logger.setLevel(level)
     use_color = os.environ.get("COLOR_LOGS", "1") != "0" and HAS_COLORAMA
-    fmt = '%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d - %(message)s'
+    fmt = "%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d - %(message)s"
     formatter_cls = ColorFormatter if use_color else logging.Formatter
-    formatter = formatter_cls(fmt, '%Y-%m-%d %H:%M:%S')
+    formatter = formatter_cls(fmt, "%Y-%m-%d %H:%M:%S")
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
@@ -87,4 +92,3 @@ def get_logger(name: str) -> logging.Logger:
     if not logging.getLogger().handlers:
         setup_logging()
     return logging.getLogger(name)
-

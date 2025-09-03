@@ -1,6 +1,6 @@
-from click.testing import CliRunner
-import requests
 import pytest
+import requests
+from click.testing import CliRunner
 
 from questions.tools.document_markdown_cli import main
 

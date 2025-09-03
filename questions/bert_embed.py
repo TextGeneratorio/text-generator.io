@@ -1,22 +1,23 @@
-from transformers import AutoModel, AutoTokenizer
+import logging
 import os
-import torch.nn as nn
-import torch
 
+import torch
+import torch.nn as nn
+from transformers import AutoModel, AutoTokenizer
+
+from questions.logging_config import setup_logging
 from questions.perplexity import DEVICE
 from questions.utils import log_time
-import logging
-from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
 
 class FeatureExtractModel(nn.Module):
     def __init__(self, checkpoint, freeze=False, device="cuda"):
         super().__init__()
         with log_time("bert load"):
             self.model = AutoModel.from_pretrained(checkpoint)
-        hidden_sz = self.model.config.hidden_size
         # set device cuda or cpu
         self.device = device
         # freeze model
@@ -25,7 +26,6 @@ class FeatureExtractModel(nn.Module):
                 layer.requires_grad = False
 
     def forward(self, x, attention_mask=None):
-
         x = x.to(self.device)
         # pooler_output(seq,dim)
         with torch.no_grad():
@@ -63,6 +63,7 @@ def get_modernbert():
         modernbert.to(DEVICE)
     return modernbert
 
+
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 
 
@@ -88,10 +89,12 @@ def get_bert_embeddings(sentences, model_cache):
 
     batch_sz = 200  # batch_size
     for idx in range(0, len(sentences), batch_sz):
-        batch_sentences = sentences[idx: idx + batch_sz]
+        batch_sentences = sentences[idx : idx + batch_sz]
         for sent in batch_sentences:
             tokens = tokenizer(
-                sent[:511], # can only do 512 tokens - likely can get away with less todo do this cutoff later after tokenization
+                sent[
+                    :511
+                ],  # can only do 512 tokens - likely can get away with less todo do this cutoff later after tokenization
                 truncation="longest_first",
                 return_tensors="pt",
                 return_attention_mask=True,

@@ -20,7 +20,7 @@ use_cases = {
         "title": "Spanish sentiment analysis - Text Generator API",
         "description": "Spanish tweet analysis - Decide si el sentimiento de un Tweet es positivo, neutral o negativo.",
         "generate_params": {
-            "text": "Decide si el sentimiento de un Tweet es positivo, neutral o negativo.\n\nTweet: \"¡Me encantó la nueva película de Batman!\"\nSentimiento: ",
+            "text": 'Decide si el sentimiento de un Tweet es positivo, neutral o negativo.\n\nTweet: "¡Me encantó la nueva película de Batman!"\nSentimiento: ',
             "number_of_results": 4,
             "max_length": 100,
             "max_sentences": 4,
