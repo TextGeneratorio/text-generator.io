@@ -560,25 +560,6 @@ async def feature_extraction(
     inference_result = fast_feature_extract_inference(
         feature_extract_params, MODEL_CACHE
     )
-<<<<<<< HEAD
-    if "X-Rapid-API-Key" not in request.headers:
-        # todo fix
-        if random.randint(1, 10) == 10:
-            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                #background_tasks.add_task(
-                 #   track_stripe_request_usage, secret=secret, quantity=1
-                #)
-                pass
-||||||| 3920d14
-    if "X-Rapid-API-Key" not in request.headers:
-        # todo fix
-        if random.randint(1, 10) == 10:
-            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                #background_tasks.add_task(
-                 #   track_stripe_request_usage, secret=secret, quantity=1
-                #)
-=======
->>>>>>> f3b511605688f6d89b9be686daca02f8b0a08773
     return inference_result[: feature_extract_params.num_features]
 
 
@@ -874,31 +855,32 @@ async def image_caption(
             
         elif image_url:
             # Handle image URL
-            import requests
+            import httpx
             
             logger.info(f"Downloading image from URL: {image_url}")
             
-            # Download image from URL
+            # Download image from URL asynchronously
             try:
-                response = requests.get(image_url, timeout=10)
-                if response.status_code != 200:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Failed to download image from URL: HTTP {response.status_code}"
-                    )
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(image_url, timeout=10.0)
+                    if response.status_code != 200:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Failed to download image from URL: HTTP {response.status_code}"
+                        )
+                    
+                    # Validate content type
+                    content_type = response.headers.get('Content-Type', '')
+                    if not content_type.startswith('image/'):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"URL does not point to an image. Content-Type: {content_type}"
+                        )
+                    
+                    image_bytes = response.content
+                    filename = image_url.split('/')[-1] or 'image_from_url'
                 
-                # Validate content type
-                content_type = response.headers.get('Content-Type', '')
-                if not content_type.startswith('image/'):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"URL does not point to an image. Content-Type: {content_type}"
-                    )
-                
-                image_bytes = response.content
-                filename = image_url.split('/')[-1] or 'image_from_url'
-                
-            except requests.exceptions.RequestException as e:
+            except httpx.HTTPError as e:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Failed to download image from URL: {str(e)}"
