@@ -1,72 +1,60 @@
 #!/usr/bin/env python
+import logging
 import os
 import random
 from io import BytesIO
 from tempfile import NamedTemporaryFile
-from typing import Union, List, Iterator
+from typing import List, Union
 
-from questions.inference_server.tts_utils import srt_format_timestamp, write_srt, synthesize_full_text
-
-import torch
 import numpy as np
+import torch
 import youtube_dl
-from fastapi import BackgroundTasks, UploadFile, File, Form
-from fastapi import Request, Header
+from fastapi import BackgroundTasks, File, Form, Header, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import logging
+
+from questions.inference_server.tts_utils import write_srt
 from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
+from typing import Optional
+
+from pydantic import BaseModel
 from starlette.responses import (
     JSONResponse,
     RedirectResponse,
     Response,
-    StreamingResponse,
-    HTMLResponse,
 )
 
 from questions.audio_server.audio_dl import request_get
 from questions.constants import weights_path_tgz
 from questions.db_models_postgres import User, get_db_session_sync
-from questions.auth import get_user_from_session
+from questions.image_captioning.gitbase_captioner import caption_image_bytes
+from questions.inference_server.kokoro import generate_full
 from questions.inference_server.model_cache import ModelCache
+from questions.inference_server.models import build_model
 from questions.models import (
-    GenerateParams,
+    AudioParams,
+    AudioParamsOrAudioFile,
     FeatureExtractParams,
+    GenerateParams,
+    GenerateSpeechParams,
     OpenaiParams,
+    SummarizationParams,
     map_to_generate_params,
     map_to_openai_response,
-    AudioParams,
-    GenerateSpeechParams,
-    AudioParamsOrAudioFile,
-    SummarizationParams,
-)
-from pydantic import BaseModel
-from typing import Optional
-from questions.payments.payments import (
-    get_subscription_item_id_for_user,
-    create_subscription_for_user,
-    get_subscription_item_id_for_user_email,
 )
 from questions.perplexity import DEVICE
 from questions.summarization import get_extractive_summary
 from questions.text_gen_pipeline import TextGenPipeline
 from questions.text_generator_inference import (
-    load_pipelines_and_model,
-    fast_inference,
     fast_feature_extract_inference,
+    fast_inference,
+    load_pipelines_and_model,
 )
 from questions.utils import log_time
 from sellerinfo import session_secret
-from questions.inference_server.models import build_model
-from questions.inference_server.kokoro import generate, generate_full
-
-import librosa
-
-from questions.inference_server.claude_queries import query_to_claude_async
-from questions.image_captioning.gitbase_captioner import caption_image_bytes
 
 assert TextGenPipeline is not None  # needed to override
 
@@ -81,8 +69,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 GCLOUD_STATIC_BUCKET_URL = "https://text-generatorstatic.text-generator.io/static"
-import sellerinfo
 import stripe
+
+import sellerinfo
 
 app = FastAPI(
     openapi_url="/openapi.json",
@@ -96,6 +85,7 @@ app = FastAPI(
 # Only import NeMo when needed for ASR functionality
 try:
     import nemo.collections.asr as nemo_asr
+
     NEMO_AVAILABLE = True
 except ImportError:
     NEMO_AVAILABLE = False
@@ -307,7 +297,7 @@ def track_stripe_request_usage(secret, quantity: int):
     # get the current user
     existing_user = session_dict.get(secret)
     db_user = None
-    
+
     if existing_user:
         existing_user.charges_monthly += int(quantity * 10)
         # Update user in database
@@ -343,7 +333,7 @@ def track_stripe_request_usage(secret, quantity: int):
 
     # Check if user has active subscription (no metering)
     from ..subscription_utils import check_user_subscription
-    
+
     has_subscription = check_user_subscription(existing_user)
     if not has_subscription:
         logger.warning(f"User {existing_user.email} does not have an active subscription")
@@ -366,15 +356,13 @@ def load_audio_model():
     global audio_model
     if not NEMO_AVAILABLE:
         raise ImportError("NeMo ASR is not available. Please install nemo-toolkit to use audio transcription.")
-    
+
     try:
         with log_time("load parakeet model"):
             if not audio_model:
                 logger.info("Loading Parakeet model from HuggingFace...")
                 # Try without download_root parameter first
-                audio_model = nemo_asr.models.ASRModel.from_pretrained(
-                    model_name="nvidia/parakeet-tdt-0.6b-v2"
-                )
+                audio_model = nemo_asr.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
                 audio_model.freeze()
                 logger.info("Parakeet model loaded and frozen")
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -385,13 +373,14 @@ def load_audio_model():
         logger.error(f"Error loading audio model: {e}")
         logger.error(f"Error type: {type(e)}")
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise
 
 
 def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
     audio_model = MODEL_CACHE.add_or_get("audio_model", load_audio_model)
-    
+
     # Prioritize audio_file if present, otherwise use audio_url
     if audio_params.audio_file is not None:
         audio_file = audio_params.audio_file
@@ -422,9 +411,7 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
                 ydl.download(
                     [audio_params.audio_url],
                 )
-                audio_bytes = ydl.prepare_filename(
-                    ydl.extract_info(audio_params.audio_url)
-                )
+                audio_bytes = ydl.prepare_filename(ydl.extract_info(audio_params.audio_url))
                 with open(audio_bytes, "rb") as f:
                     audio_bytes = f.read()
     else:
@@ -457,7 +444,6 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
         return {"text": nemo_result.text.strip(), "segments": segments}
 
 
-
 @app.post("/api/v1/audio-file-extraction")
 async def audio_file_extraction(
     background_tasks: BackgroundTasks,
@@ -476,9 +462,7 @@ async def audio_file_extraction(
         translate_to_english=translate_to_english,
         output_filetype=output_filetype,
     )
-    return await audio_extract_shared(
-        background_tasks, audio_params, request, response, secret
-    )
+    return await audio_extract_shared(background_tasks, audio_params, request, response, secret)
 
 
 @app.post("/api/v1/audio-extraction")
@@ -494,9 +478,7 @@ async def audio_extraction(
     #     return HTTPException(
     #         status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
     #     )
-    return await audio_extract_shared(
-        background_tasks, feature_extract_params, request, response, secret
-    )
+    return await audio_extract_shared(background_tasks, feature_extract_params, request, response, secret)
 
 
 # @app.get("/restart-server")
@@ -507,9 +489,7 @@ async def audio_extraction(
 #     return "restarting server"
 
 
-async def audio_extract_shared(
-    background_tasks, feature_extract_params, request, response, secret
-):
+async def audio_extract_shared(background_tasks, feature_extract_params, request, response, secret):
     # if not request_authorized(request, secret):
     #     return HTTPException(
     #         status_code=401,
@@ -523,6 +503,7 @@ async def audio_extract_shared(
         logger.error(f"Error in audio extraction: {e}")
         logger.error(f"Error type: {type(e)}")
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Audio extraction failed: {str(e)}")
     if "X-Rapid-API-Key" not in request.headers:
@@ -557,9 +538,7 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
-    inference_result = fast_feature_extract_inference(
-        feature_extract_params, MODEL_CACHE
-    )
+    inference_result = fast_feature_extract_inference(feature_extract_params, MODEL_CACHE)
     return inference_result[: feature_extract_params.num_features]
 
 
@@ -574,14 +553,14 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
-    text = get_extractive_summary(summarization_params.text, MODEL_CACHE, max_length=summarization_params.max_length or 0)
+    text = get_extractive_summary(
+        summarization_params.text, MODEL_CACHE, max_length=summarization_params.max_length or 0
+    )
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
         if random.randint(1, 10) == 10:
             if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                background_tasks.add_task(
-                    track_stripe_request_usage, secret=secret, quantity=1
-                )
+                background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
     return JSONResponse({"generated_text": text})
 
 
@@ -589,9 +568,7 @@ async def feature_extraction(
 async def liveness_check(request: Request):
     # global daemon
     inference_result = fast_inference(
-        generate_params=GenerateParams(
-            text="hi my friend", min_probability=0.9, max_length=1, model="any"
-        ),
+        generate_params=GenerateParams(text="hi my friend", min_probability=0.9, max_length=1, model="any"),
         model_cache=MODEL_CACHE,
     )
     return JSONResponse(inference_result)
@@ -634,7 +611,6 @@ def request_authorized(request: Request, secret):
 
 import soundfile as sf
 
-
 speech_processor = None
 speechgen_model = None
 speech_vocoder = None
@@ -667,9 +643,7 @@ def load_speechgen_model():
         ]
 
         for voice in voice_names:
-            voicepacks[voice] = torch.load(
-                f"models/voices/{voice}.pt", weights_only=True
-            ).to(device)
+            voicepacks[voice] = torch.load(f"models/voices/{voice}.pt", weights_only=True).to(device)
 
     return speechgen_model, voicepacks
 
@@ -716,9 +690,7 @@ async def generate_speech(
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
         if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-            background_tasks.add_task(
-                track_stripe_request_usage, secret=secret, quantity=1
-            )
+            background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
     # write np array to wav
     wav = write_wav(processed_np_speech, rate)
     file = Response(wav, media_type="audio/wav")
@@ -792,6 +764,7 @@ def audio_process(text, voice="af_nicole", speed=1.0):
 
 class ImageCaptionParams(BaseModel):
     """Parameters for image captioning"""
+
     image_url: Optional[str] = None
     fast_mode: bool = True
     custom_prompt: Optional[str] = None  # For future use if needed
@@ -808,51 +781,42 @@ async def image_caption(
 ):
     """
     Generate caption for uploaded image or image URL using GitBase model.
-    
+
     - **image_file**: Image file to caption (JPEG, PNG, WebP, etc.) OR
     - **image_url**: URL of image to caption
     - **fast_mode**: Use fast mode (true) or quality mode (false)
     - **secret**: Your API secret for authentication
-    
+
     Returns JSON with the generated caption.
     """
     # Validate that either file or URL is provided
     if not image_file and not image_url:
-        raise HTTPException(
-            status_code=400,
-            detail="Either image_file or image_url must be provided"
-        )
-    
+        raise HTTPException(status_code=400, detail="Either image_file or image_url must be provided")
+
     if image_file and image_url:
-        raise HTTPException(
-            status_code=400,
-            detail="Provide either image_file or image_url, not both"
-        )
-    
+        raise HTTPException(status_code=400, detail="Provide either image_file or image_url, not both")
+
     # Check authorization
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
             if not request_authorized(request, secret):
                 raise HTTPException(
                     status_code=401,
-                    detail="Invalid secret. Please subscribe at https://text-generator.io/subscribe and use your API secret"
+                    detail="Invalid secret. Please subscribe at https://text-generator.io/subscribe and use your API secret",
                 )
-    
+
     try:
         image_bytes = None
         filename = None
-        
+
         if image_file:
             # Handle uploaded file
-            if not image_file.content_type or not image_file.content_type.startswith('image/'):
-                raise HTTPException(
-                    status_code=400, 
-                    detail="File must be an image (JPEG, PNG, WebP, etc.)"
-                )
-            
+            if not image_file.content_type or not image_file.content_type.startswith("image/"):
+                raise HTTPException(status_code=400, detail="File must be an image (JPEG, PNG, WebP, etc.)")
+
             image_bytes = await image_file.read()
             filename = image_file.filename
-            
+
         elif image_url:
             # Handle image URL
             import httpx
@@ -888,51 +852,43 @@ async def image_caption(
         
         # Validate image size (limit to 10MB)
         if len(image_bytes) > 10 * 1024 * 1024:
-            raise HTTPException(
-                status_code=400,
-                detail="Image file too large. Maximum size is 10MB."
-            )
-        
-        logger.info(f"Processing image captioning request: {filename}, size: {len(image_bytes)} bytes, fast_mode: {fast_mode}")
-        
+            raise HTTPException(status_code=400, detail="Image file too large. Maximum size is 10MB.")
+
+        logger.info(
+            f"Processing image captioning request: {filename}, size: {len(image_bytes)} bytes, fast_mode: {fast_mode}"
+        )
+
         # Generate caption using GitBase
         with log_time("image captioning"):
-            caption = caption_image_bytes(
-                image_bytes=image_bytes, 
-                fast_mode=fast_mode
-            )
-        
+            caption = caption_image_bytes(image_bytes=image_bytes, fast_mode=fast_mode)
+
         logger.info(f"Generated caption: {caption}")
-        
+
         # Track usage for billing
         if request and background_tasks:
             if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
                 if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
                     # Image captioning costs 1 unit
-                    background_tasks.add_task(
-                        track_stripe_request_usage, 
-                        secret=secret, 
-                        quantity=1
-                    )
-        
-        return JSONResponse({
-            "caption": caption,
-            "filename": filename,
-            "fast_mode": fast_mode,
-            "model": "microsoft/git-base",
-            "source": "file" if image_file else "url"
-        })
-        
+                    background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
+
+        return JSONResponse(
+            {
+                "caption": caption,
+                "filename": filename,
+                "fast_mode": fast_mode,
+                "model": "microsoft/git-base",
+                "source": "file" if image_file else "url",
+            }
+        )
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in image captioning: {e}")
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Image captioning failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Image captioning failed: {str(e)}")
 
 
 # gradio web app at https://text-generator.io/gradio_tts
@@ -955,9 +911,7 @@ examples = [
     ],
 ]
 title = "Text To Speech"
-description = (
-    "<b>How to use:</b> Enter some English text and choose a speaker. Click Submit "
-)
+description = "<b>How to use:</b> Enter some English text and choose a speaker. Click Submit "
 article = """
 <p>Checkout the API docs at <a target="_blank" href="https://text-generator.io/docs">/docs</a></p>
 """
@@ -1119,9 +1073,7 @@ async def setcookie(secret: str, request: Request, response: Response):
 
 @app.get("/gradio_frame")
 async def gradio_frame_route(secret: str, request: Request):
-    return templates.TemplateResponse(
-        "templates/gradio-frame.jinja2", {"request": request, "secret": secret}
-    )
+    return templates.TemplateResponse("templates/gradio-frame.jinja2", {"request": request, "secret": secret})
 
 
 @app.post("/api/v1/generate")
@@ -1161,7 +1113,7 @@ async def discord_route(
     # secret: Union[str, None] = Header(default=None),
     # response: Response = None,
 ):
-    generate_params = GenerateParams(
+    GenerateParams(
         **{
             "text": "in 2022 the stock market has been expected to reach a record high.",
             "number_of_results": 1,
@@ -1189,13 +1141,10 @@ async def generate_route_bulk(
     # print(model.config.max_length)
     # print(tokenizer.model_max_length)
     # model.config.max_length = tokenizer.model_max_length
-    model = MODEL_CACHE.add_or_get(
-        "text_model", lambda: load_pipelines_and_model(weights_path_tgz)
-    )
+    MODEL_CACHE.add_or_get("text_model", lambda: load_pipelines_and_model(weights_path_tgz))
     # daemon.join()
     inference_results = []
     for generate_params in bulk_params:
-
         validation_result = validate_generate_params(generate_params)
         if validation_result:
             # return a 400 bad request from fast api
@@ -1260,10 +1209,7 @@ async def openai_route_named(
     if validation_result:
         # return a 400 bad request from fast api
         return HTTPException(status_code=400, detail=validation_result)
-    if (
-        "X-Rapid-API-Key" not in request.headers
-        and "x-rapid-api-key" not in request.headers
-    ):
+    if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         header_auth = request.headers.get("Authorization", " ")
         authorization_split = header_auth.split(" ")
         if len(authorization_split) == 2:
@@ -1278,9 +1224,7 @@ async def openai_route_named(
     if not openai_params.echo:
         ## remove all the inputs from the generated texts
         for i in range(len(inference_result)):
-            inference_result[i]["generated_text"] = inference_result[i][
-                "generated_text"
-            ][len(openai_params.prompt) :]
+            inference_result[i]["generated_text"] = inference_result[i]["generated_text"][len(openai_params.prompt) :]
     # map to openai response
     return map_to_openai_response(inference_result, generate_params)
 
@@ -1292,9 +1236,7 @@ async def openai_route(
     request: Request = None,
     secret: Union[str, None] = Header(default=None),
 ):
-    return await openai_route_named(
-        "engine", openai_params, background_tasks, request, secret
-    )
+    return await openai_route_named("engine", openai_params, background_tasks, request, secret)
 
 
 # redirect / to /docs
@@ -1501,12 +1443,6 @@ def tts_demo(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     logger.info("Starting inference server on port 9081")
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=9081, 
-        log_level="info",
-        access_log=True
-    )
+    uvicorn.run(app, host="0.0.0.0", port=9081, log_level="info", access_log=True)

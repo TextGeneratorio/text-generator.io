@@ -1,6 +1,5 @@
-
 import torch
-from torch import nn, tensor
+from torch import tensor
 
 """
 pip install intel-extension-for-pytorch
@@ -16,12 +15,12 @@ pip install torch-quantization
 
 backend = "fbgemm"  # running on a x86 CPU. Use "qnnpack" if running on ARM.
 from training_data import training_data_chunks
-from main import model, daemon
+
+from main import daemon, model
+
 daemon.join()
 
 from main import tokenizer
-from main import model
-
 from questions.text_generator_inference import DEVICE
 
 # m = model.deepcopy()
@@ -51,17 +50,21 @@ torch.quantization.prepare_qat(m, inplace=True)
 
 """Training Loop"""
 n_epochs = 1
-m = m.float() # do in fullprecision
+m = m.float()  # do in fullprecision
 opt = torch.optim.SGD(m.parameters(), lr=0.00000000001)
-loss_fn = lambda out, tgt: torch.pow(tgt-out, 2).mean()
+
+
+def loss_fn(out, tgt):
+    return torch.pow(tgt - out, 2).mean()
+
 
 for epoch in range(n_epochs):
     for datum in xx_v:
-
-        datum_tensor = tensor([datum['input_ids']], dtype=torch.int32, device=DEVICE)
-        out = m(input_ids=datum_tensor,
-                attention_mask=torch.ones(datum_tensor.shape, dtype=torch.int32, device=DEVICE),
-                )
+        datum_tensor = tensor([datum["input_ids"]], dtype=torch.int32, device=DEVICE)
+        out = m(
+            input_ids=datum_tensor,
+            attention_mask=torch.ones(datum_tensor.shape, dtype=torch.int32, device=DEVICE),
+        )
         # out_orig = model(input_ids=datum_tensor,
         #         attention_mask=torch.ones(datum_tensor.shape, dtype=torch.int32, device="cuda"),
         #         )

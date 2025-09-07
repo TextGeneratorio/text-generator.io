@@ -46,7 +46,8 @@ class TextGeneratorDocs {
     this.isGenerating = false;
     this.suggestionText = '';
     this.suggestionActive = false;
-    this.secret = this.getSecretKey();
+    // Use the secretKey from options if provided, otherwise fall back to getSecretKey()
+    this.secret = options.secretKey || this.getSecretKey();
     this.useClaudeForBulk = this.claudeToggle ? this.claudeToggle.checked : true;
     
     // Get or create anonymous user ID for localStorage
@@ -164,6 +165,17 @@ class TextGeneratorDocs {
   
   initEditor() {
     try {
+      // Check if Quill has already been initialized on this element
+      if (this.editorContainer.classList.contains('ql-container')) {
+        console.warn('Quill already initialized on this container, skipping...');
+        // Get the existing Quill instance if needed
+        const existingQuill = Quill.find(this.editorContainer);
+        if (existingQuill) {
+          this.editor = existingQuill;
+          return;
+        }
+      }
+      
       // Create inline suggestion blot
       const Inline = Quill.import('blots/inline');
       class SuggestionBlot extends Inline {
@@ -640,8 +652,14 @@ class TextGeneratorDocs {
     };
     
     try {
+      // Determine the correct API endpoint based on environment
+      const isLocal = window.location.hostname.includes('localhost') || 
+                     window.location.hostname.includes('127.0.0.1') || 
+                     window.location.hostname.includes('0.0.0.0');
+      const apiEndpoint = isLocal ? '/api/v1/generate' : 'https://text-generator.io/api/v1/generate';
+      
       // Use the correct API endpoint for text generation with secret key in header
-      const response = await fetch('https://api.text-generator.io/api/v1/generate', {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -5,7 +5,7 @@ pytestmark = pytest.mark.integration
 from starlette.testclient import TestClient
 
 from questions.inference_server.inference_server import app, generate_route, openai_route
-from questions.models import create_generate_params, GenerateParams, OpenaiParams
+from questions.models import GenerateParams, OpenaiParams, create_generate_params
 
 client = TestClient(app)
 
@@ -75,7 +75,7 @@ async def test_chopping_off_python():
     completions = response
     print(completions)
     assert len(completions) == 1
-    assert completions[0]["generated_text"][len(text):] == " python"
+    assert completions[0]["generated_text"][len(text) :] == " python"
 
 
 # @pytest.mark.asyncio
@@ -354,26 +354,17 @@ async def test_openai_mapping():
 @pytest.mark.asyncio
 async def test_long_gen_code_explain():
     text = "Explain this code:\n\nclass Enamel extends HTMLElement {\n  attemptPolyfillDSD() {\n    const dsd = this.querySelector('template[shadowroot]');\n\n    if (dsd?.content) {\n      const mode = dsd.getAttribute('shadowroot');\n      this.attachShadow({ mode });\n      this.shadowRoot.appendChild(dsd.content);\n\n      dsd.remove();\n\n      return true;\n    }\n\n    return false;\n  }\n\n  connectedCallback() {\n    if (\n      !HTMLTemplateElement.prototype.hasOwnProperty('shadowRoot') &&\n      !this.attemptPolyfillDSD()\n    ) {\n      const _observer = new MutationObserver(() => {\n        if (this.attemptPolyfillDSD()) {\n          _observer.disconnect();\n        }\n      });\n\n      _observer.observe(this, {\n        childList: true,\n      });\n    }\n  }\n}\n\nexport default Enamel;\n"
-    generate_params = GenerateParams(
-        **{
-            "text": text,
-            "max_length": 40
-        }
-    )
+    generate_params = GenerateParams(**{"text": text, "max_length": 40})
     response = await generate_route(generate_params)
     print(response)
 
     assert len(response[0]["generated_text"]) > len(text) + 1
 
+
 @pytest.mark.asyncio
 async def test_should():
     text = "hey i think that we sh"
-    generate_params = GenerateParams(
-        **{
-            "text": text,
-            "max_length": 40
-        }
-    )
+    generate_params = GenerateParams(**{"text": text, "max_length": 40})
     response = await generate_route(generate_params)
     print(response)
     assert len(response[0]["generated_text"]) > len(text) + 1

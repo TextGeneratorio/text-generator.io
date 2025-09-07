@@ -1,12 +1,13 @@
-from sellerinfo import CLAUDE_API_KEY
 import logging
+
 from questions.logging_config import setup_logging
+from sellerinfo import CLAUDE_API_KEY
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 import aiohttp
-from sellerinfo import CLAUDE_API_KEY
+
 
 async def generate_with_claude(prompt, prefill="", retries=3):
     api_key = CLAUDE_API_KEY
@@ -16,19 +17,13 @@ async def generate_with_claude(prompt, prefill="", retries=3):
         "X-API-Key": api_key,
         "anthropic-version": "2023-06-01",
     }
-    messages = [
-        {"role": "user", "content": prompt}
-    ]
-    
+    messages = [{"role": "user", "content": prompt}]
+
     logger.info(f"Claude in: {prompt}")
     if prefill:
         messages.append({"role": "assistant", "content": prefill})
-    data = {
-        "messages": messages,
-        "max_tokens": 2024,
-        "model": "claude-sonnet-4-20250514"
-    }
-    
+    data = {"messages": messages, "max_tokens": 2024, "model": "claude-sonnet-4-20250514"}
+
     async with aiohttp.ClientSession() as session:
         for attempt in range(retries):
             try:

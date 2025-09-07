@@ -1,7 +1,8 @@
+import logging
 from pathlib import Path
 
 from google.cloud import storage
-import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging(use_cloud=True)

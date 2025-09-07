@@ -1,11 +1,11 @@
+import re
 import types
 from pathlib import Path
-import re
 
 # Load only the text-normalization helpers from kokoro.py to avoid heavy deps
-lines = Path('questions/inference_server/kokoro.py').read_text().splitlines()
-code = "\n".join([l for l in lines[1:73] if 'phonemizer' not in l and 'torch' not in l])
-mod = types.ModuleType('kokoro_utils')
+lines = Path("questions/inference_server/kokoro.py").read_text().splitlines()
+code = "\n".join([l for l in lines[1:73] if "phonemizer" not in l and "torch" not in l])
+mod = types.ModuleType("kokoro_utils")
 exec(code, mod.__dict__)
 
 

@@ -1,5 +1,5 @@
-import numpy as np
 import pytest
+
 from questions.inference_server import tts_utils
 
 
@@ -16,9 +16,11 @@ def test_write_srt_basic():
     assert "1\n0:00:00,000 --> 0:00:01,000\nhello" in result
     assert "2\n0:00:01,000 --> 0:00:02,000\nworld" in result
 
+
 def test_chunk_text_words():
     result = tts_utils.chunk_text_words("a b c d e", 2)
     assert result == ["a b", "c d", "e"]
+
 
 def test_chunk_text_words_invalid():
     with pytest.raises(ValueError):

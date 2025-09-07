@@ -1,5 +1,6 @@
-import requests
 import os
+
+import requests
 
 headers = {"secret": os.getenv("TEXTGENERATOR_API_KEY")}
 
@@ -8,20 +9,20 @@ data = {
     "number_of_results": 3,
     "repetition_penalty": 1.17,
     "top_p": 0.38,
-    "max_length": 99
+    "max_length": 99,
 }
 
 response = requests.post(
-   # "https://api.text-generator.io/api/v1/generate",
-   # "http://localhost:8000/api/v1/generate",
-   "http://127.0.0.1:8000/api/v1/generate",
-   json=data,
-   headers=headers
+    # "https://api.text-generator.io/api/v1/generate",
+    # "http://localhost:8000/api/v1/generate",
+    "http://127.0.0.1:8000/api/v1/generate",
+    json=data,
+    headers=headers,
 )
 
 json_response = response.json()
 
 for generation in json_response:
-    generated_text = generation["generated_text"][len(data['text']):]
+    generated_text = generation["generated_text"][len(data["text"]) :]
     print(generated_text)
     assert generation["generated_text"].startswith(data["text"])

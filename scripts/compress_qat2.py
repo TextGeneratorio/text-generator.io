@@ -1,9 +1,7 @@
 import logging
-import os
 from collections import OrderedDict
-from typing import Dict, List
+from typing import Dict, List, Union
 from typing import OrderedDict as OD
-from typing import Union
 
 import datasets
 import numpy as np
@@ -11,8 +9,8 @@ import tensorrt as trt
 import torch
 import transformers
 from datasets import load_dataset, load_metric
-from tensorrt.tensorrt import IExecutionContext, Logger, Runtime
-
+from tensorrt.tensorrt import Logger, Runtime
+from transformer_deploy.QDQModels.calibration_utils import QATCalibrate
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -22,16 +20,6 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-
-from transformer_deploy.backends.ort_utils import (
-    cpu_quantization,
-    create_model_for_provider,
-    optimize_onnx,
-)
-from transformer_deploy.backends.pytorch_utils import convert_to_onnx
-from transformer_deploy.backends.trt_utils import build_engine, get_binding_idxs, infer_tensorrt
-from transformer_deploy.benchmarks.utils import print_timings, track_infer_time
-from transformer_deploy.QDQModels.calibration_utils import QATCalibrate
 
 log_level = logging.ERROR
 logging.getLogger().setLevel(log_level)
@@ -51,6 +39,7 @@ validation_key = "validation_matched"
 timings: Dict[str, List[float]] = dict()
 runtime: Runtime = trt.Runtime(trt_logger)
 profile_index = 0
+
 
 def preprocess_function(examples):
     return tokenizer(

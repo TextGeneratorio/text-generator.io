@@ -1,5 +1,3 @@
-import os
-
 import discord
 from discord.ext import commands
 
@@ -20,6 +18,7 @@ async def on_ready():  # When the bot is ready
     print("Hello Discord World from Text-generator.io")
     print(bot.user)  # Prints the bot's username and identifier
 
+
 import requests
 
 headers = {"secret": "7C2JbFYUdEAGXSbO2fb0ATl0tacgEAKu"}
@@ -35,13 +34,13 @@ data = {
     "top_k": 40,
     "temperature": 0.7,
     "repetition_penalty": 1.17,
-    "seed": 0
+    "seed": 0,
 }
 
 
 def get_text(prompt):
     data["text"] = prompt
-    input_len = len(data['text'])
+    input_len = len(data["text"])
 
     response = requests.post("https://api.text-generator.io/api/v1/generate", headers=headers, json=data)
 
@@ -65,10 +64,10 @@ async def textgen(interation: discord.Interaction, prompt: str):
 
 
 extensions = [
-    'cogs.cog_example'  # Same name as it would be if you were importing it
+    "cogs.cog_example"  # Same name as it would be if you were importing it
 ]
 
-if __name__ == '__main__':  # Ensures this is the file being ran
+if __name__ == "__main__":  # Ensures this is the file being ran
     for extension in extensions:
         bot.load_extension(extension)  # Loades every extension.
 

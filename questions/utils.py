@@ -1,15 +1,14 @@
 import http.cookies
+import logging
 import os
 import random
 import re
 import string
 import unicodedata
 from contextlib import contextmanager
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
-import logging
 from questions.logging_config import setup_logging
 
 setup_logging()
@@ -21,13 +20,14 @@ debug = (
     or Path("/models/debug.env").exists()
 )
 
+
 def random_string(size=6, chars=string.ascii_letters + string.digits):
-    """ Generate random string """
-    return ''.join(random.choice(chars) for _ in range(size))
+    """Generate random string"""
+    return "".join(random.choice(chars) for _ in range(size))
 
 
 def get_env_var(name, fallback_env_var=None, default=None):
-    """ Get environment variable with optional fallback """
+    """Get environment variable with optional fallback"""
     value = os.environ.get(name)
     if value is None and fallback_env_var:
         value = os.environ.get(fallback_env_var)
@@ -80,17 +80,18 @@ def log_time(prefix=""):
 
 
 def chunks(list, size):
-    """ Yield successive sized chunks from list. """
+    """Yield successive sized chunks from list."""
 
     for i in range(0, len(list), size):
-        yield list[i:i + size]
+        yield list[i : i + size]
 
 
 def encode(plainText):
     num = 0
     key = "0123456789abcdefghijklmnopqrstuvwxyz"
     key += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    for c in plainText: num = (num << 8) + ord(c)
+    for c in plainText:
+        num = (num << 8) + ord(c)
     encodedMsg = ""
     while num > 0:
         encodedMsg = key[num % len(key)] + encodedMsg
@@ -102,7 +103,8 @@ def decode(encodedMsg):
     num = 0
     key = "0123456789abcdefghijklmnopqrstuvwxyz"
     key += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    for c in encodedMsg: num = num * len(key) + key.index(c)
+    for c in encodedMsg:
+        num = num * len(key) + key.index(c)
     text = ""
     while num > 0:
         text = chr(num % 256) + text
@@ -125,15 +127,16 @@ def write_cookie(cls, COOKIE_NAME, COOKIE_VALUE, path, expires=7200):
     time_expire = time_expire.strftime("%a, %d-%b-%Y %H:%M:%S GMT")
 
     cls.response.headers.add_header(
-        'Set-Cookie',
-        COOKIE_NAME + '=' + COOKIE_VALUE + '; expires=' + str(time_expire) + '; path=' + path + '; HttpOnly')
+        "Set-Cookie",
+        COOKIE_NAME + "=" + COOKIE_VALUE + "; expires=" + str(time_expire) + "; path=" + path + "; HttpOnly",
+    )
     return
 
 
 def read_cookie(cls, name):
-    """ Use: cook.read(cls, COOKIE_NAME) """
+    """Use: cook.read(cls, COOKIE_NAME)"""
 
-    string_cookie = os.environ.get('HTTP_COOKIE', '')
+    string_cookie = os.environ.get("HTTP_COOKIE", "")
     cls.cookie = http.cookies.SimpleCookie()
     cls.cookie.load(string_cookie)
     value = None
@@ -162,12 +165,12 @@ EMAIL_REGEXP = "^.+\\@(\\[?)[a-zA-Z0-9\\-\\.]+\\.([a-zA-Z]{2,4}|[0-9]{1,3})(\\]?
 
 def is_email_valid(email):
     if len(email) > 7:
-        if re.match(EMAIL_REGEXP, email) != None:
+        if re.match(EMAIL_REGEXP, email) is not None:
             return 1
     return 0
 
 
-ALPHANUMERIC_REGEXP = "^\w+$"
+ALPHANUMERIC_REGEXP = r"^\w+$"
 
 
 def is_alphanumeric(field):
@@ -178,10 +181,12 @@ def is_alphanumeric(field):
 
 def get_device(cls):
     # TODO: Remove this function
-    uastring = cls.request.user_agent or 'unknown'
-    is_mobile = (("Mobile" in uastring and "Safari" in uastring) or \
-                 ("Windows Phone OS" in uastring and "IEMobile" in uastring) or \
-                 ("Blackberry") in uastring)
+    uastring = cls.request.user_agent or "unknown"
+    is_mobile = (
+        ("Mobile" in uastring and "Safari" in uastring)
+        or ("Windows Phone OS" in uastring and "IEMobile" in uastring)
+        or ("Blackberry") in uastring
+    )
 
     if "MSIE" in uastring:
         browser = "Explorer"
@@ -204,11 +209,7 @@ def get_device(cls):
     else:
         browser = "unknown"
 
-    device = {
-        "is_mobile": is_mobile,
-        "browser": browser,
-        "uastring": uastring
-    }
+    device = {"is_mobile": is_mobile, "browser": browser, "uastring": uastring}
     return device
 
 
@@ -246,14 +247,14 @@ def slugify(value):
 
     From Django's "django/template/defaultfilters.py".
     """
-    _slugify_strip_re = re.compile(r'[^\w\s-]')
-    _slugify_hyphenate_re = re.compile(r'[-\s]+')
+    _slugify_strip_re = re.compile(r"[^\w\s-]")
+    _slugify_hyphenate_re = re.compile(r"[-\s]+")
 
     if not isinstance(value, str):
         value = str(value)
-    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
-    value = str(_slugify_strip_re.sub('', value).strip().lower())
-    return _slugify_hyphenate_re.sub('-', value)
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore")
+    value = str(_slugify_strip_re.sub("", value).strip().lower())
+    return _slugify_hyphenate_re.sub("-", value)
 
 
 def parse_if_int(s):
@@ -517,4 +518,5 @@ COUNTRIES = [
     ("YE", "Yemen"),
     ("ZR", "Zaire"),
     ("ZM", "Zambia"),
-    ("ZW", "Zimbabwe")]
+    ("ZW", "Zimbabwe"),
+]

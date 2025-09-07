@@ -1,7 +1,7 @@
-import requests
 import pytest
+import requests
 
-from questions.document_processor import convert_to_markdown, convert_documents_async
+from questions.document_processor import convert_documents_async, convert_to_markdown
 
 pytestmark = [pytest.mark.integration, pytest.mark.internet]
 
@@ -20,20 +20,24 @@ def download(url, path):
 @pytest.fixture(scope="session")
 def docx_file(tmp_path_factory):
     from docx import Document
+
     path = tmp_path_factory.mktemp("docs") / "sample.docx"
     doc = Document()
     doc.add_paragraph("Hello World")
     doc.save(path)
     return path
 
+
 @pytest.fixture(scope="session")
 def pptx_file(tmp_path_factory):
     from pptx import Presentation
+
     path = tmp_path_factory.mktemp("docs") / "sample.pptx"
     prs = Presentation()
     prs.slides.add_slide(prs.slide_layouts[0])
     prs.save(path)
     return path
+
 
 @pytest.fixture(scope="session")
 def pdf_file(tmp_path_factory):

@@ -1,2 +1,24 @@
 line-length = 120
-exclude = [".venv"]
+exclude = [".venv", "jwt", "OFA", "chromews"]
+
+[lint]
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "W",  # pycodestyle warnings
+]
+ignore = [
+    "E402",  # module import not at top of file
+    "E741",  # ambiguous variable name
+    "F821",  # undefined name (often false positives)
+    "E721",  # type comparison
+    "E701",  # multiple statements on one line
+    "E722",  # bare except
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

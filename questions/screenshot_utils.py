@@ -1,8 +1,8 @@
 import base64
 import io
-from PIL import Image
 from typing import Tuple
 
+from PIL import Image
 
 ACCEPTED_SIZES: Tuple[Tuple[int, int], ...] = (
     (1092, 1092),

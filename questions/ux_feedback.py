@@ -1,8 +1,7 @@
-import asyncio
 from typing import Optional
 
-from .screenshot_utils import screenshot_url, process_image
 from .inference_server.claude_queries import query_to_claude_image_async
+from .screenshot_utils import process_image, screenshot_url
 
 
 async def analyze_site(url: str) -> Optional[str]:

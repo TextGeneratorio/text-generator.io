@@ -15,15 +15,12 @@ This notebook is a proof of concept for fine-tuning [GPT-J-6B](https://huggingfa
 # !pip install bitsandbytes-cuda111==0.26.0
 # !pip install datasets==1.16.1
 
-import transformers
-
 import torch
 import torch.nn.functional as F
+import transformers
+from bitsandbytes.functional import dequantize_blockwise, quantize_blockwise
 from torch import nn
-from torch.cuda.amp import custom_fwd, custom_bwd
-
-from bitsandbytes.functional import quantize_blockwise, dequantize_blockwise
-
+from torch.cuda.amp import custom_bwd, custom_fwd
 from tqdm.auto import tqdm
 
 """### Converting the model to 8 bits.
@@ -32,6 +29,7 @@ We convert EleutherAI's GPT-J-6B model to 8 bits using facebook's [bitsandbytes]
 
 Note that we don't convert linear layer biases to 8 bit as they take up less that 1% of the model's weight anyway.
 """
+
 
 class FrozenBNBLinear(nn.Module):
     def __init__(self, weight, absmax, code, bias=None):
@@ -62,8 +60,14 @@ class FrozenBNBLinear(nn.Module):
 class DequantizeAndLinear(torch.autograd.Function):
     @staticmethod
     @custom_fwd
-    def forward(ctx, input: torch.Tensor, weights_quantized: torch.ByteTensor,
-                absmax: torch.FloatTensor, code: torch.FloatTensor, bias: torch.FloatTensor):
+    def forward(
+        ctx,
+        input: torch.Tensor,
+        weights_quantized: torch.ByteTensor,
+        absmax: torch.FloatTensor,
+        code: torch.FloatTensor,
+        bias: torch.FloatTensor,
+    ):
         weights_deq = dequantize_blockwise(weights_quantized, absmax=absmax, code=code)
         ctx.save_for_backward(input, weights_quantized, absmax, code)
         ctx._has_bias = bias is not None
@@ -108,14 +112,14 @@ class FrozenBNBEmbedding(nn.Module):
         return f"{self.__class__.__name__}({self.num_embeddings}, {self.embedding_dim})"
 
 
-def quantize_blockise_lowmemory(matrix: torch.Tensor, chunk_size: int = 2 ** 20):
+def quantize_blockise_lowmemory(matrix: torch.Tensor, chunk_size: int = 2**20):
     assert chunk_size % 4096 == 0
     code = None
     chunks = []
     absmaxes = []
     flat_tensor = matrix.view(-1)
     for i in range((matrix.numel() - 1) // chunk_size + 1):
-        input_chunk = flat_tensor[i * chunk_size: (i + 1) * chunk_size].clone()
+        input_chunk = flat_tensor[i * chunk_size : (i + 1) * chunk_size].clone()
         quantized_chunk, (absmax_chunk, code) = quantize_blockwise(input_chunk, code=code)
         chunks.append(quantized_chunk)
         absmaxes.append(absmax_chunk)
@@ -149,8 +153,9 @@ def convert_to_int8(model):
                         weight=torch.zeros(child.num_embeddings, child.embedding_dim, dtype=torch.uint8),
                         absmax=torch.zeros((child.weight.numel() - 1) // 4096 + 1),
                         code=torch.zeros(256),
-                    )
+                    ),
                 )
+
 
 class GPTJBlock(transformers.models.gptj.modeling_gptj.GPTJBlock):
     def __init__(self, config):
@@ -179,12 +184,12 @@ tokenizer = transformers.AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
 
 gpt = GPTJForCausalLM.from_pretrained("hivemind/gpt-j-6B-8bit", low_cpu_mem_usage=True)
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = "cuda" if torch.cuda.is_available() else "cpu"
 gpt.to(device)
 
 """### Text generation example"""
 
-prompt = tokenizer("A cat sat on a mat", return_tensors='pt')
+prompt = tokenizer("A cat sat on a mat", return_tensors="pt")
 prompt = {key: value.to(device) for key, value in prompt.items()}
 out = gpt.generate(**prompt, min_length=128, max_length=128, do_sample=True)
 tokenizer.decode(out[0])
@@ -192,6 +197,7 @@ tokenizer.decode(out[0])
 """### LoRA fine-tuning example
 Here we demonstrate how to fine-tune the proposed model using low-rank adapters [(Hu et al, 2021)](https://arxiv.org/abs/2106.09685) and [8-bit Adam](https://arxiv.org/abs/2110.02861). We also use [dataset streaming API](https://huggingface.co/docs/datasets/dataset_streaming.html) to avoid downloading the large dataset.
 """
+
 
 def add_adapters(model, adapter_dim=16):
     assert adapter_dim > 0
@@ -210,11 +216,12 @@ def add_adapters(model, adapter_dim=16):
             )
             nn.init.zeros_(module.adapter[1].weight)
 
+
 add_adapters(gpt)
 gpt.to(device)
 
-from datasets import load_dataset
 from bitsandbytes.optim import Adam8bit
+from datasets import load_dataset
 
 gpt.gradient_checkpointing_enable()
 
@@ -226,13 +233,16 @@ with torch.cuda.amp.autocast():
         if len(row["content"]) <= 1:
             continue
 
-        batch = tokenizer(row["content"], truncation=True, max_length=128, return_tensors='pt')
+        batch = tokenizer(row["content"], truncation=True, max_length=128, return_tensors="pt")
         batch = {k: v.cuda() for k, v in batch.items()}
 
-        out = gpt.forward(**batch,)
+        out = gpt.forward(
+            **batch,
+        )
 
-        loss = F.cross_entropy(out.logits[:, :-1, :].flatten(0, -2), batch['input_ids'][:, 1:].flatten(),
-                               reduction='mean')
+        loss = F.cross_entropy(
+            out.logits[:, :-1, :].flatten(0, -2), batch["input_ids"][:, 1:].flatten(), reduction="mean"
+        )
         print(loss)
         loss.backward()
 

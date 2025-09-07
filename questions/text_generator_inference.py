@@ -1,37 +1,41 @@
+import logging
 import math
 import traceback
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
-from accelerate import Accelerator, infer_auto_device_map, dispatch_model
+from accelerate import Accelerator
+
 # from accelerate.utils import is_tpu_available
 from cachetools import TTLCache
-import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
+import os
+
 from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
     GPT2TokenizerFast,
     GPTNeoForCausalLM,
-    set_seed,
     StoppingCriteriaList,
-    pipeline, Pipeline,
+    pipeline,
+    set_seed,
 )
-import os
-from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from questions import link_enricher
 from questions.bert_embed import get_bert_embeddings_fast
-from questions.constants import weights_path_tg, weights_path_tgz, weights_path_tgc
+from questions.constants import weights_path_tg, weights_path_tgc, weights_path_tgz
 from questions.download_utils import download_model
-from questions.fixtures import set_stop_reason, get_stop_reason
-from questions.models import GenerateParams, FeatureExtractParams
+from questions.fixtures import get_stop_reason, set_stop_reason
+from questions.models import FeatureExtractParams, GenerateParams
 from questions.perplexity import get_perplexity
 from questions.post_process_results import post_process_results
-from questions.stopping_criteria import SentenceCriteria, MinProbCriteria, StopSequencesCriteria
-from questions.utils import log_time, debug
+from questions.stopping_criteria import MinProbCriteria, SentenceCriteria, StopSequencesCriteria
+from questions.utils import debug, log_time
 
 cuda_is_available = False
 try:
@@ -103,7 +107,6 @@ def load_model(weights_path):
 
     logger.info(f"loading model from {weights_path}")
 
-
     low_mem = True
     # model = GPT2LMHeadModel.from_pretrained('gpt2', low_cpu_mem_usage=low_mem, pad_token_id=tokenizer.eos_token_id)
     if "gpt-neo" in weights_path:
@@ -112,12 +115,15 @@ def load_model(weights_path):
             weights_path, pad_token_id=tokenizer.eos_token_id, low_cpu_mem_usage=low_mem
         )
     else:
-        tokenizer = AutoTokenizer.from_pretrained(weights_path, padding_side='left',trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(weights_path, padding_side="left", trust_remote_code=True)
 
-        model = AutoModelForCausalLM.from_pretrained(weights_path, low_cpu_mem_usage=low_mem,
-                                                     device_map="auto", #torch_dtype=torch.bfloat16,
-                                                     trust_remote_code=True,
-                                                     pad_token_id=tokenizer.eos_token_id)
+        model = AutoModelForCausalLM.from_pretrained(
+            weights_path,
+            low_cpu_mem_usage=low_mem,
+            device_map="auto",  # torch_dtype=torch.bfloat16,
+            trust_remote_code=True,
+            pad_token_id=tokenizer.eos_token_id,
+        )
     # elif "tg" in weights_path:
     #     tokenizer = BloomTokenizerFast.from_pretrained(weights_path)
 
@@ -127,7 +133,6 @@ def load_model(weights_path):
     # else:
     #     tokenizer = AutoTokenizer.from_pretrained(weights_path, )
     #     model = AutoModelForCausalLM.from_pretrained(weights_path, device_map="auto", torch_dtype=torch.bfloat16)
-
 
     full_vocab_tokens = list(range(tokenizer.vocab_size))
     # dont generate the pad token which is the eos_token_id which causes stopping!
@@ -174,9 +179,7 @@ def load_model(weights_path):
         # model = torch.nn.parallel.DistributedDataParallel(model, {})
 
         # todo currently causes quality issues w tg
-        model = torch.quantization.quantize_dynamic(
-            model, {torch.nn.Linear}, dtype=torch.qint8, inplace=True
-        )
+        model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8, inplace=True)
         logger.info("Quantizing model to 8bit")
 
     model.eval()
@@ -184,8 +187,8 @@ def load_model(weights_path):
     return tokenizer, model
 
 
-weights_to_tokens_with_prefix_dict = {
-}
+weights_to_tokens_with_prefix_dict = {}
+
 
 def create_tokens_with_prefix_dict(weights_path, vocab: Dict[str, int]) -> Dict[str, List[int]]:
     tokens_with_prefix_dict = defaultdict(list)
@@ -199,8 +202,8 @@ def create_tokens_with_prefix_dict(weights_path, vocab: Dict[str, int]) -> Dict[
 def all_first_and_last_token(tokenized_text):
     return tokenized_text[:-1], tokenized_text[-1]
 
-weights_to_full_vocab_tokens = {
-}
+
+weights_to_full_vocab_tokens = {}
 
 
 def run_feature_extractor(feature_extract_params: FeatureExtractParams, model_cache):
@@ -234,15 +237,11 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
         input_text = link_enricher.enrich_links(input_text)
     stopping_criteria_list = []
     if generate_params.max_sentences:
-        stopping_criteria_list.append(
-            SentenceCriteria(tokenizer, input_text, generate_params.max_sentences)
-        )
+        stopping_criteria_list.append(SentenceCriteria(tokenizer, input_text, generate_params.max_sentences))
     if generate_params.min_probability != 0:
         stopping_criteria_list.append(MinProbCriteria(generate_params.min_probability))
     if generate_params.stop_sequences:
-        stopping_criteria_list.append(
-            StopSequencesCriteria(tokenizer, input_text, generate_params.stop_sequences)
-        )
+        stopping_criteria_list.append(StopSequencesCriteria(tokenizer, input_text, generate_params.stop_sequences))
 
     # reduce the text to 1000 characters so that inference works
     # TODO long sentences are not handled well
@@ -418,9 +417,7 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
     #     decoded_results, initial_valid_tokens, input_text, original_input_text, tokenizer
     # )
 
-    proccesed_results = post_process_results(
-        decoded_results, generate_params, input_text, original_input_text
-    )
+    proccesed_results = post_process_results(decoded_results, generate_params, input_text, original_input_text)
     ## count the amount of bytes taken by the decoded proccesed_results
     byte_count = 0
     for result in proccesed_results:
@@ -441,13 +438,13 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
 # import torch._dynamo
 # torch._dynamo.config.suppress_errors = True # try its best to compile even if it fails
 
+
 def load_pipelines_and_model(weights_path):
     global weights_to_model
     global weights_to_generator
     global weights_to_tokenizer
-    pipeline_device = 0 if DEVICE == "cuda" else -1
     if DEVICE == "tpu":
-        pipeline_device = xm.xla_device()
+        xm.xla_device()
     model = weights_to_model.get(weights_path)
     tokenizer = weights_to_tokenizer.get(weights_path)
     if not model:
@@ -455,9 +452,7 @@ def load_pipelines_and_model(weights_path):
         # dontneed to compile
         # model = torch.compile(model)
     # sometimes we already have the model and it may have been swapped out so ensure its on the device
-    model.to(
-        DEVICE
-    )
+    model.to(DEVICE)
     del weights_to_model[weights_path]
     del weights_to_generator[weights_path]
     del weights_to_tokenizer[weights_path]
@@ -465,7 +460,9 @@ def load_pipelines_and_model(weights_path):
 
     weights_to_model[weights_path] = model
     weights_to_generator[weights_path] = pipeline(
-        "text-generation", model=model, tokenizer=tokenizer,# device=pipeline_device
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,  # device=pipeline_device
     )
     # move pipeline to gpu
     # weights_to_generator[weights_path].to(DEVICE)
@@ -535,6 +532,7 @@ def ensure_best_model_loaded(generate_params, model_cache) -> str:
 # ttl cache with 10min expiration
 prefix_cache = TTLCache(maxsize=10000, ttl=600)
 
+
 def fast_inference(generate_params: GenerateParams, model_cache=None):
     with torch.no_grad():
         with log_time("inference"):
@@ -542,7 +540,7 @@ def fast_inference(generate_params: GenerateParams, model_cache=None):
             if model_cache is not None:
                 prefix = generate_params.text[:6]
                 best_weights_path = prefix_cache.get(prefix)
-                if generate_params.min_probability is not None and generate_params.min_probability > .05:
+                if generate_params.min_probability is not None and generate_params.min_probability > 0.05:
                     # if the min probability is less than 50% we want to use the non instruct model for autocomplete allways
                     best_weights_path = weights_path_tg
                 # if generate_params.model == "chat":
@@ -553,9 +551,13 @@ def fast_inference(generate_params: GenerateParams, model_cache=None):
                 #     weights_to_model[weights_path_tg] = None
                 #     weights_to_generator[weights_path_tgz] = None
                 #     weights_to_generator[weights_path_tg] = None
-                if generate_params.model == 'chat': # tmp fix tmp issues with chat model
-                    generate_params.model = 'multilingual'
-                if generate_params.model == "any" or generate_params.model == "fastest" or generate_params.model == "best":
+                if generate_params.model == "chat":  # tmp fix tmp issues with chat model
+                    generate_params.model = "multilingual"
+                if (
+                    generate_params.model == "any"
+                    or generate_params.model == "fastest"
+                    or generate_params.model == "best"
+                ):
                     # any is allways what's loaded in memory to be the fastest
                     if model_cache.most_recent_name:
                         best_weights_path = name_key_to_weights.get(model_cache.most_recent_name, weights_path_tgz)

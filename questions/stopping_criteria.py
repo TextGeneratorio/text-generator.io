@@ -1,6 +1,6 @@
+import torch
 from nltk import sent_tokenize
 from transformers import StoppingCriteria
-import torch
 
 from questions.fixtures import set_stop_reason
 
@@ -51,11 +51,10 @@ class SentenceCriteria(StoppingCriteria):
         self.input_text = input_text
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-
         # detokenize the input input_ids
         ## no batching todo batching, 0 is the first item
         input_string = self.tokenizer.decode(input_ids[0])
-        generated_string = input_string[len(self.input_text):]
+        generated_string = input_string[len(self.input_text) :]
 
         # if the input is a sentence, return true which stops
         # use smart sentence detection from ntlk
@@ -76,7 +75,6 @@ class StopSequencesCriteria(StoppingCriteria):
     """
 
     def __init__(self, tokenizer, input_text, stop_sequences):
-
         self.tokenizer = tokenizer
         self.stop_sequences = stop_sequences
         self.input_text = input_text
@@ -84,14 +82,10 @@ class StopSequencesCriteria(StoppingCriteria):
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
         # detokenize the input input_ids
         input_string = self.tokenizer.decode(input_ids[0])
-        generated_string = input_string[len(self.input_text):]
+        generated_string = input_string[len(self.input_text) :]
         for sequence in self.stop_sequences:
             if sequence in generated_string:
                 set_stop_reason(sequence)
                 return True
 
         return False
-
-
-
-

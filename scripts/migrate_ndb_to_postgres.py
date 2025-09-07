@@ -5,9 +5,9 @@ information except for passwords into the SQL database.  Users will be prompted
 to set a password on first login.
 """
 
-import os
 from google.cloud import ndb
-from questions.sql_models import User, SessionLocal, Base, engine
+
+from questions.sql_models import Base, SessionLocal, User, engine
 
 
 class NDBUser(ndb.Model):

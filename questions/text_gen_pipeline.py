@@ -1,8 +1,6 @@
 from transformers import TextGenerationPipeline
 from transformers.pipelines import SUPPORTED_TASKS
 
-from questions.fixtures import get_stop_reason
-
 
 class TextGenPipeline(TextGenerationPipeline):
     def _forward(self, model_inputs, **generate_kwargs):

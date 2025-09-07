@@ -1,5 +1,6 @@
+from typing import Callable, Iterator, List, Optional, Tuple
+
 import numpy as np
-from typing import Callable, Iterator, Tuple, List, Optional
 
 
 def srt_format_timestamp(seconds: float) -> str:
