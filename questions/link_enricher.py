@@ -1,28 +1,26 @@
-import os
+import logging
 import re
 import traceback
 from io import BytesIO
-from pathlib import Path
 from typing import FrozenSet
 
 import bs4
 import cachetools
-from PIL import Image
 from cachetools import cached
-import logging
+from PIL import Image
+
 from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 from requests_futures.sessions import FuturesSession
+
+from questions.image_captioning.gitbase_captioner import caption_image_bytes
 from questions.inference_server.model_cache import ModelCache
 
 # change into OFA dir
-from questions.image_utils.scaler import scale_down
 from questions.ocr_tess import ocr_tess
-from questions.utils import log_time, debug
-from questions.image_captioning.gitbase_captioner import caption_image_bytes
-
+from questions.utils import debug, log_time
 
 session = FuturesSession(max_workers=10)
 
@@ -30,6 +28,8 @@ session = FuturesSession(max_workers=10)
 # link_regex = "(?P<url>https?://[A-Za-z0-9_.~!*'();:@&=+$,/?#[%-]]+)"
 # link_regex=r"\b((?:https?://)?(?:(?:www\.)?(?:[\da-z\.-]+)\.(?:[a-z]{2,6})|(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|(?:(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])))(?::[0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])?(?:/[%\w\.-]*)*/?)\b"
 link_regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
+
+
 # captures groups :/
 def get_urls(string):
     urls = re.findall(link_regex, string)
@@ -92,32 +92,33 @@ audio_mime_types = [
     "audio/mp3",
 ]
 
-ocr_tags = ["receipt", 'screenshot', 'licence', 'document', 'paper', 'sign', 'advert', 'book', 'logo', 'screen']
+ocr_tags = ["receipt", "screenshot", "licence", "document", "paper", "sign", "advert", "book", "logo", "screen"]
 
 LINK_MODEL_CACHE = ModelCache()
+
 
 def get_caption_for_image_response(response, prompt="Describe this image."):
     """Get image caption using GitBase model"""
     response.raw.decode_content = True
     image_bytes = response.content
-    
+
     with log_time("image captioning"):
         # Use GitBase for image captioning
         caption = caption_image_bytes(
             image_bytes=image_bytes,
-            fast_mode=True  # Use fast mode for link enrichment
+            fast_mode=True,  # Use fast mode for link enrichment
         )
-        
+
         if debug:
             logger.info(f"Image description: {caption}")
-            
+
         # Check if OCR might be needed based on caption content
         if any(ocr_tag in caption.lower() for ocr_tag in ocr_tags):
             img = Image.open(BytesIO(image_bytes))
             with log_time("OCR"):
                 ocr_data = ocr_tess(img)
                 caption += " " + ocr_data
-                
+
     return caption
 
 
@@ -151,16 +152,12 @@ def get_titles_from_urls(urls: FrozenSet[str], long_description=False):  # todo 
                 title = get_title_from_html(response.text, long_description)
                 titles.append(title)
             # if its an image use azure captioning to get text
-            elif (
-                response.status_code == 200 and response.headers["Content-Type"] in image_mime_types
-            ):
+            elif response.status_code == 200 and response.headers["Content-Type"] in image_mime_types:
                 with log_time("image captioning"):
                     title = get_caption_for_image_response(response)
 
                 titles.append(title)
-            elif (
-                    response.status_code == 200 and response.headers["Content-Type"] in audio_mime_types
-            ):
+            elif response.status_code == 200 and response.headers["Content-Type"] in audio_mime_types:
                 # todo audio analysis
                 # failed
                 titles.append(None)

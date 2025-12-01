@@ -14,7 +14,7 @@ def get_perplexity(model, tokenizer, text, stride=512):
     with torch.no_grad():
         with log_time("get_perplexity"):
             input_ids = tokenizer.encode(text, return_tensors="pt").to(DEVICE)
-            max_length = 512 # model.config.n_positions is not set for bloom models only gpt2
+            max_length = 512  # model.config.n_positions is not set for bloom models only gpt2
             seq_len = input_ids.size(1)
 
             nlls = []
@@ -42,4 +42,3 @@ def get_perplexity(model, tokenizer, text, stride=512):
 
             ppl = torch.exp(torch.stack(nlls).sum() / end_loc)
             return ppl.item()
-

@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.internet, pytest.mark.inference, pytest.mark.audio]
@@ -35,9 +36,7 @@ def test_generate_speech_route_single_voice():
         text="Text-Generator.io is bringing the cost of intelligence toward zero.",
         speaker="Male fast",
     )
-    response = client.post(
-        "/api/v1/generate_speech", json=audio_params.__dict__, headers=headers
-    )
+    response = client.post("/api/v1/generate_speech", json=audio_params.__dict__, headers=headers)
     assert response.status_code == 200, response.text
     binary_file_response = response.content
     assert binary_file_response is not None
@@ -60,9 +59,7 @@ def test_generate_speech_route_all_voices():
             text="Text-Generator.io is bringing the cost of intelligence toward zero.",
             speaker=speaker,
         )
-        response = client.post(
-            "/api/v1/generate_speech", json=audio_params.__dict__, headers=headers
-        )
+        response = client.post("/api/v1/generate_speech", json=audio_params.__dict__, headers=headers)
         assert response.status_code == 200, response.text
         binary_file_response = response.content
         assert binary_file_response is not None

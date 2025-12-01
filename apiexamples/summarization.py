@@ -1,23 +1,20 @@
-import requests
 import os
+
+import requests
 
 API_KEY = os.getenv("TEXT_GENERATOR_API_KEY")
 if API_KEY is None:
     raise Exception(
-        "Please set TEXT_GENERATOR_API_KEY environment variable, login to https://text-generator.io to get your API key")
+        "Please set TEXT_GENERATOR_API_KEY environment variable, login to https://text-generator.io to get your API key"
+    )
 headers = {"secret": API_KEY}
 
+
 def generate_summary(text, max_length=1000):
-    params = {
-        "text": text,
-        "max_length": max_length
-    }
-    response = requests.post(
-        "https://api.text-generator.io/api/v1/summarization",
-        json=params,
-        headers=headers
-    )
+    params = {"text": text, "max_length": max_length}
+    response = requests.post("https://api.text-generator.io/api/v1/summarization", json=params, headers=headers)
     return response.json()["summary"]
+
 
 # Example usage
 long_text = """

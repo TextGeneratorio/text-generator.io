@@ -1,11 +1,13 @@
-import bcrypt
+import os
 import secrets
 import string
 from typing import Optional
-from fastapi import HTTPException, Request, Depends
+
+import bcrypt
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+
 from .db_models_postgres import User, get_db
-import os
 
 # Configuration
 BCRYPT_ROUNDS = 12
@@ -28,7 +30,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 def generate_random_string(length: int = 32) -> str:
     """Generate a random string for secrets."""
     alphabet = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def generate_user_id() -> str:
@@ -41,13 +43,13 @@ def authenticate_user(email: str, password: str, db: Session) -> Optional[User]:
     user = User.get_by_email(db, email)
     if not user:
         return None
-    
+
     if not user.password_hash:
         return None
-    
+
     if not verify_password(password, user.password_hash):
         return None
-    
+
     return user
 
 
@@ -57,26 +59,23 @@ def create_user(email: str, password: str, db: Session) -> User:
     existing_user = User.get_by_email(db, email)
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
-    
+
     # Create new user
     user = User(
-        id=generate_user_id(),
-        email=email,
-        password_hash=hash_password(password),
-        secret=generate_random_string(32)
+        id=generate_user_id(), email=email, password_hash=hash_password(password), secret=generate_random_string(32)
     )
-    
+
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     return user
 
 
 def login_or_create_user(email: str, password: str, db: Session) -> User:
     """Login user or create if doesn't exist (migration-friendly)."""
     user = User.get_by_email(db, email)
-    
+
     if user and user.password_hash:
         # Existing user with password - verify it
         if not verify_password(password, user.password_hash):
@@ -84,18 +83,14 @@ def login_or_create_user(email: str, password: str, db: Session) -> User:
     else:
         # New user or existing user without password (from Firebase migration)
         if not user:
-            user = User(
-                id=generate_user_id(),
-                email=email,
-                secret=generate_random_string(32)
-            )
+            user = User(id=generate_user_id(), email=email, secret=generate_random_string(32))
             db.add(user)
-        
+
         # Set password
         user.password_hash = hash_password(password)
         db.commit()
         db.refresh(user)
-    
+
     return user
 
 
@@ -118,26 +113,26 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optiona
     """Get current user from session cookie or header."""
     # Try to get from session cookie
     secret = request.cookies.get("session_secret")
-    
+
     # Try to get from Authorization header
     if not secret:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             secret = auth_header[7:]
-    
+
     if not secret:
         return None
-    
+
     # First try from memory cache
     user = get_user_from_session(secret)
     if user:
         return user
-    
+
     # Fallback to database lookup
     user = User.get_by_secret(db, secret)
     if user:
         set_session_for_user(user)
-    
+
     return user
 
 

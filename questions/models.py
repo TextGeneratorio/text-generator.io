@@ -1,5 +1,5 @@
 from time import time
-from typing import Optional, List
+from typing import List, Optional
 
 from fastapi import UploadFile
 from pydantic import BaseModel
@@ -26,6 +26,7 @@ class AudioParams(BaseModel):
     output_filetype: str = "txt"
     """The output filetype of the audio file, either txt or srt for a subtitles file importable into youtube"""
 
+
 class AudioParamsOrAudioFile(AudioParams):
     audio_file: Optional[UploadFile]
 
@@ -40,10 +41,13 @@ class SpeechSegment(BaseModel):
     avg_logprob: float
     compression_ratio: float
     no_speech_prob: float
+
+
 class AudioReturn(BaseModel):
     text: str
     segments: List[SpeechSegment]
     language: str
+
 
 class GenerateParams(BaseModel):
     text: str
@@ -66,6 +70,7 @@ class GenerateParams(BaseModel):
 
     model: Optional[str] = None
     system_message: Optional[str] = None
+
 
 class GenerateSpeechParams(BaseModel):
     text: str
@@ -94,16 +99,16 @@ class OpenaiParams(BaseModel):
     stop: Optional[List[str]] = []
 
     stream: bool = False  # unused
-    suffix: str = False # unused
+    suffix: str = False  # unused
 
     # advanced params
     top_p: Optional[float] = 0.9
     top_k: Optional[int] = 40
     temperature: Optional[float] = 0.7
-    repetition_penalty: Optional[float]  = 1.2
+    repetition_penalty: Optional[float] = 1.2
 
-    frequency_penalty: Optional[float]  = 1.2  # unused
-    presense_penalty: Optional[float]  = 1.2  # unused
+    frequency_penalty: Optional[float] = 1.2  # unused
+    presense_penalty: Optional[float] = 1.2  # unused
 
 
 def map_to_generate_params(openai_params: OpenaiParams) -> GenerateParams:
@@ -172,6 +177,7 @@ class FeatureExtractParams(BaseModel):
     text: str
     num_features: Optional[int]
 
+
 class SummarizationParams(BaseModel):
     text: str
     max_length: Optional[int]
@@ -207,7 +213,7 @@ def create_generate_params(
     top_p=0.9,
     top_k=40,
     temperature=0.7,
-    model='best',
+    model="best",
 ):
     params = {}
     params["text"] = text

@@ -1,14 +1,15 @@
 import os
 from datetime import datetime
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text
+
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///data.db')
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///data.db")
 
-if DATABASE_URL.startswith('sqlite'):
-    connect_args = {'check_same_thread': False}
-    if DATABASE_URL == 'sqlite:///:memory:':
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+    if DATABASE_URL == "sqlite:///:memory:":
         engine = create_engine(
             DATABASE_URL,
             connect_args=connect_args,
@@ -25,18 +26,20 @@ else:
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
+
 class BaseModel(Base):
     __abstract__ = True
 
     def to_dict(self):
         result = {c.name: getattr(self, c.name) for c in self.__table__.columns}
         for k, v in result.items():
-            if hasattr(v, 'isoformat'):
+            if hasattr(v, "isoformat"):
                 result[k] = v.isoformat()
         return result
 
+
 class User(BaseModel):
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
     id = Column(String, primary_key=True)
     email = Column(String, unique=True, index=True)
@@ -80,7 +83,7 @@ class User(BaseModel):
 
 
 class Document(BaseModel):
-    __tablename__ = 'documents'
+    __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, nullable=False, index=True)
@@ -118,6 +121,7 @@ class Document(BaseModel):
                 session.commit()
                 session.refresh(document)
                 return document
+
 
 # Initialize the tables if they don't exist
 Base.metadata.create_all(bind=engine)

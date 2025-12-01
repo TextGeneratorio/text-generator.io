@@ -1,10 +1,7 @@
 import gradio as gr
-import librosa
 import numpy as np
 import torch
-
-from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
-
+from transformers import SpeechT5ForTextToSpeech, SpeechT5HifiGan, SpeechT5Processor
 
 checkpoint = "microsoft/speecht5_tts"
 processor = SpeechT5Processor.from_pretrained(checkpoint)
@@ -29,7 +26,7 @@ def predict(text, speaker):
 
     # limit input length
     input_ids = inputs["input_ids"]
-    input_ids = input_ids[..., :model.config.max_text_positions]
+    input_ids = input_ids[..., : model.config.max_text_positions]
 
     if speaker == "Surprise Me!":
         # load one of the provided speaker embeddings at random
@@ -45,7 +42,7 @@ def predict(text, speaker):
         x[x == 0] = -1.0
         speaker_embedding *= x
 
-        #speaker_embedding = np.random.rand(512).astype(np.float32) * 0.3 - 0.15
+        # speaker_embedding = np.random.rand(512).astype(np.float32) * 0.3 - 0.15
     else:
         speaker_embedding = np.load(speaker_embeddings[speaker[:3]])
 
@@ -100,34 +97,42 @@ examples = [
     ["It is not in the stars to hold our destiny but in ourselves.", "BDL (male)"],
     ["The octopus and Oliver went to the opera in October.", "CLB (female)"],
     ["She sells seashells by the seashore. I saw a kitten eating chicken in the kitchen.", "male slower"],
-    ["Brisk brave brigadiers brandished broad bright blades, blunderbusses, and bludgeons—balancing them badly.", "SLT (female)"],
+    [
+        "Brisk brave brigadiers brandished broad bright blades, blunderbusses, and bludgeons—balancing them badly.",
+        "SLT (female)",
+    ],
     ["A synonym for cinnamon is a cinnamon synonym.", "BDL (male)"],
-    ["How much wood would a woodchuck chuck if a woodchuck could chuck wood? He would chuck, he would, as much as he could, and chuck as much wood as a woodchuck would if a woodchuck could chuck wood.", "CLB (female)"],
+    [
+        "How much wood would a woodchuck chuck if a woodchuck could chuck wood? He would chuck, he would, as much as he could, and chuck as much wood as a woodchuck would if a woodchuck could chuck wood.",
+        "CLB (female)",
+    ],
 ]
 
 choices_map = {
-            "Male fast": "BDL (male)",
-            "Female 1": "CLB (female)",
-            "Male default": "KSP (male)",
-            "Male slower": "RMS (male)",
-            "Female 2": "SLT (female)",
+    "Male fast": "BDL (male)",
+    "Female 1": "CLB (female)",
+    "Male default": "KSP (male)",
+    "Male slower": "RMS (male)",
+    "Female 2": "SLT (female)",
 }
 audio_app = gr.Interface(
     fn=predict,
     inputs=[
         gr.Text(label="Input Text"),
-        gr.Radio(label="Speaker", choices=[
-            "Male fast",
-            "Female 1",
-            "Male default",
-            "Male slower",
-            "Female 2",
-            # "Surprise Me!"
-        ],
-        value="BDL (male)"),
-# auth header
+        gr.Radio(
+            label="Speaker",
+            choices=[
+                "Male fast",
+                "Female 1",
+                "Male default",
+                "Male slower",
+                "Female 2",
+                # "Surprise Me!"
+            ],
+            value="BDL (male)",
+        ),
+        # auth header
         gr.Text(label="Secret Key", default=get_secret),
-
     ],
     outputs=[
         gr.Audio(label="Generated Speech", type="numpy"),

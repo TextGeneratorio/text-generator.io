@@ -1,15 +1,15 @@
 import json
+import logging
 import os
 
 import requests
-import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 from use_cases_to_generate import use_cases
-from scripts.openai_examples import openai_examples_map
 
 
 def make_request(use_case, retries=0):

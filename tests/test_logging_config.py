@@ -1,5 +1,5 @@
-import logging
 import importlib
+import logging
 from types import ModuleType
 
 import questions.logging_config as logging_config
@@ -19,7 +19,7 @@ def reload_module(module: ModuleType) -> ModuleType:
 def test_setup_logging_basic(monkeypatch):
     reload_module(logging_config)
     reset_root_logger()
-    monkeypatch.setenv('COLOR_LOGS', '0')
+    monkeypatch.setenv("COLOR_LOGS", "0")
     logging_config.setup_logging(level=logging.DEBUG)
     logger = logging.getLogger()
     assert logger.level == logging.DEBUG
@@ -29,7 +29,7 @@ def test_setup_logging_basic(monkeypatch):
 def test_setup_logging_level_env(monkeypatch):
     reload_module(logging_config)
     reset_root_logger()
-    monkeypatch.setenv('LOG_LEVEL', 'ERROR')
+    monkeypatch.setenv("LOG_LEVEL", "ERROR")
     logging_config.setup_logging()
     logger = logging.getLogger()
     assert logger.level == logging.ERROR
@@ -38,7 +38,6 @@ def test_setup_logging_level_env(monkeypatch):
 def test_get_logger_initializes(monkeypatch):
     reload_module(logging_config)
     reset_root_logger()
-    monkeypatch.delenv('LOG_LEVEL', raising=False)
-    logger = logging_config.get_logger('test')
+    monkeypatch.delenv("LOG_LEVEL", raising=False)
+    logger = logging_config.get_logger("test")
     assert isinstance(logger, logging.Logger)
-

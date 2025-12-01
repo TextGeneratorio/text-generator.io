@@ -1,7 +1,7 @@
-import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 
 from questions.utils import log_time
+
 set_seed(42)
 
 mm1b = AutoModelForCausalLM.from_pretrained("models/tg-7b1")
@@ -22,6 +22,7 @@ mm1b = mm1b.cuda()
 
 # textgeneration piepline
 from transformers import pipeline
+
 # pipe = pipeline("text-generation", model=mm1b, tokenizer=tokenizer1b, device=0)
 pipe = pipeline("text-generation", model=mm1b, tokenizer=tokenizer1b, device=0)
 with log_time("pipeline"):
@@ -46,6 +47,7 @@ m = m.to("cuda")
 
 # textgeneration piepline
 from transformers import pipeline
+
 pipe = pipeline("text-generation", model=m, tokenizer=tokenizer, device=0)
 pipe = pipeline("text-generation", model=m, tokenizer=tokenizer, device=0)
 l = pipe("Hello, my dog is cute")
@@ -80,6 +82,7 @@ mm1b = mm1b.to("cuda")
 
 # textgeneration piepline
 from transformers import pipeline
+
 pipe = pipeline("text-generation", model=mm1b, tokenizer=tokenizer1b, device=0)
 newpipe = pipe("Hello, my dog is cute")
 mm1b = mm1b.to("cpu")

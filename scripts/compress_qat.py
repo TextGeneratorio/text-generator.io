@@ -9,18 +9,18 @@ import sys
 
 CURRENT_PATH = os.path.abspath(os.path.dirname(__file__))
 
-sys.path.insert(1, os.path.join(CURRENT_PATH, '../'))
+sys.path.insert(1, os.path.join(CURRENT_PATH, "../"))
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from examples.models.cifar10 import mobilenet
 from tinynn.converter import TFLiteConverter
 from tinynn.graph.quantization.quantizer import QATQuantizer
 from tinynn.prune import OneShotChannelPruner
 from tinynn.util.cifar10 import get_dataloader, train_one_epoch, validate
 from tinynn.util.train_util import DLContext, get_device, train
-from examples.models.cifar10 import mobilenet
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 
 def main_worker(args):
@@ -66,7 +66,7 @@ def main_worker(args):
     print("\n###### Start preparing the model for quantization ######")
     # We provides a QATQuantizer class that may rewrite the graph for and perform model fusion for quantization
     # The model returned by the `quantize` function is ready for QAT training
-    quantizer = QATQuantizer(model, dummy_input, work_dir='out')
+    quantizer = QATQuantizer(model, dummy_input, work_dir="out")
     qat_model = quantizer.quantize()
 
     print("\n###### Start quantization-aware training ######")
@@ -95,18 +95,18 @@ def main_worker(args):
         qat_model = torch.quantization.convert(qat_model)
 
         # When converting quantized models to TFLite, please ensure the quantization backend is QNNPACK.
-        torch.backends.quantized.engine = 'qnnpack'
+        torch.backends.quantized.engine = "qnnpack"
 
         # The code section below is used to convert the model to the TFLite format
-        converter = TFLiteConverter(qat_model, dummy_input, tflite_path='out/qat_model.tflite')
+        converter = TFLiteConverter(qat_model, dummy_input, tflite_path="out/qat_model.tflite")
         converter.convert()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-path', metavar='DIR', default="/data/datasets/cifar10", help='path to cifar10 dataset')
-    parser.add_argument('--workers', type=int, default=8)
-    parser.add_argument('--batch-size', type=int, default=256)
+    parser.add_argument("--data-path", metavar="DIR", default="/data/datasets/cifar10", help="path to cifar10 dataset")
+    parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=256)
 
     args = parser.parse_args()
     main_worker(args)

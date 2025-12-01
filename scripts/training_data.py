@@ -1357,7 +1357,6 @@ Text is available under the Creative Commons Attribution-ShareAlike License 3.0;
 Privacy policyAbout WikipediaDisclaimersContact WikipediaMobile viewDevelopersStatisticsCookie statementWikimedia FoundationPowered by MediaWiki"""
 
 
-
 training_data_chunks = []
 for i in range(1000, len(training_data), 1000):
-    training_data_chunks.append(training_data[i-1000:i])
+    training_data_chunks.append(training_data[i - 1000 : i])

@@ -1,7 +1,9 @@
 import json
-import os
-import requests
 import logging
+import os
+
+import requests
+
 from questions.logging_config import setup_logging
 
 setup_logging()

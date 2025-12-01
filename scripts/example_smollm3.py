@@ -1,5 +1,5 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def main():
@@ -16,11 +16,9 @@ def main():
     model_inputs = tokenizer([text], return_tensors="pt").to(device)
 
     generated_ids = model.generate(**model_inputs, max_new_tokens=128)
-    output_ids = generated_ids[0][len(model_inputs.input_ids[0]):]
+    output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
     print(tokenizer.decode(output_ids, skip_special_tokens=True))
-
 
 
 if __name__ == "__main__":
     main()
-

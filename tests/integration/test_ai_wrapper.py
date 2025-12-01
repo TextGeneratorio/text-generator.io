@@ -4,6 +4,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.internet]
 
 from questions.ai_wrapper import generate_with_claude
 
+
 @pytest.mark.asyncio
 async def test_generate_with_claude():
     prompt = "What is the capital of France?"

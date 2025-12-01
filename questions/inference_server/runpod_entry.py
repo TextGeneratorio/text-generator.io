@@ -1,19 +1,16 @@
-from fastapi import FastAPI
-import json
-import time
 import argparse
-from uvicorn import Config, Server
+import json
 from pathlib import Path
+
+from uvicorn import Config, Server
 
 # Import our existing FastAPI app from inference_server
 from questions.inference_server.inference_server import app as inference_app
 
 # Optional: you could store or manipulate model data, configs, etc. if desired
-model_data = {
-    "object": "list",
-    "data": []
-}
+model_data = {"object": "list", "data": []}
 configs = []
+
 
 def run(config_path: str = None, host: str = "0.0.0.0", port: int = 3000):
     """
@@ -25,10 +22,10 @@ def run(config_path: str = None, host: str = "0.0.0.0", port: int = 3000):
         config_path = Path(config_path)
         if config_path.exists():
             with open(config_path) as fp:
-                config_dict = json.load(fp)
+                json.load(fp)
             # Here you can adapt or process config_dict as needed
             # For now, we just demonstrate reading and ignoring it.
-    
+
     # Launch server
     config = Config(
         app=inference_app,
@@ -38,6 +35,7 @@ def run(config_path: str = None, host: str = "0.0.0.0", port: int = 3000):
     )
     server = Server(config=config)
     server.run()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

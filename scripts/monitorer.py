@@ -1,6 +1,7 @@
+import logging
 import subprocess
 from time import sleep
-import logging
+
 from questions.logging_config import setup_logging
 
 setup_logging()
@@ -16,6 +17,7 @@ def get_status_code(url):
         logger.error(e)
         return e
 
+
 while True:
     status = get_status_code("https://api.text-generator.io/liveness_check")
     if status != 200:
@@ -23,8 +25,8 @@ while True:
         print("error")
 
         while True:
-            process = subprocess.Popen(["espeak", "-s", "120",  "error"], stdout=subprocess.PIPE)
+            process = subprocess.Popen(["espeak", "-s", "120", "error"], stdout=subprocess.PIPE)
 
             sleep(20)
         output, error = process.communicate()
-    sleep(5 * 60) # 5 minutes
+    sleep(5 * 60)  # 5 minutes
