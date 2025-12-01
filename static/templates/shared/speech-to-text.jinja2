@@ -118,6 +118,11 @@ print(requests.post(url, json=data, headers=headers).json())
     
     codeBtn.addEventListener('click', () => {
         codeExamples.classList.toggle('hidden');
+        if (secret) {
+            codeExamples.querySelectorAll('code').forEach(block => {
+                block.textContent = block.textContent.replace(/YOUR_API_KEY/g, secret);
+            });
+        }
     });
     runUrlBtn.addEventListener('click', async () => {
         const audioUrl = document.getElementById('audioUrl').value;
@@ -202,6 +207,83 @@ print(requests.post(url, json=data, headers=headers).json())
             mediaRecorder.stop();
         }
     });
+
+    // Test mode: run Jasmine tests when ?test=true
+    if (new URLSearchParams(window.location.search).get('test') === 'true') {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jasmine/4.6.0/jasmine.min.js';
+        script.onload = () => {
+            const htmlScript = document.createElement('script');
+            htmlScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jasmine/4.6.0/jasmine-html.min.js';
+            htmlScript.onload = () => {
+                const bootScript = document.createElement('script');
+                bootScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jasmine/4.6.0/boot0.min.js';
+                bootScript.onload = () => {
+                    const boot1Script = document.createElement('script');
+                    boot1Script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jasmine/4.6.0/boot1.min.js';
+                    boot1Script.onload = runSpeechToTextTests;
+                    document.head.appendChild(boot1Script);
+                };
+                document.head.appendChild(bootScript);
+            };
+            document.head.appendChild(htmlScript);
+        };
+        document.head.appendChild(script);
+
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://cdnjs.cloudflare.com/ajax/libs/jasmine/4.6.0/jasmine.min.css';
+        document.head.appendChild(css);
+    }
+
+    function runSpeechToTextTests() {
+        describe('Speech to Text Page', () => {
+            it('should have code examples with YOUR_API_KEY placeholder', () => {
+                const codeExamples = document.getElementById('codeExamples');
+                expect(codeExamples).toBeTruthy();
+                expect(codeExamples.textContent).toContain('YOUR_API_KEY');
+            });
+
+            it('should fetch user secret from /api/current-user', (done) => {
+                expect(typeof checkAuthAndGetSecret).toBe('function');
+                done();
+            });
+
+            it('should replace YOUR_API_KEY with actual secret when authenticated', (done) => {
+                const testSecret = 'test_secret_12345';
+                const originalSecret = secret;
+                secret = testSecret;
+
+                codeExamples.classList.remove('hidden');
+                codeBtn.click();
+
+                setTimeout(() => {
+                    const codeBlocks = codeExamples.querySelectorAll('code');
+                    let replaced = false;
+                    codeBlocks.forEach(block => {
+                        if (block.textContent.includes(testSecret)) {
+                            replaced = true;
+                        }
+                    });
+                    expect(replaced).toBe(true);
+                    secret = originalSecret;
+                    done();
+                }, 100);
+            });
+
+            it('should have transcribe buttons', () => {
+                expect(document.getElementById('runUrl')).toBeTruthy();
+                expect(document.getElementById('runFile')).toBeTruthy();
+            });
+
+            it('should have audio recording controls', () => {
+                expect(document.getElementById('recordBtn')).toBeTruthy();
+                expect(document.getElementById('stopBtn')).toBeTruthy();
+            });
+        });
+
+        jasmine.getEnv().execute();
+    }
 </script>
 </body>
 </html>
