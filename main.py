@@ -1003,25 +1003,43 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
 async def api_signup(
     request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)
 ):
-    """Signup endpoint with fallback to in-memory storage"""
+    """Signup endpoint - creates new user or logs in existing user."""
     logger.info(f"Signup attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
+
+    # Check if this is an AJAX request or form submission
+    accept_header = request.headers.get("accept", "")
+    is_ajax = "application/json" in accept_header or request.headers.get("x-requested-with") == "XMLHttpRequest"
 
     if USE_POSTGRES:
         logger.info("Using PostgreSQL signup")
         try:
-            user = create_user(email, password, db)
+            # Use login_or_create_user to auto-login existing users
+            user = login_or_create_user(email, password, db)
             set_session_for_user(user)
 
-            # Create Stripe customer
+            # Create/update Stripe customer
             stripe_id = get_or_create_stripe_customer(email, user.id)
             if stripe_id:
                 user.stripe_id = stripe_id
                 db.commit()
                 db.refresh(user)
             else:
-                logger.error(f"Failed to create Stripe customer for new user {email}")
+                logger.error(f"Failed to create Stripe customer for user {email}")
 
-            # Set session_secret cookie
+            # For form submissions, redirect to playground
+            if not is_ajax:
+                response = RedirectResponse(url="/playground", status_code=303)
+                response.set_cookie(
+                    key="session_secret",
+                    value=user.secret,
+                    httponly=True,
+                    secure=False,  # Set to True in production with HTTPS
+                    samesite="lax",
+                    path="/",
+                )
+                return response
+
+            # For AJAX requests, return JSON
             response = JSONResponse(user.to_dict())
             response.set_cookie(
                 key="session_secret",
@@ -1032,10 +1050,18 @@ async def api_signup(
                 path="/",
             )
             return response
-        except HTTPException:
+        except HTTPException as e:
+            # For form submissions with errors, redirect back to signup with error
+            if not is_ajax:
+                error_msg = e.detail if hasattr(e, 'detail') else "Signup failed"
+                response = RedirectResponse(url=f"/signup?error={error_msg}", status_code=303)
+                return response
             raise
         except Exception as e:
             logger.error(f"PostgreSQL signup error: {e}")
+            if not is_ajax:
+                response = RedirectResponse(url="/signup?error=Signup+failed", status_code=303)
+                return response
             raise HTTPException(status_code=500, detail="Signup failed")
     else:
         # Fallback to simple in-memory user creation

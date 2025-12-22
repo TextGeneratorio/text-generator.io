@@ -703,17 +703,20 @@ async function submitSignup() {
     try {
         const response = await fetch('/api/signup', {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {
+                'Accept': 'application/json'
+            }
         });
-        
+
         const result = await response.json();
         
         if (response.ok) {
-            // Success - set session and redirect
+            // Success - set session and redirect to playground
             document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
             closeSignupModal();
             updateHeaderForLoggedInUser(result);
-            window.location.href = '/subscribe';
+            window.location.href = '/playground';
         } else {
             let errorMessage = 'Account creation failed';
             if (response.status === 409) {
