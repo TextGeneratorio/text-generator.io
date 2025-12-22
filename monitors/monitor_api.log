@@ -1,2 +1,0 @@
-2025-12-03T03:06:02.332306+00:00 Starting monitor for https://api.text-generator.io/liveness_check, interval=900s
-2025-12-03T03:06:02.630219+00:00 https://api.text-generator.io/liveness_check UP
