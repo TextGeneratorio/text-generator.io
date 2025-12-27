@@ -587,8 +587,24 @@ async def create_checkout_session_embedded(
 
             stripe_id = user.stripe_id
             if not stripe_id:
-                logger.error(f"Stripe ID not found for user: {user.email}")
-                return JSONResponse({"error": "User payment info not found"}, status_code=400)
+                # Create Stripe customer for user who doesn't have one
+                try:
+                    customer = stripe.Customer.create(
+                        email=user.email,
+                        idempotency_key=user.email,
+                    )
+                    # Re-query user in current session to avoid detached instance error
+                    from questions.db_models_postgres import User
+                    db_user = db.query(User).filter(User.id == user.id).first()
+                    if db_user:
+                        db_user.stripe_id = customer.id
+                        db.commit()
+                        db.refresh(db_user)
+                    stripe_id = customer.id
+                    logger.info(f"Created Stripe customer {stripe_id} for user {user.email}")
+                except Exception as e:
+                    logger.error(f"Failed to create Stripe customer for user {user.email}: {e}")
+                    return JSONResponse({"error": "Failed to set up payment info"}, status_code=500)
         except HTTPException:
             raise
         except Exception as e:
@@ -849,8 +865,13 @@ async def get_user(request: Request, db: Session = Depends(get_db)):
 
             if not user.is_subscribed:
                 # recreate stripe customer if required - remediates users being created in test mode
-                customer = stripe.Customer.retrieve(user.stripe_id)
-                if not customer or not customer.id:
+                customer = None
+                if user.stripe_id:
+                    try:
+                        customer = stripe.Customer.retrieve(user.stripe_id)
+                    except Exception:
+                        customer = None
+                if not customer or not getattr(customer, 'id', None):
                     customer = stripe.Customer.create(  # type: ignore
                         email=user.email,
                         idempotency_key=user.email,
@@ -889,8 +910,13 @@ async def get_user_stripe_usage(request: Request, db: Session = Depends(get_db))
 
             if not user.is_subscribed:
                 # recreate stripe customer if required - remediates users being created in test mode
-                customer = stripe.Customer.retrieve(user.stripe_id)
-                if not customer or not customer.id:
+                customer = None
+                if user.stripe_id:
+                    try:
+                        customer = stripe.Customer.retrieve(user.stripe_id)
+                    except Exception:
+                        customer = None
+                if not customer or not getattr(customer, 'id', None):
                     customer = stripe.Customer.create(  # type: ignore
                         email=user.email,
                         idempotency_key=user.email,
@@ -1110,6 +1136,47 @@ async def api_logout(request: Request):
     response = JSONResponse({"message": "Logged out successfully"})
     response.delete_cookie("session_secret", path="/")
     return response
+
+
+@app.post("/api/delete-account")
+async def api_delete_account(request: Request, db: Session = Depends(get_db)):
+    """Delete user account - removes user from database and cancels Stripe subscriptions"""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=501, detail="Account deletion not available without PostgreSQL")
+
+    try:
+        user = get_current_user(request, db)
+        if not user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        user_email = user.email
+        user_stripe_id = user.stripe_id
+
+        # Cancel any active Stripe subscriptions
+        if user_stripe_id:
+            try:
+                subscriptions = stripe.Subscription.list(customer=user_stripe_id, status="active")
+                for sub in subscriptions.data:
+                    stripe.Subscription.cancel(sub.id)
+                    logger.info(f"Cancelled subscription {sub.id} for user {user_email}")
+            except Exception as e:
+                logger.warning(f"Error cancelling subscriptions for user {user_email}: {e}")
+
+        # Delete user from database
+        db.delete(user)
+        db.commit()
+        logger.info(f"Deleted user account: {user_email}")
+
+        # Clear session cookie
+        response = JSONResponse({"message": "Account deleted successfully"})
+        response.delete_cookie("session_secret", path="/")
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting account: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete account")
 
 
 @app.post("/api/upload-image")
