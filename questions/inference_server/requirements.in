@@ -12,9 +12,9 @@ mccabe
 six>=1.16.0
 uvicorn
 wrapt>=1.16.0
-transformers>=4.53.2
-tokenizers
-accelerate
+transformers>=4.57.0
+tokenizers>=0.21.0
+accelerate>=1.12.0
 flash-attn>=2.8.0
 
 triton>=2.2.0
@@ -22,12 +22,12 @@ triton>=2.2.0
 # pip3 install --pre torch torchvision torchaudio --find-links https://download.pytorch.org/whl/nightly/cu121
 # torch
 # torchaudio
---find-links https://download.pytorch.org/whl/nightly/cu129
-torch
---find-links https://download.pytorch.org/whl/nightly/cu129
-torchvision
---find-links https://download.pytorch.org/whl/nightly/cu129
-torchaudio
+--find-links https://download.pytorch.org/whl/cu124
+torch>=2.7.0
+--find-links https://download.pytorch.org/whl/cu124
+torchvision>=0.22.0
+--find-links https://download.pytorch.org/whl/cu124
+torchaudio>=2.7.0
 
 youtube_dl
 anthropic
@@ -102,3 +102,9 @@ pydantic>=2.6.1
 # Text-to-speech requirements
 phonemizer>=3.0.0
 munch>=4.0.0
+
+# Profiling and benchmarking
+py-spy>=0.4.0
+snakeviz>=2.2.0
+line_profiler>=4.2.0
+memory_profiler>=0.61.0

@@ -1,0 +1,40 @@
+{
+  "device": "cuda",
+  "cuda_available": true,
+  "results": [
+    {
+      "text_size": "tiny",
+      "text_length": 12,
+      "token_count": 14,
+      "inference_time_ms": 103.59517903998494,
+      "audio_duration_s": 1.9,
+      "real_time_factor": 18.3406218089227
+    },
+    {
+      "text_size": "short",
+      "text_length": 44,
+      "token_count": 53,
+      "inference_time_ms": 116.47667922079563,
+      "audio_duration_s": 4.65,
+      "real_time_factor": 39.922154641663184
+    },
+    {
+      "text_size": "medium",
+      "text_length": 275,
+      "token_count": 292,
+      "inference_time_ms": 221.60830814391375,
+      "audio_duration_s": 28.35,
+      "real_time_factor": 127.9284167522697
+    },
+    {
+      "text_size": "long",
+      "text_length": 828,
+      "token_count": 876,
+      "inference_time_ms": 581.0971539467573,
+      "audio_duration_s": 77.775,
+      "real_time_factor": 133.84164673972245
+    }
+  ],
+  "gpu_name": "NVIDIA GeForce RTX 5090",
+  "gpu_memory_total_gb": 33.668988928
+}

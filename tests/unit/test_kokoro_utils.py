@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Load only the text-normalization helpers from kokoro.py to avoid heavy deps
 lines = Path("questions/inference_server/kokoro.py").read_text().splitlines()
-code = "\n".join([l for l in lines[1:73] if "phonemizer" not in l and "torch" not in l])
+code = "\n".join([l for l in lines[0:85] if "phonemizer" not in l and "torch" not in l])
 mod = types.ModuleType("kokoro_utils")
 exec(code, mod.__dict__)
 
@@ -27,3 +27,16 @@ def test_flip_money_dollars():
 def test_point_num_simple():
     match = re.match(r"\d*\.\d+", "3.14")
     assert mod.point_num(match) == "3 point 1 4"
+
+
+def test_normalize_text_strips_special_characters():
+    """Test that asterisks and other special formatting chars are stripped."""
+    assert "*" not in mod.normalize_text("This is *bold* text")
+    assert "_" not in mod.normalize_text("This is _italic_ text")
+    assert "~" not in mod.normalize_text("This is ~~strikethrough~~ text")
+    assert "`" not in mod.normalize_text("This is `code` text")
+    # The actual text content should remain
+    result = mod.normalize_text("Hello *world* and _friends_!")
+    assert "Hello" in result
+    assert "world" in result
+    assert "friends" in result
