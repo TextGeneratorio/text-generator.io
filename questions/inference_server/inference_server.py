@@ -31,7 +31,7 @@ from questions.audio_server.audio_dl import request_get
 from questions.constants import weights_path_tgz
 from questions.db_models_postgres import User, get_db_session_sync
 from questions.image_captioning.gitbase_captioner import caption_image_bytes
-from questions.inference_server.kokoro import generate_full
+from questions.inference_server.kokoro import compile_model, generate_full
 from questions.inference_server.model_cache import ModelCache
 from questions.inference_server.models import build_model
 from questions.models import (
@@ -625,6 +625,10 @@ def load_speechgen_model():
         # Load Kokoro model
         device = "cuda" if torch.cuda.is_available() else "cpu"
         speechgen_model = build_model("models/kokoro-v0_19.pth", device)
+
+        # Compile BERT for faster inference (optional, controlled by env var)
+        if os.environ.get("KOKORO_COMPILE", "1") == "1" and device == "cuda":
+            speechgen_model = compile_model(speechgen_model)
 
         # Load voice packs
         voicepacks = {}

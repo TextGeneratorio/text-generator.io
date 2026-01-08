@@ -10,9 +10,9 @@ mccabe
 six>=1.16.0
 uvicorn
 wrapt>=1.16.0
-transformers>=4.47.0
-tokenizers
-accelerate
+transformers>=4.57.0
+tokenizers>=0.21.0
+accelerate>=1.12.0
 google-cloud-storage>=2.0.0
 google-api-python-client>=2.0.0
 google-api-core>=2.0.0

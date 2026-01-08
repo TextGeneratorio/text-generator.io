@@ -341,6 +341,21 @@
     </style>
     
     <script>
+    // Check for error in URL query params and display it
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        if (error) {
+            const errorDiv = document.getElementById('signup-error');
+            if (errorDiv) {
+                errorDiv.textContent = decodeURIComponent(error);
+                errorDiv.style.display = 'block';
+            }
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    });
+
     // Email validation
     function isValidEmail(email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -425,15 +440,18 @@
         try {
             const response = await fetch('/api/signup', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
-            
+
             const result = await response.json();
             
             if (response.ok) {
-                // Success - set session and redirect
+                // Success - set session and redirect to playground
                 document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
-                window.location.href = '/subscribe';
+                window.location.href = '/playground';
             } else {
                 let errorMessage = 'Account creation failed';
                 if (response.status === 409) {

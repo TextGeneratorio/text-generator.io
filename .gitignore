@@ -54,3 +54,6 @@ mainserver.log
 nltk_data/
 monitors/monitor_api.log
 monitors/monitor_site.log
+profiles/inference_flame.svg
+profiles/inference_speedscope.json
+profiles

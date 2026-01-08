@@ -43,6 +43,22 @@ try:
 
     torch._C._jit_set_profiling_executor(False)
     cuda_is_available = torch.cuda.is_available()
+
+    # CUDA optimizations for faster inference
+    if cuda_is_available:
+        # Enable TF32 for Ampere+ GPUs (3x faster matmul with minimal precision loss)
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
+        # Enable cuDNN benchmark mode for optimized conv operations
+        torch.backends.cudnn.benchmark = True
+
+        # Enable flash SDP if available (PyTorch 2.0+)
+        if hasattr(torch.backends.cuda, 'enable_flash_sdp'):
+            torch.backends.cuda.enable_flash_sdp(True)
+
+        logger.info("CUDA optimizations enabled: TF32, cuDNN benchmark, flash SDP")
+
 except ImportError:
     logger.info("no torch mode")
 
@@ -117,13 +133,28 @@ def load_model(weights_path):
     else:
         tokenizer = AutoTokenizer.from_pretrained(weights_path, padding_side="left", trust_remote_code=True)
 
-        model = AutoModelForCausalLM.from_pretrained(
-            weights_path,
-            low_cpu_mem_usage=low_mem,
-            device_map="auto",  # torch_dtype=torch.bfloat16,
-            trust_remote_code=True,
-            pad_token_id=tokenizer.eos_token_id,
-        )
+        # Performance optimizations
+        model_kwargs = {
+            "low_cpu_mem_usage": low_mem,
+            "device_map": "auto",
+            "trust_remote_code": True,
+            "pad_token_id": tokenizer.eos_token_id,
+            "torch_dtype": torch.bfloat16,  # Enable BF16 for faster inference
+        }
+
+        # Try to enable SDPA (scaled dot product attention) for faster attention
+        try:
+            model_kwargs["attn_implementation"] = "sdpa"
+            logger.info("Using SDPA attention implementation")
+        except Exception:
+            pass
+
+        model = AutoModelForCausalLM.from_pretrained(weights_path, **model_kwargs)
+
+        # Enable KV cache if it was disabled in config
+        if hasattr(model.config, 'use_cache') and not model.config.use_cache:
+            model.config.use_cache = True
+            logger.info("Enabled KV cache for faster inference")
     # elif "tg" in weights_path:
     #     tokenizer = BloomTokenizerFast.from_pretrained(weights_path)
 
@@ -183,6 +214,17 @@ def load_model(weights_path):
         logger.info("Quantizing model to 8bit")
 
     model.eval()
+
+    # Compile model for optimized execution (2x+ speedup)
+    # NOTE: Disabled by default - torch.compile wraps model in OptimizedModule which
+    # breaks transformers pipeline (not a supported model type for text-generation)
+    if DEVICE == "cuda" and os.getenv("ENABLE_TORCH_COMPILE", "0") == "1":
+        try:
+            model = torch.compile(model, mode="reduce-overhead")
+            logger.info("Model compiled with torch.compile()")
+        except Exception as e:
+            logger.warning(f"torch.compile() failed, continuing without: {e}")
+
     logger.info("Model loaded")
     return tokenizer, model
 
@@ -286,7 +328,7 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
         try:
             output = generator(
                 input_prefix,
-                max_length=max_length,
+                max_new_tokens=generate_params.max_length,  # Use max_new_tokens instead of max_length
                 # min_length=generate_params.min_length,
                 temperature=generate_params.temperature,
                 top_k=generate_params.top_k,
@@ -312,7 +354,7 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
             try:
                 output = generator(
                     input_prefix,
-                    max_length=max_length,
+                    max_new_tokens=generate_params.max_length,  # Use max_new_tokens
                     # min_length=generate_params.min_length,
                     temperature=generate_params.temperature,
                     top_k=generate_params.top_k,
@@ -341,7 +383,7 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
                 generator = weights_to_generator[weights_path]
                 output = generator(
                     input_prefix,
-                    max_length=max_length,
+                    max_new_tokens=generate_params.max_length,  # Use max_new_tokens
                     # min_length=generate_params.min_length,
                     temperature=generate_params.temperature,
                     top_k=generate_params.top_k,
@@ -389,7 +431,7 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
 
             output = generator(
                 input_text,
-                max_length=max_length,
+                max_new_tokens=generate_params.max_length,  # Use max_new_tokens
                 # min_length=generate_params.min_length,
                 temperature=generate_params.temperature,
                 top_k=generate_params.top_k,
@@ -596,3 +638,188 @@ def fast_feature_extract_inference(feature_extract_params: FeatureExtractParams,
     with torch.inference_mode():
         with log_time("feature extract inference"):
             return run_feature_extractor(feature_extract_params, model_cache)
+
+
+# Tokenization cache for repeated prefixes
+_tokenization_cache = TTLCache(maxsize=1000, ttl=300)
+
+# Static KV cache pool (reusable across requests)
+_static_cache_pool = {}
+
+
+def get_or_create_static_cache(model, batch_size: int = 1, max_cache_len: int = 512):
+    """Get or create a static KV cache for the model."""
+    cache_key = f"{id(model)}_{batch_size}_{max_cache_len}"
+
+    if cache_key not in _static_cache_pool:
+        try:
+            from transformers import StaticCache
+            cache = StaticCache(
+                config=model.config,
+                max_batch_size=batch_size,  # Note: API uses max_batch_size
+                max_cache_len=max_cache_len,
+                device=model.device,
+                dtype=torch.bfloat16,
+            )
+            _static_cache_pool[cache_key] = cache
+            logger.info(f"Created static KV cache: batch={batch_size}, len={max_cache_len}")
+        except Exception as e:
+            logger.warning(f"Could not create static cache: {e}")
+            return None
+
+    return _static_cache_pool.get(cache_key)
+
+
+def direct_inference(generate_params: GenerateParams, model_cache=None, use_static_cache: bool = False):
+    """
+    Direct model inference bypassing HuggingFace pipeline for lower overhead.
+    Use for latency-critical applications.
+
+    Args:
+        generate_params: Generation parameters
+        model_cache: Model cache instance
+        use_static_cache: Whether to use static KV cache (faster but fixed size)
+    """
+    global weights_to_model
+    global weights_to_tokenizer
+
+    with torch.inference_mode():
+        with log_time("direct_inference"):
+            # Load model if needed
+            best_weights_path = weights_path_tgz
+            model_name_key = weights_to_name_key.get(best_weights_path, "tg_text_model")
+
+            if model_cache:
+                weights_to_model[best_weights_path] = model_cache.add_or_get(
+                    model_name_key, lambda: load_pipelines_and_model(best_weights_path)
+                )
+
+            model = weights_to_model.get(best_weights_path)
+            tokenizer = weights_to_tokenizer.get(best_weights_path)
+
+            if model is None or tokenizer is None:
+                raise RuntimeError("Model not loaded. Call with model_cache to load.")
+
+            # Tokenize input with caching
+            input_text = generate_params.text
+            if len(input_text) > 1000:
+                input_text = input_text[-1000:]
+
+            # Check tokenization cache
+            cache_key = hash(input_text)
+            cached_tokens = _tokenization_cache.get(cache_key)
+
+            if cached_tokens is not None:
+                inputs = {k: v.clone().to(model.device) for k, v in cached_tokens.items()}
+            else:
+                inputs = tokenizer(input_text, return_tensors="pt", padding=True)
+                # Cache the tokenized input (on CPU to save GPU memory)
+                _tokenization_cache[cache_key] = {k: v.cpu() for k, v in inputs.items()}
+                inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+            # Prepare generation kwargs
+            gen_kwargs = {
+                "max_new_tokens": generate_params.max_length,
+                "temperature": generate_params.temperature,
+                "top_k": generate_params.top_k,
+                "top_p": generate_params.top_p,
+                "do_sample": True,
+                "use_cache": True,
+                "pad_token_id": tokenizer.pad_token_id,
+            }
+
+            # Note: Static KV cache disabled - not all models support it well with generate()
+            # To enable, set use_static_cache=True (experimental)
+            if use_static_cache:
+                max_len = inputs["input_ids"].shape[1] + generate_params.max_length + 16
+                static_cache = get_or_create_static_cache(model, batch_size=1, max_cache_len=max_len)
+                if static_cache is not None:
+                    # Reset cache for new generation
+                    static_cache.reset()
+                    gen_kwargs["past_key_values"] = static_cache
+                    gen_kwargs["cache_implementation"] = "static"  # Required for some models
+
+            # Generate with minimal overhead
+            with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+                outputs = model.generate(
+                    **inputs,
+                    **gen_kwargs,
+                )
+
+            # Decode output
+            generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+            return [{
+                "generated_text": generated_text,
+                "stop_reason": "max_length"
+            }]
+
+
+def direct_inference_streaming(generate_params: GenerateParams, model_cache=None):
+    """
+    Streaming version of direct inference - yields tokens as they're generated.
+    Lower time-to-first-token (TTFT).
+    """
+    global weights_to_model
+    global weights_to_tokenizer
+
+    from transformers import TextIteratorStreamer
+    from threading import Thread
+
+    # Load model if needed
+    best_weights_path = weights_path_tgz
+    model_name_key = weights_to_name_key.get(best_weights_path, "tg_text_model")
+
+    if model_cache:
+        weights_to_model[best_weights_path] = model_cache.add_or_get(
+            model_name_key, lambda: load_pipelines_and_model(best_weights_path)
+        )
+
+    model = weights_to_model.get(best_weights_path)
+    tokenizer = weights_to_tokenizer.get(best_weights_path)
+
+    if model is None or tokenizer is None:
+        raise RuntimeError("Model not loaded. Call with model_cache to load.")
+
+    # Tokenize input
+    input_text = generate_params.text
+    if len(input_text) > 1000:
+        input_text = input_text[-1000:]
+
+    inputs = tokenizer(input_text, return_tensors="pt", padding=True)
+    inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+    # Create streamer
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+
+    # Generation kwargs
+    gen_kwargs = {
+        **inputs,
+        "max_new_tokens": generate_params.max_length,
+        "temperature": generate_params.temperature,
+        "top_k": generate_params.top_k,
+        "top_p": generate_params.top_p,
+        "do_sample": True,
+        "use_cache": True,
+        "pad_token_id": tokenizer.pad_token_id,
+        "streamer": streamer,
+    }
+
+    # Run generation in background thread
+    def generate():
+        with torch.inference_mode():
+            with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+                model.generate(**gen_kwargs)
+
+    thread = Thread(target=generate)
+    thread.start()
+
+    # Yield tokens as they arrive
+    generated_text = ""
+    for new_text in streamer:
+        generated_text += new_text
+        yield new_text
+
+    thread.join()
+
+    return generated_text

@@ -587,8 +587,24 @@ async def create_checkout_session_embedded(
 
             stripe_id = user.stripe_id
             if not stripe_id:
-                logger.error(f"Stripe ID not found for user: {user.email}")
-                return JSONResponse({"error": "User payment info not found"}, status_code=400)
+                # Create Stripe customer for user who doesn't have one
+                try:
+                    customer = stripe.Customer.create(
+                        email=user.email,
+                        idempotency_key=user.email,
+                    )
+                    # Re-query user in current session to avoid detached instance error
+                    from questions.db_models_postgres import User
+                    db_user = db.query(User).filter(User.id == user.id).first()
+                    if db_user:
+                        db_user.stripe_id = customer.id
+                        db.commit()
+                        db.refresh(db_user)
+                    stripe_id = customer.id
+                    logger.info(f"Created Stripe customer {stripe_id} for user {user.email}")
+                except Exception as e:
+                    logger.error(f"Failed to create Stripe customer for user {user.email}: {e}")
+                    return JSONResponse({"error": "Failed to set up payment info"}, status_code=500)
         except HTTPException:
             raise
         except Exception as e:
@@ -849,8 +865,13 @@ async def get_user(request: Request, db: Session = Depends(get_db)):
 
             if not user.is_subscribed:
                 # recreate stripe customer if required - remediates users being created in test mode
-                customer = stripe.Customer.retrieve(user.stripe_id)
-                if not customer or not customer.id:
+                customer = None
+                if user.stripe_id:
+                    try:
+                        customer = stripe.Customer.retrieve(user.stripe_id)
+                    except Exception:
+                        customer = None
+                if not customer or not getattr(customer, 'id', None):
                     customer = stripe.Customer.create(  # type: ignore
                         email=user.email,
                         idempotency_key=user.email,
@@ -889,8 +910,13 @@ async def get_user_stripe_usage(request: Request, db: Session = Depends(get_db))
 
             if not user.is_subscribed:
                 # recreate stripe customer if required - remediates users being created in test mode
-                customer = stripe.Customer.retrieve(user.stripe_id)
-                if not customer or not customer.id:
+                customer = None
+                if user.stripe_id:
+                    try:
+                        customer = stripe.Customer.retrieve(user.stripe_id)
+                    except Exception:
+                        customer = None
+                if not customer or not getattr(customer, 'id', None):
                     customer = stripe.Customer.create(  # type: ignore
                         email=user.email,
                         idempotency_key=user.email,
@@ -1003,25 +1029,43 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
 async def api_signup(
     request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)
 ):
-    """Signup endpoint with fallback to in-memory storage"""
+    """Signup endpoint - creates new user or logs in existing user."""
     logger.info(f"Signup attempt for {email}, USE_POSTGRES={USE_POSTGRES}")
+
+    # Check if this is an AJAX request or form submission
+    accept_header = request.headers.get("accept", "")
+    is_ajax = "application/json" in accept_header or request.headers.get("x-requested-with") == "XMLHttpRequest"
 
     if USE_POSTGRES:
         logger.info("Using PostgreSQL signup")
         try:
-            user = create_user(email, password, db)
+            # Use login_or_create_user to auto-login existing users
+            user = login_or_create_user(email, password, db)
             set_session_for_user(user)
 
-            # Create Stripe customer
+            # Create/update Stripe customer
             stripe_id = get_or_create_stripe_customer(email, user.id)
             if stripe_id:
                 user.stripe_id = stripe_id
                 db.commit()
                 db.refresh(user)
             else:
-                logger.error(f"Failed to create Stripe customer for new user {email}")
+                logger.error(f"Failed to create Stripe customer for user {email}")
 
-            # Set session_secret cookie
+            # For form submissions, redirect to playground
+            if not is_ajax:
+                response = RedirectResponse(url="/playground", status_code=303)
+                response.set_cookie(
+                    key="session_secret",
+                    value=user.secret,
+                    httponly=True,
+                    secure=False,  # Set to True in production with HTTPS
+                    samesite="lax",
+                    path="/",
+                )
+                return response
+
+            # For AJAX requests, return JSON
             response = JSONResponse(user.to_dict())
             response.set_cookie(
                 key="session_secret",
@@ -1032,10 +1076,18 @@ async def api_signup(
                 path="/",
             )
             return response
-        except HTTPException:
+        except HTTPException as e:
+            # For form submissions with errors, redirect back to signup with error
+            if not is_ajax:
+                error_msg = e.detail if hasattr(e, 'detail') else "Signup failed"
+                response = RedirectResponse(url=f"/signup?error={error_msg}", status_code=303)
+                return response
             raise
         except Exception as e:
             logger.error(f"PostgreSQL signup error: {e}")
+            if not is_ajax:
+                response = RedirectResponse(url="/signup?error=Signup+failed", status_code=303)
+                return response
             raise HTTPException(status_code=500, detail="Signup failed")
     else:
         # Fallback to simple in-memory user creation
@@ -1084,6 +1136,47 @@ async def api_logout(request: Request):
     response = JSONResponse({"message": "Logged out successfully"})
     response.delete_cookie("session_secret", path="/")
     return response
+
+
+@app.post("/api/delete-account")
+async def api_delete_account(request: Request, db: Session = Depends(get_db)):
+    """Delete user account - removes user from database and cancels Stripe subscriptions"""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=501, detail="Account deletion not available without PostgreSQL")
+
+    try:
+        user = get_current_user(request, db)
+        if not user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        user_email = user.email
+        user_stripe_id = user.stripe_id
+
+        # Cancel any active Stripe subscriptions
+        if user_stripe_id:
+            try:
+                subscriptions = stripe.Subscription.list(customer=user_stripe_id, status="active")
+                for sub in subscriptions.data:
+                    stripe.Subscription.cancel(sub.id)
+                    logger.info(f"Cancelled subscription {sub.id} for user {user_email}")
+            except Exception as e:
+                logger.warning(f"Error cancelling subscriptions for user {user_email}: {e}")
+
+        # Delete user from database
+        db.delete(user)
+        db.commit()
+        logger.info(f"Deleted user account: {user_email}")
+
+        # Clear session cookie
+        response = JSONResponse({"message": "Account deleted successfully"})
+        response.delete_cookie("session_secret", path="/")
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting account: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete account")
 
 
 @app.post("/api/upload-image")
