@@ -52,3 +52,5 @@ flagged
 mainserver.log
 
 nltk_data/
+monitors/monitor_api.log
+monitors/monitor_site.log
