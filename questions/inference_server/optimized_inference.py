@@ -107,7 +107,7 @@ class CUDAGraphManager:
 
         # Warmup runs (required before graph capture)
         for _ in range(3):
-            with torch.no_grad():
+            with torch.inference_mode():
                 bert_dur = self.model.bert(tokens, attention_mask=(~text_mask).int())
                 d_en = self.model.bert_encoder(bert_dur).transpose(-1, -2)
                 s = ref_s[:, 128:]
@@ -118,7 +118,7 @@ class CUDAGraphManager:
         # Capture graph
         graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(graph):
-            with torch.no_grad():
+            with torch.inference_mode():
                 bert_dur = self.model.bert(tokens, attention_mask=(~text_mask).int())
                 d_en = self.model.bert_encoder(bert_dur).transpose(-1, -2)
                 s = ref_s[:, 128:]
@@ -342,7 +342,7 @@ class OptimizedKokoroTTS:
         """Get voicepack, falling back to default."""
         return self.voicepacks.get(voice, self.voicepacks.get("af_nicole"))
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(
         self,
         text: str,
@@ -362,7 +362,7 @@ class OptimizedKokoroTTS:
         audio, phonemes = generate_full(self.model, text, voicepack, lang=lang, speed=speed)
         return audio
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate_batch(
         self,
         texts: list[str],

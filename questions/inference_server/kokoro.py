@@ -5,9 +5,14 @@ import numpy as np
 import phonemizer
 import torch
 
-# Enable TensorFloat32 for better matmul performance on Ampere+ GPUs
+# Enable TensorFloat32 and other CUDA optimizations for Ampere+ GPUs
 if torch.cuda.is_available():
     torch.set_float32_matmul_precision('high')
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    torch.backends.cudnn.benchmark = True
+    if hasattr(torch.backends.cuda, 'enable_flash_sdp'):
+        torch.backends.cuda.enable_flash_sdp(True)
 
 # Cache for compiled models
 _compiled_models = {}
@@ -143,27 +148,30 @@ def length_to_mask(lengths):
 @torch.inference_mode()
 def forward(model, tokens, ref_s, speed):
     device = ref_s.device
-    tokens = torch.LongTensor([[0, *tokens, 0]]).to(device)
-    input_lengths = torch.LongTensor([tokens.shape[-1]]).to(device)
-    text_mask = length_to_mask(input_lengths).to(device)
-    bert_dur = model.bert(tokens, attention_mask=(~text_mask).int())
-    d_en = model.bert_encoder(bert_dur).transpose(-1, -2)
-    s = ref_s[:, 128:]
-    d = model.predictor.text_encoder(d_en, s, input_lengths, text_mask)
-    x, _ = model.predictor.lstm(d)
-    duration = model.predictor.duration_proj(x)
-    duration = torch.sigmoid(duration).sum(axis=-1) / speed
-    pred_dur = torch.round(duration).clamp(min=1).long()
-    pred_aln_trg = torch.zeros(input_lengths, pred_dur.sum().item())
-    c_frame = 0
-    for i in range(pred_aln_trg.size(0)):
-        pred_aln_trg[i, c_frame : c_frame + pred_dur[0, i].item()] = 1
-        c_frame += pred_dur[0, i].item()
-    en = d.transpose(-1, -2) @ pred_aln_trg.unsqueeze(0).to(device)
-    F0_pred, N_pred = model.predictor.F0Ntrain(en, s)
-    t_en = model.text_encoder(tokens, input_lengths, text_mask)
-    asr = t_en @ pred_aln_trg.unsqueeze(0).to(device)
-    return model.decoder(asr, F0_pred, N_pred, ref_s[:, :128]).squeeze().cpu().numpy()
+    tokens = torch.tensor([[0, *tokens, 0]], dtype=torch.long, device=device)
+    input_lengths = torch.tensor([tokens.shape[-1]], dtype=torch.long, device=device)
+    text_mask = length_to_mask(input_lengths)
+
+    with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=device.type == "cuda"):
+        bert_dur = model.bert(tokens, attention_mask=(~text_mask).int())
+        d_en = model.bert_encoder(bert_dur).transpose(-1, -2)
+        s = ref_s[:, 128:]
+        d = model.predictor.text_encoder(d_en, s, input_lengths, text_mask)
+        x, _ = model.predictor.lstm(d)
+        duration = model.predictor.duration_proj(x)
+        duration = torch.sigmoid(duration).sum(axis=-1) / speed
+        pred_dur = torch.round(duration).clamp(min=1).long()
+        pred_aln_trg = torch.zeros(input_lengths, pred_dur.sum().item(), device=device)
+        c_frame = 0
+        for i in range(pred_aln_trg.size(0)):
+            pred_aln_trg[i, c_frame : c_frame + pred_dur[0, i].item()] = 1
+            c_frame += pred_dur[0, i].item()
+        en = d.transpose(-1, -2) @ pred_aln_trg.unsqueeze(0)
+        F0_pred, N_pred = model.predictor.F0Ntrain(en, s)
+        t_en = model.text_encoder(tokens, input_lengths, text_mask)
+        asr = t_en @ pred_aln_trg.unsqueeze(0)
+        out = model.decoder(asr, F0_pred, N_pred, ref_s[:, :128])
+    return out.squeeze().cpu().numpy()
 
 
 def compile_model(model, mode="reduce-overhead"):
