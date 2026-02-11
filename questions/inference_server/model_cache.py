@@ -1,13 +1,15 @@
 """
-Simple model cache that loads models from disk and caches them in memory. with a least recently used eviction policy.
+Model cache for GPU-resident models with conservative defaults.
+Evicts by LRU when exceeding MAX_CACHED_MODELS and/or under VRAM pressure.
 """
 
 import gc
 import logging
 import os
 from collections import OrderedDict
-from typing import Callable
+from typing import Callable, Optional
 
+import torch
 import torch.cuda
 
 from questions.logging_config import setup_logging
@@ -17,180 +19,170 @@ logger = logging.getLogger(__name__)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+# Memory threshold: evict if free VRAM drops below this (in GB)
+MIN_FREE_VRAM_GB = float(os.environ.get("MIN_FREE_VRAM_GB", "4.0"))
+
+# Whether to keep all models on GPU (only evict on low VRAM)
+KEEP_ALL_ON_GPU = os.environ.get("KEEP_ALL_ON_GPU", "0") == "1"
+
+# Maximum number of cached models (0 = unlimited)
+MAX_CACHED_MODELS = int(os.environ.get("MAX_CACHED_MODELS", "3"))
+
+
+def get_gpu_memory_info():
+    """Get GPU memory info in GB."""
+    if not torch.cuda.is_available():
+        return {"total": 0, "used": 0, "free": 0}
+
+    total = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+    reserved = torch.cuda.memory_reserved(0) / (1024**3)
+    allocated = torch.cuda.memory_allocated(0) / (1024**3)
+    free = total - reserved
+
+    return {"total": total, "used": allocated, "reserved": reserved, "free": free}
+
 
 class ModelCache:
     """
-    can only hold one model at a time right now
-    loads models in and out of disk/gpu memory
+    GPU-resident model cache with LRU eviction.
+
+    Key features:
+    - Keeps models on GPU with LRU eviction by default
+    - Evicts when free VRAM drops below MIN_FREE_VRAM_GB (if KEEP_ALL_ON_GPU=1)
+    - Enforces MAX_CACHED_MODELS when set
+    - LRU eviction order when eviction is necessary
+    - Fast model switching with no CPU offload
     """
 
-    def __init__(self, max_size_gb: int = 24):
+    def __init__(self, max_size_gb: int = 28):
         self.max_size_gb = max_size_gb
-        self.cache = OrderedDict()
-        self.most_recent_name = None
-        # self.loaded_models = set()
+        self.cache: OrderedDict[str, any] = OrderedDict()
+        self.most_recent_name: Optional[str] = None
+        self._log_memory_status()
+
+    def _log_memory_status(self):
+        """Log current GPU memory status."""
+        if DEVICE == "cuda":
+            mem = get_gpu_memory_info()
+            logger.info(f"GPU Memory: {mem['used']:.1f}GB used / {mem['total']:.1f}GB total ({mem['free']:.1f}GB free)")
 
     def __len__(self):
         return len(self.cache)
 
-    # def is_loaded(self, model_name: str) -> bool:
-    #     return model_name in self.loaded_models
+    def _should_evict_for_memory(self) -> bool:
+        """Check if we need to evict models based on memory pressure."""
+        if DEVICE != "cuda":
+            return False
+        mem = get_gpu_memory_info()
+        should_evict = mem["free"] < MIN_FREE_VRAM_GB
+        if should_evict:
+            logger.warning(f"Low VRAM: {mem['free']:.1f}GB free < {MIN_FREE_VRAM_GB}GB threshold")
+        return should_evict
+
+    def _should_evict_for_size(self) -> bool:
+        """Check if we exceed the max cached models limit."""
+        if MAX_CACHED_MODELS <= 0:
+            return False
+        return len(self.cache) >= MAX_CACHED_MODELS
+
+    def _evict_lru_model(self, exclude_name: Optional[str]) -> bool:
+        """Evict the least recently used model (except the excluded one)."""
+        for model_name in list(self.cache.keys()):
+            if model_name == exclude_name:
+                continue
+
+            logger.info(f"Evicting LRU model: {model_name}")
+            model = self.cache.pop(model_name)
+
+            try:
+                if isinstance(model, (list, tuple)):
+                    for m in model:
+                        if hasattr(m, 'to'):
+                            m.to("cpu")
+                        del m
+                elif hasattr(model, 'to'):
+                    model.to("cpu")
+                del model
+            except Exception as e:
+                logger.debug(f"Eviction cleanup: {e}")
+
+            gc.collect()
+            if DEVICE == "cuda":
+                torch.cuda.empty_cache()
+
+            self._log_memory_status()
+            return True
+
+        return False
 
     def add_or_get(self, model_name: str, add_model_func: Callable):
+        """Get model from cache or load it. Models stay on GPU."""
         self.most_recent_name = model_name
-        if len(self.cache) > 0:
-            # evict all models not in use
-            for evicted_model_name, evicted_model in self.cache.items():
-                if evicted_model_name == model_name:
-                    # dont evict this current model
-                    continue
-                logging.info(f"Evicting model {evicted_model_name} from cache")
-                # iterate if is iterable
-                try:
-                    if type(evicted_model) == list or type(evicted_model) == tuple:
-                        for model in evicted_model:
-                            model.to("cpu")  # todo try each model to sometimes can fail/dont rely o
-                            # if model_name == "chat":
-                            #     del model
 
-                except Exception:
-                    # logging.info(e) # is probably fine
-                    pass
-                try:
-                    evicted_model.to("cpu")
-                    # if model_name == "chat":
-                    #     del evicted_model
-                except Exception:
-                    pass
-
-                # chat_model needs hard eviction/reloading for some reason???
-                # this is annoying/slow to switch this model out
-                # if "chat" in evicted_model_name:
-                #     logging.info(f"hard evicting model {evicted_model_name}")
-                #     del evicted_model
-                #     del self.cache[evicted_model_name]
-
-                # breaks things
-                # from numba import cuda
-                # device = cuda.get_current_device()
-                # device.reset()
-
-                # todo need this to save mem?
-                try:
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                except Exception:
-                    logger.info("restarting to fix cuda issues")
-                    os.system("/usr/bin/bash kill -SIGHUP `pgrep gunicorn`")
-                    os.system("kill -1 `pgrep gunicorn`")
-
-                logging.info(f"Evicted model {evicted_model_name} from cache")
-
+        # If model already cached, move to end (most recently used) and return
         if model_name in self.cache:
-            logging.info(f"ensuring model {model_name} on gpu")
-            try:
-                for model in self.cache[model_name]:
-                    # todo this assumes ordering - the processor woudl fail to be moved to gpu note
-                    current_device = next(model.parameters()).device
-                    if current_device != DEVICE:
-                        model.to(DEVICE)
-                        logging.info(f"switched model {model_name} to gpu")
-                        self.cache[model_name] = (
-                            add_model_func()
-                        )  # should load idempotently/be used to reload custom model if needed?
-                        break
-            except Exception as e:
-                logger.error(e)
-                # logging.info(e) # is probably fine
-                pass
-            try:
-                current_device = next(self.cache[model_name].parameters()).device
-                if current_device != DEVICE:
-                    # todo why are we being so defensive? should be fast to move to the gpu twice/not the worst thing
-                    # but if we forget to move to the gpu its a big deal/crashes
-
-                    # self.cache[model_name].to(DEVICE)
-                    self.cache[model_name] = (
-                        add_model_func()
-                    )  # should load idempotently/be used to reload custom model if needed?
-            except Exception:
-                pass
-            logging.info(f"ensured model {model_name} on gpu")
-
+            self.cache.move_to_end(model_name)
+            logger.info(f"Cache hit: {model_name} (keeping on GPU)")
             return self.cache[model_name]
 
-        self.cache[model_name] = add_model_func()
-        # self.loaded_models.add(model_name)
-        logging.info(f"Added model {model_name} to cache")
+        # Enforce size limit before loading
+        while self._should_evict_for_size() and len(self.cache) > 0:
+            if not self._evict_lru_model(model_name):
+                break
+
+        # If configured to keep all on GPU, only evict when memory is tight
+        if KEEP_ALL_ON_GPU:
+            while self._should_evict_for_memory() and len(self.cache) > 0:
+                if not self._evict_lru_model(model_name):
+                    break
+
+        # Load the new model
+        logger.info(f"Loading model: {model_name}")
+        try:
+            self.cache[model_name] = add_model_func()
+            logger.info(f"Loaded model: {model_name}")
+            self._log_memory_status()
+        except torch.cuda.OutOfMemoryError:
+            logger.error(f"OOM loading {model_name}, evicting and retrying...")
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            # Force evict oldest model and retry
+            if self._evict_lru_model(model_name):
+                self.cache[model_name] = add_model_func()
+                logger.info(f"Loaded model after eviction: {model_name}")
+            else:
+                raise
+
+        # Post-load memory pressure check (best effort)
+        if KEEP_ALL_ON_GPU:
+            while self._should_evict_for_memory() and len(self.cache) > 0:
+                if not self._evict_lru_model(model_name):
+                    break
+
         return self.cache[model_name]
 
     def get(self, model_name: str) -> Callable:
         if model_name not in self.cache:
             raise RuntimeError(f"Model {model_name} not found in cache")
+        self.cache.move_to_end(model_name)  # Update LRU order
         return self.cache[model_name]
 
+    def list_models(self) -> list:
+        """List all cached model names."""
+        return list(self.cache.keys())
+
+    def is_loaded(self, model_name: str) -> bool:
+        """Check if a model is in cache."""
+        return model_name in self.cache
+
     def empty_all_caches(self):
-        for evicted_model_name, evicted_model in self.cache.items():
-            # remove any model thats on the cpu to save memory
-            # iterate if is iterable
-            try:
-                for model in evicted_model:
-                    model.to("cpu")
-                    del model
-
-            except Exception:
-                # logging.info(e) # is probably fine
-                pass
-            try:
-                evicted_model.to("cpu")
-            except Exception:
-                pass
-
-            # chat_model needs hard eviction/reloading for some reason???
-            # this is annoying/slow to switch this model out
-            del evicted_model
-            del self.cache[evicted_model_name]
-            try:
-                torch.cuda.empty_cache()
-            except Exception as e:
-                logger.error("cuda error")
-                logger.error(e)
-                # logger.info("restarting to fix cuda issues")
-                # os.system("/usr/bin/bash kill -SIGHUP `pgrep gunicorn`")
-                # os.system("kill -1 `pgrep gunicorn`")
-
-    def unload_all_but_current_model_save_mem(self):
-        models_to_evict = []
-        for evicted_model_name, evicted_model in self.cache.items():
-            logging.info(f"Evicting model {evicted_model_name} from cache")
-            # iterate if is iterable
-            try:
-                for model in evicted_model:
-                    current_device = next(model.parameters()).device
-                    if current_device != DEVICE:
-                        del model
-                        models_to_evict.append(evicted_model_name)
-            except Exception as e:
-                logging.info(e)  # is probably fine
-                pass
-            try:
-                current_device = next(evicted_model.parameters()).device
-                if current_device != DEVICE:
-                    del evicted_model
-                    models_to_evict.append(evicted_model_name)
-
-            except Exception:
-                pass
-
-            # chat_model needs hard eviction/reloading for some reason???
-            # this is annoying/slow to switch this model out
-            # try:
-            #     torch.cuda.empty_cache()
-            # except Exception as e:
-            #     logger.error("cuda error")
-            #     logger.error(e)
-            # logger.info("restarting to fix cuda issues")
-            # os.system("/usr/bin/bash kill -SIGHUP `pgrep gunicorn`")
-            # os.system("kill -1 `pgrep gunicorn`")
-        for model_name in models_to_evict:
-            del self.cache[model_name]
+        """Clear all models from cache."""
+        for _ in list(self.cache.keys()):
+            self._evict_lru_model(exclude_name=None)
+        self.cache.clear()
+        gc.collect()
+        if DEVICE == "cuda":
+            torch.cuda.empty_cache()
+        logger.info("Cleared all model caches")
+        self._log_memory_status()

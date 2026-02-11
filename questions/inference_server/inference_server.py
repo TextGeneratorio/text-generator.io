@@ -93,6 +93,53 @@ except ImportError:
 
 MODEL_CACHE = ModelCache()
 
+# Preload models on startup for faster first requests (disabled by default for safety)
+PRELOAD_MODELS = os.environ.get("PRELOAD_MODELS", "0") == "1"
+
+
+@app.on_event("startup")
+async def preload_models():
+    """Preload commonly used models at startup to avoid cold-start latency."""
+    if not PRELOAD_MODELS:
+        logger.info("Model preloading disabled (PRELOAD_MODELS=0)")
+        return
+
+    import asyncio
+    logger.info("Preloading models for fast inference...")
+
+    # Run preloads in background to not block startup
+    async def _preload():
+        try:
+            # Preload text generation model
+            logger.info("Preloading text generation model...")
+            from questions.text_generator_inference import fast_inference
+            from questions.models import GenerateParams
+            fast_inference(
+                generate_params=GenerateParams(text="warmup", max_length=1),
+                model_cache=MODEL_CACHE
+            )
+
+            # Preload embeddings model
+            logger.info("Preloading embeddings model...")
+            from questions.text_generator_inference import fast_feature_extract_inference
+            from questions.models import FeatureExtractParams
+            fast_feature_extract_inference(
+                feature_extract_params=FeatureExtractParams(text="warmup", num_features=768),
+                model_cache=MODEL_CACHE
+            )
+
+            # Preload TTS model
+            logger.info("Preloading TTS model...")
+            load_speechgen_model()
+
+            logger.info(f"All models preloaded! Cached: {MODEL_CACHE.list_models()}")
+
+        except Exception as e:
+            logger.error(f"Preload error (non-fatal): {e}")
+
+    asyncio.create_task(_preload())
+
+
 # @app.post("/files/")
 # async def create_files(files: bytes = File()):
 #     return {"file_sizes": [len(file) for file in files]}
@@ -382,10 +429,10 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
     audio_model = MODEL_CACHE.add_or_get("audio_model", load_audio_model)
 
     # Prioritize audio_file if present, otherwise use audio_url
-    if audio_params.audio_file is not None:
+    if hasattr(audio_params, 'audio_file') and audio_params.audio_file is not None:
         audio_file = audio_params.audio_file
         audio_bytes = audio_file.file.read()
-    elif "youtube.com" in audio_params.audio_url:
+    elif audio_params.audio_url and "youtube.com" in audio_params.audio_url:
         # todo hopefully people never use this slow/secret route
         # todo soundcloud /spotify etc>?
         # todo download youtube video
@@ -414,7 +461,7 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
                 audio_bytes = ydl.prepare_filename(ydl.extract_info(audio_params.audio_url))
                 with open(audio_bytes, "rb") as f:
                     audio_bytes = f.read()
-    else:
+    elif audio_params.audio_url:
         with log_time("download audio"):
             audio_request = request_get(audio_params.audio_url)
             response = audio_request.result()
@@ -425,6 +472,11 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
                 )
             response.raw.decode_content = True
             audio_bytes = response.content
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Either audio_file or audio_url must be provided",
+        )
 
     with torch.inference_mode():
         tmp_file = NamedTemporaryFile(dir="/dev/shm", delete=True, suffix=".wav")
@@ -614,12 +666,14 @@ import soundfile as sf
 speech_processor = None
 speechgen_model = None
 speech_vocoder = None
+speech_voicepacks = None  # Global voicepacks cache
 
 
 def load_speechgen_model():
     global speech_processor
     global speechgen_model
     global speech_vocoder
+    global speech_voicepacks
 
     if not speechgen_model:
         # Load Kokoro model
@@ -627,11 +681,13 @@ def load_speechgen_model():
         speechgen_model = build_model("models/kokoro-v0_19.pth", device)
 
         # Compile BERT for faster inference (optional, controlled by env var)
-        if os.environ.get("KOKORO_COMPILE", "1") == "1" and device == "cuda":
+        # NOTE: Disabled by default - torch.compile causes CUDA graph assertion errors
+        # with dynamic input sizes. Enable with KOKORO_COMPILE=1 if needed for benchmarks.
+        if os.environ.get("KOKORO_COMPILE", "0") == "1" and device == "cuda":
             speechgen_model = compile_model(speechgen_model)
 
         # Load voice packs
-        voicepacks = {}
+        speech_voicepacks = {}
         voice_names = [
             "af",
             "af_bella",
@@ -647,9 +703,11 @@ def load_speechgen_model():
         ]
 
         for voice in voice_names:
-            voicepacks[voice] = torch.load(f"models/voices/{voice}.pt", weights_only=True).to(device)
+            speech_voicepacks[voice] = torch.load(f"models/voices/{voice}.pt", weights_only=True).to(device)
 
-    return speechgen_model, voicepacks
+        logger.info(f"Loaded Kokoro TTS with {len(speech_voicepacks)} voices")
+
+    return speechgen_model, speech_voicepacks
 
 
 speaker_embeddings = {
