@@ -136,7 +136,7 @@ def load_model(weights_path):
         # Performance optimizations
         model_kwargs = {
             "low_cpu_mem_usage": low_mem,
-            "device_map": "auto",
+            "device_map": "cuda:0" if DEVICE == "cuda" else "auto",
             "trust_remote_code": True,
             "pad_token_id": tokenizer.eos_token_id,
             "torch_dtype": torch.bfloat16,  # Enable BF16 for faster inference
@@ -350,7 +350,9 @@ def inference(generate_params: GenerateParams, weights_path: str = None, model_c
         except Exception as e:
             logger.info(e)
             traceback.print_exc()
-            model_cache.unload_all_but_current_model_save_mem()
+            # Evict other models to free VRAM for retry
+            while model_cache._evict_lru_model(exclude_name=model_cache.most_recent_name):
+                pass
             try:
                 output = generator(
                     input_prefix,
