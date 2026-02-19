@@ -161,11 +161,16 @@ def forward(model, tokens, ref_s, speed):
         duration = model.predictor.duration_proj(x)
         duration = torch.sigmoid(duration).sum(axis=-1) / speed
         pred_dur = torch.round(duration).clamp(min=1).long()
-        pred_aln_trg = torch.zeros(input_lengths, pred_dur.sum().item(), device=device)
-        c_frame = 0
-        for i in range(pred_aln_trg.size(0)):
-            pred_aln_trg[i, c_frame : c_frame + pred_dur[0, i].item()] = 1
-            c_frame += pred_dur[0, i].item()
+        total_frames = pred_dur.sum().item()
+        num_tokens = input_lengths.item()
+        pred_aln_trg = torch.zeros(num_tokens, total_frames, device=device)
+        # Vectorized duration expansion (avoids per-token CPU sync)
+        dur_flat = pred_dur.squeeze(0)
+        cumsum = dur_flat.cumsum(0)
+        frame_indices = torch.arange(total_frames, device=device)
+        token_indices = torch.searchsorted(cumsum, frame_indices, right=True)
+        token_indices = token_indices.clamp(max=num_tokens - 1)
+        pred_aln_trg[token_indices, frame_indices] = 1.0
         en = d.transpose(-1, -2) @ pred_aln_trg.unsqueeze(0)
         F0_pred, N_pred = model.predictor.F0Ntrain(en, s)
         t_en = model.text_encoder(tokens, input_lengths, text_mask)
@@ -174,57 +179,39 @@ def forward(model, tokens, ref_s, speed):
     return out.squeeze().cpu().numpy()
 
 
-def compile_model(model, mode="reduce-overhead"):
+def compile_model(model, mode="reduce-overhead", dynamic=True):
     """
     Compile model components for faster inference using torch.compile.
-
-    Compiles BERT, predictor, and text encoders for cumulative ~19% speedup.
-    Decoder has complex dynamic ops that don't work well with torch.compile.
-
-    Args:
-        model: The Kokoro model
-        mode: Compilation mode - "reduce-overhead" (fastest), "default", or "max-autotune"
-
-    Returns:
-        model with compiled components
+    dynamic=True avoids recompiles for varying input sizes.
     """
     model_id = id(model)
     if model_id in _compiled_models:
         return _compiled_models[model_id]
 
+    compile_opts = {"mode": mode, "fullgraph": False, "dynamic": dynamic}
     compiled_components = []
 
-    # Compile BERT (main transformer)
     try:
-        model.bert = torch.compile(model.bert, mode=mode, fullgraph=False)
+        model.bert = torch.compile(model.bert, **compile_opts)
         compiled_components.append("bert")
     except Exception as e:
-        print(f"BERT compile failed: {e}")
+        print(f"bert compile failed: {e}")
 
-    # Compile predictor text_encoder
     try:
-        model.predictor.text_encoder = torch.compile(
-            model.predictor.text_encoder, mode=mode, fullgraph=False
-        )
+        model.predictor.text_encoder = torch.compile(model.predictor.text_encoder, **compile_opts)
         compiled_components.append("predictor.text_encoder")
     except Exception as e:
         print(f"predictor.text_encoder compile failed: {e}")
 
-    # Compile text_encoder
     try:
-        model.text_encoder = torch.compile(model.text_encoder, mode=mode, fullgraph=False)
+        model.text_encoder = torch.compile(model.text_encoder, **compile_opts)
         compiled_components.append("text_encoder")
     except Exception as e:
         print(f"text_encoder compile failed: {e}")
 
-    # Note: bert_encoder has issues with CUDA graph caching for dynamic input sizes
-    # Skipping it for now to avoid runtime errors
-
     if compiled_components:
         _compiled_models[model_id] = model
-        print(f"Compiled components with mode='{mode}': {', '.join(compiled_components)}")
-    else:
-        print("No components compiled successfully")
+        print(f"Compiled (dynamic={dynamic}, mode={mode}): {', '.join(compiled_components)}")
 
     return model
 

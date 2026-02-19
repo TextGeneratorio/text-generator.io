@@ -55,6 +55,10 @@
                     <input type="checkbox" id="translate" class="mdl-checkbox__input">
                     <span class="mdl-checkbox__label">Translate to English</span>
                 </label>
+                <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="fast-mode">
+                    <input type="checkbox" id="fast-mode" class="mdl-checkbox__input">
+                    <span class="mdl-checkbox__label">Fast mode (lower latency)</span>
+                </label>
                 <br>
                 <button id="runUrl" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Transcribe URL</button>
                 <button id="runFile" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Transcribe File</button>
@@ -98,6 +102,7 @@ print(requests.post(url, json=data, headers=headers).json())
     const resultEl = document.getElementById('result');
     const codeBtn = document.getElementById('toggleCode');
     const codeExamples = document.getElementById('codeExamples');
+    const fastModeCheckbox = document.getElementById('fast-mode');
     let secret = null;
     
     // Check PostgreSQL authentication
@@ -125,31 +130,44 @@ print(requests.post(url, json=data, headers=headers).json())
         }
     });
     runUrlBtn.addEventListener('click', async () => {
+        const t0 = performance.now();
         const audioUrl = document.getElementById('audioUrl').value;
         const translate = document.getElementById('translate').checked;
+        const fastMode = fastModeCheckbox.checked;
         if (!audioUrl) { alert('Enter audio URL'); return; }
         const base = window.fixtures?.inference_server_url || 'https://api.text-generator.io';
         const resp = await fetch(`${base}/api/v1/audio-extraction`, {
             method: 'POST',
             headers: {'Content-Type':'application/json', ...(secret?{secret}:{})},
-            body: JSON.stringify({audio_url: audioUrl, translate_to_english: translate})
+            body: JSON.stringify({
+                audio_url: audioUrl,
+                translate_to_english: translate,
+                include_segments: !fastMode,
+            })
         });
-        resultEl.textContent = JSON.stringify(await resp.json(), null, 2);
+        const payload = await resp.json();
+        const tookMs = (performance.now() - t0).toFixed(0);
+        resultEl.textContent = `transcription_ms: ${tookMs}\n` + JSON.stringify(payload, null, 2);
     });
     runFileBtn.addEventListener('click', async () => {
+        const t0 = performance.now();
         const file = document.getElementById('audioFile').files[0];
         const translate = document.getElementById('translate').checked;
+        const fastMode = fastModeCheckbox.checked;
         if (!file) { alert('Choose a file'); return; }
         const base = window.fixtures?.inference_server_url || 'https://api.text-generator.io';
         const formData = new FormData();
         formData.append('audio_file', file);
         formData.append('translate_to_english', translate);
+        formData.append('include_segments', !fastMode);
         const resp = await fetch(`${base}/api/v1/audio-file-extraction`, {
             method: 'POST',
             headers: secret ? {secret} : {},
             body: formData
         });
-        resultEl.textContent = JSON.stringify(await resp.json(), null, 2);
+        const payload = await resp.json();
+        const tookMs = (performance.now() - t0).toFixed(0);
+        resultEl.textContent = `transcription_ms: ${tookMs}\n` + JSON.stringify(payload, null, 2);
     });
 
     // Audio recording functionality

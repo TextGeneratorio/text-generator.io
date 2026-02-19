@@ -283,13 +283,17 @@ class OptimizedKokoroTTS:
         model_path: str = "models/kokoro-v0_19.pth",
         enable_cuda_graphs: bool = True,
         enable_overlap: bool = True,
+        enable_torch_compile: bool = False,
         max_batch_size: int = 8,
     ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = None
         self.voicepacks = {}
 
-        self.enable_cuda_graphs = enable_cuda_graphs and self.device == "cuda"
+        self.enable_torch_compile = enable_torch_compile and self.device == "cuda"
+        # torch.compile and CUDA graphs both optimize the model and can interact poorly together.
+        # Keep them mutually exclusive for predictable behavior.
+        self.enable_cuda_graphs = enable_cuda_graphs and self.device == "cuda" and not self.enable_torch_compile
         self.enable_overlap = enable_overlap
 
         self.cuda_graph_manager = None
@@ -325,6 +329,15 @@ class OptimizedKokoroTTS:
         self.tokenize = tokenize
 
         # Initialize CUDA graphs
+        if self.enable_torch_compile:
+            from questions.inference_server.kokoro import compile_model
+
+            try:
+                self.model = compile_model(self.model)
+                logger.info("Applied torch.compile optimization to Kokoro model")
+            except Exception as e:
+                logger.warning("torch.compile optimization failed, continuing with eager model: %s", e)
+
         if self.enable_cuda_graphs:
             self.cuda_graph_manager = CUDAGraphManager(self.model, self.device)
             if self.voicepacks:
@@ -363,6 +376,25 @@ class OptimizedKokoroTTS:
         return audio
 
     @torch.inference_mode()
+    def _generate_from_tokens(self, tokens: list[int], voicepack: torch.Tensor, speed: float = 1.0) -> np.ndarray:
+        """Generate audio from pre-tokenized input with Kokoro chunking."""
+        from questions.inference_server.kokoro import forward
+
+        if not tokens:
+            return np.array([])
+
+        outputs = []
+        loop_count = len(tokens) // 510 + (1 if len(tokens) % 510 != 0 else 0)
+        for i in range(loop_count):
+            chunk = tokens[i * 510 : (i + 1) * 510]
+            ref_s = voicepack[min(len(chunk), len(voicepack) - 1)]
+            outputs.append(forward(self.model, chunk, ref_s, speed))
+
+        if len(outputs) == 1:
+            return outputs[0]
+        return np.concatenate(outputs)
+
+    @torch.inference_mode()
     def generate_batch(
         self,
         texts: list[str],
@@ -370,30 +402,38 @@ class OptimizedKokoroTTS:
         speed: float = 1.0,
     ) -> list[np.ndarray]:
         """
-        Generate audio for multiple texts.
-        Uses batched processing for improved throughput.
+        Generate audio for multiple texts with overlap scheduling.
 
-        Note: Current Kokoro architecture processes sequentially due to
-        variable-length alignment. Batching benefit comes from:
-        - Shared phonemizer overhead
-        - Reduced Python overhead
-        - Better GPU utilization between requests
+        Uses mini-sglang pattern: phonemize N+1 while GPU processes N.
         """
         self.load()
-        from questions.inference_server.kokoro import generate_full
+        from questions.inference_server.kokoro import tokenize
 
         voicepack = self._get_voicepack(voice)
         lang = voice[0] if voice else "a"
-
         results = []
 
-        # Pre-phonemize all texts in batch (CPU work)
-        phonemes_list = [self.phonemize(text, lang) for text in texts]
+        if not texts:
+            return results
 
-        # Process sequentially on GPU (architecture limitation)
-        for text, ps in zip(texts, phonemes_list):
-            audio, _ = generate_full(self.model, text, voicepack, lang=lang, speed=speed, ps=ps)
-            results.append(audio)
+        # Submit first phonemization
+        futures = []
+        if self.enable_overlap and self.overlap_scheduler:
+            for text in texts:
+                future = self.overlap_scheduler.executor.submit(self.phonemize, text, lang)
+                futures.append(future)
+
+            # Process with overlap: get phonemes as GPU finishes previous
+            for i, future in enumerate(futures):
+                ps = future.result()
+                tokens = tokenize(ps)
+                results.append(self._generate_from_tokens(tokens, voicepack, speed))
+        else:
+            # Fallback: sequential processing
+            for text in texts:
+                ps = self.phonemize(text, lang)
+                tokens = tokenize(ps)
+                results.append(self._generate_from_tokens(tokens, voicepack, speed))
 
         return results
 

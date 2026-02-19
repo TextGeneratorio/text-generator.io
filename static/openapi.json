@@ -486,6 +486,12 @@
             "type": "string",
             "default": "txt",
             "description": "can also generate srt files with 'srt'"
+          },
+          "include_segments": {
+            "title": "Include Segments",
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to include per-segment timing info"
           }
         }
       },
@@ -508,6 +514,11 @@
             "title": "Output Filetype",
             "type": "string",
             "default": "txt"
+          },
+          "include_segments": {
+            "title": "Include Segments",
+            "type": "boolean",
+            "default": true
           }
         }
       },

@@ -26,6 +26,12 @@ class AudioParams(BaseModel):
     output_filetype: str = "txt"
     """The output filetype of the audio file, either txt or srt for a subtitles file importable into youtube"""
 
+    include_segments: bool = True
+    """Whether to include per-segment timing info.
+
+    Set to ``False`` for lower latency when segment-level timings are not needed.
+    """
+
 
 class AudioParamsOrAudioFile(AudioParams):
     audio_file: Optional[UploadFile]

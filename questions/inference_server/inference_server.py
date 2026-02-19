@@ -425,6 +425,85 @@ def load_audio_model():
         raise
 
 
+def _extract_asr_segments(asr_output) -> list:
+    """Best-effort extraction of segment timing data from NeMo ASR output."""
+    segments = []
+    if asr_output is None:
+        return segments
+
+    segment_values = None
+    for key in ("segments", "items", "timestamp"):
+        value = getattr(asr_output, key, None) if not isinstance(asr_output, dict) else asr_output.get(key)
+        if key == "timestamp":
+            if isinstance(value, dict):
+                value = value.get("segment")
+            else:
+                value = None
+        if value is not None:
+            segment_values = value
+            break
+
+    if segment_values is None:
+        return segments
+
+    if not isinstance(segment_values, (list, tuple)):
+        return segments
+
+    for segment in segment_values:
+        if not isinstance(segment, dict):
+            continue
+        start = segment.get("start", 0.0)
+        end = segment.get("end", 0.0)
+        text = segment.get("text", "") or segment.get("segment", "")
+        segments.append(
+            {
+                "seek": segment.get("seek", 0),
+                "start": float(start) if isinstance(start, (int, float)) else 0.0,
+                "end": float(end) if isinstance(end, (int, float)) else 0.0,
+                "text": text.strip(),
+                "temperature": float(segment.get("temperature", 0.0))
+                if isinstance(segment.get("temperature"), (int, float))
+                else 0.0,
+                "avg_logprob": float(segment.get("avg_logprob", 0.0))
+                if isinstance(segment.get("avg_logprob"), (int, float))
+                else 0.0,
+                "compression_ratio": float(segment.get("compression_ratio", 0.0))
+                if isinstance(segment.get("compression_ratio"), (int, float))
+                else 0.0,
+                "no_speech_prob": float(segment.get("no_speech_prob", 0.0))
+                if isinstance(segment.get("no_speech_prob"), (int, float))
+                else 0.0,
+            }
+        )
+
+    return segments
+
+
+def _extract_asr_text_and_segments(asr_result, include_segments: bool) -> tuple[str, list]:
+    """Extract plain text and segment timing from NeMo transcription output."""
+    if isinstance(asr_result, (list, tuple)) and asr_result:
+        asr_result = asr_result[0]
+
+    text = ""
+    segments: list = []
+
+    if asr_result is None:
+        return text, segments
+
+    if isinstance(asr_result, dict):
+        text = asr_result.get("text", "") or asr_result.get("pred_text", "")
+        if include_segments:
+            segments = _extract_asr_segments(asr_result)
+        return str(text).strip(), segments
+
+    text = getattr(asr_result, "text", "")
+    if not text:
+        text = getattr(asr_result, "pred_text", "")
+    if include_segments:
+        segments = _extract_asr_segments(asr_result)
+    return str(text).strip(), segments
+
+
 def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
     audio_model = MODEL_CACHE.add_or_get("audio_model", load_audio_model)
 
@@ -478,22 +557,17 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
             detail="Either audio_file or audio_url must be provided",
         )
 
+    include_segments = bool(audio_params.include_segments)
+    if (audio_params.output_filetype or "").lower() == "srt":
+        include_segments = True
+
     with torch.inference_mode():
         tmp_file = NamedTemporaryFile(dir="/dev/shm", delete=True, suffix=".wav")
         tmp_file.write(audio_bytes)
-        nemo_result = audio_model.transcribe([tmp_file.name], timestamps=True)[0]
+        nemo_result = audio_model.transcribe([tmp_file.name], timestamps=include_segments)
         tmp_file.close()
-
-        segments = [
-            {
-                "start": seg["start"],
-                "end": seg["end"],
-                "text": seg.get("segment", "").strip(),
-            }
-            for seg in nemo_result.timestamp["segment"]
-        ]
-
-        return {"text": nemo_result.text.strip(), "segments": segments}
+        text, segments = _extract_asr_text_and_segments(nemo_result, include_segments)
+        return {"text": text, "segments": segments}
 
 
 @app.post("/api/v1/audio-file-extraction")
@@ -506,6 +580,7 @@ async def audio_file_extraction(
     audio_file: UploadFile = File(None, description="Audio file"),
     translate_to_english: bool = Form(False),
     output_filetype: str = Form("txt"),
+    include_segments: bool = Form(True),
     secret: Union[str, None] = Header(default=None),
 ):
     audio_params = AudioParamsOrAudioFile(
@@ -513,6 +588,7 @@ async def audio_file_extraction(
         audio_url=None,
         translate_to_english=translate_to_english,
         output_filetype=output_filetype,
+        include_segments=include_segments,
     )
     return await audio_extract_shared(background_tasks, audio_params, request, response, secret)
 
