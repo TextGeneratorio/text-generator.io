@@ -14,6 +14,8 @@ from PIL import Image
 from questions.image_captioning.gitbase_captioner import GitBaseCaptioner, caption_image_bytes, get_gitbase_captioner
 from questions.logging_config import setup_logging
 
+pytestmark = pytest.mark.inference
+
 setup_logging()
 logger = logging.getLogger(__name__)
 

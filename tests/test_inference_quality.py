@@ -16,7 +16,10 @@ import numpy as np
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import pytest
 import torch
+
+pytestmark = pytest.mark.inference
 
 
 def test_kokoro_tts_quality():

@@ -9,7 +9,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import pytest
 import torch
+
+pytestmark = pytest.mark.inference
 
 
 def benchmark(fn, name, num_runs=5):
