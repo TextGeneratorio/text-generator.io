@@ -29,8 +29,8 @@ jobs:
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
       - name: Ruff
         run: ruff check .
-      - name: Run main server tests (excluding inference)
-        run: pytest --cov=questions --cov-report=xml -q -m "not inference"
+      - name: Run main server tests (excluding inference and integration)
+        run: pytest --cov=questions --cov-report=xml -q -m "not inference and not integration" --ignore=tests/test_postgres_setup.py
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
