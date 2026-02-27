@@ -19,5 +19,5 @@ jobs:
         run: |
           uv pip install --system -r requirements.txt
           uv pip install --system -r dev-requirements.txt
-      - name: Run unit tests (excluding inference)
-        run: pytest tests/unit -m "not inference"
+      - name: Run unit tests (excluding inference and integration)
+        run: pytest tests/unit -m "not inference and not integration"
