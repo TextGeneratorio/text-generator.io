@@ -85,6 +85,7 @@ def test_get_caption_with_custom_prompt():
     assert "fairy" in result.lower()  # Basic check that it found a fairy
 
 
+@pytest.mark.internet
 def test_get_caption_with_specific_prompt():
     textimg = """https://static.text-generator.io/static/img/fairy3.jpeg"""
     urls = get_urls(textimg)
