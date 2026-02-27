@@ -19,6 +19,8 @@ jobs:
           --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - uses: actions/checkout@v4
+      - name: Setup sellerinfo
+        run: cp sellerinfo_faked.py sellerinfo.py
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

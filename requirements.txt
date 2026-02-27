@@ -906,7 +906,7 @@ ruamel-yaml==0.18.14
     # via nemo-toolkit
 ruamel-yaml-clib==0.2.12
     # via ruamel-yaml
-ruff==0.12.2
+ruff==0.13.2
     # via gradio
 runpod==1.7.12
     # via -r requirements.in
