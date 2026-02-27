@@ -7,15 +7,15 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
       - name: Install uv
         run: pip install uv
       - name: Install dependencies
         run: |
-          uv pip install --system -r questions/inference_server/requirements.txt
+          uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
           uv pip install --system -r dev-requirements.txt
       - name: Run unit tests (excluding inference)
         run: pytest tests/unit -m "not inference"
