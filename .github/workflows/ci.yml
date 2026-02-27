@@ -25,8 +25,6 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
-      - name: Install inference server dependencies
-        run: uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
       - name: Ruff
         run: ruff check .
       - name: Run main server tests (excluding inference)
@@ -53,8 +51,6 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
-      - name: Install inference server dependencies
-        run: uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
       - name: Download NLTK data
         run: python -m nltk.downloader punkt
       - name: Run offline integration tests (excluding inference)
@@ -76,8 +72,6 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: uv pip install --system -r requirements.txt -r requirements-test.txt
-      - name: Install inference server dependencies
-        run: uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
       - name: Download NLTK data
         run: python -m nltk.downloader punkt
       - name: Run integration tests (excluding inference)
