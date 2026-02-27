@@ -15,6 +15,7 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: |
+          uv pip install --system setuptools
           uv pip install --system -r questions/inference_server/requirements.in --no-build-isolation
           uv pip install --system -r dev-requirements.txt
       - name: Run unit tests (excluding inference)
