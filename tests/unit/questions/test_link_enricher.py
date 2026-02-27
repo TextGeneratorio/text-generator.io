@@ -54,6 +54,7 @@ def test_get_urls_w_no_url_code():
     assert urls == []
 
 
+@pytest.mark.inference
 def test_enrich_links_twitter():
     result = enrich_links("https://twitter.com/karpathy/status/1565578366886940672 ")
     # Twitter links might return browser not supported message or empty title
@@ -61,6 +62,7 @@ def test_enrich_links_twitter():
     assert isinstance(result, str)
 
 
+@pytest.mark.inference
 def test_enrich_links_cache_():
     titles = enrich_links("https://static.text-generator.io/static/img/Screenshot%20from%202022-09-12%2010-08-50.png")
     logger.info(titles)
@@ -79,6 +81,7 @@ def test_enrich_links_cache_():
     # assert titles == [""]
 
 
+@pytest.mark.inference
 def test_get_caption_with_custom_prompt():
     textimg = """https://static.text-generator.io/static/img/fairy3.jpeg"""
     result = enrich_links(textimg)
@@ -86,6 +89,7 @@ def test_get_caption_with_custom_prompt():
 
 
 @pytest.mark.internet
+@pytest.mark.inference
 def test_get_caption_with_specific_prompt():
     textimg = """https://static.text-generator.io/static/img/fairy3.jpeg"""
     urls = get_urls(textimg)
