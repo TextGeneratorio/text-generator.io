@@ -22,7 +22,6 @@ Usage:
 
 import gc
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -296,6 +295,7 @@ def analyze_profile_for_recommendations(prof, operator_stats) -> list:
 def quick_benchmark():
     """Quick benchmark without full profiling."""
     import time
+
     from questions.inference_server.model_cache import ModelCache
     from questions.models import GenerateParams
     from questions.text_generator_inference import fast_inference
@@ -338,7 +338,7 @@ def quick_benchmark():
         print(f"  Run {i+1}/10: {(end-start)*1000:.1f}ms")
 
     import statistics
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Mean: {statistics.mean(times)*1000:.1f}ms")
     print(f"  Std:  {statistics.stdev(times)*1000:.1f}ms")
     print(f"  Min:  {min(times)*1000:.1f}ms")

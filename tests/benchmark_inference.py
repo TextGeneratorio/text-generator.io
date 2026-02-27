@@ -211,8 +211,9 @@ class InferenceBenchmark:
         )
 
         # Create a small test audio file
-        import numpy as np
         import tempfile
+
+        import numpy as np
         try:
             import soundfile as sf
         except ImportError:
@@ -413,7 +414,7 @@ benchmark.run_all_benchmarks(['text_generation'])
     with open(temp_script, "w") as f:
         f.write(benchmark_script)
 
-    print(f"Generating flame graph...")
+    print("Generating flame graph...")
     print(f"Output: {flamegraph_path}")
 
     # Run py-spy record
@@ -459,7 +460,7 @@ benchmark.run_all_benchmarks(['text_generation'])
         result = subprocess.run(cmd_speedscope, capture_output=True, text=True)
         if result.returncode == 0:
             print(f"Speedscope profile saved to: {speedscope_path}")
-            print(f"View at: https://www.speedscope.app/ (drag & drop the JSON file)")
+            print("View at: https://www.speedscope.app/ (drag & drop the JSON file)")
     except Exception as e:
         print(f"Speedscope generation failed: {e}")
     finally:

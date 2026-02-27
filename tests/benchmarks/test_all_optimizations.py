@@ -15,8 +15,6 @@ Each optimization is tested for:
 - Memory usage
 """
 
-import gc
-import os
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -453,7 +451,7 @@ class TestMemoryOptimization:
         )
 
         # This should be slower, but ensures memory is freed
-        print(f"  Note: Cache clearing expected to be slower")
+        print("  Note: Cache clearing expected to be slower")
 
 
 class TestTorchJIT:

@@ -20,7 +20,6 @@ Usage:
 """
 
 import cProfile
-import os
 import pstats
 import sys
 from datetime import datetime
@@ -34,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def profile_text_generation():
     """Profile text generation inference."""
     import torch
+
     from questions.inference_server.model_cache import ModelCache
     from questions.models import GenerateParams
     from questions.text_generator_inference import fast_inference

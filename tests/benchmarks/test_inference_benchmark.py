@@ -17,8 +17,6 @@ Run with:
     PYTHONPATH=. pytest tests/benchmarks/test_inference_benchmark.py -v -s
 """
 
-import asyncio
-import gc
 import json
 import os
 import statistics
@@ -232,6 +230,7 @@ class LLMQualityJudge:
             return ""
 
         import tempfile
+
         import soundfile as sf
 
         # Write to temp file
@@ -616,7 +615,7 @@ class TestOptimizedVsBaseline:
 
             speedup = sequential_time / batch_time
 
-            print(f"\n[BATCH vs SEQUENTIAL]")
+            print("\n[BATCH vs SEQUENTIAL]")
             print(f"  Sequential: {sequential_time:.2f}ms")
             print(f"  Batched: {batch_time:.2f}ms")
             print(f"  Speedup: {speedup:.2f}x")

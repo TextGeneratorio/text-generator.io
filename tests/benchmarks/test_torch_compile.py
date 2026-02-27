@@ -6,7 +6,7 @@ without the static shape requirements of CUDA graphs.
 """
 
 import time
-import numpy as np
+
 import pytest
 import torch
 
@@ -99,7 +99,7 @@ class TestTorchCompile:
         if not torch.cuda.is_available():
             pytest.skip("CUDA required")
 
-        from questions.inference_server.kokoro import phonemize, tokenize, length_to_mask
+        from questions.inference_server.kokoro import length_to_mask, phonemize, tokenize
 
         text = "The quick brown fox jumps over the lazy dog."
         ps = phonemize(text, "a")
@@ -185,7 +185,7 @@ class TestInferenceModes:
     @pytest.fixture(scope="class")
     def model_and_data(self):
         """Load model and prepare test data."""
-        from questions.inference_server.kokoro import phonemize, tokenize, forward
+        from questions.inference_server.kokoro import forward, phonemize, tokenize
         from questions.inference_server.models import build_model
 
         device = "cuda" if torch.cuda.is_available() else "cpu"

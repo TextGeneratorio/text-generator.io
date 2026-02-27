@@ -112,8 +112,8 @@ async def preload_models():
         try:
             # Preload text generation model
             logger.info("Preloading text generation model...")
-            from questions.text_generator_inference import fast_inference
             from questions.models import GenerateParams
+            from questions.text_generator_inference import fast_inference
             fast_inference(
                 generate_params=GenerateParams(text="warmup", max_length=1),
                 model_cache=MODEL_CACHE
@@ -121,8 +121,8 @@ async def preload_models():
 
             # Preload embeddings model
             logger.info("Preloading embeddings model...")
-            from questions.text_generator_inference import fast_feature_extract_inference
             from questions.models import FeatureExtractParams
+            from questions.text_generator_inference import fast_feature_extract_inference
             fast_feature_extract_inference(
                 feature_extract_params=FeatureExtractParams(text="warmup", num_features=768),
                 model_cache=MODEL_CACHE
@@ -958,9 +958,9 @@ async def image_caption(
         elif image_url:
             # Handle image URL
             import httpx
-            
+
             logger.info(f"Downloading image from URL: {image_url}")
-            
+
             # Download image from URL asynchronously
             try:
                 async with httpx.AsyncClient() as client:
@@ -970,7 +970,7 @@ async def image_caption(
                             status_code=400,
                             detail=f"Failed to download image from URL: HTTP {response.status_code}"
                         )
-                    
+
                     # Validate content type
                     content_type = response.headers.get('Content-Type', '')
                     if not content_type.startswith('image/'):
@@ -978,16 +978,16 @@ async def image_caption(
                             status_code=400,
                             detail=f"URL does not point to an image. Content-Type: {content_type}"
                         )
-                    
+
                     image_bytes = response.content
                     filename = image_url.split('/')[-1] or 'image_from_url'
-                
+
             except httpx.HTTPError as e:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Failed to download image from URL: {str(e)}"
                 )
-        
+
         # Validate image size (limit to 10MB)
         if len(image_bytes) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="Image file too large. Maximum size is 10MB.")

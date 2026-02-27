@@ -8,9 +8,7 @@ Run with: pytest tests/test_auth_e2e.py -v
 import re
 import time
 
-import pytest
 from playwright.sync_api import Page, expect
-
 
 BASE_URL = "http://localhost:8083"
 

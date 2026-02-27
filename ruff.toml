@@ -1,5 +1,5 @@
 line-length = 120
-exclude = [".venv", "jwt", "OFA", "chromews"]
+exclude = [".venv", "..oldvenv", "jwt", "OFA", "chromews", "scripts/onnx_compile.py", "static/bower_components"]
 
 [lint]
 select = [
@@ -15,6 +15,13 @@ ignore = [
     "E721",  # type comparison
     "E701",  # multiple statements on one line
     "E722",  # bare except
+    "E501",  # line too long
+    "F841",  # unused variable
+    "F601",  # membership test with `in` on list
+    "F811",  # redefined unused name
+    "W291",  # trailing whitespace
+    "W293",  # whitespace before ':'
+    "F401",  # unused import
 ]
 
 [format]

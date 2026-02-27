@@ -18,7 +18,6 @@ Usage:
 import argparse
 import json
 import logging
-import os
 import subprocess
 import sys
 import time

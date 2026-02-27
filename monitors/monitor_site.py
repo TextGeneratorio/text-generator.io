@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-import time
-import subprocess
 import fcntl
+import subprocess
+import time
 import urllib.request
-from urllib.error import URLError, HTTPError
 from datetime import datetime, timezone
+from urllib.error import HTTPError, URLError
 
 URL_EXTERNAL = "https://text-generator.io/"
 URL_LOCAL = "http://localhost:8083/"

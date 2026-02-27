@@ -19,7 +19,6 @@ import logging
 import os
 import subprocess
 import sys
-import time
 import uuid
 from datetime import datetime
 
@@ -160,7 +159,7 @@ class AuthFlowTest:
                     self.log_result("Access Account", True, f"Got user data for {self.test_email}")
                     return True
                 else:
-                    self.log_result("Access Account", False, f"Wrong email in response")
+                    self.log_result("Access Account", False, "Wrong email in response")
                     return False
             else:
                 self.log_result("Access Account", False, f"Status {response.status_code}: {response.text[:200]}")

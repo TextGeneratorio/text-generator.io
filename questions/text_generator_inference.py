@@ -765,8 +765,9 @@ def direct_inference_streaming(generate_params: GenerateParams, model_cache=None
     global weights_to_model
     global weights_to_tokenizer
 
-    from transformers import TextIteratorStreamer
     from threading import Thread
+
+    from transformers import TextIteratorStreamer
 
     # Load model if needed
     best_weights_path = weights_path_tgz

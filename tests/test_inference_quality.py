@@ -9,9 +9,8 @@ Tests:
 """
 import os
 import sys
-import json
 import time
-import tempfile
+
 import numpy as np
 
 # Add project root to path
@@ -26,10 +25,7 @@ def test_kokoro_tts_quality():
     print("Testing Kokoro TTS")
     print("=" * 60)
 
-    from questions.inference_server.kokoro import (
-        generate_full, phonemize, compile_model, normalize_text
-    )
-    from questions.inference_server.model_cache import ModelCache
+    from questions.inference_server.kokoro import compile_model, generate_full
     from questions.inference_server.models import build_model
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -161,9 +157,9 @@ def test_text_generation():
     print("Testing Text Generation")
     print("=" * 60)
 
-    from questions.text_generator_inference import fast_inference
-    from questions.models import GenerateParams
     from questions.inference_server.model_cache import ModelCache
+    from questions.models import GenerateParams
+    from questions.text_generator_inference import fast_inference
 
     model_cache = ModelCache()
 
@@ -204,9 +200,9 @@ def test_embeddings():
     print("Testing Embeddings")
     print("=" * 60)
 
-    from questions.text_generator_inference import fast_feature_extract_inference
-    from questions.models import FeatureExtractParams
     from questions.inference_server.model_cache import ModelCache
+    from questions.models import FeatureExtractParams
+    from questions.text_generator_inference import fast_feature_extract_inference
 
     model_cache = ModelCache()
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """WER benchmark for ASR (Parakeet) inference server."""
-import os
-import sys
-import re
-import json
-import time
 import argparse
+import json
+import os
+import re
 import subprocess
+import sys
+import time
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)

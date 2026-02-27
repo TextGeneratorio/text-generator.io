@@ -9,12 +9,10 @@ Measures:
 """
 
 import time
-from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
-
 
 SAMPLE_TEXTS = [
     "Hello world.",
