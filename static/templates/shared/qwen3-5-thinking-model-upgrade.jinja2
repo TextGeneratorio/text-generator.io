@@ -1,0 +1,183 @@
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > New Thinking Model - Qwen3.5
+            </div>
+            <h3>New Thinking Model with Reasoning Support</h3>
+            <h4>Qwen3.5-4B - Think Before You Speak</h4>
+            <p>We've upgraded our text generation model to <b>Qwen3.5-4B</b>, a new model with built-in
+                thinking and reasoning capabilities. When enabled, the model thinks through problems step by step
+                before giving you the final answer.</p>
+
+            <h4>What's New</h4>
+            <ul>
+                <li><b>Thinking/Reasoning Mode</b> - The model can now show its thought process via an <code>enable_thinking</code> parameter</li>
+                <li><b>OpenAI-Compatible Chat API</b> - New <code>/v1/chat/completions</code> endpoint compatible with OpenAI SDKs</li>
+                <li><b>Streaming Support</b> - Real-time SSE streaming with separate thinking and content streams</li>
+                <li><b>Better Quality</b> - Improved text generation quality across all use cases</li>
+            </ul>
+
+            <h4>Thinking Mode</h4>
+            <p>When <code>enable_thinking</code> is set to <code>true</code>, the model reasons through the problem internally
+                before producing its response. The reasoning is returned separately in a <code>reasoning_content</code> field,
+                so you can display it or hide it as needed.</p>
+
+            <h4>Chat Completions API</h4>
+            <p>The new <code>/v1/chat/completions</code> endpoint is compatible with the OpenAI SDK format.
+                You can use it with any OpenAI-compatible client library.</p>
+
+            <h5>Python Example - Chat with Thinking</h5>
+            <pre><code id="code-snippet-python" class="language-python">import requests
+import os
+
+API_KEY = os.getenv("TEXT_GENERATOR_API_KEY")
+if API_KEY is None:
+    raise Exception(
+        "Please set TEXT_GENERATOR_API_KEY environment variable, "
+        "login to https://text-generator.io to get your API key")
+
+response = requests.post(
+    "https://api.text-generator.io/v1/chat/completions",
+    json={
+        "messages": [
+            {"role": "user", "content": "What causes rainbows?"}
+        ],
+        "enable_thinking": True,
+        "max_tokens": 2000,
+    },
+    headers={"secret": API_KEY}
+)
+
+result = response.json()
+message = result["choices"][0]["message"]
+
+# The model's reasoning process (optional)
+if "reasoning_content" in message:
+    print("Thinking:", message["reasoning_content"])
+
+# The final answer
+print("Answer:", message["content"])</code></pre>
+
+            <h5>Streaming Example</h5>
+            <pre><code id="code-snippet-stream" class="language-python">import requests
+import json
+import os
+
+API_KEY = os.getenv("TEXT_GENERATOR_API_KEY")
+headers = {"secret": API_KEY, "Content-Type": "application/json"}
+
+response = requests.post(
+    "https://api.text-generator.io/v1/chat/completions",
+    json={
+        "messages": [
+            {"role": "user", "content": "Write a short poem about the stars."}
+        ],
+        "stream": True,
+        "enable_thinking": False,
+        "max_tokens": 500,
+    },
+    headers=headers,
+    stream=True,
+)
+
+for line in response.iter_lines():
+    if line:
+        text = line.decode("utf-8")
+        if text.startswith("data: ") and text != "data: [DONE]":
+            chunk = json.loads(text[6:])
+            delta = chunk["choices"][0]["delta"]
+            if "content" in delta:
+                print(delta["content"], end="", flush=True)
+            elif "reasoning_content" in delta:
+                print(delta["reasoning_content"], end="", flush=True)</code></pre>
+
+            <h5>OpenAI SDK Compatible</h5>
+            <pre><code id="code-snippet-openai" class="language-python">from openai import OpenAI
+
+client = OpenAI(
+    api_key="your-text-generator-api-key",
+    base_url="https://api.text-generator.io/v1",
+    default_headers={"secret": "your-text-generator-api-key"},
+)
+
+response = client.chat.completions.create(
+    model="qwen3.5-4b",
+    messages=[
+        {"role": "user", "content": "Explain quantum entanglement simply."}
+    ],
+    max_tokens=1000,
+)
+
+print(response.choices[0].message.content)</code></pre>
+
+            <h5>JavaScript Example</h5>
+            <pre><code id="code-snippet-js" class="language-javascript">const response = await fetch(
+  "https://api.text-generator.io/v1/chat/completions",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "secret": "your-api-key",
+    },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "What is 2+2? Think step by step." }],
+      enable_thinking: true,
+      max_tokens: 2000,
+    }),
+  }
+);
+
+const data = await response.json();
+console.log("Thinking:", data.choices[0].message.reasoning_content);
+console.log("Answer:", data.choices[0].message.content);</code></pre>
+
+            <h5>Curl Example</h5>
+            <pre><code id="code-snippet-bash" class="language-bash">curl -X POST https://api.text-generator.io/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "secret: YOUR_API_KEY" \
+  -d '{
+    "messages": [{"role": "user", "content": "What causes tides?"}],
+    "enable_thinking": true,
+    "max_tokens": 2000
+  }'</code></pre>
+
+            <h4>Try It in the Playground</h4>
+            <p>The <a href="/playground">Playground</a> now has an "Enable Thinking/Reasoning" checkbox.
+                Turn it on to see the model's thought process in a collapsible section above the response.</p>
+
+            <h4>Legacy API Still Works</h4>
+            <p>The existing <code>/api/v1/generate</code> endpoint continues to work as before.
+                The model upgrade is seamless - your existing integrations will see improved quality without any code changes.</p>
+
+            <h5>Pricing</h5>
+            <p>Chat completions and thinking mode are included in all existing plans at no extra cost.</p>
+
+            <script>
+              $(document).ready(function () {
+                hljs.highlightAll();
+                window.setTimeout(function () {
+                          hljs.highlightAll();
+                    }, 3000);
+              });
+            </script>
+
+            <p>Try it yourself at: <a href="/playground">Text Generator Playground</a></p>
+            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
+               href="/signup">
+                Sign up
+            </a>
+        </div>
+    </div>
+    {% import "templates/macros.jinja2" as macros with context %}
+
+    {{ macros.svgstyled() }}
+</main>

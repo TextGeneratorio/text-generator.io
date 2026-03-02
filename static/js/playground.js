@@ -333,6 +333,10 @@
         generationSettings['model'] = value
         setUrl(generationSettings)
     }
+    var setEnableThinking = function (value) {
+        generationSettings['enable_thinking'] = value;
+        setUrl(generationSettings);
+    }
 
     var showCode = function () {
 
@@ -476,6 +480,15 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
 `);
             $('#response-tooltip').html(`${realNewlineData}`);
         }
+
+        // Show thinking content if present
+        if (data[0] && data[0]['thinking_content']) {
+            $('#thinking-content').text(data[0]['thinking_content']);
+            $('#thinking-results').show();
+        } else {
+            $('#thinking-results').hide();
+        }
+
         hljs.highlightAll();
     }
 

@@ -68,7 +68,7 @@ class TestGitBaseCaptioner:
         assert captioner.use_channels_last is False
 
     @patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained")
-    @patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained")
+    @patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained")
     def test_load_model(self, mock_model, mock_processor, captioner):
         """Test model loading functionality."""
         # Setup mocks
@@ -92,7 +92,7 @@ class TestGitBaseCaptioner:
         assert captioner.model == mock_model_instance
 
     @patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained")
-    @patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained")
+    @patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained")
     def test_warmup(self, mock_model, mock_processor, captioner):
         """Test model warmup functionality."""
         # Setup mocks
@@ -117,7 +117,7 @@ class TestGitBaseCaptioner:
         mock_model_instance.generate.assert_called()
 
     @patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained")
-    @patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained")
+    @patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained")
     def test_caption_image(self, mock_model, mock_processor, captioner, sample_image):
         """Test image captioning functionality."""
         # Setup mocks
@@ -146,7 +146,7 @@ class TestGitBaseCaptioner:
         )
 
     @patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained")
-    @patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained")
+    @patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained")
     def test_caption_image_fast(self, mock_model, mock_processor, captioner, sample_image):
         """Test fast captioning mode."""
         # Setup mocks
@@ -176,7 +176,7 @@ class TestGitBaseCaptioner:
         assert call_args[1]["do_sample"] is False
 
     @patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained")
-    @patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained")
+    @patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained")
     def test_caption_image_quality(self, mock_model, mock_processor, captioner, sample_image):
         """Test quality captioning mode."""
         # Setup mocks
@@ -206,7 +206,7 @@ class TestGitBaseCaptioner:
         assert call_args[1]["do_sample"] is False
 
     @patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained")
-    @patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained")
+    @patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained")
     def test_benchmark(self, mock_model, mock_processor, captioner, sample_image):
         """Test benchmarking functionality."""
         # Setup mocks
@@ -311,7 +311,7 @@ class TestPerformanceOptimizations:
 
     @patch("torch.compile")
     @patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained")
-    @patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained")
+    @patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained")
     def test_torch_compile_integration(self, mock_model, mock_processor, mock_compile):
         """Test torch.compile integration."""
         # Setup mocks
@@ -355,7 +355,7 @@ class TestIntegrationWithExistingCode:
             # This should trigger logging during model loading
             with patch("questions.image_captioning.gitbase_captioner.AutoProcessor.from_pretrained"):
                 with patch(
-                    "questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained"
+                    "questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained"
                 ) as mock_model:
                     mock_model_instance = Mock()
                     mock_model_instance.to.return_value = mock_model_instance
@@ -380,7 +380,7 @@ class TestErrorHandling:
 
     def test_model_loading_failure(self):
         """Test handling of model loading failures."""
-        with patch("questions.image_captioning.gitbase_captioner.AutoModelForVision2Seq.from_pretrained") as mock_model:
+        with patch("questions.image_captioning.gitbase_captioner.AutoModelForImageTextToText.from_pretrained") as mock_model:
             mock_model.side_effect = Exception("Model loading failed")
 
             captioner = GitBaseCaptioner(device="cpu")

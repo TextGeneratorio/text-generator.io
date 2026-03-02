@@ -2,18 +2,18 @@
 import logging
 import os
 import random
+from functools import lru_cache
 from io import BytesIO
 from tempfile import NamedTemporaryFile
 from typing import List, Union
 
 import numpy as np
-import torch
 import youtube_dl
 from fastapi import BackgroundTasks, File, Form, Header, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from questions.inference_server.tts_utils import write_srt
+from questions.inference_server.tts_utils import optimize_tts_audio_for_speed, write_srt
 from questions.logging_config import setup_logging
 
 setup_logging()
@@ -30,33 +30,21 @@ from starlette.responses import (
 from questions.audio_server.audio_dl import request_get
 from questions.constants import weights_path_tgz
 from questions.db_models_postgres import User, get_db_session_sync
-from questions.image_captioning.gitbase_captioner import caption_image_bytes
-from questions.inference_server.kokoro import compile_model, generate_full
-from questions.inference_server.model_cache import ModelCache
-from questions.inference_server.models import build_model
 from questions.models import (
     AudioParams,
     AudioParamsOrAudioFile,
+    ChatCompletionParams,
     FeatureExtractParams,
     GenerateParams,
     GenerateSpeechParams,
     OpenaiParams,
     SummarizationParams,
+    map_to_chat_completion_response,
     map_to_generate_params,
     map_to_openai_response,
 )
-from questions.perplexity import DEVICE
-from questions.summarization import get_extractive_summary
-from questions.text_gen_pipeline import TextGenPipeline
-from questions.text_generator_inference import (
-    fast_feature_extract_inference,
-    fast_inference,
-    load_pipelines_and_model,
-)
 from questions.utils import log_time
 from sellerinfo import session_secret
-
-assert TextGenPipeline is not None  # needed to override
 
 # pip install google-api-python-client google-cloud-storage google-auth-httplib2 google-auth-oauthlib
 
@@ -82,16 +70,111 @@ app = FastAPI(
     version="1",
 )
 
-# Only import NeMo when needed for ASR functionality
-try:
-    import nemo.collections.asr as nemo_asr
+nemo_asr = None
+NEMO_AVAILABLE = None
 
-    NEMO_AVAILABLE = True
-except ImportError:
-    NEMO_AVAILABLE = False
-    nemo_asr = None
+MODEL_CACHE = None
 
-MODEL_CACHE = ModelCache()
+
+def _get_torch():
+    import torch
+
+    return torch
+
+
+def _get_model_cache():
+    global MODEL_CACHE
+    if MODEL_CACHE is None:
+        from questions.inference_server.model_cache import ModelCache
+
+        MODEL_CACHE = ModelCache()
+    return MODEL_CACHE
+
+
+@lru_cache(maxsize=1)
+def _ensure_text_pipeline_override():
+    # Importing this module patches transformers SUPPORTED_TASKS for our custom pipeline.
+    from questions.text_gen_pipeline import TextGenPipeline
+
+    return TextGenPipeline
+
+
+def _fast_inference(*args, **kwargs):
+    _ensure_text_pipeline_override()
+    from questions.text_generator_inference import fast_inference
+
+    return fast_inference(*args, **kwargs)
+
+
+def _chat_inference(*args, **kwargs):
+    _ensure_text_pipeline_override()
+    from questions.text_generator_inference import chat_inference
+
+    return chat_inference(*args, **kwargs)
+
+
+def _chat_inference_streaming(*args, **kwargs):
+    _ensure_text_pipeline_override()
+    from questions.text_generator_inference import chat_inference_streaming
+
+    return chat_inference_streaming(*args, **kwargs)
+
+
+def _fast_feature_extract_inference(*args, **kwargs):
+    _ensure_text_pipeline_override()
+    from questions.text_generator_inference import fast_feature_extract_inference
+
+    return fast_feature_extract_inference(*args, **kwargs)
+
+
+def _load_pipelines_and_model(*args, **kwargs):
+    _ensure_text_pipeline_override()
+    from questions.text_generator_inference import load_pipelines_and_model
+
+    return load_pipelines_and_model(*args, **kwargs)
+
+
+def _get_extractive_summary(*args, **kwargs):
+    from questions.summarization import get_extractive_summary
+
+    return get_extractive_summary(*args, **kwargs)
+
+
+def _caption_image_bytes(*args, **kwargs):
+    from questions.image_captioning.gitbase_captioner import caption_image_bytes
+
+    return caption_image_bytes(*args, **kwargs)
+
+
+@lru_cache(maxsize=1)
+def _get_kokoro_runtime():
+    from questions.inference_server.kokoro import compile_model, generate_full
+    from questions.inference_server.models import build_model
+
+    return compile_model, generate_full, build_model
+
+
+@lru_cache(maxsize=1)
+def _get_device():
+    from questions.perplexity import DEVICE
+
+    return DEVICE
+
+
+def _get_nemo_asr():
+    global nemo_asr
+    global NEMO_AVAILABLE
+    if nemo_asr is not None:
+        return nemo_asr
+    try:
+        import nemo.collections.asr as imported_nemo_asr
+
+        nemo_asr = imported_nemo_asr
+        NEMO_AVAILABLE = True
+        return nemo_asr
+    except ImportError:
+        NEMO_AVAILABLE = False
+        raise
 
 # Preload models on startup for faster first requests (disabled by default for safety)
 PRELOAD_MODELS = os.environ.get("PRELOAD_MODELS", "0") == "1"
@@ -110,29 +193,27 @@ async def preload_models():
     # Run preloads in background to not block startup
     async def _preload():
         try:
+            model_cache = _get_model_cache()
+
             # Preload text generation model
             logger.info("Preloading text generation model...")
-            from questions.models import GenerateParams
-            from questions.text_generator_inference import fast_inference
-            fast_inference(
+            _fast_inference(
                 generate_params=GenerateParams(text="warmup", max_length=1),
-                model_cache=MODEL_CACHE
+                model_cache=model_cache,
             )
 
             # Preload embeddings model
             logger.info("Preloading embeddings model...")
-            from questions.models import FeatureExtractParams
-            from questions.text_generator_inference import fast_feature_extract_inference
-            fast_feature_extract_inference(
+            _fast_feature_extract_inference(
                 feature_extract_params=FeatureExtractParams(text="warmup", num_features=768),
-                model_cache=MODEL_CACHE
+                model_cache=model_cache,
             )
 
             # Preload TTS model
             logger.info("Preloading TTS model...")
             load_speechgen_model()
 
-            logger.info(f"All models preloaded! Cached: {MODEL_CACHE.list_models()}")
+            logger.info(f"All models preloaded! Cached: {model_cache.list_models()}")
 
         except Exception as e:
             logger.error(f"Preload error (non-fatal): {e}")
@@ -401,15 +482,18 @@ audio_model = None
 def load_audio_model():
     """Load and return the Parakeet ASR model for speech to text."""
     global audio_model
-    if not NEMO_AVAILABLE:
-        raise ImportError("NeMo ASR is not available. Please install nemo-toolkit to use audio transcription.")
+    try:
+        nemo_runtime = _get_nemo_asr()
+    except ImportError as nemo_err:
+        raise ImportError("NeMo ASR is not available. Please install nemo-toolkit to use audio transcription.") from nemo_err
 
     try:
+        torch = _get_torch()
         with log_time("load parakeet model"):
             if not audio_model:
                 logger.info("Loading Parakeet model from HuggingFace...")
                 # Try without download_root parameter first
-                audio_model = nemo_asr.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
+                audio_model = nemo_runtime.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
                 audio_model.freeze()
                 logger.info("Parakeet model loaded and frozen")
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -505,7 +589,8 @@ def _extract_asr_text_and_segments(asr_result, include_segments: bool) -> tuple[
 
 
 def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
-    audio_model = MODEL_CACHE.add_or_get("audio_model", load_audio_model)
+    model_cache = _get_model_cache()
+    audio_model = model_cache.add_or_get("audio_model", load_audio_model)
 
     # Prioritize audio_file if present, otherwise use audio_url
     if hasattr(audio_params, 'audio_file') and audio_params.audio_file is not None:
@@ -561,6 +646,7 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
     if (audio_params.output_filetype or "").lower() == "srt":
         include_segments = True
 
+    torch = _get_torch()
     with torch.inference_mode():
         tmp_file = NamedTemporaryFile(dir="/dev/shm", delete=True, suffix=".wav")
         tmp_file.write(audio_bytes)
@@ -666,7 +752,7 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
-    inference_result = fast_feature_extract_inference(feature_extract_params, MODEL_CACHE)
+    inference_result = _fast_feature_extract_inference(feature_extract_params, _get_model_cache())
     return inference_result[: feature_extract_params.num_features]
 
 
@@ -681,8 +767,8 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
-    text = get_extractive_summary(
-        summarization_params.text, MODEL_CACHE, max_length=summarization_params.max_length or 0
+    text = _get_extractive_summary(
+        summarization_params.text, _get_model_cache(), max_length=summarization_params.max_length or 0
     )
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
@@ -694,12 +780,8 @@ async def feature_extraction(
 
 @app.get("/liveness_check")
 async def liveness_check(request: Request):
-    # global daemon
-    inference_result = fast_inference(
-        generate_params=GenerateParams(text="hi my friend", min_probability=0.9, max_length=1, model="any"),
-        model_cache=MODEL_CACHE,
-    )
-    return JSONResponse(inference_result)
+    # Keep this endpoint lightweight so process monitors don't trigger model loads.
+    return JSONResponse({"status": "ok"})
 
 
 def user_secret_matches(secret):
@@ -737,6 +819,37 @@ def request_authorized(request: Request, secret):
     return user_secret_matches(secret)
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    default_str = "1" if default else "0"
+    value = os.environ.get(name, default_str).strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _optimize_generated_audio(audio: np.ndarray, sample_rate: int = 24000) -> np.ndarray:
+    trim_edges = _env_flag("TTS_TRIM_EDGE_SILENCE", True)
+    compress_internal = _env_flag("TTS_COMPRESS_INTERNAL_SILENCE", False)
+    if not trim_edges and not compress_internal:
+        return audio
+
+    return optimize_tts_audio_for_speed(
+        audio,
+        sample_rate=sample_rate,
+        trim_edges=trim_edges,
+        compress_internal=compress_internal,
+        edge_trim_ms=max(_env_int("TTS_MAX_EDGE_TRIM_MS", 120), 0),
+        internal_silence_min_ms=max(_env_int("TTS_INTERNAL_SILENCE_MIN_MS", 250), 0),
+        internal_silence_keep_ms=max(_env_int("TTS_INTERNAL_SILENCE_KEEP_MS", 80), 0),
+        threshold=max(_env_int("TTS_SILENCE_THRESHOLD", 64), 1),
+    )
+
+
 import soundfile as sf
 
 speech_processor = None
@@ -752,6 +865,9 @@ def load_speechgen_model():
     global speech_voicepacks
 
     if not speechgen_model:
+        torch = _get_torch()
+        compile_model, _, build_model = _get_kokoro_runtime()
+
         # Load Kokoro model
         device = "cuda" if torch.cuda.is_available() else "cpu"
         speechgen_model = build_model("models/kokoro-v0_19.pth", device)
@@ -813,7 +929,7 @@ async def generate_speech(
     secret: Union[str, None] = Header(default=None),
 ):
     if not request_authorized(request, secret):
-        return HTTPException(
+        raise HTTPException(
             status_code=401,
             detail="Invalid Secret, please use the secret found in /account also subscribe at https://text-generator.io/subscribe first, also make sure there is an up to date credit card saved in your account",
         )
@@ -841,14 +957,16 @@ def gradio_audio_process(text, voice, speed=1.0):
     if len(text.strip()) == 0:
         return (24000, np.zeros(0).astype(np.int16))
 
-    model, voicepacks = MODEL_CACHE.add_or_get("speech_model", load_speechgen_model)
+    model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
 
     # Get the voicepack
     voicepack = voicepacks.get(voice, voicepacks["af_nicole"])
 
     # Generate audio using Kokoro
     # generate_full handles inputs longer than the default token limit
+    _, generate_full, _ = _get_kokoro_runtime()
     audio, phonemes = generate_full(model, text, voicepack, lang=voice[0], speed=speed)
+    audio = _optimize_generated_audio(audio, sample_rate=24000)
 
     return (24000, audio)
 
@@ -864,18 +982,22 @@ speaker_embeddings_loaded = {}
 
 
 def load_speaker_embedding(speaker):
+    torch = _get_torch()
     speaker_embedding = np.load(speaker_embeddings[speaker[:3]])
-
-    speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(DEVICE)
+    speaker_embedding = torch.tensor(speaker_embedding).unsqueeze(0).to(_get_device())
     return speaker_embedding
 
 
-for ui_name, code_name in speaker_ui_name_to_code_name.items():
-    speaker_embeddings_loaded[ui_name] = load_speaker_embedding(code_name)
+def get_speaker_embeddings_loaded():
+    if speaker_embeddings_loaded:
+        return speaker_embeddings_loaded
+    for ui_name, code_name in speaker_ui_name_to_code_name.items():
+        speaker_embeddings_loaded[ui_name] = load_speaker_embedding(code_name)
+    return speaker_embeddings_loaded
 
 
 def audio_process(text, voice="af_nicole", speed=1.0):
-    model, voicepacks = MODEL_CACHE.add_or_get("speech_model", load_speechgen_model)
+    model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
 
     if len(text.strip()) == 0:
         return (24000, np.zeros(0).astype(np.int16))
@@ -885,7 +1007,9 @@ def audio_process(text, voice="af_nicole", speed=1.0):
 
     # Generate audio using Kokoro
     # generate_full handles inputs longer than the default token limit
+    _, generate_full, _ = _get_kokoro_runtime()
     audio, phonemes = generate_full(model, text, voicepack, lang=voice[0], speed=speed)
+    audio = _optimize_generated_audio(audio, sample_rate=24000)
 
     # we could do this but use speed instead
     # Convert to float32 for time-stretch
@@ -998,7 +1122,7 @@ async def image_caption(
 
         # Generate caption using GitBase
         with log_time("image captioning"):
-            caption = caption_image_bytes(image_bytes=image_bytes, fast_mode=fast_mode)
+            caption = _caption_image_bytes(image_bytes=image_bytes, fast_mode=fast_mode)
 
         logger.info(f"Generated caption: {caption}")
 
@@ -1224,7 +1348,7 @@ async def generate_route(
     validation_result = validate_generate_params(generate_params)
     if validation_result:
         # return a 400 bad request from fast api
-        return HTTPException(status_code=400, detail=validation_result)
+        raise HTTPException(status_code=400, detail=validation_result)
 
     # print(model.config.max_length)
     # print(tokenizer.model_max_length)
@@ -1236,7 +1360,7 @@ async def generate_route(
     #             status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
     #         )
     # todo validate api key and user
-    inference_result = fast_inference(generate_params, MODEL_CACHE)
+    inference_result = _fast_inference(generate_params, _get_model_cache())
     return inference_result
 
 
@@ -1279,17 +1403,18 @@ async def generate_route_bulk(
     # print(model.config.max_length)
     # print(tokenizer.model_max_length)
     # model.config.max_length = tokenizer.model_max_length
-    MODEL_CACHE.add_or_get("text_model", lambda: load_pipelines_and_model(weights_path_tgz))
+    model_cache = _get_model_cache()
+    model_cache.add_or_get("text_model", lambda: _load_pipelines_and_model(weights_path_tgz))
     # daemon.join()
     inference_results = []
     for generate_params in bulk_params:
         validation_result = validate_generate_params(generate_params)
         if validation_result:
             # return a 400 bad request from fast api
-            return HTTPException(status_code=400, detail=validation_result)
+            raise HTTPException(status_code=400, detail=validation_result)
 
     for generate_params in bulk_params:
-        inference_result = fast_inference(generate_params)
+        inference_result = _fast_inference(generate_params, model_cache)
         inference_results.append(inference_result)
     return inference_results
 
@@ -1346,7 +1471,7 @@ async def openai_route_named(
     validation_result = validate_generate_params(generate_params)
     if validation_result:
         # return a 400 bad request from fast api
-        return HTTPException(status_code=400, detail=validation_result)
+        raise HTTPException(status_code=400, detail=validation_result)
     if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         header_auth = request.headers.get("Authorization", " ")
         authorization_split = header_auth.split(" ")
@@ -1354,11 +1479,11 @@ async def openai_route_named(
             if authorization_split[1]:
                 secret = authorization_split[1]
     if not request_authorized(request, secret):
-        return HTTPException(
+        raise HTTPException(
             status_code=401,
             detail="Please subscribe at https://text-generator.io/subscribe first, also ensure you have a credit card on file",
         )
-    inference_result = fast_inference(generate_params, MODEL_CACHE)
+    inference_result = _fast_inference(generate_params, _get_model_cache())
     if not openai_params.echo:
         ## remove all the inputs from the generated texts
         for i in range(len(inference_result)):
@@ -1375,6 +1500,95 @@ async def openai_route(
     secret: Union[str, None] = Header(default=None),
 ):
     return await openai_route_named("engine", openai_params, background_tasks, request, secret)
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions_route(
+    chat_params: ChatCompletionParams,
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
+    secret: Union[str, None] = Header(default=None),
+):
+    import json
+    from time import time as time_now
+
+    # Auth via secret header or Authorization Bearer
+    if request:
+        header_auth = request.headers.get("Authorization", "")
+        if header_auth.startswith("Bearer "):
+            bearer_token = header_auth[7:]
+            if bearer_token:
+                secret = bearer_token
+
+    messages = [{"role": m.role, "content": m.content} for m in chat_params.messages]
+
+    if chat_params.stream:
+        # Streaming SSE response
+        async def event_generator():
+            chat_id = "chatcmpl-" + str(random.randint(100000, 999999))
+
+            for chunk in _chat_inference_streaming(
+                messages=messages,
+                model_cache=_get_model_cache(),
+                enable_thinking=chat_params.enable_thinking,
+                max_tokens=chat_params.max_tokens,
+                temperature=chat_params.temperature,
+                top_p=chat_params.top_p,
+                top_k=chat_params.top_k,
+                presence_penalty=chat_params.presence_penalty,
+                repetition_penalty=chat_params.repetition_penalty,
+            ):
+                if not chunk["text"]:
+                    continue
+                delta = {}
+                if chunk["type"] == "content":
+                    delta = {"role": "assistant", "content": chunk["text"]}
+                elif chunk["type"] == "thinking":
+                    delta = {"role": "assistant", "reasoning_content": chunk["text"]}
+                else:
+                    continue
+
+                sse_data = {
+                    "id": chat_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time_now()),
+                    "model": chat_params.model,
+                    "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+                }
+                yield f"data: {json.dumps(sse_data)}\n\n"
+
+            # Final chunk
+            final = {
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": int(time_now()),
+                "model": chat_params.model,
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            }
+            yield f"data: {json.dumps(final)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        from starlette.responses import StreamingResponse
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+    # Non-streaming
+    result = _chat_inference(
+        messages=messages,
+        model_cache=_get_model_cache(),
+        enable_thinking=chat_params.enable_thinking,
+        max_tokens=chat_params.max_tokens,
+        temperature=chat_params.temperature,
+        top_p=chat_params.top_p,
+        top_k=chat_params.top_k,
+        presence_penalty=chat_params.presence_penalty,
+        repetition_penalty=chat_params.repetition_penalty,
+    )
+
+    return map_to_chat_completion_response(
+        generated_text=result["generated_text"],
+        thinking_content=result.get("thinking_content"),
+        model=chat_params.model,
+    )
 
 
 # redirect / to /docs

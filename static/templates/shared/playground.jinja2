@@ -84,6 +84,15 @@
                 </dialog>
                 <div id="playground-results">
                     <br>
+                    <div id="thinking-results" style="display:none; margin-bottom: 12px;">
+                        <details>
+                            <summary style="cursor:pointer; color: #666; font-style: italic; font-size: 0.9em;">
+                                Show thinking/reasoning
+                            </summary>
+                            <pre id="thinking-content" style="background: #f5f5f5; padding: 10px; border-radius: 4px;
+                                 white-space: pre-wrap; font-size: 0.85em; color: #555; max-height: 300px; overflow-y: auto; margin-top: 4px;"></pre>
+                        </details>
+                    </div>
                     <h4>Response</h4>
                     <div id="response-results">
 
@@ -123,6 +132,13 @@ Multilingual is better at code and other spoken languages than English
 Chat is good at role play, following creative instructions, can have spelling mistakes
 
 Fastest will take any model if its the fastest, this can cause inconsistency.</div>
+
+                <p class="playground-label">
+                    <label for="enable-thinking" style="cursor:pointer;">
+                        <input type="checkbox" id="enable-thinking" checked onchange="setEnableThinking(this.checked)">
+                        Enable Thinking/Reasoning
+                    </label>
+                </p>
 
 
 

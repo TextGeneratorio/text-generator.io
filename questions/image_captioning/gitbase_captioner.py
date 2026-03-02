@@ -9,7 +9,7 @@ from typing import Dict, Tuple
 
 import torch
 from PIL import Image
-from transformers import AutoModelForVision2Seq, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor
 
 from questions.inference_server.model_cache import ModelCache
 from questions.logging_config import setup_logging
@@ -52,13 +52,13 @@ class GitBaseCaptioner:
         self._is_loaded = False
         self._warmup_done = False
 
-    def _load_model(self) -> Tuple[AutoProcessor, AutoModelForVision2Seq]:
+    def _load_model(self) -> Tuple[AutoProcessor, AutoModelForImageTextToText]:
         """Load and optimize the GitBase model."""
         logger.info(f"Loading GitBase model: {self.model_name}")
 
         # Load processor and model
         processor = AutoProcessor.from_pretrained(self.model_name)
-        model = AutoModelForVision2Seq.from_pretrained(self.model_name, torch_dtype=self.dtype).to(self.device)
+        model = AutoModelForImageTextToText.from_pretrained(self.model_name, torch_dtype=self.dtype).to(self.device)
 
         # Apply memory format optimization
         if self.use_channels_last and self.device == "cuda":

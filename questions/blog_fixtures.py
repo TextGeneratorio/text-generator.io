@@ -54,4 +54,9 @@ blogs = {
         "description": "Control summary length precisely by specifying maximum characters in the summarization API",
         "keywords": "text summarization, API, natural language processing, text generation, Machine Learning",
     },
+    "qwen3-5-thinking-model-upgrade": {
+        "title": "New Thinking Model - Qwen3.5 with Reasoning Support",
+        "description": "Text Generator upgraded to Qwen3.5-4B with built-in thinking and reasoning, OpenAI-compatible chat completions API with streaming",
+        "keywords": "thinking model, reasoning, chain of thought, chat completions, streaming, OpenAI API, text generation, Machine Learning",
+    },
 }

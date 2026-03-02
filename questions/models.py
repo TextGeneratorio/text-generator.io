@@ -2,7 +2,7 @@ from time import time
 from typing import List, Optional
 
 from fastapi import UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 
 from questions.utils import random_string
 
@@ -76,6 +76,7 @@ class GenerateParams(BaseModel):
 
     model: Optional[str] = None
     system_message: Optional[str] = None
+    enable_thinking: Optional[bool] = None
 
 
 class GenerateSpeechParams(BaseModel):
@@ -85,6 +86,27 @@ class GenerateSpeechParams(BaseModel):
     speed: float = 1.0
     volume: float = 1.0
     sample_rate: int = 24000  # Kokoro outputs 24kHz audio
+
+    @root_validator(pre=True)
+    def map_legacy_speaker_field(cls, values):
+        # Backward-compat: older clients send "speaker" (e.g., "Male fast")
+        # while current API uses "voice" (e.g., "am_adam").
+        if values.get("voice"):
+            return values
+
+        speaker = values.get("speaker")
+        if not speaker:
+            return values
+
+        legacy_to_voice = {
+            "Male fast": "am_adam",
+            "Male default": "af",
+            "Male slower": "bm_lewis",
+            "Female 1": "af_bella",
+            "Female 2": "af_sarah",
+        }
+        values["voice"] = legacy_to_voice.get(speaker, speaker)
+        return values
 
 
 class OpenaiParams(BaseModel):
@@ -177,6 +199,51 @@ def map_to_openai_response(results, generate_params: GenerateParams):
         )
     response["usage"] = {"prompt_tokens": 0, "completion_tokens": 1, "total_tokens": 1}
     return response
+
+
+class ChatMessage(BaseModel):
+    role: str  # "system", "user", "assistant"
+    content: str
+
+
+class ChatCompletionParams(BaseModel):
+    model: str = "qwen3.5-4b"
+    messages: List[ChatMessage]
+    max_tokens: Optional[int] = 32768
+    temperature: Optional[float] = 1.0
+    top_p: Optional[float] = 1.0
+    top_k: Optional[int] = 40
+    presence_penalty: Optional[float] = 0.0
+    repetition_penalty: Optional[float] = 1.0
+    stream: bool = False
+    enable_thinking: Optional[bool] = True
+    n: int = 1
+
+
+def map_to_chat_completion_response(
+    generated_text: str,
+    thinking_content=None,
+    model: str = "qwen3.5-4b",
+    finish_reason: str = "stop",
+):
+    message = {
+        "role": "assistant",
+        "content": generated_text,
+    }
+    if thinking_content:
+        message["reasoning_content"] = thinking_content
+    return {
+        "id": "chatcmpl-" + random_string(10),
+        "object": "chat.completion",
+        "created": int(time()),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "message": message,
+            "finish_reason": finish_reason,
+        }],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
 
 
 class FeatureExtractParams(BaseModel):

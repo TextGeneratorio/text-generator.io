@@ -1,9 +1,10 @@
 import logging
 import math
+import re
 import traceback
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from accelerate import Accelerator
 
@@ -99,6 +100,30 @@ name_key_to_weights = {v: k for k, v in weights_to_name_key.items()}
 weights_path = os.getenv("WEIGHTS_PATH", "models/tgz-7b1/")  # latest model
 # weights_path = os.getenv("WEIGHTS_PATH", "models/tg-1b3/") # latest model
 
+# Track which weight paths are Qwen3.5 models (need chat template inference)
+_is_qwen35_model = {}
+
+
+def parse_thinking_content(text: str) -> Tuple[Optional[str], str]:
+    """Parse <think>...</think> blocks from Qwen3.5 output.
+    Handles both cases:
+    - Full tags: <think>content</think>response
+    - No opening tag (already in input prompt): content</think>response
+    Returns (thinking_content, final_response)."""
+    # Try with full <think>...</think> tags first
+    match = re.match(r"<think>\n?(.*?)</think>\n?\n?(.*)", text, flags=re.DOTALL)
+    if match:
+        thinking = match.group(1).strip()
+        response = match.group(2).strip()
+        return thinking if thinking else None, response
+    # Try without opening <think> tag (it was part of the input prompt)
+    match = re.match(r"(.*?)</think>\n?\n?(.*)", text, flags=re.DOTALL)
+    if match:
+        thinking = match.group(1).strip()
+        response = match.group(2).strip()
+        return thinking if thinking else None, response
+    return None, text
+
 # if debug:
 #     # small model locally for fasterness
 #     weights_path = "models/tg-1b3/"
@@ -125,11 +150,28 @@ def load_model(weights_path):
 
     low_mem = True
     # model = GPT2LMHeadModel.from_pretrained('gpt2', low_cpu_mem_usage=low_mem, pad_token_id=tokenizer.eos_token_id)
+    is_qwen35 = "qwen3.5" in weights_path.lower() or "qwen3_5" in weights_path.lower()
+
     if "gpt-neo" in weights_path:
         tokenizer = GPT2TokenizerFast.from_pretrained(weights_path)
         model = GPTNeoForCausalLM.from_pretrained(
             weights_path, pad_token_id=tokenizer.eos_token_id, low_cpu_mem_usage=low_mem
         )
+    elif is_qwen35:
+        # Qwen3.5 loading path - use AutoModelForCausalLM with trust_remote_code
+        tokenizer = AutoTokenizer.from_pretrained(weights_path, padding_side="left", trust_remote_code=True)
+        model_kwargs = {
+            "low_cpu_mem_usage": low_mem,
+            "device_map": "cuda:0" if DEVICE == "cuda" else "auto",
+            "trust_remote_code": True,
+            "dtype": torch.bfloat16,
+            "attn_implementation": "sdpa",
+        }
+        model = AutoModelForCausalLM.from_pretrained(weights_path, **model_kwargs)
+        if hasattr(model.config, 'use_cache') and not model.config.use_cache:
+            model.config.use_cache = True
+        _is_qwen35_model[weights_path] = True
+        logger.info(f"Loaded Qwen3.5 model: {type(model).__name__}")
     else:
         tokenizer = AutoTokenizer.from_pretrained(weights_path, padding_side="left", trust_remote_code=True)
 
@@ -155,22 +197,15 @@ def load_model(weights_path):
         if hasattr(model.config, 'use_cache') and not model.config.use_cache:
             model.config.use_cache = True
             logger.info("Enabled KV cache for faster inference")
-    # elif "tg" in weights_path:
-    #     tokenizer = BloomTokenizerFast.from_pretrained(weights_path)
 
-    #     model = BloomForCausalLM.from_pretrained(
-    #         weights_path, low_cpu_mem_usage=low_mem, pad_token_id=tokenizer.eos_token_id
-    #     )
-    # else:
-    #     tokenizer = AutoTokenizer.from_pretrained(weights_path, )
-    #     model = AutoModelForCausalLM.from_pretrained(weights_path, device_map="auto", torch_dtype=torch.bfloat16)
-
-    full_vocab_tokens = list(range(tokenizer.vocab_size))
-    # dont generate the pad token which is the eos_token_id which causes stopping!
-    full_vocab_tokens.pop(2)
-    weights_to_full_vocab_tokens[weights_path] = full_vocab_tokens
+    # Build prefix token dicts for pipeline-based inference (not needed for Qwen3.5)
+    if not is_qwen35:
+        full_vocab_tokens = list(range(tokenizer.vocab_size))
+        # dont generate the pad token which is the eos_token_id which causes stopping!
+        full_vocab_tokens.pop(2)
+        weights_to_full_vocab_tokens[weights_path] = full_vocab_tokens
+        create_tokens_with_prefix_dict(weights_path, tokenizer.get_vocab())
     logger.info("model loaded")
-    create_tokens_with_prefix_dict(weights_path, tokenizer.get_vocab())
     # model.to(DEVICE)
     # quantize dynamic
     if DEVICE == "cuda":
@@ -503,14 +538,18 @@ def load_pipelines_and_model(weights_path):
     # gc? todo do we neeed to redo the generator? if its there?
 
     weights_to_model[weights_path] = model
-    weights_to_generator[weights_path] = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,  # device=pipeline_device
-    )
-    # move pipeline to gpu
-    # weights_to_generator[weights_path].to(DEVICE)
     weights_to_tokenizer[weights_path] = tokenizer
+
+    # Qwen3.5 uses model.generate() directly, not the text-generation pipeline
+    if _is_qwen35_model.get(weights_path, False):
+        weights_to_generator[weights_path] = None
+        logger.info("Qwen3.5 model loaded -- using direct model.generate() for inference")
+    else:
+        weights_to_generator[weights_path] = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+        )
     # feature_extractor = pipeline(
     #     "feature-extraction", model=model, tokenizer=tokenizer, device=pipeline_device
     # )
@@ -619,6 +658,11 @@ def fast_inference(generate_params: GenerateParams, model_cache=None):
                     weights_to_model[best_weights_path] = model_cache.add_or_get(
                         model_name_key, lambda: load_pipelines_and_model(best_weights_path)
                     )
+
+                    # Qwen3.5: use chat-based inference
+                    if _is_qwen35_model.get(best_weights_path, False):
+                        return _qwen35_fast_inference(generate_params, model_cache, best_weights_path)
+
                     return inference(generate_params, best_weights_path, model_cache)
 
                 # load tgz
@@ -626,7 +670,10 @@ def fast_inference(generate_params: GenerateParams, model_cache=None):
                     "text_model", lambda: load_pipelines_and_model(weights_path_tgz)
                 )
                 logger.info("loaded main model")
-                # daemon.join()
+
+                # Qwen3.5: use chat-based inference
+                if _is_qwen35_model.get(weights_path_tgz, False):
+                    return _qwen35_fast_inference(generate_params, model_cache, weights_path_tgz)
 
                 # test pplx to see if it should fallback to non instruct models
                 with log_time("ensure best model loaded:"):
@@ -691,7 +738,7 @@ def direct_inference(generate_params: GenerateParams, model_cache=None, use_stat
             best_weights_path = weights_path_tgz
             model_name_key = weights_to_name_key.get(best_weights_path, "tg_text_model")
 
-            if model_cache:
+            if model_cache is not None:
                 weights_to_model[best_weights_path] = model_cache.add_or_get(
                     model_name_key, lambda: load_pipelines_and_model(best_weights_path)
                 )
@@ -773,7 +820,7 @@ def direct_inference_streaming(generate_params: GenerateParams, model_cache=None
     best_weights_path = weights_path_tgz
     model_name_key = weights_to_name_key.get(best_weights_path, "tg_text_model")
 
-    if model_cache:
+    if model_cache is not None:
         weights_to_model[best_weights_path] = model_cache.add_or_get(
             model_name_key, lambda: load_pipelines_and_model(best_weights_path)
         )
@@ -826,3 +873,236 @@ def direct_inference_streaming(generate_params: GenerateParams, model_cache=None
     thread.join()
 
     return generated_text
+
+
+def _qwen35_fast_inference(generate_params: GenerateParams, model_cache, weights_path):
+    """Bridge from legacy generate API to Qwen3.5 chat inference."""
+    messages = []
+    if generate_params.system_message:
+        messages.append({"role": "system", "content": generate_params.system_message})
+    messages.append({"role": "user", "content": generate_params.text})
+
+    enable_thinking = getattr(generate_params, 'enable_thinking', None)
+    if enable_thinking is None:
+        enable_thinking = False  # Legacy API defaults to no thinking
+
+    result = chat_inference(
+        messages=messages,
+        model_cache=model_cache,
+        weights_path=weights_path,
+        enable_thinking=enable_thinking,
+        max_tokens=generate_params.max_length or 100,
+        temperature=generate_params.temperature or 1.0,
+        top_p=generate_params.top_p or 1.0,
+        top_k=generate_params.top_k or 40,
+        repetition_penalty=generate_params.repetition_penalty or 1.0,
+    )
+
+    return [{
+        "generated_text": result["generated_text"],
+        "stop_reason": result["stop_reason"],
+        "thinking_content": result.get("thinking_content"),
+    }]
+
+
+def chat_inference(
+    messages: list,
+    model_cache=None,
+    weights_path=None,
+    enable_thinking: bool = True,
+    max_tokens: int = 32768,
+    temperature: float = 1.0,
+    top_p: float = 1.0,
+    top_k: int = 40,
+    presence_penalty: float = 2.0,
+    repetition_penalty: float = 1.0,
+):
+    """Chat completion using Qwen3.5 with thinking support."""
+    global weights_to_model, weights_to_tokenizer
+
+    if weights_path is None:
+        weights_path = weights_path_tgz
+
+    model_name_key = weights_to_name_key.get(weights_path, "text_model")
+
+    if model_cache is not None:
+        weights_to_model[weights_path] = model_cache.add_or_get(
+            model_name_key, lambda: load_pipelines_and_model(weights_path)
+        )
+
+    model = weights_to_model.get(weights_path)
+    tokenizer = weights_to_tokenizer.get(weights_path)
+
+    if model is None or tokenizer is None:
+        raise RuntimeError("Model not loaded.")
+
+    with torch.inference_mode():
+        chat_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
+
+        input_text = tokenizer.apply_chat_template(
+            chat_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=enable_thinking,
+        )
+
+        inputs = tokenizer(input_text, return_tensors="pt")
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+        gen_kwargs = {
+            "max_new_tokens": max_tokens,
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_p": top_p,
+            "do_sample": True,
+            "use_cache": True,
+            "pad_token_id": tokenizer.pad_token_id or tokenizer.eos_token_id,
+        }
+
+        # presence_penalty maps to repetition_penalty in HF
+        effective_rep_penalty = presence_penalty if presence_penalty and presence_penalty > 1.0 else repetition_penalty
+        if effective_rep_penalty and effective_rep_penalty > 1.0:
+            gen_kwargs["repetition_penalty"] = effective_rep_penalty
+
+        with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+            outputs = model.generate(**inputs, **gen_kwargs)
+
+        # Decode only new tokens
+        new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+        generated_text = tokenizer.decode(new_tokens, skip_special_tokens=True)
+
+        thinking_content, final_response = parse_thinking_content(generated_text)
+
+        return {
+            "generated_text": final_response,
+            "thinking_content": thinking_content,
+            "stop_reason": "stop",
+        }
+
+
+def chat_inference_streaming(
+    messages: list,
+    model_cache=None,
+    weights_path=None,
+    enable_thinking: bool = True,
+    max_tokens: int = 32768,
+    temperature: float = 1.0,
+    top_p: float = 1.0,
+    top_k: int = 40,
+    presence_penalty: float = 2.0,
+    repetition_penalty: float = 1.0,
+):
+    """Streaming chat completion with thinking support. Yields dicts with type and text."""
+    from threading import Thread
+    from transformers import TextIteratorStreamer
+
+    global weights_to_model, weights_to_tokenizer
+
+    if weights_path is None:
+        weights_path = weights_path_tgz
+
+    model_name_key = weights_to_name_key.get(weights_path, "text_model")
+
+    if model_cache is not None:
+        weights_to_model[weights_path] = model_cache.add_or_get(
+            model_name_key, lambda: load_pipelines_and_model(weights_path)
+        )
+
+    model = weights_to_model.get(weights_path)
+    tokenizer = weights_to_tokenizer.get(weights_path)
+
+    if model is None or tokenizer is None:
+        raise RuntimeError("Model not loaded.")
+
+    chat_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
+
+    input_text = tokenizer.apply_chat_template(
+        chat_messages,
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=enable_thinking,
+    )
+
+    inputs = tokenizer(input_text, return_tensors="pt")
+    inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=False)
+
+    gen_kwargs = {
+        **inputs,
+        "max_new_tokens": max_tokens,
+        "temperature": temperature,
+        "top_k": top_k,
+        "top_p": top_p,
+        "do_sample": True,
+        "use_cache": True,
+        "pad_token_id": tokenizer.pad_token_id or tokenizer.eos_token_id,
+        "streamer": streamer,
+    }
+
+    effective_rep_penalty = presence_penalty if presence_penalty and presence_penalty > 1.0 else repetition_penalty
+    if effective_rep_penalty and effective_rep_penalty > 1.0:
+        gen_kwargs["repetition_penalty"] = effective_rep_penalty
+
+    def generate():
+        with torch.inference_mode():
+            with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+                model.generate(**gen_kwargs)
+
+    thread = Thread(target=generate)
+    thread.start()
+
+    # State machine for parsing thinking blocks from stream
+    # When enable_thinking=True, the <think> tag is already in the input prompt,
+    # so the model's output starts directly with thinking content.
+    buffer = ""
+    in_thinking = enable_thinking
+    thinking_ended = not enable_thinking
+
+    for new_text in streamer:
+        # Skip special tokens like <|endoftext|>
+        if "<|" in new_text and "|>" in new_text:
+            continue
+
+        buffer += new_text
+
+        if not in_thinking and not thinking_ended:
+            # Check for thinking start (fallback if <think> appears in output)
+            if "<think>" in buffer:
+                in_thinking = True
+                after_tag = buffer.split("<think>", 1)[1]
+                buffer = ""
+                if after_tag.strip():
+                    yield {"type": "thinking", "text": after_tag}
+                continue
+            # No thinking expected, yield as content
+            if len(buffer) > 10:
+                yield {"type": "content", "text": buffer}
+                buffer = ""
+        elif in_thinking:
+            if "</think>" in buffer:
+                # Thinking ended
+                parts = buffer.split("</think>", 1)
+                thinking_part = parts[0]
+                if thinking_part.strip():
+                    yield {"type": "thinking", "text": thinking_part}
+                in_thinking = False
+                thinking_ended = True
+                buffer = parts[1].lstrip("\n") if len(parts) > 1 else ""
+                if buffer.strip():
+                    yield {"type": "content", "text": buffer}
+                    buffer = ""
+            else:
+                yield {"type": "thinking", "text": new_text}
+                buffer = ""
+        else:
+            # Post-thinking content
+            yield {"type": "content", "text": new_text}
+            buffer = ""
+
+    # Flush remaining buffer
+    if buffer.strip():
+        chunk_type = "thinking" if in_thinking else "content"
+        yield {"type": chunk_type, "text": buffer}
+
+    thread.join()
