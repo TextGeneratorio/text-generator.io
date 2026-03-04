@@ -18,6 +18,9 @@
     {% block headers %}
     {% endblock %}
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
 
@@ -25,6 +28,7 @@
     <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
     <link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
     <link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
+    <link rel="stylesheet" href="{{ static_url }}/css/site-redesign.css">
 
 
     {% block css %}
@@ -223,7 +227,7 @@
     {% block js %}
     {% endblock %}
 </head>
-<body lang="en">
+<body lang="en" class="tg-site">
 <!-- Google Tag Manager (noscript) -->
 <noscript>
     <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MMLBMCK"
