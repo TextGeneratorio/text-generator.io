@@ -28,6 +28,13 @@ tools_fixtures = {
         "image": "img/text-generator-brain.png",
         "premium": True,
     },
+    "keyword-explorer": {
+        "name": "Keyword & Glossary Explorer",
+        "description": "Explore related words, definitions, SEO keywords, and glossary terms for any topic using WordNet, embeddings, and AI.",
+        "keywords": "keyword explorer, glossary, wordnet, synonyms, seo keywords, related terms, topic research",
+        "url": "/tools/keyword-explorer",
+        "image": "img/text-generator-brain.png",
+    },
     "domain-generator": {
         "name": "Domain Name Generator",
         "description": "Generate creative domain names and check their availability instantly.",
