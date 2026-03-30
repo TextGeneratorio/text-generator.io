@@ -84,7 +84,7 @@ window.SubscriptionModal = class SubscriptionModal {
                         </ul>
 
                         <div class="subscription-modal-actions">
-                            <a href="/subscribe" class="subscription-btn subscription-btn-primary">Subscribe Now</a>
+                            <button type="button" class="subscription-btn subscription-btn-primary mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect" onclick="if(window.subscriptionModal) window.subscriptionModal.close(); if(window.showCheckoutDialog) showCheckoutDialog('monthly');">Subscribe Now</button>
                             <button class="subscription-btn subscription-btn-secondary" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">Maybe Later</button>
                         </div>
                     </div>
@@ -234,6 +234,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 .subscription-btn {
                     padding: 16px 24px;
+                    font-family: inherit;
                     border-radius: 12px;
                     font-size: 16px;
                     font-weight: 600;
@@ -246,16 +247,16 @@ window.SubscriptionModal = class SubscriptionModal {
                 }
 
                 .subscription-btn-primary {
-                    background: linear-gradient(90deg, #d79f2a, #d34675);
+                    background: linear-gradient(90deg, #f39121, #d34675);
                     color: white;
-                    box-shadow: 0 4px 15px rgba(215, 159, 42, 0.4);
+                    box-shadow: 0 4px 15px rgba(243, 145, 33, 0.35);
                     transition: all 0.2s ease;
                 }
 
                 .subscription-btn-primary:hover {
-                    background: linear-gradient(90deg, #c48d24, #c23e67);
+                    background: linear-gradient(90deg, #e48516, #c23e67);
                     transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(215, 159, 42, 0.5);
+                    box-shadow: 0 6px 20px rgba(243, 145, 33, 0.45);
                     text-decoration: none;
                     color: white;
                 }
@@ -302,6 +303,10 @@ window.SubscriptionModal = class SubscriptionModal {
         document.head.insertAdjacentHTML('beforeend', styles);
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         this.modal = document.getElementById('subscription-modal');
+
+        if (typeof componentHandler !== 'undefined') {
+            componentHandler.upgradeAllRegistered();
+        }
     }
 
     bindEvents() {

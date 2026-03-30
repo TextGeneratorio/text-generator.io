@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
     <link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
     <link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/site-redesign.css">
+    <link rel="stylesheet" href="{{ static_url }}/css/site-redesign.css?v=7">
 
 
     {% block css %}
@@ -62,8 +62,9 @@
                     // User is signed in
                     window.currentUser = userData;
                     $('.header-login-signup').hide();
-                    $('#log-out').show();
-                    
+                    $('.header-account').show();
+                    $('.header-login-signout').show();
+
                     if (userData.is_subscribed) {
                         $('.header-subscribe').hide()
                     } else {
@@ -73,12 +74,17 @@
                     // User is signed out
                     window.currentUser = null;
                     $('.header-login-signup').show();
-                    $('#log-out').hide();
-                    $('.header-subscribe').show();
+                    $('.header-account').hide();
+                    $('.header-login-signout').hide();
+                    $('.header-subscribe').hide();
                 }
             } catch (error) {
                 console.log('Auth check error:', error);
                 window.currentUser = null;
+                $('.header-login-signup').show();
+                $('.header-account').hide();
+                $('.header-login-signout').hide();
+                $('.header-subscribe').hide();
             }
         }
 

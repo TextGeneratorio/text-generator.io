@@ -1,33 +1,711 @@
-<div class="demo-ribbon"></div>
-<main class="demo-main mdl-layout mdl-layout__content">
-    <div class="demo-container mdl-grid">
-        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
-        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+{% set extra_tools = [
+    {
+        "name": "Deep Researcher",
+        "description": "Run a web-grounded research agent that plans, gathers evidence, and writes a cited report.",
+        "url": "/tools/deep-researcher"
+    },
+    {
+        "name": "Competitor Teardown",
+        "description": "Turn competitor URLs and notes into positioning gaps, messaging angles, and copy ideas.",
+        "url": "/tools/competitor-teardown"
+    },
+    {
+        "name": "SEO Content Gap Finder",
+        "description": "Build an SEO brief from your site, competitors, and target topics.",
+        "url": "/tools/seo-content-gap"
+    },
+    {
+        "name": "Offer Generator",
+        "description": "Package a service or product into clearer tiers, bonuses, guarantees, and CTAs.",
+        "url": "/tools/offer-generator"
+    }
+] %}
+{% set ns = namespace(all_tools=tools|list) %}
+{% set tool_urls = tools | map(attribute='url') | list %}
+{% for tool in extra_tools %}
+    {% if tool.url not in tool_urls %}
+        {% set ns.all_tools = ns.all_tools + [tool] %}
+    {% endif %}
+{% endfor %}
 
-            <div class="demo-crumbs mdl-color-text--grey-500">
-                <a href="/" title="Text Generator">Text Generator</a> > {{ title }}
-            </div>
-            <h3>AI-Powered Text Generation Tools</h3>
-            <ul class="demo-list-item mdl-list">
-                {% for tool in tools %}
-                    <li class="mdl-list__item">
-                        <i class="material-icons mdl-list__item-icon" style="margin-right: 25px">build</i>
-                        <div>
-                            <span class="mdl-list__item-primary-content">
-                                <a href="{{ tool.url }}">{{ tool.name }}</a>
-                            </span><br>
-                            <span class="mdl-list__item-secondary-content">{{ tool.description }}</span>
-                        </div>
-                    </li>
-                {% endfor %}
-            </ul>
-            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
-               href="/signup">
-                Try Our Tools
-            </a>
+{% set tool_ui = {
+    "/tools/deep-researcher": {"icon": "manage_search", "label": "Research", "accent": "#0b7285", "accent_soft": "rgba(11, 114, 133, 0.14)"},
+    "/tools/competitor-teardown": {"icon": "radar", "label": "Strategy", "accent": "#f97316", "accent_soft": "rgba(249, 115, 22, 0.14)"},
+    "/tools/seo-content-gap": {"icon": "travel_explore", "label": "SEO", "accent": "#0f766e", "accent_soft": "rgba(15, 118, 110, 0.14)"},
+    "/tools/offer-generator": {"icon": "sell", "label": "Offers", "accent": "#7c3aed", "accent_soft": "rgba(124, 58, 237, 0.14)"},
+    "/tools/domain-generator": {"icon": "public", "label": "Branding", "accent": "#2563eb", "accent_soft": "rgba(37, 99, 235, 0.14)"},
+    "/ai-text-editor": {"icon": "edit_note", "label": "Writing", "accent": "#db2777", "accent_soft": "rgba(219, 39, 119, 0.14)"},
+    "/tools/prompt-optimizer": {"icon": "auto_fix_high", "label": "Prompting", "accent": "#ea580c", "accent_soft": "rgba(234, 88, 12, 0.14)"},
+    "/tools/image-captioning-ai": {"icon": "image_search", "label": "Vision", "accent": "#0891b2", "accent_soft": "rgba(8, 145, 178, 0.14)"}
+} %}
+{% set default_ui = {"icon": "bolt", "label": "AI Tool", "accent": "#475569", "accent_soft": "rgba(71, 85, 105, 0.14)"} %}
+
+<style>
+    .tg-tools-page {
+        position: relative;
+    }
+
+    .tg-tools-page::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto;
+        height: 420px;
+        background:
+            radial-gradient(circle at top left, rgba(255, 179, 71, 0.22), transparent 34%),
+            linear-gradient(145deg, #0d274b 0%, #1a4676 52%, #f4f7fb 52.1%, #f4f7fb 100%);
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .tg-tools-page .demo-container,
+    .tg-tools-page .demo-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .tg-tools-page .demo-container {
+        max-width: 1280px;
+        width: calc(100% - 24px);
+    }
+
+    .tg-tools-page .demo-content {
+        margin-top: 28px;
+        margin-bottom: 64px;
+        padding: 24px;
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 28px 70px rgba(16, 32, 51, 0.16);
+        backdrop-filter: blur(10px);
+    }
+
+    .tg-tools-page .demo-content h3 {
+        margin-top: 0;
+    }
+
+    .tg-tools-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 22px;
+    }
+
+    .tg-tools-copy {
+        color: #102033;
+    }
+
+    .tg-tools-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font: 600 0.78rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #0f2d55;
+        background: rgba(15, 45, 85, 0.08);
+    }
+
+    .tg-tools-kicker::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+        box-shadow: 0 0 0 4px rgba(255, 90, 54, 0.12);
+    }
+
+    .tg-tools-hero h1 {
+        margin: 16px 0 12px;
+        font-family: 'Sora', 'Segoe UI', sans-serif;
+        font-size: clamp(1.9rem, 3vw, 2.75rem);
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+        color: #102033;
+    }
+
+    .tg-tools-lead {
+        max-width: 720px;
+        font: 500 1.02rem/1.7 'Sora', 'Segoe UI', sans-serif;
+        color: #4d6277;
+    }
+
+    .tg-tools-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 18px 0 18px;
+    }
+
+    .tg-tools-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        text-decoration: none;
+        font: 700 0.92rem/1 'Sora', 'Segoe UI', sans-serif;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+    }
+
+    .tg-tools-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .tg-tools-btn--primary {
+        color: #fff;
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+        box-shadow: 0 16px 34px rgba(255, 90, 54, 0.28);
+    }
+
+    .tg-tools-btn--ghost {
+        color: #0f2d55;
+        border-color: rgba(15, 45, 85, 0.14);
+        background: rgba(15, 45, 85, 0.04);
+    }
+
+    .tg-tools-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    .tg-tools-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font: 600 0.82rem/1.2 'Sora', 'Segoe UI', sans-serif;
+        color: #28405a;
+        background: #eef3f9;
+    }
+
+    .tg-tools-pill .material-icons {
+        font-size: 16px;
+    }
+
+    .tg-tools-panel {
+        padding: 22px;
+        border-radius: 24px;
+        color: #e6eef8;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+            linear-gradient(155deg, #102033 0%, #173f71 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .tg-tools-panel-label {
+        margin: 0 0 12px;
+        font: 600 0.78rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(230, 238, 248, 0.72);
+    }
+
+    .tg-tools-panel-headline {
+        margin: 0;
+        font: 700 1.35rem/1.2 'Sora', 'Segoe UI', sans-serif;
+        color: #fff;
+    }
+
+    .tg-tools-panel-copy {
+        margin-top: 8px;
+        color: rgba(230, 238, 248, 0.82);
+    }
+
+    .tg-tools-mini-list {
+        display: grid;
+        gap: 12px;
+        margin: 18px 0 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .tg-tools-mini-list a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 18px;
+        color: inherit;
+        text-decoration: none;
+        background: rgba(255, 255, 255, 0.06);
+        transition: background-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .tg-tools-mini-list a:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(2px);
+    }
+
+    .tg-tools-mini-list strong {
+        display: block;
+        font: 600 0.94rem/1.3 'Sora', 'Segoe UI', sans-serif;
+        color: #fff;
+    }
+
+    .tg-tools-mini-list span {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.84rem;
+        color: rgba(230, 238, 248, 0.74);
+    }
+
+    .tg-tools-search-wrap {
+        margin: 8px 0 24px;
+        padding: 18px;
+        border: 1px solid #dde6f0;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #ffffff, #f8fbff);
+    }
+
+    .tg-tools-search-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 12px;
+    }
+
+    .tg-tools-search-row h2 {
+        margin: 0;
+        font: 700 1.12rem/1.2 'Sora', 'Segoe UI', sans-serif;
+        color: #102033;
+    }
+
+    .tg-tools-search-row p,
+    .tg-tools-results,
+    .tg-tools-empty p {
+        color: #587086;
+        font-family: 'Sora', 'Segoe UI', sans-serif;
+    }
+
+    .tg-tools-search-input {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        min-height: 58px;
+        padding: 0 10px 0 16px;
+        border: 1px solid #d7e1eb;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .tg-tools-search-input:focus-within {
+        border-color: rgba(255, 90, 54, 0.4);
+        box-shadow: 0 0 0 4px rgba(255, 90, 54, 0.12);
+    }
+
+    .tg-tools-search-input .material-icons {
+        color: #6c8498;
+    }
+
+    .tg-tools-search-input input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        padding: 0;
+        background: transparent;
+        font: 500 1rem/1.2 'Sora', 'Segoe UI', sans-serif;
+        color: #102033;
+    }
+
+    .tg-tools-search-input input::placeholder {
+        color: #8aa0b3;
+    }
+
+    .tg-tools-search-clear {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: #0f2d55;
+        background: #edf3fa;
+        font: 600 0.82rem/1 'Sora', 'Segoe UI', sans-serif;
+        cursor: pointer;
+    }
+
+    .tg-tools-search-clear[hidden] {
+        display: none;
+    }
+
+    .tg-tools-results {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .tg-tools-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+    }
+
+    .tg-tools-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 196px;
+        padding: 20px;
+        border: 1px solid #dce4ee;
+        border-radius: 24px;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 253, 0.92)),
+            var(--tool-glow, transparent);
+        box-shadow: 0 18px 42px rgba(16, 32, 51, 0.08);
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .tg-tools-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(15, 45, 85, 0.16);
+        box-shadow: 0 22px 48px rgba(16, 32, 51, 0.12);
+    }
+
+    .tg-tools-card[hidden] {
+        display: none;
+    }
+
+    .tg-tools-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .tg-tools-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        color: var(--tool-accent);
+        background: var(--tool-accent-soft);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+
+    .tg-tools-icon .material-icons {
+        font-size: 28px;
+    }
+
+    .tg-tools-chip {
+        padding: 8px 11px;
+        border-radius: 999px;
+        font: 700 0.76rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #5c7288;
+        background: #eff4f9;
+    }
+
+    .tg-tools-card h3 {
+        margin: 0;
+        font: 700 1.18rem/1.22 'Sora', 'Segoe UI', sans-serif;
+        letter-spacing: -0.03em;
+        color: #102033;
+    }
+
+    .tg-tools-card p {
+        margin: 0;
+        color: #5b7287;
+        font: 500 0.95rem/1.65 'Sora', 'Segoe UI', sans-serif;
+    }
+
+    .tg-tools-card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: auto;
+    }
+
+    .tg-tools-card-footer a {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #0f2d55;
+        text-decoration: none;
+        font: 700 0.9rem/1 'Sora', 'Segoe UI', sans-serif;
+    }
+
+    .tg-tools-card-footer .material-icons {
+        font-size: 18px;
+    }
+
+    .tg-tools-card-note {
+        color: #7a8fa3;
+        font: 600 0.8rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .tg-tools-empty {
+        padding: 36px 18px 18px;
+        text-align: center;
+    }
+
+    .tg-tools-empty[hidden] {
+        display: none;
+    }
+
+    .tg-tools-empty .material-icons {
+        font-size: 42px;
+        color: #8da2b5;
+    }
+
+    .tg-tools-empty h3 {
+        margin: 12px 0 8px;
+        font: 700 1.12rem/1.2 'Sora', 'Segoe UI', sans-serif;
+        color: #102033;
+    }
+
+    .tg-tools-empty button {
+        margin-top: 6px;
+    }
+
+    @media (max-width: 1180px) {
+        .tg-tools-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 1100px) {
+        .tg-tools-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .tg-tools-page .demo-content {
+            padding: 22px;
+        }
+    }
+
+    @media (max-width: 820px) {
+        .tg-tools-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 840px) {
+        .tg-tools-page::before {
+            height: 360px;
+        }
+
+        .tg-tools-page .demo-content {
+            margin-top: 20px;
+            border-radius: 22px;
+        }
+
+        .tg-tools-search-input {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .tg-tools-search-clear {
+            grid-column: 1 / -1;
+            justify-self: start;
+            margin: 0 0 10px 42px;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .tg-tools-page .demo-container {
+            width: calc(100% - 12px);
+        }
+
+        .tg-tools-page .demo-content {
+            padding: 18px;
+        }
+
+        .tg-tools-hero h1 {
+            font-size: 2rem;
+        }
+
+        .tg-tools-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .tg-tools-btn {
+            width: 100%;
+        }
+
+        .tg-tools-card {
+            min-height: 0;
+            padding: 18px;
+        }
+    }
+</style>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content tg-tools-page">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--1-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--10-col">
+            <section class="tg-tools-hero">
+                <div class="tg-tools-copy">
+                    <div class="demo-crumbs mdl-color-text--grey-500">
+                        <a href="/" title="Text Generator">Text Generator</a> > Tools
+                    </div>
+                    <span class="tg-tools-kicker">Tool Library</span>
+                    <h1>Find the right AI workflow before you scroll.</h1>
+                    <p class="tg-tools-lead">
+                        Browse prebuilt tools for domains, prompts, SEO, offers, document editing, and image understanding.
+                        Search locally, compare fast, and jump straight into the workflow you need.
+                    </p>
+                    <div class="tg-tools-actions">
+                        <a class="tg-tools-btn tg-tools-btn--primary" href="/signup">Try Our Tools</a>
+                        <a class="tg-tools-btn tg-tools-btn--ghost" href="/playground">Open Playground</a>
+                    </div>
+                    <div class="tg-tools-meta" aria-label="Tool highlights">
+                        <span class="tg-tools-pill"><i class="material-icons" aria-hidden="true">flash_on</i> Faster tool discovery</span>
+                        <span class="tg-tools-pill"><i class="material-icons" aria-hidden="true">dashboard_customize</i> Unique workflows</span>
+                        <span class="tg-tools-pill"><i class="material-icons" aria-hidden="true">search</i> Instant local search</span>
+                    </div>
+                </div>
+
+                <aside class="tg-tools-panel" aria-label="Featured tools">
+                    <p class="tg-tools-panel-label">Start Here</p>
+                    <h2 class="tg-tools-panel-headline">{{ ns.all_tools|length }} tools, organized for real use cases</h2>
+                    <p class="tg-tools-panel-copy">
+                        The highest-leverage workflows sit at the top of the page, so you can decide faster on a laptop without digging through a long list.
+                    </p>
+                    <ul class="tg-tools-mini-list">
+                        {% for tool in ns.all_tools[:3] %}
+                            {% set ui = tool_ui.get(tool.url, default_ui) %}
+                            <li>
+                                <a href="{{ tool.url }}">
+                                    <div>
+                                        <strong>{{ tool.name }}</strong>
+                                        <span>{{ ui.label }} workflow</span>
+                                    </div>
+                                    <i class="material-icons" aria-hidden="true">{{ ui.icon }}</i>
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </aside>
+            </section>
+
+            <section class="tg-tools-search-wrap" aria-label="Search tools">
+                <div class="tg-tools-search-row">
+                    <div>
+                        <h2>Search tools</h2>
+                        <p>Filter by tool name, category, or what the workflow helps you do.</p>
+                    </div>
+                    <p class="tg-tools-results" id="tools-results" aria-live="polite">
+                        Showing <strong id="tools-visible-count">{{ ns.all_tools|length }}</strong> of <strong>{{ ns.all_tools|length }}</strong> tools
+                    </p>
+                </div>
+                <label class="tg-tools-search-input" for="tools-search">
+                    <i class="material-icons" aria-hidden="true">search</i>
+                    <input
+                        id="tools-search"
+                        type="search"
+                        placeholder="Search domains, prompts, SEO, images..."
+                        autocomplete="off"
+                        spellcheck="false">
+                    <button type="button" class="tg-tools-search-clear" id="tools-search-clear" hidden>Clear</button>
+                </label>
+            </section>
+
+            <section>
+                <div class="tg-tools-grid" id="tools-grid">
+                    {% for tool in ns.all_tools %}
+                        {% set ui = tool_ui.get(tool.url, default_ui) %}
+                        <article
+                            class="tg-tools-card"
+                            data-tool-card
+                            data-search-text="{{ (tool.name ~ ' ' ~ tool.description ~ ' ' ~ ui.label)|lower }}"
+                            style="--tool-accent: {{ ui.accent }}; --tool-accent-soft: {{ ui.accent_soft }};">
+                            <div class="tg-tools-card-top">
+                                <span class="tg-tools-icon">
+                                    <i class="material-icons" aria-hidden="true">{{ ui.icon }}</i>
+                                </span>
+                                <span class="tg-tools-chip">{{ ui.label }}</span>
+                            </div>
+                            <h3>{{ tool.name }}</h3>
+                            <p>{{ tool.description }}</p>
+                            <div class="tg-tools-card-footer">
+                                <a href="{{ tool.url }}">
+                                    Open tool
+                                    <i class="material-icons" aria-hidden="true">arrow_forward</i>
+                                </a>
+                                <span class="tg-tools-card-note">{{ ui.label }}</span>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+
+                <div class="tg-tools-empty" id="tools-empty" hidden>
+                    <i class="material-icons" aria-hidden="true">search_off</i>
+                    <h3>No tools match that search.</h3>
+                    <p>Try a broader term like <strong>SEO</strong>, <strong>prompt</strong>, <strong>image</strong>, or <strong>domain</strong>.</p>
+                    <button type="button" class="tg-tools-search-clear" id="tools-empty-reset">Reset search</button>
+                </div>
+            </section>
         </div>
     </div>
 {% import "templates/macros.jinja2" as macros with context %}
 
 {{ macros.svgstyled() }}
 </main>
+
+<script>
+    (function () {
+        var searchInput = document.getElementById('tools-search');
+        var clearButton = document.getElementById('tools-search-clear');
+        var emptyReset = document.getElementById('tools-empty-reset');
+        var results = document.getElementById('tools-visible-count');
+        var emptyState = document.getElementById('tools-empty');
+        var cards = Array.prototype.slice.call(document.querySelectorAll('[data-tool-card]'));
+
+        if (!searchInput || !results || !emptyState || !cards.length) {
+            return;
+        }
+
+        function applyFilter() {
+            var query = searchInput.value.trim().toLowerCase();
+            var visible = 0;
+
+            cards.forEach(function (card) {
+                var match = !query || card.dataset.searchText.indexOf(query) !== -1;
+                card.hidden = !match;
+                if (match) {
+                    visible += 1;
+                }
+            });
+
+            results.textContent = String(visible);
+            emptyState.hidden = visible !== 0;
+
+            if (clearButton) {
+                clearButton.hidden = query.length === 0;
+            }
+        }
+
+        function resetSearch() {
+            searchInput.value = '';
+            applyFilter();
+            searchInput.focus();
+        }
+
+        searchInput.addEventListener('input', applyFilter);
+
+        if (clearButton) {
+            clearButton.addEventListener('click', resetSearch);
+        }
+
+        if (emptyReset) {
+            emptyReset.addEventListener('click', resetSearch);
+        }
+
+        applyFilter();
+    })();
+</script>

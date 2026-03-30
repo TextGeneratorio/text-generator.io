@@ -72,6 +72,22 @@
           }
           return num
         }
+        function boolDefault(value, defaultValueIfInvalid) {
+            if (typeof value === 'undefined' || value === null || value === '') {
+                return defaultValueIfInvalid;
+            }
+            if (typeof value === 'boolean') {
+                return value;
+            }
+            var normalized = String(value).toLowerCase();
+            if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') {
+                return true;
+            }
+            if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') {
+                return false;
+            }
+            return defaultValueIfInvalid;
+        }
         generationSettings = {
             "text": params.text,
             "number_of_results": nanDefault(parseInt(params.number_of_results), presets['Example use cases'].number_of_results),
@@ -84,6 +100,9 @@
             "temperature": nanDefault(parseFloat(params.temperature), presets['Example use cases'].temperature),
             "repetition_penalty": nanDefault(parseFloat(params.repetition_penalty), presets['Example use cases'].repetition_penalty),
             "seed": nanDefault(parseInt(params.seed), presets['Example use cases'].seed),
+            "model": params.model || presets['Example use cases'].model,
+            "enable_thinking": boolDefault(params.enable_thinking, presets['Example use cases'].enable_thinking),
+            "system_message": params.system_message || presets['Example use cases'].system_message,
         }
         setPreset(generationSettings);
     }
@@ -99,7 +118,10 @@
             "top_k": 40,
             "temperature": 0.7,
             "repetition_penalty": 1.17,
-            "seed": 0
+            "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": ""
         },
         "Elves vs Goblins": {
             "text": "The battle between the elves and goblins has begun,",
@@ -165,6 +187,41 @@
             "temperature": 0.9,
             "repetition_penalty": 1.17,
             "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": "You are an autocomplete engine for Python code. Continue exactly from the cursor with valid Python code only. No explanations or markdown.",
+        },
+        "Python Function Generation": {
+            "text": "def can_balance(a):\n    \"\"\"return if a can be split into two arrays with equal sum\"\"\"\n    ",
+            "number_of_results": 1,
+            "max_length": 220,
+            "max_sentences": 0,
+            "min_probability": 0.0,
+            "stop_sequences": [],
+            "top_p": 0.45,
+            "top_k": 40,
+            "temperature": 0.2,
+            "repetition_penalty": 1.08,
+            "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": "You are an expert Python engineer. Continue the user's code directly. Output code only, with no explanation and no markdown fences.",
+        },
+        "PyTorch Module Generation": {
+            "text": "import torch\nimport torch.nn as nn\n\nclass TinyTextGenerator(nn.Module):\n    def __init__(self, vocab_size: int, d_model: int = 256):\n        super().__init__()\n        self.embed = nn.Embedding(vocab_size, d_model)\n        self.lm_head = nn.Linear(d_model, vocab_size)\n\n    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:\n        x = self.embed(input_ids)\n",
+            "number_of_results": 1,
+            "max_length": 260,
+            "max_sentences": 0,
+            "min_probability": 0.0,
+            "stop_sequences": [],
+            "top_p": 0.5,
+            "top_k": 40,
+            "temperature": 0.25,
+            "repetition_penalty": 1.08,
+            "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": "You are an expert PyTorch engineer. Continue the code with valid, runnable PyTorch 2.x Python code only. No prose and no markdown.",
         },
         "Review Classification": {
             "text": "What a really awesome game, would play again\n review star rating: ",
@@ -237,6 +294,8 @@
         $('#slider-temperature').val(preset.temperature);
         $('#slider-repetition-penalty').val(preset.repetition_penalty);
         $('#slider-seed').val(preset.seed);
+        $('#system-message').val(preset.system_message || "");
+        $('#enable-thinking').prop('checked', !!preset.enable_thinking);
         setGenerationSettingsUI(preset);
     }
 
@@ -328,25 +387,111 @@
         setUrl(generationSettings)
     }
     var setModel = function (value) {
-        value = $('#select-model').val();
+        if (typeof value !== 'undefined' && value !== null) {
+            $('#select-model').val(value);
+        }
+        value = $('#select-model').val() || 'best';
         $('#model-tooltip').html(`Model: ${value}`);
         generationSettings['model'] = value
         setUrl(generationSettings)
     }
     var setEnableThinking = function (value) {
+        value = !!value;
+        $('#enable-thinking').prop('checked', value);
         generationSettings['enable_thinking'] = value;
         setUrl(generationSettings);
+    }
+    var setSystemMessage = function (value) {
+        value = value || '';
+        $('#system-message').val(value);
+        generationSettings['system_message'] = value;
+        setUrl(generationSettings);
+    }
+    if (typeof window !== 'undefined') {
+        window.setSystemMessage = setSystemMessage;
+    }
+
+    function wrapLinesForLineNumbers(codeEl) {
+        // After highlight.js processes, wrap each line in a span for CSS line numbers
+        var html = codeEl.innerHTML;
+        var lines = html.split('\n');
+        codeEl.innerHTML = lines.map(function(line) {
+            return '<span class="hljs-line">' + (line || ' ') + '</span>';
+        }).join('');
+    }
+
+    function copyCodeSnippet(preEl) {
+        // Find the visible code element in the dialog
+        var dialog = preEl.closest('dialog');
+        var codes = dialog.querySelectorAll('.mdl-dialog__content pre code');
+        var visibleCode = null;
+        for (var i = 0; i < codes.length; i++) {
+            if (codes[i].offsetParent !== null) {
+                visibleCode = codes[i];
+                break;
+            }
+        }
+        var btn = preEl.querySelector('.code-copy-btn');
+        if (visibleCode && btn) {
+            navigator.clipboard.writeText(visibleCode.textContent).then(function() {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(function() {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
     }
 
     var showCode = function () {
 
         var generationSettingsFormatted = JSON.stringify(generationSettings, null, 4);
         var generationSettingsCurlFormatted = JSON.stringify(generationSettings, null, 0);
+        var toPythonLiteral = function (value, indentLevel) {
+            indentLevel = indentLevel || 0;
+            var indent = ' '.repeat(indentLevel * 4);
+            var nextIndent = ' '.repeat((indentLevel + 1) * 4);
+
+            if (value === null || typeof value === 'undefined') {
+                return 'None';
+            }
+            if (typeof value === 'boolean') {
+                return value ? 'True' : 'False';
+            }
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? String(value) : 'None';
+            }
+            if (typeof value === 'string') {
+                return JSON.stringify(value);
+            }
+            if (Array.isArray(value)) {
+                if (value.length === 0) {
+                    return '[]';
+                }
+                return '[\n' + value.map(function (item) {
+                    return nextIndent + toPythonLiteral(item, indentLevel + 1);
+                }).join(',\n') + '\n' + indent + ']';
+            }
+            if (typeof value === 'object') {
+                var entries = Object.entries(value);
+                if (entries.length === 0) {
+                    return '{}';
+                }
+                return '{\n' + entries.map(function (entry) {
+                    var key = entry[0];
+                    var item = entry[1];
+                    return nextIndent + JSON.stringify(key) + ': ' + toPythonLiteral(item, indentLevel + 1);
+                }).join(',\n') + '\n' + indent + '}';
+            }
+            return JSON.stringify(value);
+        };
+        var generationSettingsPythonFormatted = toPythonLiteral(generationSettings, 0);
         $('#code-snippet-py').html(`import requests
 
 headers = {"secret": "${secret}"}
 
-data = ${generationSettingsFormatted}
+data = ${generationSettingsPythonFormatted}
 
 response = requests.post(
    "https://api.text-generator.io/api/v1/generate",
@@ -437,9 +582,14 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
   --data-raw '{"num_features":768,"text": ${JSON.stringify(generationSettings.text, null, 0) || "\"Test text here\""} \\
   --compressed`);
         hljs.highlightAll();
+        // Add line number wrapping to all code snippets
+        document.querySelectorAll('dialog pre code').forEach(wrapLinesForLineNumbers);
         var dialog = document.querySelector('dialog');
         dialog.close();
         dialog.showModal();
+        // Reset copy button
+        var copyBtn = dialog.querySelector('.code-copy-btn');
+        if (copyBtn) { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }
         return false;
     }
 
@@ -455,6 +605,8 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         setRepetitionPenalty(review['repetition_penalty']);
         setSeed(review['seed']);
         setModel(review['model'] || 'best');
+        setEnableThinking(typeof review['enable_thinking'] === 'boolean' ? review['enable_thinking'] : false);
+        setSystemMessage(review['system_message'] || '');
     }
 
     function setupDialog() {
@@ -541,22 +693,19 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 // if editor hasn't changed write results to codemirror
                 if (editor.getValue() === text) {
                     if (data[0] && data[0]['generated_text']) {
-                        // highlight the new text with markRange
+                        var generatedText = data[0]['generated_text'];
+                        // Legacy API returns full text; newer paths may return completion-only.
+                        var nextValue = generatedText.startsWith(text) ? generatedText : (text + generatedText);
+
                         var scrollinfo = editor.getScrollInfo();
-                        var from = { line: 0, ch: 0 };
-                        from.line = editor.lineCount() - 1;
-                        from.ch = editor.getLine(from.line).length;
+                        var fromIndex = text.length;
+                        editor.setValue(nextValue);
 
-                        editor.setValue(data[0]['generated_text']);
-
-                        var to = { line: 0, ch: 0 };
-                        var newText = data[0]['generated_text'];
-                        var newLines = newText.split('\n');
-                        var newLineCount = newLines.length;
-                        var newLineLength = newLines[newLineCount - 1].length;
-                        to.line = newLineCount - 1;
-                        to.ch = newLineLength;
-                        editor.markText(from, to, { className: 'highlight' });
+                        var from = editor.posFromIndex(Math.min(fromIndex, nextValue.length));
+                        var to = editor.posFromIndex(nextValue.length);
+                        if (from.line !== to.line || from.ch !== to.ch) {
+                            editor.markText(from, to, { className: 'highlight' });
+                        }
 
                         // scroll to the same position
                         editor.scrollTo(scrollinfo.left, scrollinfo.top);
@@ -589,6 +738,38 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
 
     }
 
+    function renderPlaygroundAccessMessage(options) {
+        var title = options.title;
+        var message = options.message;
+        var primaryLabel = options.primaryLabel;
+        var primaryTooltip = options.primaryTooltip;
+        var primaryClick = options.primaryClick || "if (window.showCheckoutDialog) { showCheckoutDialog('monthly'); } else if (window.subscriptionModal) { window.subscriptionModal.show(); }";
+        var secondaryHtml = options.secondaryHtml || '';
+
+        $('#response-results').html(`
+            <div style="text-align: center; padding: 20px; color: #666;">
+                <h3>${title}</h3>
+                <p>${message}</p>
+                ${secondaryHtml}
+                <button id="playground-subscribe-button"
+                        type="button"
+                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
+                        onclick="${primaryClick}"
+                        style="padding: 10px 20px; background: linear-gradient(90deg, #f39121, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='linear-gradient(90deg, #e48516, #c23e67)'; this.style.boxShadow='0 4px 15px rgba(243, 145, 33, 0.35)'"
+                        onmouseout="this.style.background='linear-gradient(90deg, #f39121, #d34675)'; this.style.boxShadow='none'">${primaryLabel}</button>
+                <div id="playground-subscribe-tooltip"
+                     class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="playground-subscribe-button"
+                     style="white-space: pre">${primaryTooltip}</div>
+            </div>
+        `);
+
+        if (typeof componentHandler !== 'undefined') {
+            componentHandler.upgradeAllRegistered();
+        }
+    }
+
     $(document).ready(setupSubmitForm);
     initApp = function () {
         // Check if user is authenticated using new system
@@ -608,28 +789,26 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                     $('#playground-play').removeAttr('disabled');
                 } else {
                     $('#playground-play').attr('disabled', true);
-                    // Show subscription message
-                    $('#response-results').html(`
-                        <div style="text-align: center; padding: 20px; color: #666;">
-                            <h3>Premium Feature</h3>
-                            <p>The playground requires an active subscription to use.</p>
-                            <button onclick="window.subscriptionModal && window.subscriptionModal.show()" style="padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.background='linear-gradient(90deg, #c48d24, #c23e67)'; this.style.boxShadow='0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15)'" onmouseout="this.style.background='linear-gradient(90deg, #d79f2a, #d34675)'; this.style.boxShadow='none'">Subscribe Now</button>
-                        </div>
-                    `);
+                    renderPlaygroundAccessMessage({
+                        title: 'Premium Feature',
+                        message: 'The playground requires an active subscription to use.',
+                        primaryLabel: 'Subscribe Now',
+                        primaryTooltip: 'Subscribe now with secure inline checkout to unlock playground access.'
+                    });
                 }
             })
             .catch(error => {
                 // User is signed out - show upsell instead of redirecting
                 console.log('User not authenticated:', error);
                 $('#playground-play').attr('disabled', true);
-                $('#response-results').html(`
-                    <div style="text-align: center; padding: 20px; color: #666;">
-                        <h3>Sign In Required</h3>
-                        <p>Please sign in to use the playground.</p>
-                        <a href="/login" style="display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; text-decoration: none; border-radius: 4px; margin: 5px; border: none; cursor: pointer; transition: all 0.2s ease;">Sign In</a>
-                        <button onclick="window.subscriptionModal && window.subscriptionModal.show()" style="padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; transition: all 0.2s ease;" onmouseover="this.style.background='linear-gradient(90deg, #c48d24, #c23e67)'; this.style.boxShadow='0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15)'" onmouseout="this.style.background='linear-gradient(90deg, #d79f2a, #d34675)'; this.style.boxShadow='none'">Get Premium Access</button>
-                    </div>
-                `);
+                renderPlaygroundAccessMessage({
+                    title: 'Sign In Required',
+                    message: 'Please sign in to use the playground.',
+                    primaryLabel: 'Get Premium Access',
+                    primaryTooltip: 'Sign in first, then use inline checkout for premium playground access.',
+                    primaryClick: "window.location.href='/login'",
+                    secondaryHtml: '<a href="/login" style="display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; text-decoration: none; border-radius: 4px; margin: 5px; border: none; cursor: pointer; transition: all 0.2s ease;">Sign In</a>'
+                });
             });
     };
     var editor;

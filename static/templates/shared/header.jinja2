@@ -9,18 +9,19 @@
 
         <nav class="mdl-navigation tg-nav mdl-layout--large-screen-only">
             <a class="mdl-navigation__link tg-nav-link" href="/tools">Tools</a>
+            <a class="mdl-navigation__link tg-nav-link" href="/prompts">Prompts</a>
             <a class="mdl-navigation__link tg-nav-link" href="/playground">Playground</a>
             <a class="mdl-navigation__link tg-nav-link" href="/text-to-speech">Text To Speech</a>
             <a class="mdl-navigation__link tg-nav-link" href="/speech-to-text">Speech To Text</a>
             <a class="mdl-navigation__link tg-nav-link" href="/bulk-text-generator">Bulk Generator</a>
             <a class="mdl-navigation__link tg-nav-link" href="/docs">Docs</a>
 
-            <a class="mdl-navigation__link tg-nav-link header-login-signup" href="#" onclick="showLoginModal(); return false;">Log in</a>
-            <a class="mdl-button mdl-js-button tg-btn tg-btn--secondary header-login-signup" href="#" onclick="showSignupModal(); return false;">Sign up</a>
+            <a class="mdl-navigation__link tg-nav-link header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;">Log in</a>
+            <a class="mdl-button mdl-js-button tg-btn tg-btn--secondary header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;">Sign up</a>
 
             <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-subscribe" href="#" onclick="showCheckoutDialog('monthly'); return false;" style="display: none;">Upgrade</a>
             <a class="mdl-navigation__link tg-nav-link header-account" href="/account" style="display: none;">Account</a>
-            <a class="mdl-navigation__link tg-nav-link header-login-signout" id="log-out" href="#" onclick="logout(); return false;" style="display: none;">Log out</a>
+            <a class="mdl-navigation__link tg-nav-link header-login-signout" id="log-out" href="#" onclick="signout(); return false;" style="display: none;">Log out</a>
         </nav>
     </div>
 </header>
@@ -34,17 +35,18 @@
     </span>
     <nav class="mdl-navigation">
         <a class="mdl-navigation__link" href="/tools"><i class="material-icons">build</i>Tools</a>
+        <a class="mdl-navigation__link" href="/prompts"><i class="material-icons">library_books</i>Prompts</a>
         <a class="mdl-navigation__link" href="/playground"><i class="material-icons">smart_toy</i>Playground</a>
         <a class="mdl-navigation__link" href="/text-to-speech"><i class="material-icons">record_voice_over</i>Text To Speech</a>
         <a class="mdl-navigation__link" href="/speech-to-text"><i class="material-icons">graphic_eq</i>Speech To Text</a>
         <a class="mdl-navigation__link" href="/bulk-text-generator"><i class="material-icons">view_list</i>Bulk Generator</a>
         <a class="mdl-navigation__link" href="/docs"><i class="material-icons">description</i>Docs</a>
 
-        <a class="mdl-navigation__link header-login-signup" href="#" onclick="showLoginModal(); return false;"><i class="material-icons">login</i>Log in</a>
-        <a class="mdl-navigation__link header-login-signup" href="#" onclick="showSignupModal(); return false;"><i class="material-icons">person_add</i>Sign up</a>
+        <a class="mdl-navigation__link header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;"><i class="material-icons">login</i>Log in</a>
+        <a class="mdl-navigation__link header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;"><i class="material-icons">person_add</i>Sign up</a>
         <a class="mdl-navigation__link header-subscribe" href="#" onclick="showCheckoutDialog('monthly'); return false;" style="display: none;"><i class="material-icons">workspace_premium</i>Upgrade</a>
         <a class="mdl-navigation__link header-account" href="/account" style="display: none;"><i class="material-icons">person</i>Account</a>
-        <a class="mdl-navigation__link header-login-signout" href="#" onclick="logout(); return false;" style="display: none;"><i class="material-icons">logout</i>Log out</a>
+        <a class="mdl-navigation__link header-login-signout" href="#" onclick="signout(); return false;" style="display: none;"><i class="material-icons">logout</i>Log out</a>
     </nav>
 </div>
 
@@ -301,7 +303,6 @@ async function submitLogin() {
         if (response.ok) {
             document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`;
             closeLoginModal();
-            updateHeaderForLoggedInUser(result);
             window.location.href = '/playground';
             return;
         }
@@ -382,7 +383,6 @@ async function submitSignup() {
         if (response.ok) {
             document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`;
             closeSignupModal();
-            updateHeaderForLoggedInUser(result);
             window.location.href = '/playground';
             return;
         }
@@ -403,51 +403,6 @@ async function submitSignup() {
         errorDiv.textContent = 'Network error. Please check your connection and try again.';
         errorDiv.style.display = 'block';
         setSignupLoading(false);
-    }
-}
-
-function updateHeaderForLoggedInUser() {
-    document.querySelectorAll('.header-login-signup').forEach((el) => {
-        el.style.display = 'none';
-    });
-
-    document.querySelectorAll('.header-login-signout').forEach((el) => {
-        el.style.display = 'block';
-    });
-
-    document.querySelectorAll('.header-account').forEach((el) => {
-        el.style.display = 'block';
-    });
-
-    document.querySelectorAll('.header-subscribe').forEach((el) => {
-        el.style.display = 'none';
-    });
-}
-
-function updateHeaderForSignedOutUser() {
-    document.querySelectorAll('.header-login-signup').forEach((el) => {
-        el.style.display = '';
-    });
-
-    document.querySelectorAll('.header-login-signout').forEach((el) => {
-        el.style.display = 'none';
-    });
-
-    document.querySelectorAll('.header-account').forEach((el) => {
-        el.style.display = 'none';
-    });
-
-    document.querySelectorAll('.header-subscribe').forEach((el) => {
-        el.style.display = '';
-    });
-}
-
-async function logout() {
-    try {
-        await fetch('/api/logout', { method: 'POST' });
-    } finally {
-        document.cookie = 'session_secret=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-        window.location.href = '/';
     }
 }
 
@@ -537,18 +492,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-window.addEventListener('load', async () => {
-    try {
-        const response = await fetch('/api/current-user');
-        if (response.ok) {
-            const user = await response.json();
-            updateHeaderForLoggedInUser(user);
-            return;
-        }
-    } catch (error) {
-        console.log('Not logged in or error checking auth status');
-    }
-
-    updateHeaderForSignedOutUser();
-});
 </script>

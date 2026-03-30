@@ -1,17 +1,156 @@
 <link rel="stylesheet"
-      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/atom-one-dark.min.css">
 <link rel="stylesheet"
       href="{{ static_url }}/libs/select2/dist/css/select2.min.css">
 <link rel="stylesheet"
       href="{{ static_url }}/libs/codemirror.css">
 <link rel="stylesheet"
       href="{{ static_url }}/css/subscription-modal.css">
+<style>
+.tg-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+.tg-toggle-input {
+    display: none;
+}
+.tg-toggle-switch {
+    width: 36px;
+    height: 20px;
+    background: #ccc;
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.tg-toggle-switch::after {
+    content: '';
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+}
+.tg-toggle-input:checked + .tg-toggle-switch {
+    background: #f17d34;
+}
+.tg-toggle-input:checked + .tg-toggle-switch::after {
+    transform: translateX(16px);
+}
+.tg-toggle-text {
+    font-size: 13px;
+    color: #333;
+}
+/* Code modal improvements */
+dialog.mdl-dialog {
+    width: 80vw;
+    max-width: 900px;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+dialog .mdl-dialog__content {
+    padding: 4px 0 !important;
+}
+dialog .mdl-dialog__content pre {
+    margin: 0;
+}
+dialog .mdl-dialog__content > div {
+    position: relative;
+}
+dialog .mdl-dialog__content pre code {
+    width: 100%;
+    box-sizing: border-box;
+}
+dialog .mdl-dialog__content pre {
+    position: relative;
+}
+dialog .mdl-dialog__content pre code {
+    display: block;
+    padding: 12px 12px 12px 48px !important;
+    font-size: 13px;
+    line-height: 1.5;
+    border-radius: 6px;
+    background: #1e1e2e !important;
+    color: #cdd6f4 !important;
+    overflow-x: auto;
+    counter-reset: line;
+}
+dialog .mdl-dialog__content pre code .hljs-line {
+    display: block;
+    counter-increment: line;
+}
+dialog .mdl-dialog__content pre code .hljs-line::before {
+    content: counter(line);
+    display: inline-block;
+    width: 28px;
+    margin-left: -40px;
+    margin-right: 12px;
+    text-align: right;
+    color: #585b70;
+    font-size: 12px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+/* Catppuccin Mocha-inspired syntax colors */
+dialog pre code .hljs-keyword { color: #cba6f7 !important; }
+dialog pre code .hljs-string { color: #a6e3a1 !important; }
+dialog pre code .hljs-title,
+dialog pre code .hljs-function .hljs-title { color: #89b4fa !important; }
+dialog pre code .hljs-built_in { color: #f9e2af !important; }
+dialog pre code .hljs-comment { color: #6c7086 !important; font-style: italic; }
+dialog pre code .hljs-number { color: #fab387 !important; }
+dialog pre code .hljs-attr,
+dialog pre code .hljs-attribute { color: #89dceb !important; }
+dialog pre code .hljs-params { color: #f2cdcd !important; }
+dialog pre code .hljs-literal { color: #fab387 !important; }
+.code-copy-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #cdd6f4;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    z-index: 10;
+    transition: background 0.15s;
+}
+.code-copy-btn:hover {
+    background: rgba(255,255,255,0.25);
+}
+.code-copy-btn.copied {
+    background: rgba(166,227,161,0.3);
+    color: #a6e3a1;
+}
+</style>
 <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
 <script src="{{ static_url }}/libs/select2/dist/js/select2.min.js"></script>
 <script src="{{ static_url }}/libs/codemirror.js"></script>
 <script src="{{ static_url }}/libs/javascript.js"></script>
 <script src="{{ static_url }}/js/subscription-modal.js"></script>
-<script src="{{ static_url }}/js/playground.js"></script>
+<script src="{{ static_url }}/js/playground.js?v=4"></script>
+<script>
+function updateSystemMessage(value) {
+    if (typeof setSystemMessage === 'function') {
+        setSystemMessage(value);
+        return;
+    }
+    window.generationSettings = window.generationSettings || {};
+    window.generationSettings.system_message = value || '';
+    if (typeof setUrl === 'function') {
+        setUrl(window.generationSettings);
+    }
+}
+</script>
 
 <div class="demo-ribbon"></div>
 <main class="demo-main mdl-layout mdl-layout__content">
@@ -70,8 +209,8 @@
                         <label class="mdl-textfield__label" for="programming-language">Language</label>
                     </div>
                     {#                <h4 class="mdl-dialog__title">Allow data collection?</h4>#}
-                    <div class="mdl-dialog__content">
-                        <pre><code id="code-snippet-py" class="code language-python"></code></pre>
+                    <div class="mdl-dialog__content" style="clear: both;">
+                        <pre><button class="code-copy-btn" onclick="copyCodeSnippet(this.parentElement)">Copy</button><code id="code-snippet-py" class="code language-python"></code></pre>
                         <pre><code id="code-snippet-py-embed" class="code language-python" style="display: none"></code></pre>
                         <pre><code id="code-snippet-js" class="code language-javascript" style="display: none"></code></pre>
                         <pre><code id="code-snippet-js-embed" class="code language-javascript" style="display: none"></code></pre>
@@ -134,9 +273,25 @@ Chat is good at role play, following creative instructions, can have spelling mi
 Fastest will take any model if its the fastest, this can cause inconsistency.</div>
 
                 <p class="playground-label">
-                    <label for="enable-thinking" style="cursor:pointer;">
-                        <input type="checkbox" id="enable-thinking" checked onchange="setEnableThinking(this.checked)">
-                        Enable Thinking/Reasoning
+                    <label id="system-message-tooltip" for="system-message">System Prompt</label>
+                </p>
+                <textarea id="system-message"
+                          class="mdl-textfield__input playground-textarea"
+                          rows="4"
+                          placeholder="Optional instruction that controls style/behavior. Example: Continue code only, no explanation."
+                          onchange="updateSystemMessage(this.value)"
+                          oninput="updateSystemMessage(this.value)"></textarea>
+                <div class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="system-message-tooltip">Optional instruction for the model.
+
+Use this for stricter code generation, for example:
+"Continue the user's code only. No explanation. No markdown."</div>
+
+                <p class="playground-label">
+                    <label for="enable-thinking" class="tg-toggle-label">
+                        <input type="checkbox" id="enable-thinking" class="tg-toggle-input" onchange="setEnableThinking(this.checked)">
+                        <span class="tg-toggle-switch"></span>
+                        <span class="tg-toggle-text">Thinking/Reasoning</span>
                     </label>
                 </p>
 

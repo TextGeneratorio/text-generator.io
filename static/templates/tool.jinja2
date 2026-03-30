@@ -1,15 +1,19 @@
 {% extends 'templates/base.jinja2' %}
 
+{% set meta_description = tool_description or (tool_name ~ " prompt builder and workflow tool from Text Generator.") %}
+{% set meta_keywords = tool_keywords or tool_name %}
+{% set meta_image = tool_image or "img/text-generator-brain.png" %}
+
 {% block headers %}
     <meta charset="utf-8">
     <title>{{ tool_name }} - Text Generator Tools</title>
-    <meta name="description" content="{{ tool_description }}">
+    <meta name="description" content="{{ meta_description }}">
 
-    <meta name="keywords" content="{{ tool_keywords }}">
+    <meta name="keywords" content="{{ meta_keywords }}">
     <meta property="og:title" content="{{ tool_name }} - Text Generator Tools">
     <meta property="og:url" content="{{ tool_url }}">
-    <meta property="og:image" content="{{ static_url }}/{{ tool_image }}">
-    <meta property="og:description" content="{{ tool_description }}">
+    <meta property="og:image" content="{{ static_url }}/{{ meta_image }}">
+    <meta property="og:description" content="{{ meta_description }}">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Text Generator Tools">
 {% endblock %}
