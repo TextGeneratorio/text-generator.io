@@ -14,7 +14,7 @@ def convert_to_markdown(source: str) -> str:
         result = _converter.convert_url(source)
     else:
         result = _converter.convert_local(source)
-    return result.markdown
+    return result.text_content
 
 
 async def convert_documents_async(sources: Iterable[str]) -> Dict[str, str]:

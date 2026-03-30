@@ -76,6 +76,7 @@ class GenerateParams(BaseModel):
 
     model: Optional[str] = None
     system_message: Optional[str] = None
+    system_prompt: Optional[str] = None
     enable_thinking: Optional[bool] = None
 
 
@@ -114,6 +115,8 @@ class OpenaiParams(BaseModel):
     n: int = 1
     best_of: int = 1  # unused
     echo: bool = False
+    system_message: Optional[str] = None
+    system_prompt: Optional[str] = None
 
     # stopping criteria
 
@@ -152,6 +155,7 @@ def map_to_generate_params(openai_params: OpenaiParams) -> GenerateParams:
         openai_params.top_k,
         openai_params.temperature,
     )
+    generate_params.system_message = openai_params.system_message or openai_params.system_prompt
     return generate_params
 
 
@@ -209,6 +213,8 @@ class ChatMessage(BaseModel):
 class ChatCompletionParams(BaseModel):
     model: str = "qwen3.5-4b"
     messages: List[ChatMessage]
+    system_message: Optional[str] = None
+    system_prompt: Optional[str] = None
     max_tokens: Optional[int] = 32768
     temperature: Optional[float] = 1.0
     top_p: Optional[float] = 1.0

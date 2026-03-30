@@ -106,6 +106,13 @@ def _fast_inference(*args, **kwargs):
     return fast_inference(*args, **kwargs)
 
 
+def _direct_inference(*args, **kwargs):
+    _ensure_text_pipeline_override()
+    from questions.text_generator_inference import direct_inference
+
+    return direct_inference(*args, **kwargs)
+
+
 def _chat_inference(*args, **kwargs):
     _ensure_text_pipeline_override()
     from questions.text_generator_inference import chat_inference
@@ -780,8 +787,16 @@ async def feature_extraction(
 
 @app.get("/liveness_check")
 async def liveness_check(request: Request):
-    # Keep this endpoint lightweight so process monitors don't trigger model loads.
-    return JSONResponse({"status": "ok"})
+    try:
+        result = _direct_inference(
+            generate_params=GenerateParams(text="liveness", max_length=1),
+            model_cache=_get_model_cache(),
+        )
+        generated_text = result[0]["generated_text"] if result else ""
+        return JSONResponse({"status": "ok", "inference": "ok", "generated_text": generated_text})
+    except Exception as e:
+        logger.error(f"Liveness check inference failed: {e}")
+        return JSONResponse({"status": "error", "inference": "failed", "detail": str(e)}, status_code=503)
 
 
 def user_secret_matches(secret):
@@ -1521,6 +1536,20 @@ async def chat_completions_route(
                 secret = bearer_token
 
     messages = [{"role": m.role, "content": m.content} for m in chat_params.messages]
+
+    # Convenience alias for clients that use top-level system prompt fields.
+    # If both top-level prompt and a leading system role are provided,
+    # combine them to preserve existing behavior while keeping top-level precedence.
+    top_level_system_message = chat_params.system_message or chat_params.system_prompt
+    if top_level_system_message:
+        if messages and messages[0].get("role") == "system":
+            existing = messages[0].get("content", "")
+            if existing:
+                messages[0]["content"] = f"{top_level_system_message}\n\n{existing}"
+            else:
+                messages[0]["content"] = top_level_system_message
+        else:
+            messages.insert(0, {"role": "system", "content": top_level_system_message})
 
     if chat_params.stream:
         # Streaming SSE response

@@ -124,6 +124,94 @@ def parse_thinking_content(text: str) -> Tuple[Optional[str], str]:
         return thinking if thinking else None, response
     return None, text
 
+
+def _effective_generation_max_new_tokens(max_tokens: int, enable_thinking: bool) -> int:
+    """Allow thinking tokens without consuming the response token budget."""
+    if max_tokens is None:
+        max_tokens = 32768
+    max_tokens = max(1, int(max_tokens))
+    if not enable_thinking:
+        return max_tokens
+    thinking_extra_tokens = max(0, int(os.getenv("QWEN_THINKING_EXTRA_TOKENS", "96")))
+    thinking_extra_tokens = min(thinking_extra_tokens, max_tokens)
+    return max_tokens + thinking_extra_tokens
+
+
+def _split_reasoning_and_response_token_ids(tokenizer, generated_token_ids: List[int], enable_thinking: bool):
+    """
+    Split generated token ids into thinking and response segments.
+
+    Returns:
+        thinking_token_ids, response_token_ids, response_start_index_in_generated
+    """
+    if not enable_thinking:
+        return [], generated_token_ids, 0
+
+    think_end_token_id = tokenizer.convert_tokens_to_ids("</think>")
+    if think_end_token_id is None or think_end_token_id < 0:
+        return [], generated_token_ids, 0
+
+    try:
+        split_idx = generated_token_ids.index(think_end_token_id)
+    except ValueError:
+        # Model did not close the thinking block; treat all output as thinking.
+        return generated_token_ids, [], len(generated_token_ids)
+
+    return generated_token_ids[:split_idx], generated_token_ids[split_idx + 1 :], split_idx + 1
+
+
+def _truncate_response_by_min_probability(response_token_ids: List[int], response_scores, min_probability: float):
+    """
+    Reproduce legacy min_probability behavior, but only over response tokens.
+    """
+    if not response_token_ids or not response_scores or not min_probability or min_probability <= 0:
+        return response_token_ids, False
+
+    total_prob = None
+    for i, score in enumerate(response_scores[: len(response_token_ids)]):
+        probabilities = torch.softmax(score, dim=-1)
+        max_batch_prob = torch.min(torch.max(probabilities, dim=1).values)
+        if total_prob is None:
+            total_prob = max_batch_prob
+        else:
+            total_prob *= max_batch_prob
+        if total_prob < min_probability:
+            return response_token_ids[: i + 1], True
+
+    return response_token_ids, False
+
+
+def _truncate_response_to_max_tokens(response_token_ids: List[int], max_tokens: int):
+    if max_tokens is None or max_tokens <= 0:
+        return response_token_ids, False
+    if len(response_token_ids) <= int(max_tokens):
+        return response_token_ids, False
+    return response_token_ids[: int(max_tokens)], True
+
+
+def _truncate_response_by_stop_sequences(response_text: str, stop_sequences: Optional[List[str]]):
+    if not stop_sequences:
+        return response_text, None
+    for stop_sequence in stop_sequences:
+        if not stop_sequence:
+            continue
+        stop_index = response_text.find(stop_sequence)
+        if stop_index != -1:
+            return response_text[:stop_index], stop_sequence
+    return response_text, None
+
+
+def _truncate_response_by_max_sentences(response_text: str, max_sentences: Optional[int]):
+    if not max_sentences or max_sentences <= 0:
+        return response_text, False
+
+    sentence_endings = list(re.finditer(r"[.!?](?:\s|$)", response_text))
+    if len(sentence_endings) <= max_sentences:
+        return response_text, False
+
+    cutoff = sentence_endings[max_sentences - 1].end()
+    return response_text[:cutoff].rstrip(), True
+
 # if debug:
 #     # small model locally for fasterness
 #     weights_path = "models/tg-1b3/"
@@ -250,13 +338,17 @@ def load_model(weights_path):
 
     model.eval()
 
-    # Compile model for optimized execution (2x+ speedup)
-    # NOTE: Disabled by default - torch.compile wraps model in OptimizedModule which
-    # breaks transformers pipeline (not a supported model type for text-generation)
-    if DEVICE == "cuda" and os.getenv("ENABLE_TORCH_COMPILE", "0") == "1":
+    # Compile model for optimized execution.
+    # Qwen3.5 uses model.generate() directly (not the HF pipeline), so torch.compile
+    # is safe and typically gives 20-40% throughput improvement after warmup.
+    # Other models go through the HF pipeline which wraps model in OptimizedModule and
+    # breaks the pipeline's model-type detection, so only enable for Qwen3.5 by default.
+    is_qwen35_loaded = _is_qwen35_model.get(weights_path, False)
+    compile_default = "1" if is_qwen35_loaded else "0"
+    if DEVICE == "cuda" and os.getenv("ENABLE_TORCH_COMPILE", compile_default) == "1":
         try:
-            model = torch.compile(model, mode="reduce-overhead")
-            logger.info("Model compiled with torch.compile()")
+            model = torch.compile(model, mode="reduce-overhead", dynamic=True)
+            logger.info("Model compiled with torch.compile(mode='reduce-overhead', dynamic=True)")
         except Exception as e:
             logger.warning(f"torch.compile() failed, continuing without: {e}")
 
@@ -875,16 +967,49 @@ def direct_inference_streaming(generate_params: GenerateParams, model_cache=None
     return generated_text
 
 
+def _needs_space(input_text: str, continuation: str) -> bool:
+    """Return True if a space should be inserted between input_text and continuation.
+
+    chat_inference strips the response, so leading spaces are lost.  We need to
+    re-insert a space when doing text completion so that token boundaries are
+    respected (e.g. "Maybe we" + "could" → "Maybe we could", not "wecould").
+    """
+    if not input_text or not continuation:
+        return False
+    last_char = input_text[-1]
+    first_char = continuation[0]
+    if last_char.isspace():          # input already ends with whitespace
+        return False
+    if first_char.isspace():         # continuation already starts with whitespace
+        return False
+    if first_char in r'.,!?;:)}]\'"-…':  # punctuation attaches directly
+        return False
+    if last_char in '\n\r([{\'"':    # after newline / opening bracket — no space
+        return False
+    return True
+
+
 def _qwen35_fast_inference(generate_params: GenerateParams, model_cache, weights_path):
     """Bridge from legacy generate API to Qwen3.5 chat inference."""
     messages = []
-    if generate_params.system_message:
-        messages.append({"role": "system", "content": generate_params.system_message})
+    completion_system_message = (
+        "You are a text continuation engine.\n"
+        "Continue the user's text directly from where it ends.\n"
+        "Rules:\n"
+        "- Output only the continuation text.\n"
+        "- Do not repeat the prompt.\n"
+        "- Do not add explanations, prefaces, or markdown fences unless naturally part of the continuation."
+    )
+    system_message = generate_params.system_message or getattr(generate_params, "system_prompt", None) or completion_system_message
+    if system_message:
+        messages.append({"role": "system", "content": system_message})
     messages.append({"role": "user", "content": generate_params.text})
 
     enable_thinking = getattr(generate_params, 'enable_thinking', None)
     if enable_thinking is None:
         enable_thinking = False  # Legacy API defaults to no thinking
+
+    min_probability = getattr(generate_params, 'min_probability', 0) or 0
 
     result = chat_inference(
         messages=messages,
@@ -896,10 +1021,21 @@ def _qwen35_fast_inference(generate_params: GenerateParams, model_cache, weights
         top_p=generate_params.top_p or 1.0,
         top_k=generate_params.top_k or 40,
         repetition_penalty=generate_params.repetition_penalty or 1.0,
+        max_sentences=generate_params.max_sentences,
+        stop_sequences=generate_params.stop_sequences,
+        min_probability=min_probability,
+        strip_response=False,  # preserve leading space — the model's token encodes word-boundary info
     )
 
+    generated_text = result["generated_text"] or ""
+    if not generated_text.startswith(generate_params.text):
+        # Direct concatenation: the model's leading space (or absence of it) is authoritative.
+        # e.g. "Maybe we" + " could" = "Maybe we could"  (model adds space as new-word token)
+        #      "Hi my n"  + "ame"    = "Hi my name"      (model omits space, completing subword)
+        generated_text = f"{generate_params.text}{generated_text}"
+
     return [{
-        "generated_text": result["generated_text"],
+        "generated_text": generated_text,
         "stop_reason": result["stop_reason"],
         "thinking_content": result.get("thinking_content"),
     }]
@@ -916,8 +1052,16 @@ def chat_inference(
     top_k: int = 40,
     presence_penalty: float = 2.0,
     repetition_penalty: float = 1.0,
+    max_sentences: Optional[int] = None,
+    stop_sequences: Optional[List[str]] = None,
+    min_probability: float = 0,
+    strip_response: bool = True,
 ):
-    """Chat completion using Qwen3.5 with thinking support."""
+    """Chat completion using Qwen3.5 with thinking support.
+
+    strip_response=False preserves the model's leading whitespace, which encodes
+    word-boundary information (e.g. ' could' vs 'ame') needed for text completion.
+    """
     global weights_to_model, weights_to_tokenizer
 
     if weights_path is None:
@@ -949,8 +1093,12 @@ def chat_inference(
         inputs = tokenizer(input_text, return_tensors="pt")
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
+        generation_max_new_tokens = _effective_generation_max_new_tokens(max_tokens, enable_thinking)
+        if temperature is None or temperature <= 0:
+            temperature = 1.0
+
         gen_kwargs = {
-            "max_new_tokens": max_tokens,
+            "max_new_tokens": generation_max_new_tokens,
             "temperature": temperature,
             "top_k": top_k,
             "top_p": top_p,
@@ -964,19 +1112,56 @@ def chat_inference(
         if effective_rep_penalty and effective_rep_penalty > 1.0:
             gen_kwargs["repetition_penalty"] = effective_rep_penalty
 
+        if min_probability and min_probability > 0:
+            gen_kwargs["output_scores"] = True
+            gen_kwargs["return_dict_in_generate"] = True
+
         with torch.amp.autocast("cuda", dtype=torch.bfloat16):
             outputs = model.generate(**inputs, **gen_kwargs)
 
-        # Decode only new tokens
-        new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
-        generated_text = tokenizer.decode(new_tokens, skip_special_tokens=True)
+        # Handle both dict output (when return_dict_in_generate) and plain tensor
+        sequences = outputs.sequences if hasattr(outputs, 'sequences') else outputs
 
-        thinking_content, final_response = parse_thinking_content(generated_text)
+        # Decode only newly generated tokens
+        new_tokens = sequences[0][inputs["input_ids"].shape[1]:]
+        generated_token_ids = new_tokens.tolist()
+        thinking_token_ids, response_token_ids, response_start_index = _split_reasoning_and_response_token_ids(
+            tokenizer=tokenizer,
+            generated_token_ids=generated_token_ids,
+            enable_thinking=enable_thinking,
+        )
+
+        stop_reason = "stop"
+        if min_probability and min_probability > 0 and hasattr(outputs, "scores"):
+            response_scores = outputs.scores[
+                response_start_index : response_start_index + len(response_token_ids)
+            ]
+            response_token_ids, min_prob_hit = _truncate_response_by_min_probability(
+                response_token_ids, response_scores, min_probability
+            )
+            if min_prob_hit:
+                stop_reason = "min_probability"
+
+        response_token_ids, max_len_hit = _truncate_response_to_max_tokens(response_token_ids, max_tokens)
+        if max_len_hit and stop_reason == "stop":
+            stop_reason = "max_length"
+
+        thinking_content = tokenizer.decode(thinking_token_ids, skip_special_tokens=True).strip() or None
+        raw_response = tokenizer.decode(response_token_ids, skip_special_tokens=True)
+        final_response = raw_response.strip() if strip_response else raw_response.rstrip()
+
+        final_response, stop_sequence_hit = _truncate_response_by_stop_sequences(final_response, stop_sequences)
+        if stop_sequence_hit and stop_reason == "stop":
+            stop_reason = stop_sequence_hit
+
+        final_response, max_sentences_hit = _truncate_response_by_max_sentences(final_response, max_sentences)
+        if max_sentences_hit and stop_reason == "stop":
+            stop_reason = "max_sentences"
 
         return {
             "generated_text": final_response,
             "thinking_content": thinking_content,
-            "stop_reason": "stop",
+            "stop_reason": stop_reason,
         }
 
 
@@ -1028,9 +1213,13 @@ def chat_inference_streaming(
 
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=False)
 
+    generation_max_new_tokens = _effective_generation_max_new_tokens(max_tokens, enable_thinking)
+    if temperature is None or temperature <= 0:
+        temperature = 1.0
+
     gen_kwargs = {
         **inputs,
-        "max_new_tokens": max_tokens,
+        "max_new_tokens": generation_max_new_tokens,
         "temperature": temperature,
         "top_k": top_k,
         "top_p": top_p,
