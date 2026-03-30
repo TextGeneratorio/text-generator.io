@@ -4,7 +4,7 @@ absl-py==2.3.1
     # via
     #   fiddle
     #   tensorboard
-accelerate==1.8.1
+accelerate==1.13.0
     # via
     #   -r requirements.in
     #   peft
@@ -41,6 +41,7 @@ anyio==4.7.0
     #   anthropic
     #   gradio
     #   httpx
+    #   openai
     #   starlette
     #   watchfiles
 astroid==3.3.10
@@ -54,6 +55,12 @@ attrs==25.3.0
     #   jsonschema
     #   phonemizer
     #   referencing
+audioop-lts==0.2.2
+    # via
+    #   gradio
+    #   speechrecognition
+    #   standard-aifc
+    #   standard-sunau
 audioread==3.0.1
     # via
     #   lhotse
@@ -79,8 +86,6 @@ beautifulsoup4==4.13.4
     #   bs4
     #   markdownify
     #   markitdown
-bitsandbytes==0.45.3
-    # via nemo-toolkit
 boto3==1.39.4
     # via
     #   -r requirements.in
@@ -123,7 +128,6 @@ click==8.2.1
     #   -r requirements.in
     #   jiwer
     #   lhotse
-    #   magika
     #   nltk
     #   rich-toolkit
     #   runpod
@@ -139,8 +143,7 @@ colorama==0.4.6
     # via
     #   csvw
     #   runpod
-coloredlogs==15.0.1
-    # via onnxruntime
+    #   sacrebleu
 colorlog==6.9.0
     # via optuna
 contourpy==1.3.2
@@ -155,6 +158,10 @@ cryptography==45.0.5
     #   runpod
 csvw==3.5.1
     # via segments
+cuda-bindings==13.2.0
+    # via nemo-toolkit
+cuda-pathfinder==1.4.3
+    # via cuda-bindings
 cycler==0.12.1
     # via matplotlib
 cytoolz==1.0.1
@@ -168,25 +175,23 @@ decorator==5.2.1
     #   ipython
     #   librosa
 defusedxml==0.7.1
-    # via
-    #   markitdown
-    #   youtube-transcript-api
+    # via youtube-transcript-api
 dill==0.3.8
     # via
     #   datasets
     #   multiprocess
-distance==0.1.3
-    # via g2p-en
+diskcache==5.6.3
+    # via nemo-toolkit
 distro==1.9.0
-    # via anthropic
+    # via
+    #   anthropic
+    #   openai
 dlinfo==2.0.0
     # via phonemizer
 dnspython==2.7.0
     # via email-validator
 docopt==0.6.2
-    # via
-    #   num2words
-    #   pyannote-metrics
+    # via pyannote-metrics
 editdistance==0.8.1
     # via nemo-toolkit
 einops==0.8.1
@@ -222,8 +227,6 @@ filelock==3.18.0
     #   huggingface-hub
     #   torch
     #   transformers
-flatbuffers==25.2.10
-    # via onnxruntime
 fonttools==4.58.5
     # via matplotlib
 frozenlist==1.7.0
@@ -245,8 +248,6 @@ future==1.0.0
     # via
     #   ffmpeg-python
     #   pyloudnorm
-g2p-en==2.1.0
-    # via nemo-toolkit
 gitdb==4.0.12
     # via gitpython
 gitpython==3.1.44
@@ -335,8 +336,9 @@ httpx==0.28.1
     #   fastapi-cloud-cli
     #   gradio
     #   gradio-client
+    #   openai
     #   safehttpx
-huggingface-hub==0.33.2
+huggingface-hub==0.36.2
     # via
     #   accelerate
     #   datasets
@@ -346,8 +348,6 @@ huggingface-hub==0.33.2
     #   peft
     #   tokenizers
     #   transformers
-humanfriendly==10.0
-    # via coloredlogs
 hydra-core==1.3.2
     # via nemo-toolkit
 idna==3.10
@@ -357,10 +357,10 @@ idna==3.10
     #   httpx
     #   requests
     #   yarl
+indic-numtowords==1.1.0
+    # via whisper-normalizer
 inflect==7.5.0
-    # via
-    #   g2p-en
-    #   nemo-toolkit
+    # via nemo-toolkit
 iniconfig==2.1.0
     # via pytest
 inquirerpy==0.3.4
@@ -387,8 +387,10 @@ jinja2==3.1.6
     #   fastapi
     #   gradio
     #   torch
-jiter==0.9.0
-    # via anthropic
+jiter==0.13.0
+    # via
+    #   anthropic
+    #   openai
 jiwer==3.1.0
     # via nemo-toolkit
 jmespath==1.0.1
@@ -408,7 +410,7 @@ jsonschema-specifications==2025.4.1
     # via jsonschema
 kaldi-python-io==1.2.2
     # via nemo-toolkit
-kaldiio==2.18.1
+kaldialign==0.9.1
     # via nemo-toolkit
 kiwisolver==1.4.8
     # via matplotlib
@@ -418,9 +420,7 @@ lazy-loader==0.4
     # via librosa
 lazy-object-proxy==1.4.3
     # via -r requirements.in
-levenshtein==0.27.1
-    # via texterrors
-lhotse==1.30.3
+lhotse==1.32.2
     # via nemo-toolkit
 libcst==1.8.2
     # via fiddle
@@ -429,7 +429,9 @@ librosa==0.11.0
     #   -r requirements.in
     #   nemo-toolkit
 lightning==2.4.0
-    # via nemo-toolkit
+    # via
+    #   nemo-toolkit
+    #   nv-one-logger-pytorch-lightning-integration
 lightning-utilities==0.14.3
     # via
     #   lightning
@@ -439,15 +441,11 @@ lilcom==1.8.1
     # via lhotse
 llvmlite==0.44.0
     # via numba
-loguru==0.7.3
-    # via texterrors
 lxml==6.0.0
     # via
-    #   markitdown
     #   python-docx
     #   python-pptx
-magika==0.6.2
-    # via markitdown
+    #   sacrebleu
 mako==1.3.10
     # via alembic
 mammoth==1.9.1
@@ -458,7 +456,7 @@ markdown-it-py==3.0.0
     # via rich
 markdownify==1.1.0
     # via markitdown
-markitdown==0.1.2
+markitdown==0.0.2
     # via -r requirements.in
 markupsafe==3.0.2
     # via
@@ -481,7 +479,9 @@ mdurl==0.1.2
 mediapy==1.1.6
     # via nemo-toolkit
 more-itertools==10.7.0
-    # via inflect
+    # via
+    #   inflect
+    #   whisper-normalizer
 mpmath==1.3.0
     # via sympy
 msal==1.32.3
@@ -500,42 +500,39 @@ multiprocess==0.70.16
     # via datasets
 munch==4.0.0
     # via -r requirements.in
-nemo-toolkit==2.3.2
+nemo-toolkit==2.7.0
     # via -r requirements.in
 networkx==3.5
     # via torch
 nltk==3.9.1
-    # via
-    #   -r requirements.in
-    #   g2p-en
-num2words==0.5.14
-    # via nemo-toolkit
+    # via -r requirements.in
 numba==0.61.0
     # via
     #   librosa
-    #   nemo-toolkit
+    #   numba-cuda
     #   resampy
+numba-cuda==0.15.1
+    # via nemo-toolkit
+numexpr==2.13.1
+    # via nemo-toolkit
 numpy==1.26.4
     # via
     #   -r requirements.in
     #   accelerate
-    #   bitsandbytes
     #   contourpy
     #   datasets
-    #   g2p-en
     #   gradio
     #   kaldi-python-io
-    #   kaldiio
     #   lhotse
     #   librosa
     #   lilcom
-    #   magika
+    #   markitdown
     #   matplotlib
     #   mediapy
     #   nemo-toolkit
     #   numba
+    #   numexpr
     #   onnx
-    #   onnxruntime
     #   opencv-python
     #   optuna
     #   pandas
@@ -544,16 +541,27 @@ numpy==1.26.4
     #   pyannote-metrics
     #   pyloudnorm
     #   resampy
+    #   sacrebleu
     #   scikit-learn
     #   scipy
     #   soundfile
     #   sox
     #   soxr
     #   tensorboard
-    #   texterrors
     #   torchmetrics
     #   transformers
     #   webdataset
+nv-one-logger-core==2.3.1
+    # via
+    #   nemo-toolkit
+    #   nv-one-logger-pytorch-lightning-integration
+    #   nv-one-logger-training-telemetry
+nv-one-logger-pytorch-lightning-integration==2.3.1
+    # via nemo-toolkit
+nv-one-logger-training-telemetry==2.3.1
+    # via
+    #   nemo-toolkit
+    #   nv-one-logger-pytorch-lightning-integration
 nvidia-cublas-cu12==12.6.4.1
     # via
     #   nvidia-cudnn-cu12
@@ -600,8 +608,10 @@ omegaconf==2.3.0
     #   nemo-toolkit
 onnx==1.17.0
     # via nemo-toolkit
-onnxruntime==1.22.0
-    # via magika
+openai==2.28.0
+    # via
+    #   -r requirements.in
+    #   markitdown
 opencv-python==4.11.0.86
     # via -r requirements.in
 openpyxl==3.1.5
@@ -612,6 +622,8 @@ orjson==3.10.18
     # via
     #   fastapi
     #   gradio
+overrides==7.7.0
+    # via nv-one-logger-core
 packaging==24.2
     # via
     #   accelerate
@@ -626,7 +638,6 @@ packaging==24.2
     #   lightning-utilities
     #   matplotlib
     #   nemo-toolkit
-    #   onnxruntime
     #   optuna
     #   peft
     #   pooch
@@ -650,6 +661,8 @@ paramiko==3.5.1
     # via runpod
 parso==0.8.4
     # via jedi
+pathvalidate==3.3.1
+    # via markitdown
 pdfminer-six==20250506
     # via markitdown
 peft==0.16.0
@@ -668,8 +681,6 @@ pillow==11.3.0
     #   mediapy
     #   pytesseract
     #   python-pptx
-plac==1.4.5
-    # via texterrors
 platformdirs==4.3.8
     # via
     #   pooch
@@ -678,6 +689,8 @@ pluggy==1.6.0
     # via pytest
 pooch==1.8.2
     # via librosa
+portalocker==3.2.0
+    # via sacrebleu
 prettytable==3.16.0
     # via runpod
 prompt-toolkit==3.0.51
@@ -692,7 +705,7 @@ proto-plus==1.26.1
     # via
     #   google-api-core
     #   google-cloud-datastore
-protobuf==4.24.4
+protobuf==5.29.6
     # via
     #   google-api-core
     #   google-cloud-datastore
@@ -701,7 +714,6 @@ protobuf==4.24.4
     #   grpcio-status
     #   nemo-toolkit
     #   onnx
-    #   onnxruntime
     #   proto-plus
     #   tensorboard
     #   wandb
@@ -715,6 +727,8 @@ ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
     # via stack-data
+puremagic==2.1.0
+    # via markitdown
 py-cpuinfo==9.0.0
     # via runpod
 pyannote-core==5.0.0
@@ -734,8 +748,6 @@ pyasn1==0.6.1
     #   rsa
 pyasn1-modules==0.4.2
     # via google-auth
-pybind11==2.13.6
-    # via texterrors
 pycares==4.9.0
     # via aiodns
 pycparser==2.22
@@ -747,6 +759,8 @@ pydantic==2.11.3
     #   fastapi
     #   fastapi-cloud-cli
     #   gradio
+    #   nv-one-logger-core
+    #   openai
     #   pydantic-extra-types
     #   pydantic-settings
     #   wandb
@@ -802,7 +816,6 @@ python-docx==1.2.0
     # via -r requirements.in
 python-dotenv==1.1.1
     # via
-    #   magika
     #   pydantic-settings
     #   uvicorn
 python-multipart==0.0.20
@@ -830,7 +843,6 @@ pyyaml==6.0.2
     #   gradio
     #   huggingface-hub
     #   lhotse
-    #   libcst
     #   lightning
     #   omegaconf
     #   optuna
@@ -841,10 +853,10 @@ pyyaml==6.0.2
     #   uvicorn
     #   wandb
     #   webdataset
+pyyaml-ft==8.0.0
+    # via libcst
 rapidfuzz==3.13.0
-    # via
-    #   jiwer
-    #   levenshtein
+    # via jiwer
 rdflib==7.1.4
     # via csvw
 redis==6.2.0
@@ -856,10 +868,11 @@ referencing==0.36.2
 regex==2024.11.6
     # via
     #   nltk
+    #   sacrebleu
     #   sacremoses
     #   segments
-    #   texterrors
     #   transformers
+    #   whisper-normalizer
 requests==2.32.3
     # via
     #   -r requirements.in
@@ -912,6 +925,8 @@ runpod==1.7.12
     # via -r requirements.in
 s3transfer==0.13.0
     # via boto3
+sacrebleu==2.6.0
+    # via nemo-toolkit
 sacremoses==0.1.1
     # via nemo-toolkit
 safehttpx==0.1.6
@@ -947,12 +962,13 @@ sentry-sdk==2.32.0
     # via
     #   fastapi-cloud-cli
     #   wandb
-setuptools==75.6.0
+setuptools==82.0.1
     # via
     #   -r requirements.in
     #   gunicorn
     #   lightning-utilities
     #   nemo-toolkit
+    #   nv-one-logger-pytorch-lightning-integration
     #   tensorboard
     #   torch
     #   triton
@@ -971,6 +987,7 @@ sniffio==1.3.1
     # via
     #   anthropic
     #   anyio
+    #   openai
 sortedcontainers==2.4.0
     # via
     #   intervaltree
@@ -995,21 +1012,34 @@ sqlalchemy==2.0.41
     #   optuna
 stack-data==0.6.3
     # via ipython
+standard-aifc==3.13.0
+    # via
+    #   librosa
+    #   speechrecognition
+standard-chunk==3.13.0
+    # via standard-aifc
+standard-sunau==3.13.0
+    # via librosa
 starlette==0.46.2
     # via
     #   fastapi
     #   gradio
+strenum==0.4.15
+    # via
+    #   nv-one-logger-core
+    #   nv-one-logger-pytorch-lightning-integration
+    #   nv-one-logger-training-telemetry
 stripe==12.3.0
     # via -r requirements.in
 sympy==1.14.0
     # via
-    #   onnxruntime
     #   pyannote-metrics
     #   torch
 tabulate==0.9.0
     # via
     #   lhotse
     #   pyannote-metrics
+    #   sacrebleu
 tenacity==9.1.2
     # via -r requirements.in
 tensorboard==2.19.0
@@ -1018,18 +1048,16 @@ tensorboard==2.19.0
     #   nemo-toolkit
 tensorboard-data-server==0.7.2
     # via tensorboard
-termcolor==3.1.0
-    # via texterrors
 text-unidecode==1.3
-    # via nemo-toolkit
-texterrors==0.5.1
     # via nemo-toolkit
 threadpoolctl==3.6.0
     # via scikit-learn
-tokenizers==0.21.2
+tokenizers==0.22.2
     # via
     #   -r requirements.in
     #   transformers
+toml==0.10.2
+    # via nv-one-logger-core
 tomli==2.2.1
     # via runpod
 tomlkit==0.13.3
@@ -1041,7 +1069,6 @@ toolz==1.0.0
 torch==2.7.1
     # via
     #   accelerate
-    #   bitsandbytes
     #   lhotse
     #   lightning
     #   nemo-toolkit
@@ -1061,6 +1088,7 @@ tqdm==4.67.1
     #   lightning
     #   nemo-toolkit
     #   nltk
+    #   openai
     #   optuna
     #   peft
     #   pytorch-lightning
@@ -1073,7 +1101,7 @@ traitlets==5.14.3
     # via
     #   ipython
     #   matplotlib-inline
-transformers==4.51.3
+transformers==4.57.6
     # via
     #   -r requirements.in
     #   nemo-toolkit
@@ -1090,10 +1118,8 @@ typer==0.16.0
     #   pyannote-database
 typing-extensions==4.12.2
     # via
-    #   aiosignal
     #   alembic
     #   anthropic
-    #   anyio
     #   azure-ai-documentintelligence
     #   azure-core
     #   azure-identity
@@ -1106,6 +1132,9 @@ typing-extensions==4.12.2
     #   librosa
     #   lightning
     #   lightning-utilities
+    #   nv-one-logger-core
+    #   nv-one-logger-training-telemetry
+    #   openai
     #   phonemizer
     #   pyannote-core
     #   pydantic
@@ -1114,7 +1143,6 @@ typing-extensions==4.12.2
     #   python-docx
     #   python-pptx
     #   pytorch-lightning
-    #   referencing
     #   rich-toolkit
     #   sox
     #   speechrecognition
@@ -1173,6 +1201,8 @@ websockets==12.0
 werkzeug==3.1.3
     # via tensorboard
 wget==3.2
+    # via nemo-toolkit
+whisper-normalizer==0.1.12
     # via nemo-toolkit
 wrapt==1.17.2
     # via

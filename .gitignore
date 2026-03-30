@@ -60,3 +60,5 @@ torchinductor_root/
 monitors/monitor_api.log
 monitors/monitor_site.log
 onnxtests/
+monitors/monitor_inference_agent.log
+monitors/claude_inference_fix.log
