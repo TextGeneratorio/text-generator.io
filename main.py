@@ -20,7 +20,8 @@ from starlette.datastructures import URL
 from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
-from questions import blog_fixtures, doc_fixtures, fixtures, tool_fixtures
+from questions import blog_fixtures, doc_fixtures, fixtures, prompt_fixtures, prompt_search, tool_fixtures
+from questions.deep_research import DeepResearchError, run_deep_research
 from questions.logging_config import get_logger
 
 # Import database models conditionally
@@ -50,10 +51,12 @@ USE_POSTGRES = True
 try:
     from questions.auth import (
         create_user,
+        create_password_reset_token,
         get_current_user,
         get_user_from_session,
         login_or_create_user,
         set_session_for_user,
+        validate_and_consume_reset_token,
     )
     from questions.db_models_postgres import DATABASE_URL, get_db
 
@@ -384,6 +387,235 @@ async def tools(request: Request):
     )
 
 
+def get_prompt_directory_context(
+    request: Request,
+    *,
+    prompts: Optional[List[Dict[str, Any]]] = None,
+    page_title: str = "AI Prompt Database - Search Prompt Templates by Model and Use Case",
+    page_description: str = (
+        "Search a prompt database of image, text, and video prompts for business, design, "
+        "marketing, productivity, and creative work."
+    ),
+    page_heading: str = "Search prompts by model, modality, or business use case.",
+    page_lead: str = (
+        "Browse a structured prompt library covering logos, marketing, productivity, video, "
+        "photography, games, and creative production."
+    ),
+    facet_kind: Optional[str] = None,
+    facet_slug: Optional[str] = None,
+    current_category: Optional[Dict[str, Any]] = None,
+    current_model: Optional[Dict[str, Any]] = None,
+    current_prompt_type: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    base_vars = get_base_template_vars(request)
+    prompt_items = prompts if prompts is not None else prompt_fixtures.get_featured_prompts(limit=18)
+    base_vars.update(
+        {
+            "page_title": page_title,
+            "page_description": page_description,
+            "page_heading": page_heading,
+            "page_lead": page_lead,
+            "prompts": prompt_items,
+            "prompt_categories": prompt_fixtures.get_categories(),
+            "prompt_models": prompt_fixtures.get_models(),
+            "popular_models": prompt_fixtures.get_popular_models(limit=8),
+            "prompt_types": prompt_fixtures.get_prompt_types(),
+            "featured_prompts": prompt_fixtures.get_featured_prompts(limit=8),
+            "prompt_stats": prompt_fixtures.get_prompt_stats(),
+            "prompt_sitemap_sections": prompt_fixtures.get_sitemap_sections(),
+            "facet_kind": facet_kind,
+            "facet_slug": facet_slug,
+            "current_category": current_category,
+            "current_model": current_model,
+            "current_prompt_type": current_prompt_type,
+        }
+    )
+    return base_vars
+
+
+@app.get("/prompts")
+async def prompts_directory(request: Request):
+    base_vars = get_prompt_directory_context(
+        request,
+        prompts=prompt_fixtures.get_featured_prompts(limit=18),
+    )
+    return templates.TemplateResponse(
+        "templates/prompts.jinja2",
+        base_vars,
+    )
+
+
+@app.get("/prompts/sitemap")
+async def prompts_sitemap(request: Request):
+    base_vars = get_prompt_directory_context(
+        request,
+        prompts=prompt_fixtures.get_featured_prompts(limit=12),
+        page_title="Prompt Sitemap - Browse AI Prompts by Category, Model, and Type",
+        page_description="Browse the prompt sitemap for categories, models, prompt types, and featured prompts.",
+        page_heading="Prompt sitemap",
+        page_lead="Jump into prompt categories, models, and prompt types from one directory page.",
+    )
+    base_vars.update({"is_sitemap_view": True})
+    return templates.TemplateResponse(
+        "templates/prompts.jinja2",
+        base_vars,
+    )
+
+
+@app.get("/prompts/category/{category_slug}")
+async def prompts_by_category(request: Request, category_slug: str):
+    category = prompt_fixtures.get_category_by_slug(category_slug)
+    if not category:
+        raise HTTPException(status_code=404, detail="Prompt category not found")
+
+    base_vars = get_prompt_directory_context(
+        request,
+        prompts=prompt_fixtures.get_prompts(category_slug=category_slug),
+        page_title=f"{category['name']} - AI Prompt Database",
+        page_description=category["description"],
+        page_heading=category["name"],
+        page_lead=category["description"],
+        facet_kind="category",
+        facet_slug=category_slug,
+        current_category=category,
+    )
+    return templates.TemplateResponse(
+        "templates/prompts.jinja2",
+        base_vars,
+    )
+
+
+@app.get("/prompts/model/{model_slug}")
+async def prompts_by_model(request: Request, model_slug: str):
+    model = prompt_fixtures.get_model_by_slug(model_slug)
+    if not model:
+        raise HTTPException(status_code=404, detail="Prompt model not found")
+
+    base_vars = get_prompt_directory_context(
+        request,
+        prompts=prompt_fixtures.get_prompts(model_slug=model_slug),
+        page_title=f"{model['name']} prompts - AI Prompt Database",
+        page_description=model["description"],
+        page_heading=f"{model['name']} prompts",
+        page_lead=model["description"],
+        facet_kind="model",
+        facet_slug=model_slug,
+        current_model=model,
+    )
+    return templates.TemplateResponse(
+        "templates/prompts.jinja2",
+        base_vars,
+    )
+
+
+@app.get("/prompts/type/{prompt_type_slug}")
+async def prompts_by_type(request: Request, prompt_type_slug: str):
+    prompt_type = prompt_fixtures.get_prompt_type_by_slug(prompt_type_slug)
+    if not prompt_type:
+        raise HTTPException(status_code=404, detail="Prompt type not found")
+
+    base_vars = get_prompt_directory_context(
+        request,
+        prompts=prompt_fixtures.get_prompts(prompt_type_slug=prompt_type_slug),
+        page_title=f"{prompt_type['name']} - AI Prompt Database",
+        page_description=prompt_type["description"],
+        page_heading=prompt_type["name"],
+        page_lead=prompt_type["description"],
+        facet_kind="type",
+        facet_slug=prompt_type_slug,
+        current_prompt_type=prompt_type,
+    )
+    return templates.TemplateResponse(
+        "templates/prompts.jinja2",
+        base_vars,
+    )
+
+
+@app.get("/api/prompts/search")
+async def search_prompt_database(
+    request: Request,
+    q: str = "",
+    limit: int = 18,
+    category: Optional[str] = None,
+    model: Optional[str] = None,
+    prompt_type: Optional[str] = None,
+):
+    if limit < 1:
+        limit = 1
+    if limit > 40:
+        limit = 40
+
+    results = prompt_search.search_prompts(
+        q,
+        limit=limit,
+        category_slug=category,
+        model_slug=model,
+        prompt_type_slug=prompt_type,
+    )
+
+    result_items = [
+        {
+            "slug": result["slug"],
+            "title": result["title"],
+            "summary": result["summary"],
+            "url": result["url"],
+            "model_name": result["model_name"],
+            "model_url": result["model_url"],
+            "category_name": result["category_name"],
+            "category_url": result["category_url"],
+            "modality_name": result["modality_name"],
+            "modality_url": result["modality_url"],
+            "modality": result["modality"],
+            "is_free": result["is_free"],
+            "featured": result["featured"],
+            "popularity": result["popularity"],
+            "tags": result["tags"],
+            "score": result.get("score"),
+            "model_icon": result["model_icon"],
+            "category_icon": result["category_icon"],
+        }
+        for result in results
+    ]
+
+    return JSONResponse(
+        {
+            "query": q,
+            "count": len(result_items),
+            "results": result_items,
+            "filters": {
+                "category": category,
+                "model": model,
+                "prompt_type": prompt_type,
+            },
+        }
+    )
+
+
+@app.get("/prompts/{prompt_slug}")
+async def prompt_detail_page(request: Request, prompt_slug: str):
+    prompt = prompt_fixtures.get_prompt_by_slug(prompt_slug)
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+
+    base_vars = get_base_template_vars(request)
+    base_vars.update(
+        {
+            "page_title": f"{prompt['title']} - AI Prompt Database",
+            "page_description": prompt["summary"],
+            "prompt": prompt,
+            "related_prompts": prompt_fixtures.get_related_prompts(prompt_slug, limit=4),
+            "prompt_categories": prompt_fixtures.get_categories(),
+            "popular_models": prompt_fixtures.get_popular_models(limit=8),
+            "prompt_types": prompt_fixtures.get_prompt_types(),
+            "prompt_text_encoded": quote_plus(prompt["prompt"]),
+        }
+    )
+    return templates.TemplateResponse(
+        "templates/prompt-detail.jinja2",
+        base_vars,
+    )
+
+
 @app.get("/ai-text-editor")
 async def ai_text_editor(request: Request):
     base_vars = get_base_template_vars(request)
@@ -406,7 +638,7 @@ async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_
     tool_info = tool_fixtures.tools_fixtures.get(tool_name, {})
 
     # Check if this tool requires subscription access
-    subscription_required = tool_name == "domain-generator"
+    subscription_required = bool(tool_info.get("premium", False))
     subscription_status = None
 
     if subscription_required and USE_POSTGRES:
@@ -458,6 +690,51 @@ async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_
         "templates/tool.jinja2",
         base_vars,
     )
+
+
+class DeepResearchMessage(BaseModel):
+    role: str
+    content: str
+
+
+class DeepResearchRunRequest(BaseModel):
+    messages: List[DeepResearchMessage]
+    max_sources: int = 6
+
+
+@app.post("/api/tools/deep-researcher/run")
+async def deep_researcher_run(
+    request: Request, payload: DeepResearchRunRequest, db: Session = Depends(get_db)
+):
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=503, detail="Deep Researcher requires PostgreSQL-backed authentication.")
+
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Log in to use Deep Researcher.")
+
+    from questions.subscription_utils import check_user_subscription
+
+    if not check_user_subscription(user):
+        raise HTTPException(status_code=403, detail="An active subscription is required for Deep Researcher.")
+
+    messages = [message.model_dump() for message in payload.messages if message.content.strip()]
+    if not messages:
+        raise HTTPException(status_code=400, detail="Provide at least one message.")
+
+    try:
+        result = await asyncio.to_thread(
+            run_deep_research,
+            messages,
+            max(2, min(payload.max_sources, 8)),
+        )
+    except DeepResearchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Deep Researcher failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Deep Researcher failed while preparing the report.")
+
+    return JSONResponse(result)
 
 
 @app.get("/subscribe")
@@ -755,6 +1032,50 @@ async def login(request: Request):
         "static/templates/login.jinja2",
         base_vars,
     )
+
+
+@app.get("/forgot-password")
+async def forgot_password_page(request: Request):
+    base_vars = get_base_template_vars(request)
+    return templates.TemplateResponse("static/templates/forgot-password.jinja2", base_vars)
+
+
+@app.post("/api/forgot-password")
+async def api_forgot_password(request: Request, email: str = Form(...), db: Session = Depends(get_db)):
+    """Send a password reset email. Always returns success to avoid user enumeration."""
+    try:
+        from questions.email_utils import send_password_reset_email
+        token = create_password_reset_token(email, db)
+        if token:
+            base_url = str(request.base_url).rstrip("/")
+            reset_link = f"{base_url}/reset-password?token={token}"
+            send_password_reset_email(email, reset_link)
+    except Exception as e:
+        logger.error(f"Password reset email error for {email}: {e}")
+    return JSONResponse({"message": "If that email exists, a reset link has been sent."})
+
+
+@app.get("/reset-password")
+async def reset_password_page(request: Request, token: str = ""):
+    base_vars = get_base_template_vars(request)
+    base_vars["token"] = token
+    return templates.TemplateResponse("static/templates/reset-password.jinja2", base_vars)
+
+
+@app.post("/api/reset-password")
+async def api_reset_password(
+    request: Request,
+    token: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Consume a reset token and set a new password."""
+    if not token or not password or len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+    success = validate_and_consume_reset_token(token, password, db)
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link.")
+    return JSONResponse({"message": "Password updated successfully."})
 
 
 @app.get("/test-modals")
@@ -1259,15 +1580,15 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
                     subscription_item_id = await asyncio.wait_for(
                         get_subscription_item_id_for_user_email_async(user.email), timeout=3.0
                     )
-                    user_dict["is_subscribed"] = subscription_item_id is not None
+                    user_dict["is_subscribed"] = subscription_item_id is not None or user.is_subscribed
                 except asyncio.TimeoutError:
                     logger.warning(f"Subscription check timed out for user {user.email}")
-                    user_dict["is_subscribed"] = False
+                    user_dict["is_subscribed"] = user.is_subscribed
                 except Exception as e:
                     logger.error(f"Error checking subscription for user {user.email}: {e}")
-                    user_dict["is_subscribed"] = False
+                    user_dict["is_subscribed"] = user.is_subscribed
             else:
-                user_dict["is_subscribed"] = False
+                user_dict["is_subscribed"] = user.is_subscribed
 
             # Set default values for optional fields
             user_dict["num_self_hosted_instances"] = 0
