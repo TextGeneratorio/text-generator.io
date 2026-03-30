@@ -1,6 +1,7 @@
 import os
 import secrets
 import string
+from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt
@@ -142,3 +143,37 @@ def require_auth(request: Request, db: Session = Depends(get_db)) -> User:
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user
+
+
+# Password reset tokens: token -> {"email": str, "expires": datetime}
+password_reset_tokens: dict = {}
+
+
+def create_password_reset_token(email: str, db: Session) -> Optional[str]:
+    """Generate a reset token for the given email. Returns None if user not found."""
+    user = User.get_by_email(db, email)
+    if not user:
+        return None
+    token = generate_random_string(48)
+    password_reset_tokens[token] = {
+        "email": email,
+        "expires": datetime.utcnow() + timedelta(hours=1),
+    }
+    return token
+
+
+def validate_and_consume_reset_token(token: str, new_password: str, db: Session) -> bool:
+    """Validate token, update password, and consume (delete) the token. Returns True on success."""
+    entry = password_reset_tokens.get(token)
+    if not entry:
+        return False
+    if datetime.utcnow() > entry["expires"]:
+        del password_reset_tokens[token]
+        return False
+    user = User.get_by_email(db, entry["email"])
+    if not user:
+        return False
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    del password_reset_tokens[token]
+    return True
