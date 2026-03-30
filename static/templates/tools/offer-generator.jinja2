@@ -1,0 +1,67 @@
+{% set builder_title = "Offer Generator" %}
+{% set builder_kicker = "Business Design" %}
+{% set builder_intro = "Turn a rough service, product, or business idea into clearer packages, pricing logic, bonuses, guarantees, and CTA copy. This is useful when the product exists but the offer still feels fuzzy." %}
+{% set builder_prompt_opening = "Act like a conversion-focused offer strategist. Use the business context to package the service or product into offers that are easier to understand, buy, and compare. Focus on clarity, differentiation, and buyer confidence." %}
+{% set builder_system_message = "You are an offer strategist and direct-response copywriter. Build practical, believable packages with strong naming, value framing, and buyer logic. Keep recommendations grounded in the context given." %}
+{% set builder_note = "Good inputs here are concrete: target customer, promised outcome, constraints, and anything the market already expects." %}
+{% set builder_fields = [
+    {
+        "id": "business",
+        "label": "Business or product idea",
+        "prompt_label": "Business",
+        "type": "text",
+        "value": "Fractional bookkeeping and finance ops for contractors",
+        "placeholder": "What you sell",
+        "help": "Describe the main thing the customer buys."
+    },
+    {
+        "id": "audience",
+        "label": "Ideal customer",
+        "prompt_label": "Audience",
+        "type": "text",
+        "value": "Construction owners who are growing fast and hate admin",
+        "placeholder": "Who the offer is for",
+        "help": "Try to describe the buyer in commercial terms, not demographics alone."
+    },
+    {
+        "id": "outcome",
+        "label": "Main outcome or transformation",
+        "prompt_label": "Promised outcome",
+        "type": "textarea",
+        "rows": 4,
+        "value": "Cleaner books, faster month-end close, better job-level visibility, and less owner time spent on finance admin.",
+        "placeholder": "What changes for the buyer?",
+        "help": "List the before/after in plain language."
+    },
+    {
+        "id": "delivery",
+        "label": "Current service pieces or delivery constraints",
+        "prompt_label": "Delivery model",
+        "type": "textarea",
+        "rows": 5,
+        "value": "Monthly bookkeeping\nQuarterly tax coordination\nSlack support\nNo 24/7 support\nCan handle up to 18 clients right now",
+        "placeholder": "Features, deliverables, limits, onboarding details, margins",
+        "help": "This keeps the generated packages realistic."
+    },
+    {
+        "id": "pricing-context",
+        "label": "Pricing context or market anchor",
+        "prompt_label": "Pricing context",
+        "type": "text",
+        "value": "Typical competitors charge between $600 and $2500 per month",
+        "placeholder": "Known pricing, budgets, or willingness to pay",
+        "help": "Even rough pricing context helps the packaging make sense."
+    }
+] %}
+{% set builder_deliverables = [
+    "Three offer tiers with names, ideal buyer, and included deliverables",
+    "A short pricing rationale for each tier",
+    "Bonus ideas, urgency, or guarantee angles that fit the offer",
+    "The strongest differentiator to emphasize on the page",
+    "A concise CTA block for the sales page or homepage",
+    "Risks or weak points in the offer that should be fixed before launch"
+] %}
+{% set builder_max_length = 900 %}
+{% set builder_temperature = 0.34 %}
+{% set builder_repetition_penalty = 1.06 %}
+{% include "templates/tools/prompt-builder-shell.jinja2" %}

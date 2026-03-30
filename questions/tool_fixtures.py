@@ -1,25 +1,59 @@
 tools_fixtures = {
-    "domain-name-generator": {
+    "competitor-teardown": {
+        "name": "Competitor Teardown",
+        "description": "Turn competitor URLs and notes into positioning gaps, messaging angles, and copy ideas.",
+        "keywords": "competitor analysis, positioning, marketing strategy, landing page copy, AI marketing tool",
+        "url": "/tools/competitor-teardown",
+        "image": "img/text-generator-brain.png",
+    },
+    "seo-content-gap": {
+        "name": "SEO Content Gap Finder",
+        "description": "Build an SEO brief from your site, competitors, and target topics.",
+        "keywords": "seo content gap, topic clusters, keyword strategy, content brief, AI SEO tool",
+        "url": "/tools/seo-content-gap",
+        "image": "img/text-generator-brain.png",
+    },
+    "offer-generator": {
+        "name": "Offer Generator",
+        "description": "Package a service or product into clearer tiers, bonuses, guarantees, and CTAs.",
+        "keywords": "offer generator, pricing tiers, service packages, business offer, sales copy",
+        "url": "/tools/offer-generator",
+        "image": "img/text-generator-brain.png",
+    },
+    "deep-researcher": {
+        "name": "Deep Researcher",
+        "description": "Run a web-grounded research agent that plans, gathers evidence, and writes a cited report in chat form.",
+        "keywords": "deep research agent, ai research assistant, web research, cited report, subscriber tool",
+        "url": "/tools/deep-researcher",
+        "image": "img/text-generator-brain.png",
+        "premium": True,
+    },
+    "domain-generator": {
         "name": "Domain Name Generator",
         "description": "Generate creative domain names and check their availability instantly.",
+        "keywords": "domain name generator, brand naming, startup domains, website ideas",
         "url": "/tools/domain-generator",
         "image": "img/domain-name-generator.webp",
+        "premium": True,
     },
     "text-generator-docs": {
         "name": "AI Text Editor",
         "description": "Create and edit documents with AI-powered autocomplete in a beautiful WYSIWYG editor.",
+        "keywords": "ai text editor, document editor, writing assistant, autocomplete",
         "url": "/ai-text-editor",
         "image": "img/text-generator-docs.webp",
     },
     "prompt-optimizer": {
         "name": "Prompt Optimizer",
         "description": "Iteratively improve prompts using Claude to get better results.",
+        "keywords": "prompt optimizer, prompt engineering, ai prompt improvement, claude prompts",
         "url": "/tools/prompt-optimizer",
         "image": "img/prompt-optimizer.webp",
     },
-    "image-captioning": {
+    "image-captioning-ai": {
         "name": "Image Captioning AI",
         "description": "Generate captions for images using Microsoft's GIT-base model with fast and quality modes.",
+        "keywords": "image captioning, image to text, computer vision, caption generator",
         "url": "/tools/image-captioning-ai",
         "image": "img/image-captioning.webp",
         "api_endpoint": "/api/v1/image-caption",

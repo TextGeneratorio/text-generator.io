@@ -1,0 +1,810 @@
+<style>
+    .tg-research-app {
+        min-height: calc(100vh - 180px);
+        padding-bottom: 56px;
+    }
+
+    .tg-research-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+        gap: 24px;
+    }
+
+    .tg-research-panel {
+        border: 1px solid #dde6f0;
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+        box-shadow: 0 20px 54px rgba(16, 42, 67, 0.1);
+        overflow: hidden;
+    }
+
+    .tg-research-main {
+        display: flex;
+        flex-direction: column;
+        min-height: 760px;
+    }
+
+    .tg-research-header {
+        padding: 26px 28px 18px;
+        background:
+            radial-gradient(circle at top left, rgba(255, 179, 71, 0.24), transparent 32%),
+            linear-gradient(145deg, #0d274b 0%, #163d6a 54%, #173f71 100%);
+        color: #fff;
+    }
+
+    .tg-research-kicker {
+        margin: 0;
+        font: 700 0.78rem/1.2 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(255, 255, 255, 0.75);
+    }
+
+    .tg-research-title {
+        margin: 12px 0 10px;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+        color: #fff;
+    }
+
+    .tg-research-lead {
+        margin: 0;
+        max-width: 58ch;
+        color: rgba(232, 240, 249, 0.9);
+        line-height: 1.6;
+    }
+
+    .tg-research-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .tg-research-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #f7fbff;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+
+    .tg-research-feed {
+        flex: 1;
+        padding: 24px;
+        background: linear-gradient(180deg, #f6f8fc, #eef3f8);
+        overflow-y: auto;
+    }
+
+    .tg-research-empty {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 38px 0 24px;
+        text-align: center;
+        color: #486581;
+    }
+
+    .tg-research-empty h3 {
+        margin: 0 0 12px;
+        color: #102a43;
+    }
+
+    .tg-research-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .tg-research-suggestion {
+        border: 1px solid #cfd9e4;
+        border-radius: 999px;
+        background: #fff;
+        padding: 10px 14px;
+        color: #102a43;
+        cursor: pointer;
+        font: inherit;
+        transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+
+    .tg-research-suggestion:hover {
+        transform: translateY(-1px);
+        border-color: #163d6a;
+    }
+
+    .tg-research-message {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+
+    .tg-research-message--user {
+        justify-content: flex-end;
+    }
+
+    .tg-research-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, #102a43, #1f5f96);
+        color: #fff;
+        font-weight: 700;
+    }
+
+    .tg-research-message--user .tg-research-avatar {
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+    }
+
+    .tg-research-bubble {
+        width: min(100%, 820px);
+        border-radius: 24px;
+        padding: 18px 18px 16px;
+        box-shadow: 0 14px 36px rgba(16, 42, 67, 0.08);
+        background: #fff;
+        color: #102a43;
+    }
+
+    .tg-research-message--user .tg-research-bubble {
+        background: linear-gradient(135deg, #163d6a, #215487);
+        color: #fff;
+    }
+
+    .tg-research-bubble p:first-child {
+        margin-top: 0;
+    }
+
+    .tg-research-bubble p:last-child {
+        margin-bottom: 0;
+    }
+
+    .tg-research-markdown {
+        line-height: 1.7;
+        color: #243b53;
+    }
+
+    .tg-research-markdown h1,
+    .tg-research-markdown h2,
+    .tg-research-markdown h3,
+    .tg-research-markdown h4 {
+        color: #102a43;
+        line-height: 1.15;
+        letter-spacing: -0.03em;
+    }
+
+    .tg-research-markdown pre {
+        margin: 16px 0;
+        padding: 14px 16px;
+        border-radius: 18px;
+        overflow-x: auto;
+        background: #0f172a;
+        color: #e2e8f0;
+    }
+
+    .tg-research-markdown code {
+        font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .tg-research-markdown :not(pre) > code {
+        padding: 0.15rem 0.38rem;
+        border-radius: 8px;
+        background: #eaf1f8;
+        color: #173f71;
+    }
+
+    .tg-research-markdown a {
+        color: #0b6fb8 !important;
+        text-decoration: underline;
+    }
+
+    .tg-research-report-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    .tg-research-meta-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        background: #eef3f8;
+        color: #28405a;
+        padding: 8px 12px;
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+
+    .tg-research-trace {
+        margin-top: 16px;
+        border: 1px solid #dde6f0;
+        border-radius: 18px;
+        background: #fbfdff;
+        overflow: hidden;
+    }
+
+    .tg-research-trace summary {
+        cursor: pointer;
+        padding: 14px 16px;
+        font-weight: 700;
+        color: #173f71;
+    }
+
+    .tg-research-trace-list {
+        display: grid;
+        gap: 12px;
+        padding: 0 16px 16px;
+    }
+
+    .tg-research-trace-item strong {
+        display: block;
+        color: #102a43;
+        margin-bottom: 4px;
+    }
+
+    .tg-research-gallery {
+        margin-top: 18px;
+        border: 1px solid #dde6f0;
+        border-radius: 22px;
+        padding: 14px;
+        background: #fbfdff;
+    }
+
+    .tg-research-gallery-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .tg-research-gallery-top h4 {
+        margin: 0;
+        color: #102a43;
+    }
+
+    .tg-research-gallery-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .tg-research-gallery-actions button {
+        width: 38px;
+        height: 38px;
+        border: 1px solid #d2dce7;
+        border-radius: 999px;
+        background: #fff;
+        color: #102a43;
+        cursor: pointer;
+    }
+
+    .tg-research-gallery-track {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(240px, 320px);
+        gap: 14px;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        scrollbar-width: thin;
+    }
+
+    .tg-research-gallery-card {
+        scroll-snap-align: start;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #eef3f8;
+        min-height: 180px;
+    }
+
+    .tg-research-gallery-card img {
+        display: block;
+        width: 100%;
+        height: 220px;
+        object-fit: cover;
+        background: #d9e3ef;
+    }
+
+    .tg-research-source-grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+    }
+
+    .tg-research-source-card {
+        display: block !important;
+        padding: 14px 16px;
+        border: 1px solid #d9e2ec;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #fff, #f9fbfe);
+        text-decoration: none !important;
+        transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+
+    .tg-research-source-card:hover {
+        transform: translateY(-1px);
+        border-color: #173f71;
+    }
+
+    .tg-research-source-card strong {
+        display: block;
+        color: #102a43;
+        margin-bottom: 4px;
+    }
+
+    .tg-research-source-domain {
+        display: block;
+        margin-bottom: 8px;
+        color: #6b7f95;
+        font-size: 0.82rem;
+    }
+
+    .tg-research-input {
+        border-top: 1px solid #dde6f0;
+        background: #fff;
+        padding: 20px 24px 24px;
+    }
+
+    .tg-research-form {
+        display: grid;
+        gap: 12px;
+    }
+
+    .tg-research-form textarea {
+        width: 100%;
+        min-height: 116px;
+        resize: vertical;
+        border-radius: 20px;
+        border: 1px solid #cbd6e2;
+        padding: 14px 16px;
+        box-sizing: border-box;
+        font: inherit;
+        color: #102a43;
+        background: #fbfdff;
+    }
+
+    .tg-research-form textarea:focus {
+        outline: none;
+        border-color: #173f71;
+        box-shadow: 0 0 0 4px rgba(23, 63, 113, 0.12);
+    }
+
+    .tg-research-form-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .tg-research-status {
+        color: #486581;
+        font-size: 0.92rem;
+    }
+
+    .tg-research-submit {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 48px;
+        border: none;
+        border-radius: 999px;
+        padding: 0 18px;
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+        color: #fff;
+        font: 700 0.95rem/1 'Sora', 'Segoe UI', sans-serif;
+        cursor: pointer;
+        box-shadow: 0 16px 34px rgba(255, 90, 54, 0.26);
+    }
+
+    .tg-research-submit[disabled] {
+        opacity: 0.7;
+        cursor: default;
+        box-shadow: none;
+    }
+
+    .tg-research-sidebar {
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+        align-content: start;
+    }
+
+    .tg-research-sidecard {
+        padding: 20px;
+        border-radius: 24px;
+        border: 1px solid #dde6f0;
+        background: #fff;
+        box-shadow: 0 14px 34px rgba(16, 42, 67, 0.08);
+    }
+
+    .tg-research-sidecard h3,
+    .tg-research-sidecard h4 {
+        margin-top: 0;
+        color: #102a43;
+    }
+
+    .tg-research-sidecard p,
+    .tg-research-sidecard li {
+        color: #486581;
+        line-height: 1.65;
+    }
+
+    .tg-research-sidecard ul {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .tg-research-lock {
+        background: linear-gradient(180deg, #fffaf2, #fff3e2);
+        border-color: #ffd79a;
+    }
+
+    @media (max-width: 1040px) {
+        .tg-research-shell {
+            grid-template-columns: 1fr;
+        }
+
+        .tg-research-main {
+            min-height: auto;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .tg-research-header,
+        .tg-research-feed,
+        .tg-research-input,
+        .tg-research-sidebar {
+            padding-left: 18px;
+            padding-right: 18px;
+        }
+
+        .tg-research-gallery-track {
+            grid-auto-columns: minmax(220px, 280px);
+        }
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content tg-research-app">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--12-col">
+            {% if subscription_required %}
+                <section class="tg-research-panel tg-research-lock" style="padding: 28px;">
+                    <p class="tg-research-kicker" style="color:#9a6700;">Premium Tool</p>
+                    <h1 class="tg-research-title" style="color:#102a43;">Deep Researcher</h1>
+                    <p style="color:#7c5b15; max-width: 62ch;">
+                        {{ subscription_message or "Subscribe to unlock deep web research, polished markdown writeups, and source-linked reports." }}
+                    </p>
+                    <div class="tg-tools-actions" style="margin-top: 20px;">
+                        <a class="tg-tools-btn tg-tools-btn--primary" href="/subscribe">Subscribe Now</a>
+                        <a class="tg-tools-btn tg-tools-btn--ghost" href="/login">Log In</a>
+                    </div>
+                </section>
+            {% else %}
+                <section class="tg-research-shell">
+                    <section class="tg-research-panel tg-research-main">
+                        <header class="tg-research-header">
+                            <p class="tg-research-kicker">Subscriber Research Agent</p>
+                            <h1 class="tg-research-title">Deep Researcher</h1>
+                            <p class="tg-research-lead">
+                                Ask for market scans, company deep-dives, topic briefings, or current-event research.
+                                The backend plans the job, gathers sources, distills evidence, and writes a cited markdown report.
+                            </p>
+                            <div class="tg-research-badges">
+                                <span class="tg-research-badge"><i class="material-icons" aria-hidden="true">travel_explore</i> Web research</span>
+                                <span class="tg-research-badge"><i class="material-icons" aria-hidden="true">description</i> Markdown reports</span>
+                                <span class="tg-research-badge"><i class="material-icons" aria-hidden="true">photo_library</i> Source image carousel</span>
+                            </div>
+                        </header>
+
+                        <div class="tg-research-feed" id="deep-research-feed">
+                            <div class="tg-research-empty" id="deep-research-empty">
+                                <h3>General-purpose research, inside a tool flow</h3>
+                                <p>
+                                    Use it for competitor briefings, policy explainers, product category maps, founder prep,
+                                    or any question where a clean, source-linked writeup beats a quick answer.
+                                </p>
+                                <div class="tg-research-suggestions">
+                                    <button type="button" class="tg-research-suggestion" data-suggestion="Research the latest AI coding agents and compare their strengths for startup teams.">AI coding agents</button>
+                                    <button type="button" class="tg-research-suggestion" data-suggestion="Deep research the New Zealand startup hiring market and summarize the strongest trends this quarter.">NZ startup hiring</button>
+                                    <button type="button" class="tg-research-suggestion" data-suggestion="Compare top OCR APIs in 2026 on pricing, latency, and developer ergonomics.">OCR API comparison</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tg-research-input">
+                            <form id="deep-research-form" class="tg-research-form">
+                                <textarea
+                                    id="deep-research-input"
+                                    placeholder="Ask a research question. Example: Compare the top AI meeting note products for SMB sales teams and recommend a positioning angle."
+                                ></textarea>
+                                <div class="tg-research-form-actions">
+                                    <div class="tg-research-status" id="deep-research-status">Subscriber-only tool. Reports are grounded in live web sources and returned as markdown.</div>
+                                    <button type="submit" class="tg-research-submit" id="deep-research-submit">
+                                        <i class="material-icons" aria-hidden="true">auto_awesome</i>
+                                        Run Deep Research
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+
+                    <aside class="tg-research-sidebar">
+                        <section class="tg-research-sidecard">
+                            <h3>How It Works</h3>
+                            <ul>
+                                <li>Planner model turns the request into focused search angles.</li>
+                                <li>Backend gathers live web sources and extracts source metadata.</li>
+                                <li>Analyst model distills evidence before the writer produces the final report.</li>
+                                <li>The UI renders markdown, citations, source cards, and a carousel from source images.</li>
+                            </ul>
+                        </section>
+
+                        <section class="tg-research-sidecard">
+                            <h4>Good Prompts</h4>
+                            <p>Best for questions that need comparison, synthesis, and current sourcing.</p>
+                            <ul>
+                                <li>Compare a category and recommend a positioning strategy.</li>
+                                <li>Summarize the latest state of a company, market, or policy topic.</li>
+                                <li>Build a research brief with citations and practical takeaways.</li>
+                            </ul>
+                        </section>
+
+                        <section class="tg-research-sidecard">
+                            <h4>Output Shape</h4>
+                            <p>
+                                Each answer comes back as a report-style document, not a loose blob of chat text,
+                                so it works for stakeholder updates, planning docs, and internal briefs.
+                            </p>
+                        </section>
+                    </aside>
+                </section>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+{% if not subscription_required %}
+<script>
+    (function () {
+        const form = document.getElementById('deep-research-form');
+        const input = document.getElementById('deep-research-input');
+        const feed = document.getElementById('deep-research-feed');
+        const empty = document.getElementById('deep-research-empty');
+        const status = document.getElementById('deep-research-status');
+        const submit = document.getElementById('deep-research-submit');
+        const suggestionButtons = Array.from(document.querySelectorAll('[data-suggestion]'));
+
+        const messages = [];
+
+        function setStatus(text) {
+            status.textContent = text;
+        }
+
+        function escapeHtml(value) {
+            return value
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function renderGallery(images) {
+            if (!images || !images.length) {
+                return '';
+            }
+
+            return `
+                <section class="tg-research-gallery">
+                    <div class="tg-research-gallery-top">
+                        <h4>Related Images</h4>
+                        <div class="tg-research-gallery-actions">
+                            <button type="button" data-gallery-prev aria-label="Scroll images left">
+                                <i class="material-icons" aria-hidden="true">west</i>
+                            </button>
+                            <button type="button" data-gallery-next aria-label="Scroll images right">
+                                <i class="material-icons" aria-hidden="true">east</i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="tg-research-gallery-track" data-gallery-track>
+                        ${images.map((image) => `
+                            <a class="tg-research-gallery-card" href="${image}" target="_blank" rel="noopener noreferrer">
+                                <img src="${image}" alt="Research source image" loading="lazy">
+                            </a>
+                        `).join('')}
+                    </div>
+                </section>
+            `;
+        }
+
+        function renderSources(sources) {
+            if (!sources || !sources.length) {
+                return '';
+            }
+
+            return `
+                <div class="tg-research-source-grid">
+                    ${sources.map((source) => `
+                        <a class="tg-research-source-card" href="${source.url}" target="_blank" rel="noopener noreferrer">
+                            <strong>${escapeHtml(source.title || source.url)}</strong>
+                            <span class="tg-research-source-domain">${escapeHtml(source.domain || source.query || source.url)}</span>
+                            <span>${escapeHtml(source.snippet || '')}</span>
+                        </a>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderTrace(trace) {
+            if (!trace || !trace.length) {
+                return '';
+            }
+
+            return `
+                <details class="tg-research-trace">
+                    <summary>Research Trace</summary>
+                    <div class="tg-research-trace-list">
+                        ${trace.map((item) => `
+                            <div class="tg-research-trace-item">
+                                <strong>${escapeHtml(item.label || 'Step')}</strong>
+                                <span>${escapeHtml(item.details || '')}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>
+            `;
+        }
+
+        function renderAssistantContent(payload) {
+            const markdown = marked.parse(payload.report_markdown || '');
+            const safeHtml = DOMPurify.sanitize(markdown);
+            return `
+                <div class="tg-research-markdown">${safeHtml}</div>
+                <div class="tg-research-report-meta">
+                    <span class="tg-research-meta-pill"><i class="material-icons" aria-hidden="true">public</i>${(payload.sources || []).length} sources</span>
+                    <span class="tg-research-meta-pill"><i class="material-icons" aria-hidden="true">smart_toy</i>${escapeHtml((payload.models || {}).writer || 'writer')}</span>
+                </div>
+                ${renderGallery(payload.images || [])}
+                ${renderTrace(payload.trace || [])}
+                ${renderSources(payload.sources || [])}
+            `;
+        }
+
+        function renderUserContent(text) {
+            return `<p>${escapeHtml(text)}</p>`;
+        }
+
+        function createMessageNode(message) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `tg-research-message${message.role === 'user' ? ' tg-research-message--user' : ''}`;
+
+            const avatar = message.role === 'user' ? 'You' : 'DR';
+            wrapper.innerHTML = `
+                <div class="tg-research-avatar">${avatar}</div>
+                <div class="tg-research-bubble">
+                    ${message.role === 'user' ? renderUserContent(message.content) : renderAssistantContent(message.payload)}
+                </div>
+            `;
+            return wrapper;
+        }
+
+        function attachGalleryControls(scope) {
+            scope.querySelectorAll('[data-gallery-track]').forEach(function (track) {
+                const gallery = track.closest('.tg-research-gallery');
+                if (!gallery) return;
+
+                const prev = gallery.querySelector('[data-gallery-prev]');
+                const next = gallery.querySelector('[data-gallery-next]');
+
+                function scrollByDirection(direction) {
+                    track.scrollBy({
+                        left: Math.round(track.clientWidth * 0.9) * direction,
+                        behavior: 'smooth'
+                    });
+                }
+
+                if (prev) {
+                    prev.addEventListener('click', function () {
+                        scrollByDirection(-1);
+                    });
+                }
+
+                if (next) {
+                    next.addEventListener('click', function () {
+                        scrollByDirection(1);
+                    });
+                }
+            });
+        }
+
+        function appendMessage(message) {
+            if (empty) {
+                empty.hidden = true;
+            }
+
+            const node = createMessageNode(message);
+            feed.appendChild(node);
+            attachGalleryControls(node);
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        async function runResearch(query) {
+            setStatus('Planning, gathering sources, and writing the report…');
+            submit.disabled = true;
+            input.disabled = true;
+
+            try {
+                const response = await fetch('/api/tools/deep-researcher/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ messages: messages.concat([{ role: 'user', content: query }]) })
+                });
+
+                const data = await response.json().catch(function () {
+                    return {};
+                });
+
+                if (!response.ok) {
+                    throw new Error(data.detail || data.error || 'Deep research failed.');
+                }
+
+                const assistantMessage = {
+                    role: 'assistant',
+                    payload: data
+                };
+
+                messages.push({ role: 'user', content: query });
+                messages.push({ role: 'assistant', content: data.report_markdown || '' });
+                appendMessage(assistantMessage);
+                setStatus('Research complete. Ask a follow-up or start a new topic.');
+            } catch (error) {
+                setStatus(error.message || 'Deep research failed.');
+            } finally {
+                submit.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        if (form && input) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                const query = input.value.trim();
+                if (!query) {
+                    setStatus('Enter a research question first.');
+                    return;
+                }
+
+                appendMessage({ role: 'user', content: query });
+                input.value = '';
+                runResearch(query);
+            });
+        }
+
+        suggestionButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                input.value = button.dataset.suggestion || '';
+                input.focus();
+            });
+        });
+    })();
+</script>
+{% endif %}
