@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import fcntl
+import json
 import subprocess
 import time
 import urllib.request
@@ -22,14 +23,25 @@ def log(message: str) -> None:
     print(f"{ts} {message}")
 
 
-def check_endpoint(url: str, timeout: int = 10) -> bool:
+def check_endpoint(url: str, timeout: int = 30) -> bool:
     try:
         req = urllib.request.Request(
             url,
             headers={"User-Agent": "Mozilla/5.0 Monitor"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status < 400
+            if resp.status >= 400:
+                return False
+            body = resp.read().decode("utf-8", errors="replace")
+            try:
+                data = json.loads(body)
+                # liveness_check now does real inference; check the inference field
+                if "inference" in data and data["inference"] != "ok":
+                    log(f"Inference check failed at {url}: {body[:200]}")
+                    return False
+            except json.JSONDecodeError:
+                pass
+            return True
     except (HTTPError, URLError, ValueError, TimeoutError) as e:
         log(f"Error checking {url}: {e}")
         return False
