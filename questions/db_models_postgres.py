@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, create_engine, text
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.sql import func
@@ -358,6 +358,156 @@ def get_db_session_sync():
     Remember to close the session when done.
     """
     return SessionLocal()
+
+
+class UserAPIKey(Base):
+    """BYOK - users store their own provider API keys, encrypted at rest."""
+
+    __tablename__ = "user_api_keys"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    provider = Column(String, nullable=False)  # 'openai', 'anthropic', 'google', etc.
+    encrypted_key = Column(Text, nullable=False)  # Fernet-encrypted API key
+    key_prefix = Column(String, nullable=True)  # e.g. 'sk-...abc' for display
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_used_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", backref="api_keys")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "provider": self.provider,
+            "key_prefix": self.key_prefix,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+        }
+
+
+class AgentSkill(Base):
+    """User-created or bundled procedural skills (markdown-based)."""
+
+    __tablename__ = "agent_skills"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    category = Column(String, nullable=True, index=True)
+    content = Column(Text, nullable=False)  # Full SKILL.md content
+    version = Column(String, default="1.0.0")
+    author = Column(String, nullable=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)  # None for bundled
+    is_public = Column(Boolean, default=False)
+    is_bundled = Column(Boolean, default=False)
+    usage_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    metadata_json = Column(JSON, nullable=True)  # Tags, related skills, etc.
+
+    user = relationship("User", backref="skills")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category,
+            "content": self.content,
+            "version": self.version,
+            "author": self.author,
+            "user_id": self.user_id,
+            "is_public": self.is_public,
+            "is_bundled": self.is_bundled,
+            "usage_count": self.usage_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "metadata": self.metadata_json,
+        }
+
+
+class CronJob(Base):
+    """Scheduled agent tasks that run on a cron schedule."""
+
+    __tablename__ = "cron_jobs"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    prompt = Column(Text, nullable=False)  # What the agent should do
+    schedule = Column(String, nullable=False)  # Cron expression or interval
+    schedule_type = Column(String, nullable=False)  # 'cron', 'interval', 'once'
+    is_active = Column(Boolean, default=True)
+    skill_ids = Column(JSON, nullable=True)  # Skills to load for this job
+    tool_ids = Column(JSON, nullable=True)  # Tools to enable for this job
+    max_iterations = Column(Integer, default=10)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+    run_count = Column(Integer, default=0)
+    last_output = Column(Text, nullable=True)
+    last_error = Column(Text, nullable=True)
+
+    user = relationship("User", backref="cron_jobs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "prompt": self.prompt,
+            "schedule": self.schedule,
+            "schedule_type": self.schedule_type,
+            "is_active": self.is_active,
+            "skill_ids": self.skill_ids,
+            "tool_ids": self.tool_ids,
+            "max_iterations": self.max_iterations,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_run_at": self.last_run_at.isoformat() if self.last_run_at else None,
+            "next_run_at": self.next_run_at.isoformat() if self.next_run_at else None,
+            "run_count": self.run_count,
+        }
+
+
+class BatchJob(Base):
+    """Batch processing jobs for multiple prompts."""
+
+    __tablename__ = "batch_jobs"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    status = Column(String, default="pending")  # pending, running, completed, failed
+    total_prompts = Column(Integer, default=0)
+    completed_prompts = Column(Integer, default=0)
+    failed_prompts = Column(Integer, default=0)
+    results = Column(JSON, nullable=True)
+    errors = Column(JSON, nullable=True)
+    model = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    completed_at = Column(DateTime, nullable=True)
+    estimated_cost_usd = Column(Float, nullable=True)
+
+    user = relationship("User", backref="batch_jobs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "status": self.status,
+            "total_prompts": self.total_prompts,
+            "completed_prompts": self.completed_prompts,
+            "failed_prompts": self.failed_prompts,
+            "results": self.results,
+            "model": self.model,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "estimated_cost_usd": self.estimated_cost_usd,
+        }
 
 
 # Create tables
