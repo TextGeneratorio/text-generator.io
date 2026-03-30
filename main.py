@@ -22,6 +22,7 @@ from starlette.routing import Route
 
 from questions import blog_fixtures, doc_fixtures, fixtures, prompt_fixtures, prompt_search, tool_fixtures
 from questions.deep_research import DeepResearchError, run_deep_research
+from questions.keyword_explorer import run_keyword_explorer
 from questions.logging_config import get_logger
 
 # Import database models conditionally
@@ -233,6 +234,15 @@ except Exception as e:
 # Include the documents router if available
 if HAS_ROUTES:
     app.include_router(documents.router)
+
+# Include the agent router
+try:
+    from questions.agent.router import router as agent_router
+
+    app.include_router(agent_router)
+    print("✅ Agent router loaded (tools, skills, chat, batch, cron, BYOK)")
+except Exception as e:
+    print(f"⚠️  Agent router not available: {e}")
 
 
 def user_secret_matches(secret):
@@ -733,6 +743,27 @@ async def deep_researcher_run(
     except Exception as exc:
         logger.exception("Deep Researcher failed: %s", exc)
         raise HTTPException(status_code=500, detail="Deep Researcher failed while preparing the report.")
+
+    return JSONResponse(result)
+
+
+class KeywordExplorerRequest(BaseModel):
+    topic: str
+
+
+@app.post("/api/tools/keyword-explorer/run")
+async def keyword_explorer_run(request: Request, payload: KeywordExplorerRequest):
+    topic = payload.topic.strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="Provide a topic.")
+    if len(topic) > 200:
+        raise HTTPException(status_code=400, detail="Topic too long (max 200 characters).")
+
+    try:
+        result = await asyncio.to_thread(run_keyword_explorer, topic)
+    except Exception as exc:
+        logger.exception("Keyword Explorer failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Keyword Explorer encountered an error.")
 
     return JSONResponse(result)
 
