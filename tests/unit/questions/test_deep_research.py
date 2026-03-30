@@ -1,8 +1,12 @@
+import numpy as np
+
 from questions.deep_research import (
     ResearchSource,
     extract_json_object,
     normalize_search_result_url,
+    rank_sources_by_relevance,
     run_deep_research,
+    select_best_paragraphs,
     select_image_urls,
 )
 
@@ -77,6 +81,7 @@ def test_run_deep_research_assembles_final_payload(monkeypatch):
         },
     )
     monkeypatch.setattr("questions.deep_research.collect_sources", lambda plan, max_sources: sources)
+    monkeypatch.setattr("questions.deep_research.rank_sources_by_relevance", lambda srcs, q, **kw: srcs)
     monkeypatch.setattr(
         "questions.deep_research.distill_sources",
         lambda plan, collected: {
@@ -96,3 +101,64 @@ def test_run_deep_research_assembles_final_payload(monkeypatch):
     assert len(result["sources"]) == 2
     assert result["images"] == ["https://img.example.com/ocr-one.jpg"]
     assert result["report_markdown"].startswith("# OCR API Research")
+
+
+def test_select_best_paragraphs_returns_short_text_unchanged(monkeypatch):
+    monkeypatch.setattr("questions.deep_research.get_embedding", lambda t: np.ones(4))
+    monkeypatch.setattr("questions.deep_research.get_embeddings", lambda ts: np.ones((len(ts), 4)))
+
+    text = "This is one paragraph that is long enough to pass. " * 2
+    result = select_best_paragraphs(text, "test query", max_paragraphs=3, max_snippet_len=800)
+    assert len(result) > 40
+
+
+def test_select_best_paragraphs_picks_relevant_paragraphs(monkeypatch):
+    paragraphs = [
+        "A " * 30 + "unrelated content about cats and dogs and other pets in the neighborhood.",
+        "B " * 30 + "machine learning is a subset of artificial intelligence with many applications.",
+        "C " * 30 + "another unrelated paragraph about cooking recipes and kitchen tools and utensils.",
+        "D " * 30 + "deep learning neural networks have revolutionized computer vision and NLP tasks.",
+    ]
+    text = "\n\n".join(paragraphs)
+
+    def fake_embedding(t):
+        if "machine" in t.lower() or "neural" in t.lower() or "learning" in t.lower():
+            return np.array([1.0, 0.0, 0.0, 0.0])
+        return np.array([0.0, 0.0, 0.0, 1.0])
+
+    def fake_embeddings(texts):
+        return np.array([fake_embedding(t) for t in texts])
+
+    monkeypatch.setattr("questions.deep_research.get_embedding", fake_embedding)
+    monkeypatch.setattr("questions.deep_research.get_embeddings", fake_embeddings)
+
+    result = select_best_paragraphs(text, "machine learning", max_paragraphs=2, max_snippet_len=2000)
+    assert "machine learning" in result
+    assert "neural networks" in result
+
+
+def test_rank_sources_by_relevance_sorts_by_score(monkeypatch):
+    sources = [
+        ResearchSource(title="Low", url="https://a.com", domain="a.com", query="q", snippet="cats and dogs"),
+        ResearchSource(title="High", url="https://b.com", domain="b.com", query="q", snippet="machine learning AI"),
+    ]
+
+    def fake_embedding(t):
+        if "machine" in t.lower() or "learning" in t.lower():
+            return np.array([1.0, 0.0])
+        return np.array([0.0, 1.0])
+
+    def fake_embeddings(texts):
+        return np.array([fake_embedding(t) for t in texts])
+
+    monkeypatch.setattr("questions.deep_research.get_embedding", fake_embedding)
+    monkeypatch.setattr("questions.deep_research.get_embeddings", fake_embeddings)
+
+    ranked = rank_sources_by_relevance(sources, "machine learning")
+    assert ranked[0].title == "High"
+
+
+def test_rank_sources_by_relevance_handles_empty():
+    assert rank_sources_by_relevance([], "query") == []
+    sources = [ResearchSource(title="A", url="u", domain="d", query="q", snippet="x")]
+    assert rank_sources_by_relevance(sources, "") == sources

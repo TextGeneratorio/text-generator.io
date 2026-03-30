@@ -4,13 +4,16 @@ import re
 import shutil
 import subprocess
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
+import cachetools
+import numpy as np
 import requests
 from bs4 import BeautifulSoup
 
 from questions.logging_config import get_logger
+from questions.prompt_search import get_embedding, get_embeddings
 
 logger = get_logger(__name__)
 
@@ -26,6 +29,13 @@ USER_AGENT = os.getenv(
         "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     ),
 )
+
+# ---------------------------------------------------------------------------
+# Caches
+# ---------------------------------------------------------------------------
+_page_cache: cachetools.TTLCache = cachetools.TTLCache(maxsize=500, ttl=60 * 60 * 3)
+_search_cache: cachetools.TTLCache = cachetools.TTLCache(maxsize=200, ttl=60 * 60)
+
 
 class DeepResearchError(RuntimeError):
     pass
@@ -196,6 +206,11 @@ def normalize_search_result_url(raw_url: str) -> Optional[str]:
 
 
 def search_web(query: str, max_results: int) -> List[Dict[str, str]]:
+    cache_key = (query.strip().lower(), max_results)
+    cached = _search_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     response = requests.get(
         "https://html.duckduckgo.com/html/",
         params={"q": query},
@@ -215,6 +230,8 @@ def search_web(query: str, max_results: int) -> List[Dict[str, str]]:
         results.append({"title": title, "url": url})
         if len(results) >= max_results:
             break
+
+    _search_cache[cache_key] = results
     return results
 
 
@@ -257,38 +274,116 @@ def extract_image_url(soup: BeautifulSoup, base_url: str) -> Optional[str]:
     return None
 
 
-def fetch_source(result: Dict[str, str], query: str) -> Optional[ResearchSource]:
+def select_best_paragraphs(
+    text: str,
+    query: str,
+    max_paragraphs: int = 3,
+    max_snippet_len: int = 800,
+) -> str:
+    """Split *text* into paragraphs and return the most query-relevant ones."""
+    raw = clean_text(text)[:5000]
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n|\n", raw) if len(p.strip()) >= 40]
+
+    if len(paragraphs) <= max_paragraphs:
+        return trim_text(" ".join(paragraphs), max_snippet_len)
+
+    try:
+        query_vec = get_embedding(query)
+        para_vecs = get_embeddings(paragraphs)
+        scores = para_vecs @ query_vec
+        top_indices = sorted(
+            np.argsort(scores)[-max_paragraphs:].tolist()
+        )
+        selected = [paragraphs[i] for i in top_indices]
+    except Exception:
+        selected = paragraphs[:max_paragraphs]
+
+    return trim_text(" ".join(selected), max_snippet_len)
+
+
+def rank_sources_by_relevance(
+    sources: List["ResearchSource"],
+    query: str,
+    min_score: float = 0.15,
+) -> List["ResearchSource"]:
+    """Rank sources by embedding similarity to *query*, dropping low-relevance ones."""
+    if not sources or not query:
+        return sources
+
+    try:
+        query_vec = get_embedding(query)
+        snippet_vecs = get_embeddings([s.snippet for s in sources])
+        scores = snippet_vecs @ query_vec
+        ranked = sorted(
+            zip(sources, scores.tolist()),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )
+        return [src for src, score in ranked if score >= min_score] or sources[:1]
+    except Exception as exc:
+        logger.warning("Embedding ranking failed, returning original order: %s", exc)
+        return sources
+
+
+def _fetch_page_content(url: str) -> Optional[Tuple[str, str, str, Optional[str]]]:
+    """Fetch a page and return (final_url, title, full_text, image_url) or None.
+
+    Results are cached in ``_page_cache`` keyed by the requested URL.
+    """
+    cached = _page_cache.get(url)
+    if cached is not None:
+        return cached
+
     try:
         response = requests.get(
-            result["url"],
+            url,
             headers={"User-Agent": USER_AGENT},
             timeout=20,
             allow_redirects=True,
         )
         response.raise_for_status()
     except Exception as exc:
-        logger.warning("Failed to fetch %s: %s", result.get("url"), exc)
+        logger.warning("Failed to fetch %s: %s", url, exc)
+        _page_cache[url] = None
         return None
 
     content_type = response.headers.get("content-type", "").lower()
     if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
+        _page_cache[url] = None
         return None
 
     html = response.text
     soup = BeautifulSoup(html, "html.parser")
-    title = clean_text(result.get("title") or (soup.title.get_text(" ", strip=True) if soup.title else ""))
+    title = clean_text(soup.title.get_text(" ", strip=True) if soup.title else "")
     text = fetch_with_lynx(response.url) or extract_html_text(html)
-    snippet = trim_text(text, 560)
+    image_url = extract_image_url(soup, response.url)
+
+    result = (response.url, title, text, image_url)
+    _page_cache[url] = result
+    return result
+
+
+def fetch_source(result: Dict[str, str], query: str) -> Optional[ResearchSource]:
+    page = _fetch_page_content(result["url"])
+    if page is None:
+        return None
+
+    final_url, page_title, text, image_url = page
+    title = clean_text(result.get("title") or page_title)
+
+    snippet = select_best_paragraphs(text, query)
+    if len(snippet) < 120:
+        snippet = trim_text(text, 800)
     if len(snippet) < 120:
         return None
 
     return ResearchSource(
-        title=title or urlparse(response.url).netloc,
-        url=response.url,
-        domain=urlparse(response.url).netloc,
+        title=title or urlparse(final_url).netloc,
+        url=final_url,
+        domain=urlparse(final_url).netloc,
         query=query,
         snippet=snippet,
-        image_url=extract_image_url(soup, response.url),
+        image_url=image_url,
     )
 
 
@@ -427,6 +522,8 @@ def run_deep_research(messages: List[Dict[str, str]], max_sources: int = DEFAULT
     sources = collect_sources(plan, max_sources=max(2, min(max_sources, 8)))
     if not sources:
         raise DeepResearchError("No useful web sources were found for that research request.")
+
+    sources = rank_sources_by_relevance(sources, plan.get("user_question", ""))
 
     analysis = distill_sources(plan, sources)
     report_markdown = build_report(plan, analysis, sources)
