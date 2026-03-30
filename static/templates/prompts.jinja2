@@ -1,0 +1,858 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+    <meta charset="utf-8">
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <meta name="keywords" content="ai prompts, prompt database, prompt library, image prompts, text prompts, video prompts">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ static_url }}/img/tools-icon.png">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+{% endblock %}
+
+{% block mainbody %}
+<style>
+    .tg-prompts {
+        position: relative;
+        padding: 42px 0 64px;
+        background:
+            radial-gradient(circle at top left, rgba(255, 179, 71, 0.18), transparent 24%),
+            linear-gradient(180deg, #0f2d55 0, #163d69 320px, #f4f7fb 320px, #f4f7fb 100%);
+        font-family: 'Sora', 'Segoe UI', sans-serif;
+    }
+
+    .tg-prompts *,
+    .tg-prompts *::before,
+    .tg-prompts *::after {
+        box-sizing: border-box;
+    }
+
+    .tg-prompts-shell {
+        width: min(1240px, 94vw);
+        margin: 0 auto;
+    }
+
+    .tg-prompts-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+        gap: 22px;
+        margin-bottom: 24px;
+    }
+
+    .tg-prompts-panel,
+    .tg-prompts-sidebar,
+    .tg-prompts-results,
+    .tg-prompts-sitemap {
+        border-radius: 28px;
+        box-shadow: 0 24px 60px rgba(16, 32, 51, 0.12);
+    }
+
+    .tg-prompts-panel {
+        padding: 28px;
+        color: #edf4ff;
+        background:
+            linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+            linear-gradient(135deg, #0e2647, #1a497d);
+    }
+
+    .tg-prompts-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        font: 600 0.78rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+    }
+
+    .tg-prompts-kicker::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+        box-shadow: 0 0 0 4px rgba(255, 90, 54, 0.18);
+    }
+
+    .tg-prompts-crumbs {
+        margin-bottom: 12px;
+        color: rgba(237, 244, 255, 0.72);
+        font-size: 0.9rem;
+    }
+
+    .tg-prompts-crumbs a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .tg-prompts-panel h1 {
+        margin: 14px 0 10px;
+        font-size: clamp(2rem, 3vw, 3rem);
+        line-height: 1.03;
+        letter-spacing: -0.04em;
+        color: #fff;
+    }
+
+    .tg-prompts-panel p {
+        margin: 0;
+        max-width: 720px;
+        color: rgba(237, 244, 255, 0.82);
+        font-size: 1rem;
+        line-height: 1.7;
+    }
+
+    .tg-prompts-active {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 18px 0 0;
+    }
+
+    .tg-prompts-active-chip,
+    .tg-prompts-stat,
+    .tg-prompts-rail a,
+    .tg-prompts-card-chip,
+    .tg-prompts-sitemap-chip {
+        border-radius: 999px;
+    }
+
+    .tg-prompts-active-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        font-size: 0.85rem;
+    }
+
+    .tg-prompts-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    .tg-prompts-stat {
+        padding: 14px 14px 12px;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .tg-prompts-stat strong {
+        display: block;
+        font-size: 1.25rem;
+        color: #fff;
+    }
+
+    .tg-prompts-stat span {
+        display: block;
+        margin-top: 4px;
+        color: rgba(237, 244, 255, 0.72);
+        font-size: 0.82rem;
+    }
+
+    .tg-prompts-sidebar {
+        padding: 22px;
+        background: rgba(255, 255, 255, 0.96);
+    }
+
+    .tg-prompts-sidebar h2,
+    .tg-prompts-results h2,
+    .tg-prompts-sitemap h2 {
+        margin: 0;
+        color: #102033;
+        font-size: 1.05rem;
+        letter-spacing: -0.02em;
+    }
+
+    .tg-prompts-sidebar p,
+    .tg-prompts-results p,
+    .tg-prompts-sitemap p {
+        margin: 0;
+        color: #567085;
+        line-height: 1.6;
+    }
+
+    .tg-prompts-search-box {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 58px;
+        margin-top: 16px;
+        padding: 0 10px 0 16px;
+        border: 1px solid #d7e1eb;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .tg-prompts-search-box:focus-within {
+        border-color: rgba(255, 90, 54, 0.42);
+        box-shadow: 0 0 0 4px rgba(255, 90, 54, 0.12);
+    }
+
+    .tg-prompts-search-box input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #102033;
+        font: 500 1rem/1.2 'Sora', 'Segoe UI', sans-serif;
+    }
+
+    .tg-prompts-search-box input::placeholder {
+        color: #8aa0b3;
+    }
+
+    .tg-prompts-search-box .material-icons {
+        color: #6c8498;
+    }
+
+    .tg-prompts-clear {
+        border: 0;
+        padding: 8px 12px;
+        background: #edf3fa;
+        color: #0f2d55;
+        font: 600 0.82rem/1 'Sora', 'Segoe UI', sans-serif;
+        cursor: pointer;
+    }
+
+    .tg-prompts-clear[hidden] {
+        display: none;
+    }
+
+    .tg-prompts-rail {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .tg-prompts-rail-section + .tg-prompts-rail-section {
+        margin-top: 16px;
+    }
+
+    .tg-prompts-rail-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .tg-prompts-rail-head span {
+        color: #6b8296;
+        font: 600 0.78rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .tg-prompts-rail-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .tg-prompts-rail a,
+    .tg-prompts-sitemap-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        text-decoration: none;
+        color: #173757;
+        background: #eef4fa;
+        font-size: 0.85rem;
+        transition: transform 0.18s ease, background-color 0.18s ease;
+    }
+
+    .tg-prompts-rail a:hover,
+    .tg-prompts-sitemap-chip:hover {
+        transform: translateY(-1px);
+        background: #e6eef7;
+    }
+
+    .tg-prompts-rail a.is-active {
+        color: #fff;
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+        box-shadow: 0 10px 24px rgba(255, 90, 54, 0.22);
+    }
+
+    .tg-prompts-count {
+        color: #72889c;
+        font-size: 0.75rem;
+    }
+
+    .tg-prompts-results {
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.97);
+    }
+
+    .tg-prompts-results-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .tg-prompts-results-head strong {
+        color: #102033;
+    }
+
+    .tg-prompts-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .tg-prompts-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 208px;
+        padding: 18px;
+        border: 1px solid #dde6f0;
+        border-radius: 24px;
+        background: linear-gradient(180deg, #fff, #f8fbff);
+        box-shadow: 0 16px 36px rgba(16, 32, 51, 0.08);
+    }
+
+    .tg-prompts-card-top,
+    .tg-prompts-card-meta,
+    .tg-prompts-card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .tg-prompts-card-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: rgba(15, 45, 85, 0.08);
+        color: #0f2d55;
+    }
+
+    .tg-prompts-card-badge .material-icons {
+        font-size: 24px;
+    }
+
+    .tg-prompts-card-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 11px;
+        background: #eff4f9;
+        color: #5a7186;
+        font: 700 0.74rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .tg-prompts-card h3 {
+        margin: 0;
+        color: #102033;
+        font-size: 1.12rem;
+        line-height: 1.24;
+        letter-spacing: -0.03em;
+    }
+
+    .tg-prompts-card p {
+        font-size: 0.92rem;
+    }
+
+    .tg-prompts-card-meta {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+
+    .tg-prompts-card-meta a {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #35536f;
+        text-decoration: none;
+        font-size: 0.8rem;
+        background: #f1f6fb;
+        padding: 7px 10px;
+        border-radius: 999px;
+    }
+
+    .tg-prompts-card-footer {
+        margin-top: auto;
+        align-items: flex-end;
+    }
+
+    .tg-prompts-card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tg-prompts-card-tags span {
+        color: #6d8497;
+        font-size: 0.77rem;
+    }
+
+    .tg-prompts-card-footer a {
+        color: #0f2d55;
+        text-decoration: none;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .tg-prompts-card-footer a .material-icons {
+        font-size: 18px;
+        vertical-align: middle;
+    }
+
+    .tg-prompts-empty {
+        padding: 34px 18px 18px;
+        text-align: center;
+    }
+
+    .tg-prompts-empty[hidden] {
+        display: none;
+    }
+
+    .tg-prompts-empty .material-icons {
+        font-size: 42px;
+        color: #8da2b5;
+    }
+
+    .tg-prompts-empty h3 {
+        margin: 12px 0 8px;
+        color: #102033;
+        font-size: 1.08rem;
+    }
+
+    .tg-prompts-sitemap {
+        margin-top: 22px;
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.96);
+    }
+
+    .tg-prompts-sitemap-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 16px;
+    }
+
+    .tg-prompts-sitemap-section {
+        padding: 18px;
+        border: 1px solid #dde6f0;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #fff, #f9fbfe);
+    }
+
+    .tg-prompts-sitemap-section h3 {
+        margin: 0 0 8px;
+        color: #102033;
+        font-size: 1rem;
+    }
+
+    .tg-prompts-sitemap-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .tg-prompts-sitemap-chip {
+        color: #173757;
+    }
+
+    .tg-prompts-sitemap-chip strong {
+        color: inherit;
+        font-size: 0.84rem;
+    }
+
+    .tg-prompts-sitemap-chip span {
+        color: #71879a;
+        font-size: 0.76rem;
+    }
+
+    @media (max-width: 1160px) {
+        .tg-prompts-hero,
+        .tg-prompts-grid,
+        .tg-prompts-sitemap-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .tg-prompts-hero {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 820px) {
+        .tg-prompts {
+            padding-top: 28px;
+        }
+
+        .tg-prompts-stats,
+        .tg-prompts-grid,
+        .tg-prompts-sitemap-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .tg-prompts-search-box {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .tg-prompts-clear {
+            grid-column: 1 / -1;
+            justify-self: start;
+            margin-left: 38px;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .tg-prompts-panel,
+        .tg-prompts-sidebar,
+        .tg-prompts-results,
+        .tg-prompts-sitemap {
+            padding: 18px;
+            border-radius: 22px;
+        }
+
+        .tg-prompts-panel h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+
+<section
+    class="tg-prompts"
+    data-prompt-directory
+    data-category="{{ facet_slug if facet_kind == 'category' else '' }}"
+    data-model="{{ facet_slug if facet_kind == 'model' else '' }}"
+    data-prompt-type="{{ facet_slug if facet_kind == 'type' else '' }}">
+    <div class="tg-prompts-shell">
+        <div class="tg-prompts-hero">
+            <div class="tg-prompts-panel">
+                <div class="tg-prompts-crumbs">
+                    <a href="/" title="Text Generator">Text Generator</a> > <a href="/prompts" title="AI Prompts">Prompts</a>{% if current_category %} > {{ current_category.short_name }}{% elif current_model %} > {{ current_model.name }}{% elif current_prompt_type %} > {{ current_prompt_type.name }}{% elif is_sitemap_view %} > Sitemap{% endif %}
+                </div>
+                <span class="tg-prompts-kicker">Prompt Database</span>
+                <h1>{{ page_heading }}</h1>
+                <p>{{ page_lead }}</p>
+
+                {% if current_category or current_model or current_prompt_type %}
+                    <div class="tg-prompts-active" aria-label="Current filters">
+                        {% if current_category %}
+                            <span class="tg-prompts-active-chip"><i class="material-icons" aria-hidden="true">{{ current_category.icon }}</i> {{ current_category.short_name }}</span>
+                        {% endif %}
+                        {% if current_model %}
+                            <span class="tg-prompts-active-chip"><i class="material-icons" aria-hidden="true">{{ current_model.icon }}</i> {{ current_model.name }}</span>
+                        {% endif %}
+                        {% if current_prompt_type %}
+                            <span class="tg-prompts-active-chip"><i class="material-icons" aria-hidden="true">{{ current_prompt_type.icon }}</i> {{ current_prompt_type.name }}</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+                <div class="tg-prompts-stats" aria-label="Prompt database stats">
+                    <div class="tg-prompts-stat">
+                        <strong>{{ prompt_stats.prompt_count }}</strong>
+                        <span>Prompt templates</span>
+                    </div>
+                    <div class="tg-prompts-stat">
+                        <strong>{{ prompt_stats.model_count }}</strong>
+                        <span>Model collections</span>
+                    </div>
+                    <div class="tg-prompts-stat">
+                        <strong>{{ prompt_stats.category_count }}</strong>
+                        <span>Business categories</span>
+                    </div>
+                    <div class="tg-prompts-stat">
+                        <strong>{{ prompt_stats.free_count }}</strong>
+                        <span>Free starters</span>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="tg-prompts-sidebar">
+                <h2>Search and browse</h2>
+                <p>Search semantically across models, modalities, categories, and prompt intent.</p>
+                <label class="tg-prompts-search-box" for="prompt-search-input">
+                    <i class="material-icons" aria-hidden="true">search</i>
+                    <input id="prompt-search-input" type="search" placeholder="Search logo prompts, launch videos, cold email, product photo..." autocomplete="off" spellcheck="false">
+                    <button type="button" class="tg-prompts-clear" id="prompt-search-clear" hidden>Clear</button>
+                </label>
+
+                <div class="tg-prompts-rail">
+                    <div class="tg-prompts-rail-section">
+                        <div class="tg-prompts-rail-head">
+                            <span>Categories</span>
+                            <a href="/prompts/sitemap">Sitemap</a>
+                        </div>
+                        <div class="tg-prompts-rail-links">
+                            {% for category in prompt_categories %}
+                                <a href="{{ category.url }}" class="{% if current_category and current_category.slug == category.slug %}is-active{% endif %}">
+                                    <i class="material-icons" aria-hidden="true">{{ category.icon }}</i>
+                                    {{ category.short_name }}
+                                    <span class="tg-prompts-count">{{ category.count }}</span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="tg-prompts-rail-section">
+                        <div class="tg-prompts-rail-head">
+                            <span>Most Popular Models</span>
+                        </div>
+                        <div class="tg-prompts-rail-links">
+                            {% for model in popular_models %}
+                                <a href="{{ model.url }}" class="{% if current_model and current_model.slug == model.slug %}is-active{% endif %}">
+                                    <i class="material-icons" aria-hidden="true">{{ model.icon }}</i>
+                                    {{ model.name }}
+                                    <span class="tg-prompts-count">{{ model.count }}</span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="tg-prompts-rail-section">
+                        <div class="tg-prompts-rail-head">
+                            <span>Prompt Types</span>
+                        </div>
+                        <div class="tg-prompts-rail-links">
+                            {% for prompt_type in prompt_types %}
+                                <a href="{{ prompt_type.url }}" class="{% if current_prompt_type and current_prompt_type.slug == prompt_type.slug %}is-active{% endif %}">
+                                    <i class="material-icons" aria-hidden="true">{{ prompt_type.icon }}</i>
+                                    {{ prompt_type.name }}
+                                    <span class="tg-prompts-count">{{ prompt_type.count }}</span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        {% if not is_sitemap_view %}
+            <section class="tg-prompts-results">
+                <div class="tg-prompts-results-head">
+                    <div>
+                        <h2>Best AI prompts</h2>
+                        <p>Showing <strong id="prompt-results-count">{{ prompts|length }}</strong> prompts{% if facet_kind %} in this collection{% else %} ranked by relevance and popularity{% endif %}.</p>
+                    </div>
+                    {% if facet_kind %}
+                        <p><a href="/prompts">View all prompts</a></p>
+                    {% endif %}
+                </div>
+
+                <div class="tg-prompts-grid" id="prompt-results-grid">
+                    {% for prompt in prompts %}
+                        <article class="tg-prompts-card">
+                            <div class="tg-prompts-card-top">
+                                <span class="tg-prompts-card-badge"><i class="material-icons" aria-hidden="true">{{ prompt.model_icon }}</i></span>
+                                <span class="tg-prompts-card-chip">{{ prompt.modality }}</span>
+                            </div>
+                            <div>
+                                <h3>{{ prompt.title }}</h3>
+                                <p>{{ prompt.summary }}</p>
+                            </div>
+                            <div class="tg-prompts-card-meta">
+                                <a href="{{ prompt.model_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.model_icon }}</i> {{ prompt.model_name }}</a>
+                                <a href="{{ prompt.category_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.category_icon }}</i> {{ prompt.category_short_name }}</a>
+                                {% if prompt.is_free %}
+                                    <a href="/prompts/type/free"><i class="material-icons" aria-hidden="true">bolt</i> Free</a>
+                                {% endif %}
+                            </div>
+                            <div class="tg-prompts-card-footer">
+                                <div class="tg-prompts-card-tags">
+                                    {% for tag in prompt.tags[:3] %}
+                                        <span>#{{ tag }}</span>
+                                    {% endfor %}
+                                </div>
+                                <a href="{{ prompt.url }}">Open prompt <i class="material-icons" aria-hidden="true">arrow_forward</i></a>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+
+                <div class="tg-prompts-empty" id="prompt-results-empty" hidden>
+                    <i class="material-icons" aria-hidden="true">search_off</i>
+                    <h3>No prompts matched that search.</h3>
+                    <p>Try a broader query like <strong>logo</strong>, <strong>cold email</strong>, <strong>product photo</strong>, or <strong>launch video</strong>.</p>
+                    <button type="button" class="tg-prompts-clear" id="prompt-empty-reset">Reset search</button>
+                </div>
+            </section>
+        {% endif %}
+
+        <section class="tg-prompts-sitemap">
+            <div class="tg-prompts-results-head">
+                <div>
+                    <h2>{% if is_sitemap_view %}Sitemap{% else %}Prompt sitemap{% endif %}</h2>
+                    <p>Browse categories, models, prompt types, and featured prompt collections.</p>
+                </div>
+            </div>
+
+            <div class="tg-prompts-sitemap-grid">
+                {% for section in prompt_sitemap_sections %}
+                    <article class="tg-prompts-sitemap-section">
+                        <h3>{{ section.title }}</h3>
+                        <p>
+                            {% if section.title == 'Best AI prompts' %}
+                                Most-searched prompt pages and high-signal starters.
+                            {% elif section.title == 'Models' %}
+                                Prompt collections grouped by model family.
+                            {% elif section.title == 'Most Popular Models' %}
+                                Quick access to the model pages people are likely to start with.
+                            {% elif section.title == 'Prompt Types' %}
+                                Image, text, video, and free prompt collections.
+                            {% else %}
+                                Browse business use case collections.
+                            {% endif %}
+                        </p>
+                        <div class="tg-prompts-sitemap-links">
+                            {% for item in section["items"] %}
+                                <a class="tg-prompts-sitemap-chip" href="{{ item.url }}">
+                                    <i class="material-icons" aria-hidden="true">{{ item.icon if item.icon is defined else (item.model_icon if item.model_icon is defined else item.category_icon) }}</i>
+                                    <strong>{{ item.short_name if item.short_name is defined else item.name if item.name is defined else item.title }}</strong>
+                                    {% if item.count is defined %}
+                                        <span>{{ item.count }}</span>
+                                    {% endif %}
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>
+
+<script>
+    (function () {
+        var directory = document.querySelector('[data-prompt-directory]');
+        if (!directory || directory.dataset.promptType === undefined) {
+            return;
+        }
+
+        var input = document.getElementById('prompt-search-input');
+        var clearButton = document.getElementById('prompt-search-clear');
+        var emptyReset = document.getElementById('prompt-empty-reset');
+        var grid = document.getElementById('prompt-results-grid');
+        var countNode = document.getElementById('prompt-results-count');
+        var emptyNode = document.getElementById('prompt-results-empty');
+        var isSitemapView = {{ 'true' if is_sitemap_view else 'false' }};
+        var debounceTimer = null;
+
+        if (!input || isSitemapView) {
+            return;
+        }
+
+        function renderCards(results) {
+            if (!grid || !countNode || !emptyNode) {
+                return;
+            }
+
+            countNode.textContent = String(results.length);
+            emptyNode.hidden = results.length !== 0;
+
+            if (results.length === 0) {
+                grid.innerHTML = '';
+                return;
+            }
+
+            grid.innerHTML = results.map(function (result) {
+                var freeChip = result.is_free
+                    ? '<a href="/prompts/type/free"><i class="material-icons" aria-hidden="true">bolt</i> Free</a>'
+                    : '';
+                var tags = (result.tags || []).slice(0, 3).map(function (tag) {
+                    return '<span>#' + tag + '</span>';
+                }).join('');
+
+                return '' +
+                    '<article class="tg-prompts-card">' +
+                        '<div class="tg-prompts-card-top">' +
+                            '<span class="tg-prompts-card-badge"><i class="material-icons" aria-hidden="true">' + result.model_icon + '</i></span>' +
+                            '<span class="tg-prompts-card-chip">' + result.modality + '</span>' +
+                        '</div>' +
+                        '<div>' +
+                            '<h3>' + result.title + '</h3>' +
+                            '<p>' + result.summary + '</p>' +
+                        '</div>' +
+                        '<div class="tg-prompts-card-meta">' +
+                            '<a href="' + result.model_url + '"><i class="material-icons" aria-hidden="true">' + result.model_icon + '</i> ' + result.model_name + '</a>' +
+                            '<a href="' + result.category_url + '"><i class="material-icons" aria-hidden="true">' + result.category_icon + '</i> ' + result.category_name.replace(' prompts', '') + '</a>' +
+                            freeChip +
+                        '</div>' +
+                        '<div class="tg-prompts-card-footer">' +
+                            '<div class="tg-prompts-card-tags">' + tags + '</div>' +
+                            '<a href="' + result.url + '">Open prompt <i class="material-icons" aria-hidden="true">arrow_forward</i></a>' +
+                        '</div>' +
+                    '</article>';
+            }).join('');
+        }
+
+        function fetchResults() {
+            var query = input.value.trim();
+            var params = new URLSearchParams();
+            params.set('q', query);
+            params.set('limit', '18');
+
+            if (directory.dataset.category) {
+                params.set('category', directory.dataset.category);
+            }
+            if (directory.dataset.model) {
+                params.set('model', directory.dataset.model);
+            }
+            if (directory.dataset.promptType) {
+                params.set('prompt_type', directory.dataset.promptType);
+            }
+
+            fetch('/api/prompts/search?' + params.toString())
+                .then(function (response) { return response.json(); })
+                .then(function (payload) {
+                    renderCards(payload.results || []);
+                    if (clearButton) {
+                        clearButton.hidden = query.length === 0;
+                    }
+                })
+                .catch(function () {
+                    if (clearButton) {
+                        clearButton.hidden = query.length === 0;
+                    }
+                });
+        }
+
+        function scheduleFetch() {
+            window.clearTimeout(debounceTimer);
+            debounceTimer = window.setTimeout(fetchResults, 120);
+        }
+
+        function resetSearch() {
+            input.value = '';
+            fetchResults();
+            input.focus();
+        }
+
+        input.addEventListener('input', scheduleFetch);
+
+        if (clearButton) {
+            clearButton.addEventListener('click', resetSearch);
+        }
+
+        if (emptyReset) {
+            emptyReset.addEventListener('click', resetSearch);
+        }
+    })();
+</script>
+{% endblock %}

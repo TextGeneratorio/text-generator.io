@@ -1,0 +1,425 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+    <meta charset="utf-8">
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <meta name="keywords" content="ai prompt, prompt template, {{ prompt.model_name }}, {{ prompt.category_name }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ static_url }}/img/tools-icon.png">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+{% endblock %}
+
+{% block mainbody %}
+<style>
+    .tg-prompt-page {
+        padding: 40px 0 64px;
+        background:
+            radial-gradient(circle at top left, rgba(255, 179, 71, 0.18), transparent 22%),
+            linear-gradient(180deg, #0f2d55 0, #163d69 300px, #f4f7fb 300px, #f4f7fb 100%);
+        font-family: 'Sora', 'Segoe UI', sans-serif;
+    }
+
+    .tg-prompt-page *,
+    .tg-prompt-page *::before,
+    .tg-prompt-page *::after {
+        box-sizing: border-box;
+    }
+
+    .tg-prompt-shell {
+        width: min(1180px, 94vw);
+        margin: 0 auto;
+    }
+
+    .tg-prompt-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: 20px;
+    }
+
+    .tg-prompt-main,
+    .tg-prompt-side,
+    .tg-prompt-related {
+        border-radius: 28px;
+        box-shadow: 0 24px 60px rgba(16, 32, 51, 0.12);
+    }
+
+    .tg-prompt-main {
+        padding: 28px;
+        background: rgba(255, 255, 255, 0.97);
+    }
+
+    .tg-prompt-crumbs {
+        margin-bottom: 12px;
+        color: #dce8f7;
+    }
+
+    .tg-prompt-crumbs a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .tg-prompt-header {
+        margin-bottom: 18px;
+        padding: 24px 28px;
+        border-radius: 28px;
+        color: #edf4ff;
+        background:
+            linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+            linear-gradient(135deg, #0e2647, #1a497d);
+    }
+
+    .tg-prompt-header h1 {
+        margin: 12px 0 10px;
+        font-size: clamp(1.9rem, 3vw, 2.9rem);
+        line-height: 1.04;
+        letter-spacing: -0.04em;
+    }
+
+    .tg-prompt-header p {
+        margin: 0;
+        max-width: 760px;
+        color: rgba(237, 244, 255, 0.82);
+        line-height: 1.7;
+    }
+
+    .tg-prompt-kicker,
+    .tg-prompt-chip,
+    .tg-prompt-side a,
+    .tg-prompt-related a {
+        border-radius: 999px;
+    }
+
+    .tg-prompt-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        background: rgba(255, 255, 255, 0.08);
+        font: 600 0.78rem/1 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .tg-prompt-kicker::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+        box-shadow: 0 0 0 4px rgba(255, 90, 54, 0.18);
+    }
+
+    .tg-prompt-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .tg-prompt-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+
+    .tg-prompt-card {
+        padding: 22px;
+        border: 1px solid #dde6f0;
+        border-radius: 24px;
+        background: linear-gradient(180deg, #fff, #f8fbff);
+    }
+
+    .tg-prompt-card + .tg-prompt-card {
+        margin-top: 16px;
+    }
+
+    .tg-prompt-card h2,
+    .tg-prompt-side h2,
+    .tg-prompt-related h2 {
+        margin: 0 0 10px;
+        color: #102033;
+        font-size: 1.08rem;
+        letter-spacing: -0.02em;
+    }
+
+    .tg-prompt-card p,
+    .tg-prompt-side p,
+    .tg-prompt-related p {
+        margin: 0;
+        color: #587086;
+        line-height: 1.65;
+    }
+
+    .tg-prompt-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    .tg-prompt-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 999px;
+        text-decoration: none;
+        cursor: pointer;
+        font: 700 0.9rem/1 'Sora', 'Segoe UI', sans-serif;
+    }
+
+    .tg-prompt-button--primary {
+        color: #fff;
+        background: linear-gradient(135deg, #ff5a36, #ffb347);
+        box-shadow: 0 14px 30px rgba(255, 90, 54, 0.22);
+    }
+
+    .tg-prompt-button--ghost {
+        color: #173757;
+        background: #edf3fa;
+    }
+
+    .tg-prompt-code {
+        margin-top: 14px;
+        padding: 18px;
+        border-radius: 20px;
+        background: #102033;
+        color: #edf4ff;
+        font: 500 0.92rem/1.7 'IBM Plex Mono', monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .tg-prompt-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .tg-prompt-tags span {
+        color: #627b90;
+        background: #eef4fa;
+        padding: 8px 11px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+    }
+
+    .tg-prompt-side {
+        padding: 22px;
+        background: rgba(255, 255, 255, 0.96);
+    }
+
+    .tg-prompt-side-section + .tg-prompt-side-section {
+        margin-top: 18px;
+    }
+
+    .tg-prompt-side-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .tg-prompt-side a,
+    .tg-prompt-related a {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        text-decoration: none;
+        color: #173757;
+        background: #eef4fa;
+        transition: transform 0.18s ease, background-color 0.18s ease;
+    }
+
+    .tg-prompt-side a:hover,
+    .tg-prompt-related a:hover {
+        transform: translateY(-1px);
+        background: #e6eef7;
+    }
+
+    .tg-prompt-related {
+        margin-top: 22px;
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.97);
+    }
+
+    .tg-prompt-related-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+    }
+
+    .tg-prompt-related-card {
+        padding: 18px;
+        border: 1px solid #dde6f0;
+        border-radius: 22px;
+        background: linear-gradient(180deg, #fff, #f8fbff);
+    }
+
+    .tg-prompt-related-card h3 {
+        margin: 0 0 8px;
+        color: #102033;
+        font-size: 1rem;
+    }
+
+    @media (max-width: 980px) {
+        .tg-prompt-layout,
+        .tg-prompt-related-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .tg-prompt-header,
+        .tg-prompt-main,
+        .tg-prompt-side,
+        .tg-prompt-related {
+            padding: 18px;
+            border-radius: 22px;
+        }
+
+        .tg-prompt-actions {
+            flex-direction: column;
+        }
+
+        .tg-prompt-button {
+            width: 100%;
+        }
+    }
+</style>
+
+<section class="tg-prompt-page">
+    <div class="tg-prompt-shell">
+        <div class="tg-prompt-crumbs">
+            <a href="/" title="Text Generator">Text Generator</a> > <a href="/prompts" title="Prompt database">Prompts</a> > {{ prompt.title }}
+        </div>
+
+        <header class="tg-prompt-header">
+            <span class="tg-prompt-kicker">Prompt Detail</span>
+            <h1>{{ prompt.title }}</h1>
+            <p>{{ prompt.summary }}</p>
+            <div class="tg-prompt-meta">
+                <a class="tg-prompt-chip" href="{{ prompt.model_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.model_icon }}</i> {{ prompt.model_name }}</a>
+                <a class="tg-prompt-chip" href="{{ prompt.category_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.category_icon }}</i> {{ prompt.category_short_name }}</a>
+                <a class="tg-prompt-chip" href="{{ prompt.modality_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.modality_icon }}</i> {{ prompt.modality_name }}</a>
+                {% if prompt.is_free %}
+                    <a class="tg-prompt-chip" href="/prompts/type/free"><i class="material-icons" aria-hidden="true">bolt</i> Free prompt</a>
+                {% endif %}
+            </div>
+        </header>
+
+        <div class="tg-prompt-layout">
+            <main class="tg-prompt-main">
+                <section class="tg-prompt-card">
+                    <h2>Prompt</h2>
+                    <p>Copy this prompt as a starting point, then customize brand, audience, and output constraints.</p>
+                    <div class="tg-prompt-actions">
+                        <button type="button" class="tg-prompt-button tg-prompt-button--primary" id="copy-prompt-button">
+                            <i class="material-icons" aria-hidden="true">content_copy</i>
+                            Copy prompt
+                        </button>
+                        <a class="tg-prompt-button tg-prompt-button--ghost" href="/playground?text={{ prompt_text_encoded }}">
+                            <i class="material-icons" aria-hidden="true">open_in_new</i>
+                            Open in playground
+                        </a>
+                    </div>
+                    <pre class="tg-prompt-code" id="prompt-code">{{ prompt.prompt }}</pre>
+                </section>
+
+                <section class="tg-prompt-card">
+                    <h2>Tags</h2>
+                    <p>Use these tags to find adjacent prompts with similar use cases.</p>
+                    <div class="tg-prompt-tags">
+                        {% for tag in prompt.tags %}
+                            <span>#{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                </section>
+            </main>
+
+            <aside class="tg-prompt-side">
+                <section class="tg-prompt-side-section">
+                    <h2>Nearby collections</h2>
+                    <p>Browse adjacent model, category, and prompt-type pages.</p>
+                    <div class="tg-prompt-side-links">
+                        <a href="{{ prompt.model_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.model_icon }}</i> {{ prompt.model_name }} prompts</a>
+                        <a href="{{ prompt.category_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.category_icon }}</i> {{ prompt.category_short_name }}</a>
+                        <a href="{{ prompt.modality_url }}"><i class="material-icons" aria-hidden="true">{{ prompt.modality_icon }}</i> {{ prompt.modality_name }}</a>
+                    </div>
+                </section>
+
+                <section class="tg-prompt-side-section">
+                    <h2>Popular model pages</h2>
+                    <p>Jump to the most commonly browsed model collections.</p>
+                    <div class="tg-prompt-side-links">
+                        {% for model in popular_models %}
+                            <a href="{{ model.url }}"><i class="material-icons" aria-hidden="true">{{ model.icon }}</i> {{ model.name }}</a>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="tg-prompt-side-section">
+                    <h2>Prompt types</h2>
+                    <p>Switch between image, text, video, and free prompt collections.</p>
+                    <div class="tg-prompt-side-links">
+                        {% for prompt_type in prompt_types %}
+                            <a href="{{ prompt_type.url }}"><i class="material-icons" aria-hidden="true">{{ prompt_type.icon }}</i> {{ prompt_type.name }}</a>
+                        {% endfor %}
+                    </div>
+                </section>
+            </aside>
+        </div>
+
+        <section class="tg-prompt-related">
+            <h2>Related prompts</h2>
+            <p>More prompts from the same model family or business category.</p>
+            <div class="tg-prompt-related-grid">
+                {% for related in related_prompts %}
+                    <article class="tg-prompt-related-card">
+                        <h3>{{ related.title }}</h3>
+                        <p>{{ related.summary }}</p>
+                        <div class="tg-prompt-side-links" style="margin-top: 12px;">
+                            <a href="{{ related.url }}">Open prompt</a>
+                            <a href="{{ related.model_url }}"><i class="material-icons" aria-hidden="true">{{ related.model_icon }}</i> {{ related.model_name }}</a>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>
+
+<script>
+    (function () {
+        var copyButton = document.getElementById('copy-prompt-button');
+        var codeNode = document.getElementById('prompt-code');
+        if (!copyButton || !codeNode) {
+            return;
+        }
+
+        copyButton.addEventListener('click', function () {
+            navigator.clipboard.writeText(codeNode.textContent || '').then(function () {
+                copyButton.innerHTML = '<i class="material-icons" aria-hidden="true">done</i> Copied';
+                window.setTimeout(function () {
+                    copyButton.innerHTML = '<i class="material-icons" aria-hidden="true">content_copy</i> Copy prompt';
+                }, 1400);
+            });
+        });
+    })();
+</script>
+{% endblock %}
