@@ -1,0 +1,57 @@
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> >
+                <a href="/tools" title="Tools">Tools</a> >
+                {{ tool_name }}
+            </div>
+
+            <h3>{{ tool_name }}</h3>
+            <p>{{ tool_description }}</p>
+
+            <div id="marketing-workflow-tool"
+                 data-workflow="{{ tool_workflow_key }}"
+                 style="margin-top: 20px; border: 1px solid #e6e6e6; border-radius: 8px; padding: 20px;">
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                    <input class="mdl-textfield__input" type="url" id="tool-target-url" placeholder="https://your-site-or-page.com">
+                    <label class="mdl-textfield__label" for="tool-target-url">Target URL or project URL</label>
+                </div>
+
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                    <textarea class="mdl-textfield__input" rows="3" id="tool-competitors"
+                              placeholder="https://competitor1.com&#10;https://competitor2.com"></textarea>
+                    <label class="mdl-textfield__label" for="tool-competitors">Competitor URLs (one per line)</label>
+                </div>
+
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                    <textarea class="mdl-textfield__input" rows="5" id="tool-context"
+                              placeholder="Describe your audience, offer, and desired outcomes."></textarea>
+                    <label class="mdl-textfield__label" for="tool-context">Business context & goals</label>
+                </div>
+
+                <button id="run-workflow-btn"
+                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+                    Run {{ tool_name }}
+                </button>
+                <span id="workflow-status" style="margin-left: 10px; color: #666;"></span>
+
+                <div id="workflow-output" style="display:none; margin-top: 18px;">
+                    <h5>Result</h5>
+                    <pre id="workflow-output-text"
+                         style="white-space: pre-wrap; background: #fafafa; border: 1px solid #ececec; padding: 14px; border-radius: 6px;"></pre>
+                </div>
+            </div>
+
+            <h5 style="margin-top: 24px;">How this works</h5>
+            <p>
+                This workflow uses an OpenAI-compatible routed endpoint so we can compare output quality across multiple LLMs,
+                then merge the findings into one actionable report.
+            </p>
+        </div>
+    </div>
+</main>
+
+<script src="{{ static_url }}/js/marketing-workflow-tool.js"></script>

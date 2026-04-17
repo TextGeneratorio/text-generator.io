@@ -76,7 +76,42 @@
     font-size: 28px;
     font-weight: 600;
     color: #333;
-    margin: 0 0 16px 0;
+    margin: 0;
+}
+
+.checkout-dialog-subtitle {
+    margin: 10px 0 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.checkout-price-highlight {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: #f3f7ff;
+    border: 1px solid #d9e6ff;
+}
+
+.checkout-price-value {
+    color: #1155cc;
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.checkout-price-period {
+    color: #1155cc;
+    font-weight: 700;
+}
+
+.checkout-price-note {
+    color: #5d6f92;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .checkout-pricing-toggle {
@@ -84,6 +119,7 @@
     gap: 16px;
     justify-content: center;
     flex-wrap: wrap;
+    margin-top: 14px;
 }
 
 .checkout-toggle-label {
@@ -102,6 +138,10 @@
 
 .checkout-toggle-label input[type="radio"] {
     margin-right: 8px;
+}
+
+.checkout-toggle-text {
+    font-weight: 600;
 }
 
 .checkout-toggle-label input[type="radio"]:checked + .checkout-toggle-text {
@@ -139,6 +179,30 @@
     color: #4caf50;
     flex-shrink: 0;
     margin-top: 2px;
+}
+
+.checkout-offer-chooser {
+    margin-top: 14px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.checkout-offer-btn {
+    border: 1px solid #d2d9e6;
+    background: #fff;
+    color: #334155;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.checkout-offer-btn.is-active {
+    border-color: #1a73e8;
+    background: #e8f0fe;
+    color: #0d47a1;
 }
 
 .checkout-dialog-body {
@@ -209,6 +273,42 @@
     background: #1557b0;
 }
 
+.checkout-btn-secondary {
+    background: #eef2f7;
+    color: #1f2937;
+}
+
+.checkout-btn-secondary:hover {
+    background: #dde4ee;
+}
+
+.checkout-credits-panel {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+}
+
+.checkout-credits-panel h3 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    color: #1e293b;
+}
+
+.checkout-credits-panel p {
+    margin: 0;
+    color: #475569;
+}
+
+.checkout-credits-actions {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
     .checkout-dialog-content {
@@ -225,6 +325,10 @@
     
     .checkout-dialog-title {
         font-size: 24px;
+    }
+
+    .checkout-price-value {
+        font-size: 30px;
     }
     
     .checkout-pricing-toggle {

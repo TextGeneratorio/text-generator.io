@@ -64,7 +64,7 @@ class TestCreateCheckoutSession:
         # Check line items don't include quantity for monthly (metered subscription)
         line_items = call_args[1]["line_items"]
         assert len(line_items) == 1
-        assert line_items[0]["price"] == "price_0RXdbtDtz2XsjQROW0xgtU8H"
+        assert line_items[0]["price"] == "price_0TMflXDtz2XsjQROwqDwU3Pt"
         assert line_items[0]["quantity"] == 1
 
     @patch("questions.auth.get_user_from_session")
@@ -93,7 +93,7 @@ class TestCreateCheckoutSession:
         # Check line items don't include quantity for annual (metered subscription)
         line_items = call_args[1]["line_items"]
         assert len(line_items) == 1
-        assert line_items[0]["price"] == "price_0RXdd4Dtz2XsjQRO5hYsdfjx"
+        assert line_items[0]["price"] == "price_0TMfntDtz2XsjQROebse1At5"
         assert line_items[0]["quantity"] == 1
 
     @patch("questions.auth.get_user_from_session")

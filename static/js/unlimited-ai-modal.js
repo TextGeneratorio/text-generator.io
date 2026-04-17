@@ -1,5 +1,10 @@
 // Unlimited AI Offerings Modal JavaScript
 if (typeof window.UnlimitedAIModal === 'undefined') {
+const UNLIMITED_AI_PRICING = {
+    monthly: '$9.99 USD',
+    period: 'Per month',
+};
+
 window.UnlimitedAIModal = class UnlimitedAIModal {
     constructor() {
         this.modal = null;
@@ -39,8 +44,8 @@ window.UnlimitedAIModal = class UnlimitedAIModal {
 
                     <div class="unlimited-ai-modal-body">
                         <div class="unlimited-ai-pricing">
-                            <div class="unlimited-ai-price">$19.00 USD</div>
-                            <div class="unlimited-ai-period">Monthly</div>
+                            <div class="unlimited-ai-price">${UNLIMITED_AI_PRICING.monthly}</div>
+                            <div class="unlimited-ai-period">${UNLIMITED_AI_PRICING.period}</div>
                         </div>
 
                         <ul class="unlimited-ai-features">

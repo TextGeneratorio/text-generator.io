@@ -1,5 +1,11 @@
 // Subscription Modal JavaScript
 if (typeof window.SubscriptionModal === 'undefined') {
+const SUBSCRIPTION_MODAL_PRICING = {
+    monthly: '$9.99/mo',
+    annual: '$99.99/year',
+    savingsLabel: 'save 17%',
+};
+
 window.SubscriptionModal = class SubscriptionModal {
     constructor() {
         this.modal = null;
@@ -40,8 +46,8 @@ window.SubscriptionModal = class SubscriptionModal {
 
                     <div class="subscription-modal-body">
                         <div class="subscription-pricing">
-                            <div class="subscription-price">$19.00</div>
-                            <div class="subscription-period">per month</div>
+                            <div class="subscription-price">${SUBSCRIPTION_MODAL_PRICING.monthly}</div>
+                            <div class="subscription-period">or ${SUBSCRIPTION_MODAL_PRICING.annual} (${SUBSCRIPTION_MODAL_PRICING.savingsLabel})</div>
                         </div>
 
                         <ul class="subscription-features">
@@ -84,7 +90,8 @@ window.SubscriptionModal = class SubscriptionModal {
                         </ul>
 
                         <div class="subscription-modal-actions">
-                            <a href="/subscribe" class="subscription-btn subscription-btn-primary">Subscribe Now</a>
+                            <button class="subscription-btn subscription-btn-primary" type="button" data-subscription-action="plan">Add plan with checkout</button>
+                            <button class="subscription-btn subscription-btn-secondary" type="button" data-subscription-action="credits">Add API credits</button>
                             <button class="subscription-btn subscription-btn-secondary" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">Maybe Later</button>
                         </div>
                     </div>
@@ -316,6 +323,36 @@ window.SubscriptionModal = class SubscriptionModal {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.isOpen) {
                 this.close();
+            }
+        });
+
+        document.addEventListener('click', async (e) => {
+            const actionButton = e.target.closest('[data-subscription-action]');
+            if (!actionButton) {
+                return;
+            }
+
+            const action = actionButton.dataset.subscriptionAction;
+            if (action === 'plan') {
+                this.close();
+                if (window.showCheckoutDialog) {
+                    await window.showCheckoutDialog('monthly');
+                } else {
+                    window.location.href = '/subscribe';
+                }
+                return;
+            }
+
+            if (action === 'credits') {
+                this.close();
+                if (window.showCheckoutDialog) {
+                    if (window.checkoutDialog) {
+                        window.checkoutDialog.offerType = 'credits';
+                    }
+                    await window.showCheckoutDialog('monthly');
+                } else {
+                    window.location.href = '/contact';
+                }
             }
         });
     }
