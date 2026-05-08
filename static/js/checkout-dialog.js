@@ -1,4 +1,10 @@
 // Checkout Dialog with Embedded Stripe Checkout
+const CHECKOUT_PRICING = {
+    monthly: '$9.99',
+    annual: '$99.99',
+    savingsLabel: 'save 17%',
+};
+
 class CheckoutDialog {
     constructor() {
         this.modal = null;
@@ -8,6 +14,8 @@ class CheckoutDialog {
         this.elements = null;
         this.embeddedCheckout = null;
         this.subscriptionType = 'monthly';
+        this.offerType = 'plan';
+        this.allowCreditChoice = window.location.pathname === '/playground';
         this.init();
     }
 
@@ -46,9 +54,37 @@ class CheckoutDialog {
                     
                     <div class="checkout-dialog-header">
                         <h2 class="checkout-dialog-title">Cloud AI Text Generator</h2>
+                        <p class="checkout-dialog-subtitle">Start instantly with our most popular plan.</p>
+                        <div class="checkout-price-highlight" role="status" aria-live="polite">
+                            <span class="checkout-price-value">${CHECKOUT_PRICING.monthly}</span>
+                            <span class="checkout-price-period">/month</span>
+                            <span class="checkout-price-note">or ${CHECKOUT_PRICING.annual}/year (${CHECKOUT_PRICING.savingsLabel})</span>
+                        </div>
+                        <div class="checkout-pricing-toggle" role="radiogroup" aria-label="Billing period">
+                            <label class="checkout-toggle-label">
+                                <input type="radio" name="pricing" value="monthly" checked>
+                                <span class="checkout-toggle-text">Monthly · ${CHECKOUT_PRICING.monthly}/mo</span>
+                            </label>
+                            <label class="checkout-toggle-label">
+                                <input type="radio" name="pricing" value="annual">
+                                <span class="checkout-toggle-text">Annual · ${CHECKOUT_PRICING.annual}/yr</span>
+                            </label>
+                        </div>
+                        <div class="checkout-offer-chooser" id="checkout-offer-chooser" style="display: none;">
+                            <button type="button" class="checkout-offer-btn is-active" data-offer="plan">Add a plan</button>
+                            <button type="button" class="checkout-offer-btn" data-offer="credits">Add API credits</button>
+                        </div>
                     </div>
 
                     <div class="checkout-dialog-body">
+                        <div id="checkout-credits-panel" class="checkout-credits-panel" style="display: none;">
+                            <h3>API credits</h3>
+                            <p>Need pay-as-you-go API credits instead of a recurring plan?</p>
+                            <div class="checkout-credits-actions">
+                                <a class="checkout-btn checkout-btn-secondary" href="/contact">Contact support for credits</a>
+                                <button type="button" class="checkout-btn" id="checkout-switch-plan-btn">Use subscription plan</button>
+                            </div>
+                        </div>
                         <div id="checkout-container">
                             <div class="checkout-loading">
                                 <div class="checkout-spinner"></div>
@@ -88,6 +124,17 @@ class CheckoutDialog {
                 }
             }
         });
+
+        document.addEventListener('click', (e) => {
+            const offerBtn = e.target.closest('.checkout-offer-btn');
+            if (offerBtn) {
+                this.setOfferType(offerBtn.dataset.offer || 'plan');
+            }
+
+            if (e.target.id === 'checkout-switch-plan-btn') {
+                this.setOfferType('plan');
+            }
+        });
     }
 
     async getCurrentUser() {
@@ -106,6 +153,11 @@ class CheckoutDialog {
     }
 
     async loadCheckout() {
+        if (this.offerType === 'credits') {
+            this.renderCreditsState();
+            return;
+        }
+
         const user = await this.getCurrentUser();
         if (!user) {
             this.showError('Please log in to subscribe');
@@ -169,12 +221,54 @@ class CheckoutDialog {
         `;
     }
 
+    renderCreditsState() {
+        const checkoutContainer = document.getElementById('checkout-container');
+        if (checkoutContainer) {
+            checkoutContainer.innerHTML = '';
+        }
+
+        const creditsPanel = document.getElementById('checkout-credits-panel');
+        if (creditsPanel) {
+            creditsPanel.style.display = 'block';
+        }
+    }
+
+    setOfferType(offerType = 'plan') {
+        this.offerType = offerType;
+        const buttons = document.querySelectorAll('.checkout-offer-btn');
+        buttons.forEach((btn) => {
+            btn.classList.toggle('is-active', btn.dataset.offer === offerType);
+        });
+
+        const creditsPanel = document.getElementById('checkout-credits-panel');
+        if (creditsPanel) {
+            creditsPanel.style.display = offerType === 'credits' ? 'block' : 'none';
+        }
+
+        const checkoutContainer = document.getElementById('checkout-container');
+        if (checkoutContainer) {
+            checkoutContainer.style.display = offerType === 'credits' ? 'none' : 'block';
+        }
+
+        if (this.isOpen && offerType === 'plan') {
+            this.loadCheckout();
+        } else if (this.isOpen && offerType === 'credits') {
+            this.renderCreditsState();
+        }
+    }
+
     async show() {
         if (this.modal) {
+            const offerChooser = document.getElementById('checkout-offer-chooser');
+            if (offerChooser) {
+                offerChooser.style.display = this.allowCreditChoice ? 'flex' : 'none';
+            }
+
             this.modal.style.display = 'flex';
             this.modal.classList.add('show');
             this.isOpen = true;
             document.body.style.overflow = 'hidden';
+            this.setOfferType(this.allowCreditChoice ? this.offerType : 'plan');
             
             // Load checkout when modal is shown
             await this.loadCheckout();
@@ -231,6 +325,7 @@ async function showCheckoutDialog(subscriptionType = 'monthly') {
         }
     }
     checkoutDialog.subscriptionType = subscriptionType;
+    checkoutDialog.offerType = window.location.pathname === '/playground' ? checkoutDialog.offerType : 'plan';
     // Update radio button selection
     const radioBtn = document.querySelector(`input[name="pricing"][value="${subscriptionType}"]`);
     if (radioBtn) {
@@ -238,6 +333,8 @@ async function showCheckoutDialog(subscriptionType = 'monthly') {
     }
     await checkoutDialog.show();
 }
+
+window.showCheckoutDialog = showCheckoutDialog;
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {

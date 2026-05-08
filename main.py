@@ -7,6 +7,8 @@ import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from urllib.error import HTTPError, URLError
+from urllib.request import Request as UrlRequest, urlopen
 from urllib.parse import quote_plus, urlencode
 
 import boto3
@@ -14,7 +16,7 @@ from fastapi import Depends, File, Form, Header, HTTPException, Request, UploadF
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.datastructures import URL
 from starlette.responses import JSONResponse, RedirectResponse, Response
@@ -119,6 +121,71 @@ config = {}
 config["webapp2_extras.sessions"] = dict(secret_key="93986c9cdd240540f70efaea56a9e3f2")
 
 templates = Jinja2Templates(directory=".")
+
+OPENPATHS_API_BASE = os.environ.get("OPENPATHS_API_BASE", "https://openpaths.io/v1")
+OPENPATHS_API_KEY = os.environ.get("OPENPATHS_API_KEY", "")
+OPENPATHS_ROUTER_MODELS = [
+    model.strip()
+    for model in os.environ.get("OPENPATHS_ROUTER_MODELS", "openai-chat-latest,anthropic-opus-latest").split(",")
+    if model.strip()
+]
+
+
+class MarketingWorkflowRequest(BaseModel):
+    workflow: str
+    target_url: Optional[str] = ""
+    competitor_urls: List[str] = Field(default_factory=list)
+    business_context: Optional[str] = ""
+
+
+def call_openpaths_chat(model: str, messages: List[Dict[str, str]], temperature: float = 0.2) -> str:
+    """
+    Call OpenPaths' OpenAI-compatible endpoint (https://openpaths.io/v1/chat/completions).
+    """
+    if not OPENPATHS_API_KEY:
+        raise HTTPException(status_code=503, detail="OPENPATHS_API_KEY is not configured on the server.")
+
+    endpoint = f"{OPENPATHS_API_BASE.rstrip('/')}/chat/completions"
+    payload = json.dumps(
+        {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+    ).encode("utf-8")
+
+    req = UrlRequest(
+        endpoint,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {OPENPATHS_API_KEY}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(req, timeout=40) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="ignore")
+        logger.error(f"OpenPaths HTTP error ({e.code}): {error_body}")
+        raise HTTPException(status_code=502, detail="OpenPaths request failed.")
+    except URLError as e:
+        logger.error(f"OpenPaths network error: {e}")
+        raise HTTPException(status_code=502, detail="Could not reach OpenPaths API.")
+    except Exception as e:
+        logger.error(f"OpenPaths unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Unexpected OpenPaths error.")
+
+    content = (
+        body.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content", "")
+    )
+    if not content:
+        raise HTTPException(status_code=502, detail="OpenPaths returned an empty response.")
+    return content
 
 
 def get_base_template_vars(request: Request) -> Dict[str, Any]:
@@ -444,7 +511,8 @@ async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_
             "tool_keywords": tool_info.get("keywords", ""),
             "tool_url": f"/tools/{tool_name}",
             "tool_image": tool_info.get("image", ""),
-            "tooltemplate": f"templates/tools/{tool_name}.jinja2",
+            "tooltemplate": tool_info.get("template", f"templates/tools/{tool_name}.jinja2"),
+            "tool_workflow_key": tool_info.get("workflow_key", tool_name),
             "subscription_required": subscription_required
             and subscription_status
             and subscription_status.get("subscription_required", False)
@@ -460,6 +528,62 @@ async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_
     )
 
 
+@app.post("/api/tools/marketing-workflow")
+async def run_marketing_workflow(payload: MarketingWorkflowRequest):
+    workflow_instructions = {
+        "competitor-teardown": (
+            "You are a conversion strategist. Produce: positioning summary, competitor strengths/weaknesses, "
+            "messaging gaps, and a prioritized 7-day action plan."
+        ),
+        "seo-content-gap-finder": (
+            "You are an SEO strategist. Produce: topic clusters, content gaps vs competitors, "
+            "a prioritized publishing roadmap, and suggested briefs."
+        ),
+        "deep-researcher": (
+            "You are a senior research analyst. Produce: key findings, assumptions, risks, "
+            "counterarguments, and next-step experiments."
+        ),
+        "keyword-glossary-explorer": (
+            "You are a search growth strategist. Produce: keyword clusters, search intent buckets, "
+            "glossary page ideas, and internal link opportunities."
+        ),
+    }
+
+    workflow_key = payload.workflow.strip().lower()
+    if workflow_key not in workflow_instructions:
+        raise HTTPException(status_code=400, detail="Unsupported workflow.")
+
+    user_prompt = (
+        f"Workflow: {workflow_key}\n\n"
+        f"Target URL: {payload.target_url or 'N/A'}\n"
+        f"Competitors: {', '.join(payload.competitor_urls) if payload.competitor_urls else 'N/A'}\n\n"
+        f"Context:\n{payload.business_context or 'N/A'}\n\n"
+        "Return markdown with clear headings and bullet points."
+    )
+
+    analyses = []
+    for model in OPENPATHS_ROUTER_MODELS:
+        model_output = call_openpaths_chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": workflow_instructions[workflow_key]},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        analyses.append({"model": model, "content": model_output})
+
+    combined_markdown = "\n\n".join(
+        [f"## {analysis['model']}\n\n{analysis['content']}" for analysis in analyses]
+    )
+    return JSONResponse(
+        {
+            "workflow": workflow_key,
+            "analyses": analyses,
+            "combined_markdown": combined_markdown,
+        }
+    )
+
+
 @app.get("/subscribe")
 async def subscribe(request: Request):
     base_vars = get_base_template_vars(request)
@@ -471,6 +595,8 @@ async def subscribe(request: Request):
 
 
 YOUR_DOMAIN = "https://text-generator.io"
+MONTHLY_SUBSCRIPTION_PRICE_ID = "price_0TMflXDtz2XsjQROwqDwU3Pt"  # $9.99/month
+ANNUAL_SUBSCRIPTION_PRICE_ID = "price_0TMfntDtz2XsjQROebse1At5"  # $99.99/year
 
 
 @app.post("/create-checkout-session")
@@ -508,7 +634,7 @@ async def create_checkout_session(
 
     if type == "annual":
         line_item: Dict[str, Any] = {
-            "price": "price_0RXdd4Dtz2XsjQRO5hYsdfjx",  # New annual price ID ($190/year)
+            "price": ANNUAL_SUBSCRIPTION_PRICE_ID,
             "quantity": 1,
         }
     elif type == "self-hosted":
@@ -520,7 +646,7 @@ async def create_checkout_session(
     else:
         # Default monthly - metered subscription, no quantity
         line_item: Dict[str, Any] = {
-            "price": "price_0RXdbtDtz2XsjQROW0xgtU8H",  # New monthly price ID ($19/month)
+            "price": MONTHLY_SUBSCRIPTION_PRICE_ID,
             "quantity": 1,
         }
 
@@ -616,9 +742,9 @@ async def create_checkout_session_embedded(
 
     # Set up pricing based on subscription type
     if subscription_type and subscription_type == "annual":
-        subscription_price = "price_0RXdd4Dtz2XsjQRO5hYsdfjx"  # $190/year
+        subscription_price = ANNUAL_SUBSCRIPTION_PRICE_ID
     else:
-        subscription_price = "price_0RXdbtDtz2XsjQROW0xgtU8H"  # $19/month
+        subscription_price = MONTHLY_SUBSCRIPTION_PRICE_ID
 
     success_url = YOUR_DOMAIN + "/playground"
 

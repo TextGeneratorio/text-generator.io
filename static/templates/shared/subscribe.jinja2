@@ -96,12 +96,12 @@ window.addEventListener('load', function() {
         function updatePricing() {
             if ($('.subscription-toggle').is(':checked')) {
                 $('.subscription-period').text('Annually');
-                $('.money-amount').text('$190.00 USD');
+                $('.money-amount').text('$99.99 USD');
                 $('input[name="type"]').val('annual');
                 $('.discount-chip').show();
             } else {
                 $('.subscription-period').text('Monthly');
-                $('.money-amount').text('$19.00 USD');
+                $('.money-amount').text('$9.99 USD');
                 $('input[name="type"]').val('monthly');
                 $('.discount-chip').hide();
             }
@@ -187,7 +187,7 @@ window.addEventListener('load', function() {
 ">cloud</i>
             <h4>Cloud Text Generator</h4>
 
-            <p><b class="money-amount">$190.00 USD</b> <span class="subscription-period">Annually</span></p>
+            <p><b class="money-amount">$99.99 USD</b> <span class="subscription-period">Annually</span></p>
 
             <label class="switch">
                 <input type="checkbox" class="subscription-toggle" checked>

@@ -48,7 +48,7 @@ def test_modal_files():
             "/home/lee/code/20-questions2/static/js/subscription-modal.js",
             [
                 "Subscription Required",
-                "$19.00",
+                "$9.99",
                 "per month",
                 "Unlimited AI text generation",
                 "AI Text Editor with advanced editing tools",
