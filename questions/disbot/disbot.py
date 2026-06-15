@@ -21,7 +21,7 @@ async def on_ready():  # When the bot is ready
 
 import requests
 
-headers = {"secret": "7C2JbFYUdEAGXSbO2fb0ATl0tacgEAKu"}
+headers = {"secret": sellerinfo.TEXT_GENERATOR_SECRET}
 
 data = {
     "text": "in 2022 the stock market has been expected to reach a record high.",
