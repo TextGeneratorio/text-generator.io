@@ -167,6 +167,25 @@ def optimize_tts_audio_for_speed(
     return optimized
 
 
+def apply_manual_speed(audio: np.ndarray, speed: float) -> np.ndarray:
+    """Time-stretch generated audio after synthesis when a client requests speed."""
+    if speed <= 0:
+        raise ValueError("speed must be positive")
+    if audio.size == 0 or speed == 1.0:
+        return audio
+
+    import librosa
+
+    original_dtype = audio.dtype
+    stretched = librosa.effects.time_stretch(audio.astype(np.float32), rate=float(speed))
+    if np.issubdtype(original_dtype, np.integer):
+        info = np.iinfo(original_dtype)
+        stretched = np.clip(stretched, info.min, info.max).astype(original_dtype)
+    else:
+        stretched = stretched.astype(original_dtype)
+    return stretched
+
+
 def synthesize_full_text(
     text: str,
     voice: str = "af_nicole",

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Inference server monitor with Claude auto-fix agent.
+Inference server monitor with Codex auto-fix agent.
 
 Checks the inference server liveness endpoint every 30 minutes.
-If inference is down, spawns a Claude agent (--dangerously-skip-permissions)
-to diagnose, fix, redeploy, and verify the fix.
+If inference is down, spawns a Codex agent to diagnose, fix, redeploy,
+and verify the fix.
 
 Usage:
     python monitors/monitor_inference_agent.py
@@ -14,6 +14,7 @@ Usage:
 import argparse
 import fcntl
 import json
+import os
 import subprocess
 import time
 import urllib.request
@@ -24,16 +25,28 @@ from urllib.error import HTTPError, URLError
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOG_DIR = REPO_ROOT / "monitors"
 LOG_FILE = LOG_DIR / "monitor_inference_agent.log"
-CLAUDE_LOG_FILE = LOG_DIR / "claude_inference_fix.log"
+CODEX_LOG_FILE = LOG_DIR / "codex_inference_fix.log"
 LOCK_FILE = Path("/tmp/text-generator-monitor-inference-agent.lock")
+CODEX_LOCAL = os.environ.get("CODEX_LOCAL", "/home/administrator/code/codex/codex-rs/target/release/codex")
+CODEX_CMD = [
+    CODEX_LOCAL,
+    "exec",
+    "--yolo3",
+    "-m",
+    "gpt-5.5",
+    "--config",
+    "model_reasoning_effort=medium",
+]
 
 URL_LOCAL = "http://localhost:9080/liveness_check"
+URL_LOCAL_DEEP = "http://localhost:9080/liveness_check?deep=1"
 URL_EXTERNAL = "https://api.text-generator.io/liveness_check"
 
 CHECK_INTERVAL = 1800  # 30 minutes
 FAIL_THRESHOLD = 2  # consecutive failures before spawning agent
 AGENT_COOLDOWN = 3600  # min seconds between agent invocations
-MAX_AGENT_RUNTIME = 600  # 10 min timeout for claude agent
+MAX_AGENT_RUNTIME = 600  # 10 min timeout for codex agent
+DEEP_CHECK_EVERY_N = 6  # run a real inference check every N cycles (~3 hours)
 
 
 def log(message: str) -> None:
@@ -139,8 +152,8 @@ IMPORTANT: Always verify the fix worked before finishing. Run the curl checks ab
 
 
 def spawn_claude_agent(error_detail: str) -> bool:
-    """Spawn Claude agent to diagnose and fix. Returns True if fix verified."""
-    log("Gathering diagnostics for Claude agent...")
+    """Spawn Codex agent to diagnose and fix. Returns True if fix verified."""
+    log("Gathering diagnostics for Codex agent...")
     diagnostics = gather_diagnostics()
 
     prompt = CLAUDE_FIX_PROMPT.format(
@@ -149,29 +162,29 @@ def spawn_claude_agent(error_detail: str) -> bool:
         diagnostics=diagnostics,
     )
 
-    log(f"Spawning Claude agent (timeout={MAX_AGENT_RUNTIME}s)...")
+    log(f"Spawning Codex agent (timeout={MAX_AGENT_RUNTIME}s)...")
     try:
-        with open(CLAUDE_LOG_FILE, "a") as claude_log:
+        with open(CODEX_LOG_FILE, "a") as codex_log:
             ts = datetime.now(timezone.utc).isoformat()
-            claude_log.write(f"\n{'='*80}\n{ts} Agent invocation\n{'='*80}\n")
-            claude_log.flush()
+            codex_log.write(f"\n{'='*80}\n{ts} Agent invocation\n{'='*80}\n")
+            codex_log.flush()
 
             result = subprocess.run(
-                ["claude", "--dangerously-skip-permissions", "-p", prompt],
+                [*CODEX_CMD, prompt],
                 cwd=str(REPO_ROOT),
-                stdout=claude_log,
+                stdout=codex_log,
                 stderr=subprocess.STDOUT,
                 timeout=MAX_AGENT_RUNTIME,
                 text=True,
             )
-        log(f"Claude agent exited with code {result.returncode}")
+        log(f"Codex agent exited with code {result.returncode}")
     except subprocess.TimeoutExpired:
-        log(f"Claude agent timed out after {MAX_AGENT_RUNTIME}s")
+        log(f"Codex agent timed out after {MAX_AGENT_RUNTIME}s")
     except FileNotFoundError:
-        log("ERROR: 'claude' command not found in PATH")
+        log(f"ERROR: Codex command not found or not executable: {CODEX_LOCAL}")
         return False
     except Exception as e:
-        log(f"ERROR spawning Claude agent: {e}")
+        log(f"ERROR spawning Codex agent: {e}")
         return False
 
     # Verify fix - wait for service to come up
@@ -215,10 +228,20 @@ def main():
     log(f"Starting inference monitor (interval={args.interval}s, agent_cooldown={AGENT_COOLDOWN}s)")
     consecutive_failures = 0
     last_agent_time = 0.0
+    check_count = 0
 
     while True:
+        check_count += 1
+        # Every DEEP_CHECK_EVERY_N cycles, run a real inference check
+        use_deep = (check_count % DEEP_CHECK_EVERY_N == 0)
+        check_url = URL_LOCAL_DEEP if use_deep else URL_LOCAL
+        if use_deep:
+            log("Running deep inference check (real model call)...")
+
         # Check local first
-        local_ok, local_detail = check_endpoint(URL_LOCAL)
+        local_ok, local_detail = check_endpoint(check_url, timeout=120 if use_deep else 30)
+        if use_deep and not local_ok:
+            log(f"Deep inference check FAILED: {local_detail}")
 
         if local_ok:
             # Local is good, check external

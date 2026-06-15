@@ -1,3 +1,7 @@
+from questions.transformers_compat import disable_broken_torchvision_for_text_pipeline
+
+disable_broken_torchvision_for_text_pipeline()
+
 from transformers import TextGenerationPipeline
 from transformers.pipelines import SUPPORTED_TASKS
 
@@ -18,8 +22,7 @@ class TextGenPipeline(TextGenerationPipeline):
         # todo use scores?
         out_b = generated_sequence.shape[0]
 
-        if self.framework == "pt":
-            generated_sequence = generated_sequence.reshape(in_b, out_b // in_b, *generated_sequence.shape[1:])
+        generated_sequence = generated_sequence.reshape(in_b, out_b // in_b, *generated_sequence.shape[1:])
         # elif self.framework == "tf":
         #     generated_sequence = tf.reshape(generated_sequence, (in_b, out_b // in_b, *generated_sequence.shape[1:]))
         return {"generated_sequence": generated_sequence, "input_ids": input_ids, "prompt_text": prompt_text}

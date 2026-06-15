@@ -145,7 +145,7 @@ try kill on this port then rerun cd /home/lee/code/20-questions &&
   questions.inference_server.inference_server:app --timeout 180000 --workers 1 then curl -X 'POST' \
     'http://0.0.0.0:9080/api/v1/generate' \
     -H 'accept: application/json' \
-    -H 'secret: DjbkCN1iAYnz4oj28QqOEORl84jKSeUT' \
+    -H 'secret: YOUR_INFERENCE_SERVER_SECRET' \
     -H 'Content-Type: application/json' \
     -d '{
     "text": "string",

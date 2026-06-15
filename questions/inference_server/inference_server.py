@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+import asyncio
 import logging
 import os
 import random
 from functools import lru_cache
 from io import BytesIO
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, Union
 
@@ -13,7 +15,7 @@ from fastapi import BackgroundTasks, File, Form, Header, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from questions.inference_server.tts_utils import optimize_tts_audio_for_speed, write_srt
+from questions.inference_server.tts_utils import apply_manual_speed, optimize_tts_audio_for_speed, write_srt
 from questions.logging_config import setup_logging
 
 setup_logging()
@@ -70,10 +72,41 @@ app = FastAPI(
     version="1",
 )
 
-nemo_asr = None
-NEMO_AVAILABLE = None
-
 MODEL_CACHE = None
+MULTIMODAL_PROCESSORS = {}
+MULTIMODAL_MODELS = {}
+INFERENCE_CONCURRENCY = max(1, int(os.getenv("INFERENCE_CONCURRENCY", "1")))
+_inference_sem = None
+
+GEMMA_TEXT_IMAGE_MODEL_ID = os.getenv(
+    "GEMMA_TEXT_IMAGE_MODEL_ID",
+    os.getenv("GEMMA_MULTIMODAL_MODEL_ID", "google/gemma-4-26B-A4B-it"),
+)
+GEMMA_AUDIO_MODEL_ID = os.getenv("GEMMA_AUDIO_MODEL_ID", "google/gemma-4-e4b-it")
+GEMMA_VIDEO_MODEL_ID = os.getenv("GEMMA_VIDEO_MODEL_ID", GEMMA_AUDIO_MODEL_ID)
+GEMMA_AUDIO_MAX_SECONDS = max(1, int(os.getenv("GEMMA_AUDIO_MAX_SECONDS", "30")))
+GEMMA_AUDIO_SAMPLE_RATE = max(8000, int(os.getenv("GEMMA_AUDIO_SAMPLE_RATE", "16000")))
+GEMMA_AUDIO_SILENCE_TOP_DB = max(10, int(os.getenv("GEMMA_AUDIO_SILENCE_TOP_DB", "32")))
+GEMMA_ATTN_IMPLEMENTATION = (os.getenv("GEMMA_ATTN_IMPLEMENTATION", "sdpa") or "").strip() or None
+GEMMA_ENABLE_TORCH_COMPILE = os.getenv("GEMMA_ENABLE_TORCH_COMPILE", "0").lower() in {"1", "true", "yes", "on"}
+GEMMA_TORCH_COMPILE_MODE = os.getenv("GEMMA_TORCH_COMPILE_MODE", "reduce-overhead")
+GEMMA_TORCH_COMPILE_BACKEND = os.getenv("GEMMA_TORCH_COMPILE_BACKEND", "inductor")
+GEMMA_TORCH_COMPILE_FULLGRAPH = os.getenv("GEMMA_TORCH_COMPILE_FULLGRAPH", "0").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+GEMMA_TORCH_COMPILE_DYNAMIC = os.getenv("GEMMA_TORCH_COMPILE_DYNAMIC")
+GEMMA_ENABLE_TF32 = os.getenv("GEMMA_ENABLE_TF32", "1").lower() in {"1", "true", "yes", "on"}
+GEMMA_ENABLE_FLASH_SDP = os.getenv("GEMMA_ENABLE_FLASH_SDP", "1").lower() in {"1", "true", "yes", "on"}
+GEMMA_ENABLE_MEM_EFFICIENT_SDP = os.getenv("GEMMA_ENABLE_MEM_EFFICIENT_SDP", "1").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+GEMMA_ENABLE_MATH_SDP = os.getenv("GEMMA_ENABLE_MATH_SDP", "1").lower() in {"1", "true", "yes", "on"}
 
 
 def _get_torch():
@@ -82,13 +115,152 @@ def _get_torch():
     return torch
 
 
+def _get_multimodal_classes():
+    from transformers import AutoModelForCausalLM, AutoProcessor
+
+    return AutoModelForCausalLM, AutoProcessor
+
+
+def _get_compile_config_class():
+    from transformers import CompileConfig
+
+    return CompileConfig
+
+
+def _model_device(model):
+    device = getattr(model, "device", None)
+    if device is not None:
+        return device
+    try:
+        return next(model.parameters()).device
+    except Exception:
+        return "cpu"
+
+
+def _clear_global_model_refs():
+    """Called by ModelCache when idle timeout triggers — resets all global model references."""
+    global audio_model, speechgen_model, speech_processor, speech_vocoder, speech_voicepacks
+    global supertonic_tts, supertonic_voice_styles
+    global MULTIMODAL_MODELS, MULTIMODAL_PROCESSORS
+
+    audio_model = None
+    speechgen_model = None
+    speech_processor = None
+    speech_vocoder = None
+    speech_voicepacks = None
+    supertonic_tts = None
+    supertonic_voice_styles = {}
+    MULTIMODAL_MODELS = {}
+    MULTIMODAL_PROCESSORS = {}
+    logger.info("Cleared all global model references (idle unload)")
+
+
 def _get_model_cache():
     global MODEL_CACHE
     if MODEL_CACHE is None:
         from questions.inference_server.model_cache import ModelCache
 
         MODEL_CACHE = ModelCache()
+        MODEL_CACHE.register_idle_callback(_clear_global_model_refs)
     return MODEL_CACHE
+
+
+def _get_inference_sem():
+    """Return the per-event-loop gate for GPU-bound blocking inference."""
+    global _inference_sem
+    if _inference_sem is None:
+        _inference_sem = asyncio.Semaphore(INFERENCE_CONCURRENCY)
+    return _inference_sem
+
+
+async def _run_gpu_bound(func, *args, **kwargs):
+    """Run blocking model work in a worker thread while keeping FastAPI responsive.
+
+    The semaphore preserves the existing one-at-a-time GPU behavior by default, but
+    the event loop can still serve lightweight endpoints such as /liveness_check
+    while a request is loading or restoring a model.
+    """
+    sem = _get_inference_sem()
+    async with sem:
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+
+def _parse_optional_bool_env(value: Optional[str]) -> Optional[bool]:
+    if value is None or value == "":
+        return None
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _configure_multimodal_torch_runtime():
+    torch = _get_torch()
+
+    if GEMMA_ENABLE_TF32:
+        if hasattr(torch, "set_float32_matmul_precision"):
+            torch.set_float32_matmul_precision("high")
+        if hasattr(torch.backends.cuda, "matmul") and hasattr(torch.backends.cuda.matmul, "allow_tf32"):
+            torch.backends.cuda.matmul.allow_tf32 = True
+        if hasattr(torch.backends, "cudnn"):
+            torch.backends.cudnn.allow_tf32 = True
+            torch.backends.cudnn.benchmark = True
+
+    if hasattr(torch.backends, "cuda"):
+        if hasattr(torch.backends.cuda, "enable_flash_sdp"):
+            torch.backends.cuda.enable_flash_sdp(GEMMA_ENABLE_FLASH_SDP)
+        if hasattr(torch.backends.cuda, "enable_mem_efficient_sdp"):
+            torch.backends.cuda.enable_mem_efficient_sdp(GEMMA_ENABLE_MEM_EFFICIENT_SDP)
+        if hasattr(torch.backends.cuda, "enable_math_sdp"):
+            torch.backends.cuda.enable_math_sdp(GEMMA_ENABLE_MATH_SDP)
+
+
+def _maybe_set_multimodal_attention_implementation(model):
+    if not GEMMA_ATTN_IMPLEMENTATION or not hasattr(model, "set_attn_implementation"):
+        return
+
+    try:
+        model.set_attn_implementation(GEMMA_ATTN_IMPLEMENTATION)
+        logger.info("Using Gemma attention implementation: %s", GEMMA_ATTN_IMPLEMENTATION)
+    except Exception as exc:
+        logger.warning("Failed to set Gemma attention implementation to %s: %s", GEMMA_ATTN_IMPLEMENTATION, exc)
+
+
+def _build_multimodal_compile_config():
+    if not GEMMA_ENABLE_TORCH_COMPILE:
+        return None
+
+    CompileConfig = _get_compile_config_class()
+    return CompileConfig(
+        backend=GEMMA_TORCH_COMPILE_BACKEND,
+        mode=GEMMA_TORCH_COMPILE_MODE,
+        fullgraph=GEMMA_TORCH_COMPILE_FULLGRAPH,
+        dynamic=_parse_optional_bool_env(GEMMA_TORCH_COMPILE_DYNAMIC),
+    )
+
+
+def _build_multimodal_generation_kwargs(
+    max_tokens: int,
+    temperature: float,
+    top_p: float,
+    top_k: int,
+):
+    generation_kwargs = {
+        "max_new_tokens": max(1, int(max_tokens or 1024)),
+        "do_sample": bool(temperature and temperature > 0),
+    }
+    if generation_kwargs["do_sample"]:
+        generation_kwargs.update(
+            {
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+            }
+        )
+
+    compile_config = _build_multimodal_compile_config()
+    if compile_config is not None:
+        generation_kwargs["compile_config"] = compile_config
+        generation_kwargs["cache_implementation"] = "static"
+
+    return generation_kwargs
 
 
 @lru_cache(maxsize=1)
@@ -166,22 +338,6 @@ def _get_device():
     from questions.perplexity import DEVICE
 
     return DEVICE
-
-
-def _get_nemo_asr():
-    global nemo_asr
-    global NEMO_AVAILABLE
-    if nemo_asr is not None:
-        return nemo_asr
-    try:
-        import nemo.collections.asr as imported_nemo_asr
-
-        nemo_asr = imported_nemo_asr
-        NEMO_AVAILABLE = True
-        return nemo_asr
-    except ImportError:
-        NEMO_AVAILABLE = False
-        raise
 
 # Preload models on startup for faster first requests (disabled by default for safety)
 PRELOAD_MODELS = os.environ.get("PRELOAD_MODELS", "0") == "1"
@@ -373,14 +529,6 @@ session_dict = {}
 
 debug = os.environ.get("SERVER_SOFTWARE", "").startswith("Development")
 
-is_app_engine = os.environ.get("IS_APP_ENGINE", False)
-# if not is_app_engine:
-#     def initial_load():
-#         model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
-#     daemon = Thread(target=initial_load, args=(), name="Background")
-#     # # # download in background thread so that the server can start faster.
-#     daemon.start()
-
 
 # def ensure_pipelines_loaded():
 # if questions.text_generator_inference.loading:
@@ -407,6 +555,12 @@ else:
 stripe.api_key = stripe_keys["secret_key"]
 
 API_KEY = os.getenv("API_KEY", None)
+STRIPE_CREDIT_BALANCE_METADATA_KEY = "textgen_credit_balance_cents"
+# Optional partner secret for the image-caption endpoint. Configure via the
+# NETWRCK_IMAGE_CAPTION_SECRET env var; empty default means "disabled" so no
+# real secret ships in source. The auth check requires a truthy secret, so an
+# empty value here never authorizes a request.
+NETWRCK_IMAGE_CAPTION_SECRET = os.getenv("NETWRCK_IMAGE_CAPTION_SECRET", "")
 
 
 # if API_KEY:
@@ -425,6 +579,86 @@ API_KEY = os.getenv("API_KEY", None)
 
 def set_session_for_user(user):
     session_dict[user.secret] = user
+
+
+def _get_user_for_secret(secret):
+    if not secret:
+        return None
+    return user_secret_matches(secret)
+
+
+def _get_stripe_credit_balance_cents(stripe_id: Optional[str]) -> int:
+    if not stripe_id:
+        return 0
+    try:
+        customer = stripe.Customer.retrieve(stripe_id)
+        metadata = getattr(customer, "metadata", None) or customer.get("metadata", {}) or {}
+        return max(0, int(metadata.get(STRIPE_CREDIT_BALANCE_METADATA_KEY, 0)))
+    except Exception as exc:
+        logger.warning("Failed to load Stripe credit balance for %s: %s", stripe_id, exc)
+        return 0
+
+
+def _set_stripe_credit_balance_cents(stripe_id: str, balance_cents: int) -> int:
+    normalized_balance = max(0, int(balance_cents))
+    stripe.Customer.modify(
+        stripe_id,
+        metadata={STRIPE_CREDIT_BALANCE_METADATA_KEY: str(normalized_balance)},
+    )
+    return normalized_balance
+
+
+def _sync_credit_balance_to_cache(secret: Optional[str], balance_cents: int):
+    if not secret:
+        return
+    existing_user = session_dict.get(secret)
+    if existing_user is not None:
+        existing_user.free_credits = balance_cents
+
+    try:
+        db = get_db_session_sync()
+        try:
+            db_user = User.get_by_secret(db, secret)
+            if db_user:
+                db_user.free_credits = balance_cents
+                db.commit()
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("Failed to sync cached credit balance for secret %s: %s", secret, exc)
+
+
+def _user_has_subscription_or_credits(secret, minimum_credits: int = 1) -> bool:
+    user = _get_user_for_secret(secret)
+    if not user:
+        return False
+
+    from ..subscription_utils import check_user_subscription
+
+    if check_user_subscription(user):
+        return True
+
+    return _get_stripe_credit_balance_cents(user.stripe_id) >= max(1, int(minimum_credits))
+
+
+def _consume_user_credits(secret, quantity: int) -> bool:
+    user = _get_user_for_secret(secret)
+    if not user or not user.stripe_id:
+        return False
+
+    from ..subscription_utils import check_user_subscription
+
+    if check_user_subscription(user):
+        return True
+
+    quantity = max(1, int(quantity))
+    current_balance = _get_stripe_credit_balance_cents(user.stripe_id)
+    if current_balance < quantity:
+        return False
+
+    new_balance = _set_stripe_credit_balance_cents(user.stripe_id, current_balance - quantity)
+    _sync_credit_balance_to_cache(secret, new_balance)
+    return True
 
 
 def track_stripe_request_usage(secret, quantity: int):
@@ -486,34 +720,463 @@ def validate_generate_params(generate_params):
 audio_model = None
 
 
+def _message_has_media_content(message: dict) -> bool:
+    content = message.get("content")
+    return isinstance(content, list)
+
+
+def _normalize_content_part(part: dict) -> dict:
+    if hasattr(part, "model_dump"):
+        part = part.model_dump()
+    elif hasattr(part, "dict"):
+        part = part.dict()
+
+    part_type = (part.get("type") or "").lower()
+
+    if part_type in {"text", "input_text"}:
+        return {"type": "text", "text": part.get("text", "")}
+
+    if part_type in {"image", "image_url", "input_image"}:
+        return {"type": "image", "url": part.get("url") or part.get("image_url")}
+
+    if part_type in {"audio", "input_audio"}:
+        return {"type": "audio", "url": part.get("url") or part.get("audio_url")}
+
+    if part_type in {"video", "video_url", "input_video"}:
+        return {"type": "video", "url": part.get("url") or part.get("video_url")}
+
+    raise HTTPException(status_code=400, detail=f"Unsupported content part type: {part.get('type')}")
+
+
+def _normalize_chat_messages(messages: list[dict]) -> list[dict]:
+    normalized_messages = []
+    for message in messages:
+        content = message.get("content")
+        if isinstance(content, list):
+            normalized_messages.append(
+                {
+                    "role": message["role"],
+                    "content": [_normalize_content_part(part) for part in content],
+                }
+            )
+        else:
+            normalized_messages.append({"role": message["role"], "content": content})
+    return normalized_messages
+
+
+def _multimodal_cache_key(model_id: str) -> str:
+    return f"multimodal_model::{model_id}"
+
+
+def _collect_media_types(messages: list[dict]) -> set[str]:
+    media_types = set()
+    for message in messages:
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            part_type = (part.get("type") or "").lower()
+            if part_type in {"audio", "video", "image"}:
+                media_types.add(part_type)
+    return media_types
+
+
+def _select_multimodal_model_id(messages: list[dict]) -> str:
+    media_types = _collect_media_types(messages)
+    if "audio" in media_types:
+        return GEMMA_AUDIO_MODEL_ID
+    if "video" in media_types:
+        return GEMMA_VIDEO_MODEL_ID
+    return GEMMA_TEXT_IMAGE_MODEL_ID
+
+
+def load_multimodal_model(model_id: Optional[str] = None):
+    global MULTIMODAL_MODELS
+    global MULTIMODAL_PROCESSORS
+
+    selected_model_id = model_id or GEMMA_TEXT_IMAGE_MODEL_ID
+
+    if selected_model_id in MULTIMODAL_MODELS and selected_model_id in MULTIMODAL_PROCESSORS:
+        return MULTIMODAL_PROCESSORS[selected_model_id], MULTIMODAL_MODELS[selected_model_id]
+
+    AutoModelForCausalLM, AutoProcessor = _get_multimodal_classes()
+    _configure_multimodal_torch_runtime()
+
+    with log_time("load gemma multimodal model"):
+        logger.info("Loading Gemma multimodal model: %s", selected_model_id)
+        processor = AutoProcessor.from_pretrained(selected_model_id, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            selected_model_id,
+            dtype="auto",
+            device_map="auto",
+            trust_remote_code=True,
+        )
+        _maybe_set_multimodal_attention_implementation(model)
+        MULTIMODAL_PROCESSORS[selected_model_id] = processor
+        MULTIMODAL_MODELS[selected_model_id] = model
+        logger.info("Gemma multimodal model ready: %s", selected_model_id)
+
+    return processor, model
+
+
+def _parse_multimodal_response_text(processor, response_text: str) -> tuple[Optional[str], str]:
+    parser = getattr(processor, "parse_response", None)
+    if callable(parser):
+        try:
+            parsed = parser(response_text)
+            if isinstance(parsed, dict):
+                thinking = parsed.get("thinking") or parsed.get("thought") or parsed.get("reasoning_content")
+                content = parsed.get("text") or parsed.get("content") or parsed.get("response")
+                if content is not None:
+                    return thinking, str(content).strip()
+            elif isinstance(parsed, str):
+                return None, parsed.strip()
+        except Exception as exc:
+            logger.warning("Gemma parse_response failed, falling back to raw decode: %s", exc)
+
+    if "<|channel|>thought" in response_text and "<channel|>" in response_text:
+        try:
+            _, tail = response_text.split("<|channel|>thought", 1)
+            thought_text, final_text = tail.split("<channel|>", 1)
+            return thought_text.strip() or None, final_text.strip()
+        except ValueError:
+            pass
+
+    return None, response_text.strip()
+
+
+def _multimodal_chat_inference(
+    messages: list,
+    model_cache=None,
+    model_id: Optional[str] = None,
+    enable_thinking: bool = False,
+    max_tokens: int = 1024,
+    temperature: float = 1.0,
+    top_p: float = 0.95,
+    top_k: int = 64,
+):
+    selected_model_id = model_id or _select_multimodal_model_id(messages)
+    if model_cache is not None:
+        processor, model = model_cache.add_or_get(
+            _multimodal_cache_key(selected_model_id),
+            lambda: load_multimodal_model(selected_model_id),
+        )
+    else:
+        processor, model = load_multimodal_model(selected_model_id)
+
+    normalized_messages = _normalize_chat_messages(messages)
+    inputs = processor.apply_chat_template(
+        normalized_messages,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+        add_generation_prompt=True,
+        enable_thinking=enable_thinking,
+    )
+
+    model_device = _model_device(model)
+    if hasattr(inputs, "to"):
+        inputs = inputs.to(model_device)
+    elif isinstance(inputs, dict):
+        inputs = {k: v.to(model_device) if hasattr(v, "to") else v for k, v in inputs.items()}
+
+    input_ids = inputs["input_ids"]
+    input_len = input_ids.shape[-1]
+
+    generation_kwargs = _build_multimodal_generation_kwargs(
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+    )
+
+    with _get_torch().inference_mode():
+        outputs = model.generate(**inputs, **generation_kwargs)
+
+    if hasattr(outputs, "sequences"):
+        sequence = outputs.sequences[0]
+    else:
+        sequence = outputs[0]
+    new_tokens = sequence[input_len:]
+    decoded = processor.decode(new_tokens, skip_special_tokens=False)
+    thinking_content, generated_text = _parse_multimodal_response_text(processor, decoded)
+    return {
+        "generated_text": generated_text,
+        "thinking_content": thinking_content,
+        "stop_reason": "stop",
+        "model": selected_model_id,
+    }
+
+
+def _guess_media_suffix(name: Optional[str], default_suffix: str) -> str:
+    if not name:
+        return default_suffix
+    suffix = Path(name).suffix
+    return suffix if suffix else default_suffix
+
+
+def _load_audio_bytes(audio_params: AudioParamsOrAudioFile) -> tuple[bytes, Optional[str]]:
+    if hasattr(audio_params, "audio_file") and audio_params.audio_file is not None:
+        audio_file = audio_params.audio_file
+        return audio_file.file.read(), getattr(audio_file, "filename", None)
+
+    if audio_params.audio_url and "youtube.com" in audio_params.audio_url:
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "wav",
+                    "preferredquality": "192",
+                }
+            ],
+            "postprocessor_args": ["-ar", str(GEMMA_AUDIO_SAMPLE_RATE)],
+            "prefer_ffmpeg": True,
+            "keepvideo": False,
+            "outtmpl": "/tmp/audio.wav",
+        }
+        with log_time("download youtube"):
+            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([audio_params.audio_url])
+                downloaded_path = ydl.prepare_filename(ydl.extract_info(audio_params.audio_url))
+                with open(downloaded_path, "rb") as file_handle:
+                    return file_handle.read(), downloaded_path
+
+    if audio_params.audio_url:
+        with log_time("download audio"):
+            audio_request = request_get(audio_params.audio_url)
+            response = audio_request.result()
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to download audio file at {audio_params.audio_url}",
+                )
+            response.raw.decode_content = True
+            return response.content, audio_params.audio_url
+
+    raise HTTPException(status_code=400, detail="Either audio_file or audio_url must be provided")
+
+
+def _split_audio_for_transcription(audio_bytes: bytes, source_name: Optional[str]) -> list[tuple[float, float, str]]:
+    import librosa
+
+    suffix = _guess_media_suffix(source_name, ".wav")
+    tmp_input = NamedTemporaryFile(dir="/dev/shm", delete=False, suffix=suffix)
+    try:
+        tmp_input.write(audio_bytes)
+        tmp_input.flush()
+        tmp_input.close()
+
+        waveform, sample_rate = librosa.load(tmp_input.name, sr=GEMMA_AUDIO_SAMPLE_RATE, mono=True)
+    finally:
+        try:
+            os.unlink(tmp_input.name)
+        except OSError:
+            pass
+
+    if waveform.size == 0:
+        return []
+
+    intervals = librosa.effects.split(waveform, top_db=GEMMA_AUDIO_SILENCE_TOP_DB)
+    if len(intervals) == 0:
+        intervals = np.array([[0, len(waveform)]])
+
+    chunks: list[tuple[float, float, str]] = []
+    current_start = int(intervals[0][0])
+    current_end = int(intervals[0][1])
+
+    for interval_start, interval_end in intervals[1:]:
+        proposed_end = int(interval_end)
+        if (proposed_end - current_start) / sample_rate <= GEMMA_AUDIO_MAX_SECONDS:
+            current_end = proposed_end
+            continue
+
+        chunks.extend(
+            _slice_waveform_chunk_ranges(waveform, sample_rate, current_start, current_end, GEMMA_AUDIO_MAX_SECONDS)
+        )
+        current_start = int(interval_start)
+        current_end = int(interval_end)
+
+    chunks.extend(_slice_waveform_chunk_ranges(waveform, sample_rate, current_start, current_end, GEMMA_AUDIO_MAX_SECONDS))
+    return chunks
+
+
+def _slice_waveform_chunk_ranges(
+    waveform: np.ndarray,
+    sample_rate: int,
+    start_index: int,
+    end_index: int,
+    max_seconds: int,
+) -> list[tuple[float, float, str]]:
+    import soundfile as soundfile_runtime
+
+    chunks: list[tuple[float, float, str]] = []
+    max_samples = max(1, int(max_seconds * sample_rate))
+    chunk_start = start_index
+
+    while chunk_start < end_index:
+        chunk_end = min(end_index, chunk_start + max_samples)
+        chunk_waveform = waveform[chunk_start:chunk_end]
+        chunk_file = NamedTemporaryFile(dir="/dev/shm", delete=False, suffix=".wav")
+        try:
+            soundfile_runtime.write(chunk_file.name, chunk_waveform, sample_rate)
+        finally:
+            chunk_file.close()
+        chunks.append((chunk_start / sample_rate, chunk_end / sample_rate, chunk_file.name))
+        chunk_start = chunk_end
+
+    return chunks
+
+
+def _cleanup_chunk_files(chunks: list[tuple[float, float, str]]):
+    for _, _, chunk_path in chunks:
+        try:
+            os.unlink(chunk_path)
+        except OSError:
+            pass
+
+
+def _transcription_prompt(translate_to_english: bool) -> str:
+    if translate_to_english:
+        return "Transcribe the audio in English. Return only the transcript text."
+    return "Transcribe the audio verbatim. Return only the transcript text."
+
+
+def _run_media_prompt_with_multimodal_model(
+    media_type: str,
+    media_bytes: bytes,
+    source_name: Optional[str],
+    prompt: str,
+    max_tokens: int = 512,
+) -> str:
+    suffix_defaults = {
+        "audio": ".wav",
+        "image": ".png",
+        "video": ".mp4",
+    }
+    suffix = _guess_media_suffix(source_name, suffix_defaults.get(media_type, ".bin"))
+    selected_model_id = _select_multimodal_model_id(
+        [{"role": "user", "content": [{"type": media_type, "url": source_name or suffix}, {"type": "text", "text": prompt}]}]
+    )
+    tmp_file = NamedTemporaryFile(dir="/dev/shm", delete=False, suffix=suffix)
+    try:
+        tmp_file.write(media_bytes)
+        tmp_file.flush()
+        tmp_file.close()
+        result = _multimodal_chat_inference(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": media_type, "url": tmp_file.name},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+            model_cache=_get_model_cache(),
+            model_id=selected_model_id,
+            enable_thinking=False,
+            max_tokens=max_tokens,
+            temperature=0.0,
+            top_p=0.95,
+            top_k=64,
+        )
+        return (result.get("generated_text") or "").strip()
+    finally:
+        try:
+            os.unlink(tmp_file.name)
+        except OSError:
+            pass
+
+
+def _transcribe_audio_with_multimodal_model(
+    audio_bytes: bytes,
+    source_name: Optional[str],
+    translate_to_english: bool,
+    include_segments: bool,
+) -> dict:
+    chunks = _split_audio_for_transcription(audio_bytes, source_name)
+    if not chunks:
+        return {"text": "", "segments": []}
+
+    chunk_results = []
+    prompt = _transcription_prompt(translate_to_english)
+    try:
+        for start_seconds, end_seconds, chunk_path in chunks:
+            result = _multimodal_chat_inference(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "audio", "url": chunk_path},
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
+                model_cache=_get_model_cache(),
+                model_id=GEMMA_AUDIO_MODEL_ID,
+                enable_thinking=False,
+                max_tokens=512,
+                temperature=0.0,
+                top_p=0.95,
+                top_k=64,
+            )
+            chunk_text = (result.get("generated_text") or "").strip()
+            if not chunk_text:
+                continue
+            chunk_results.append(
+                {
+                    "seek": 0,
+                    "start": round(start_seconds, 3),
+                    "end": round(end_seconds, 3),
+                    "text": chunk_text,
+                    "temperature": 0.0,
+                    "avg_logprob": 0.0,
+                    "compression_ratio": 0.0,
+                    "no_speech_prob": 0.0,
+                }
+            )
+    finally:
+        _cleanup_chunk_files(chunks)
+
+    transcript_parts = [segment["text"] for segment in chunk_results]
+    transcript = "\n".join(part for part in transcript_parts if part).strip()
+    return {
+        "text": transcript,
+        "segments": chunk_results if include_segments else [],
+    }
+
+
+class GemmaAudioTranscriber:
+    def transcribe(self, audio_inputs, timestamps: bool = True):
+        outputs = []
+        for audio_input in audio_inputs:
+            if isinstance(audio_input, str):
+                with open(audio_input, "rb") as file_handle:
+                    audio_bytes = file_handle.read()
+                source_name = audio_input
+            else:
+                audio_bytes = audio_input
+                source_name = None
+
+            result = _transcribe_audio_with_multimodal_model(
+                audio_bytes=audio_bytes,
+                source_name=source_name,
+                translate_to_english=False,
+                include_segments=timestamps,
+            )
+            outputs.append(result)
+        return outputs
+
+
 def load_audio_model():
-    """Load and return the Parakeet ASR model for speech to text."""
+    """Load and return the multimodal transcription adapter."""
     global audio_model
-    try:
-        nemo_runtime = _get_nemo_asr()
-    except ImportError as nemo_err:
-        raise ImportError("NeMo ASR is not available. Please install nemo-toolkit to use audio transcription.") from nemo_err
-
-    try:
-        torch = _get_torch()
-        with log_time("load parakeet model"):
-            if not audio_model:
-                logger.info("Loading Parakeet model from HuggingFace...")
-                # Try without download_root parameter first
-                audio_model = nemo_runtime.models.ASRModel.from_pretrained(model_name="nvidia/parakeet-tdt-0.6b-v2")
-                audio_model.freeze()
-                logger.info("Parakeet model loaded and frozen")
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            audio_model = audio_model.to(device)
-            logger.info(f"Model loaded on {device}")
-            return audio_model
-    except Exception as e:
-        logger.error(f"Error loading audio model: {e}")
-        logger.error(f"Error type: {type(e)}")
-        import traceback
-
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise
+    if audio_model is None:
+        with log_time("load gemma transcription adapter"):
+            load_multimodal_model(GEMMA_AUDIO_MODEL_ID)
+            audio_model = GemmaAudioTranscriber()
+    return audio_model
 
 
 def _extract_asr_segments(asr_output) -> list:
@@ -598,69 +1261,24 @@ def _extract_asr_text_and_segments(asr_result, include_segments: bool) -> tuple[
 def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
     model_cache = _get_model_cache()
     audio_model = model_cache.add_or_get("audio_model", load_audio_model)
-
-    # Prioritize audio_file if present, otherwise use audio_url
-    if hasattr(audio_params, 'audio_file') and audio_params.audio_file is not None:
-        audio_file = audio_params.audio_file
-        audio_bytes = audio_file.file.read()
-    elif audio_params.audio_url and "youtube.com" in audio_params.audio_url:
-        # todo hopefully people never use this slow/secret route
-        # todo soundcloud /spotify etc>?
-        # todo download youtube video
-
-        ydl_opts = {
-            "format": "bestaudio/best",
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "wav",
-                    "preferredquality": "192",
-                }
-            ],
-            "postprocessor_args": ["-ar", "16000"],
-            "prefer_ffmpeg": True,
-            "keepvideo": False,
-            # download to temp file
-            "outtmpl": "/tmp/audio.wav",
-            # download to memory
-        }
-        with log_time("download youtube"):
-            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-                ydl.download(
-                    [audio_params.audio_url],
-                )
-                audio_bytes = ydl.prepare_filename(ydl.extract_info(audio_params.audio_url))
-                with open(audio_bytes, "rb") as f:
-                    audio_bytes = f.read()
-    elif audio_params.audio_url:
-        with log_time("download audio"):
-            audio_request = request_get(audio_params.audio_url)
-            response = audio_request.result()
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to download audio file at {audio_params.audio_url}",
-                )
-            response.raw.decode_content = True
-            audio_bytes = response.content
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Either audio_file or audio_url must be provided",
-        )
+    audio_bytes, source_name = _load_audio_bytes(audio_params)
 
     include_segments = bool(audio_params.include_segments)
     if (audio_params.output_filetype or "").lower() == "srt":
         include_segments = True
 
-    torch = _get_torch()
-    with torch.inference_mode():
-        tmp_file = NamedTemporaryFile(dir="/dev/shm", delete=True, suffix=".wav")
-        tmp_file.write(audio_bytes)
-        nemo_result = audio_model.transcribe([tmp_file.name], timestamps=include_segments)
-        tmp_file.close()
-        text, segments = _extract_asr_text_and_segments(nemo_result, include_segments)
-        return {"text": text, "segments": segments}
+    result = _transcribe_audio_with_multimodal_model(
+        audio_bytes=audio_bytes,
+        source_name=source_name,
+        translate_to_english=audio_params.translate_to_english,
+        include_segments=include_segments,
+    )
+
+    # Keep the adapter hot in the model cache for benchmark code that still imports load_audio_model().
+    model_cache.add_or_get("audio_model", load_audio_model)
+    if hasattr(audio_model, "transcribe"):
+        return result
+    return result
 
 
 @app.post("/api/v1/audio-file-extraction")
@@ -711,11 +1329,13 @@ async def audio_extraction(
 
 
 async def audio_extract_shared(background_tasks, feature_extract_params, request, response, secret):
-    # if not request_authorized(request, secret):
-    #     return HTTPException(
-    #         status_code=401,
-    #         detail="Please subscribe at https://text-generator.io/subscribe first, also make sure there is an up to date credit card saved in your account"
-    #     )
+    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            if not _user_has_subscription_or_credits(secret, minimum_credits=1):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Please subscribe or buy API credits at https://text-generator.io/account before transcribing audio",
+                )
     try:
         logger.info("Starting audio extraction")
         inference_result = fast_audio_extract_inference(feature_extract_params)
@@ -740,6 +1360,8 @@ async def audio_extract_shared(background_tasks, feature_extract_params, request
         remainder = price % 0.01
         if random.random() < remainder * 100:
             quantity += 1
+        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            _consume_user_credits(secret, max(1, int(quantity or 1)))
     if feature_extract_params.output_filetype == "srt":
         # response = StreamingResponse(
         # non streaming response
@@ -759,7 +1381,7 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
-    inference_result = _fast_feature_extract_inference(feature_extract_params, _get_model_cache())
+    inference_result = await _run_gpu_bound(_fast_feature_extract_inference, feature_extract_params, _get_model_cache())
     return inference_result[: feature_extract_params.num_features]
 
 
@@ -774,7 +1396,8 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
-    text = _get_extractive_summary(
+    text = await _run_gpu_bound(
+        _get_extractive_summary,
         summarization_params.text, _get_model_cache(), max_length=summarization_params.max_length or 0
     )
     if "X-Rapid-API-Key" not in request.headers:
@@ -786,17 +1409,35 @@ async def feature_extraction(
 
 
 @app.get("/liveness_check")
-async def liveness_check(request: Request):
+async def liveness_check(request: Request, deep: int = 0):
     try:
-        result = _direct_inference(
-            generate_params=GenerateParams(text="liveness", max_length=1),
-            model_cache=_get_model_cache(),
-        )
-        generated_text = result[0]["generated_text"] if result else ""
-        return JSONResponse({"status": "ok", "inference": "ok", "generated_text": generated_text})
+        model_cache = _get_model_cache()
+        cached = model_cache.list_models()
+        if deep:
+            # Run a real inference to confirm the pipeline actually works.
+            result = await _run_gpu_bound(
+                _fast_inference,
+                GenerateParams(text="hello", max_length=3, min_probability=0, number_of_results=1),
+                model_cache,
+            )
+            if not result or not isinstance(result, list) or not result[0].get("generated_text"):
+                raise RuntimeError(f"Inference returned unexpected result: {result}")
+            return JSONResponse({
+                "status": "ok",
+                "inference": "ok",
+                "cached_models": cached,
+                "deep_check": "ok",
+            })
+        # Lightweight health check — never loads or touches models so that
+        # periodic health probes don't defeat the idle unload timer.
+        return JSONResponse({
+            "status": "ok",
+            "inference": "ok",
+            "cached_models": cached,
+        })
     except Exception as e:
-        logger.error(f"Liveness check inference failed: {e}")
-        return JSONResponse({"status": "error", "inference": "failed", "detail": str(e)}, status_code=503)
+        logger.error(f"Liveness check failed: {e}")
+        return JSONResponse({"status": "error", "detail": str(e)}, status_code=503)
 
 
 def user_secret_matches(secret):
@@ -832,6 +1473,12 @@ def request_authorized(request: Request, secret):
     if "X-Rapid-API-Key" in request.headers or "x-rapid-api-key" in request.headers:
         return True
     return user_secret_matches(secret)
+
+
+def image_caption_secret_authorized(request: Request, secret):
+    if secret and secret == NETWRCK_IMAGE_CAPTION_SECRET:
+        return True
+    return request_authorized(request, secret)
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -871,6 +1518,46 @@ speech_processor = None
 speechgen_model = None
 speech_vocoder = None
 speech_voicepacks = None  # Global voicepacks cache
+supertonic_tts = None
+supertonic_voice_styles = {}
+
+SUPERTONIC_LANGUAGE_CATALOG = {
+    "en": "English",
+    "ko": "Korean",
+    "ja": "Japanese",
+    "ar": "Arabic",
+    "bg": "Bulgarian",
+    "cs": "Czech",
+    "da": "Danish",
+    "de": "German",
+    "el": "Greek",
+    "es": "Spanish",
+    "et": "Estonian",
+    "fi": "Finnish",
+    "fr": "French",
+    "hi": "Hindi",
+    "hr": "Croatian",
+    "hu": "Hungarian",
+    "id": "Indonesian",
+    "it": "Italian",
+    "lt": "Lithuanian",
+    "lv": "Latvian",
+    "nl": "Dutch",
+    "pl": "Polish",
+    "pt": "Portuguese",
+    "ro": "Romanian",
+    "ru": "Russian",
+    "sk": "Slovak",
+    "sl": "Slovenian",
+    "sv": "Swedish",
+    "tr": "Turkish",
+    "uk": "Ukrainian",
+    "vi": "Vietnamese",
+}
+SUPERTONIC_VOICES = tuple(f"{prefix}{index}" for prefix in ("M", "F") for index in range(1, 6))
+SUPERTONIC_DEFAULT_STEPS = 4
+SUPERTONIC_SYNTH_SPEED = 1.0
+SUPERTONIC_DEFAULT_SILENCE_SECONDS = 0.3
 
 
 def load_speechgen_model():
@@ -917,6 +1604,219 @@ def load_speechgen_model():
     return speechgen_model, speech_voicepacks
 
 
+def normalize_supertonic_voice(voice: str) -> str:
+    voice = (voice or "").strip()
+    if voice.lower().startswith("supertonic:"):
+        voice = voice.split(":", 1)[1].strip()
+    voice = voice.upper()
+    if voice in SUPERTONIC_VOICES:
+        return voice
+    return ""
+
+
+def is_supertonic_voice_request(voice: str) -> bool:
+    voice = (voice or "").strip()
+    return voice.lower().startswith("supertonic:") or bool(normalize_supertonic_voice(voice))
+
+
+def normalize_supertonic_language(language: str) -> str:
+    language = (language or "en").strip().lower().replace("_", "-")
+    if language == "na":
+        return "na"
+
+    language = language.split("-", 1)[0]
+    if language in SUPERTONIC_LANGUAGE_CATALOG:
+        return language
+
+    supported = ", ".join(SUPERTONIC_LANGUAGE_CATALOG)
+    raise ValueError(f"Unsupported Supertonic language '{language}'. Supported languages: {supported}")
+
+
+def _env_provider_list(name: str) -> Optional[list[str]]:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return None
+    return [provider.strip() for provider in value.split(",") if provider.strip()]
+
+
+def _supertonic_onnx_providers() -> list[str]:
+    import onnxruntime as ort
+
+    available = set(ort.get_available_providers())
+    requested = _env_provider_list("SUPERTONIC_ONNX_PROVIDERS")
+    if requested is None:
+        requested = []
+        if _env_flag("SUPERTONIC_ENABLE_TENSORRT", False):
+            requested.append("TensorrtExecutionProvider")
+        if _env_flag("SUPERTONIC_ENABLE_CUDA", False):
+            requested.append("CUDAExecutionProvider")
+        requested.append("CPUExecutionProvider")
+
+    providers = [provider for provider in requested if provider in available]
+    if not providers:
+        providers = ["CPUExecutionProvider"]
+    return providers
+
+
+def _supertonic_thread_counts(providers: list[str]) -> tuple[Optional[int], Optional[int]]:
+    def _optional_env_int(name: str) -> Optional[int]:
+        value = os.environ.get(name)
+        if value is None or value == "":
+            return None
+        try:
+            return max(1, int(value))
+        except ValueError:
+            logger.warning("Ignoring invalid %s=%r", name, value)
+            return None
+
+    intra_threads = _optional_env_int("SUPERTONIC_INTRA_OP_THREADS")
+    inter_threads = _optional_env_int("SUPERTONIC_INTER_OP_THREADS")
+    if "CUDAExecutionProvider" in providers or "TensorrtExecutionProvider" in providers:
+        return intra_threads or 1, inter_threads or 1
+
+    cpu_count = os.cpu_count() or 1
+    return intra_threads or min(cpu_count, 16), inter_threads or 1
+
+
+def _configure_supertonic_onnx_runtime() -> tuple[list[str], Optional[int], Optional[int]]:
+    providers = _supertonic_onnx_providers()
+
+    # Supertonic 1.3.1 has a hard-coded provider list in its loader module.
+    # Patch it before TTS construction so the loaded sessions use GPU EPs when
+    # the installed onnxruntime exposes them.
+    import supertonic.config as supertonic_config
+    import supertonic.loader as supertonic_loader
+
+    supertonic_config.DEFAULT_ONNX_PROVIDERS = providers
+    supertonic_loader.DEFAULT_ONNX_PROVIDERS = providers
+
+    intra_threads, inter_threads = _supertonic_thread_counts(providers)
+    logger.info(
+        "Supertonic ONNX providers=%s intra_threads=%s inter_threads=%s",
+        providers,
+        intra_threads if intra_threads is not None else "auto",
+        inter_threads if inter_threads is not None else "auto",
+    )
+    return providers, intra_threads, inter_threads
+
+
+def load_supertonic_tts():
+    global supertonic_tts
+    if not supertonic_tts:
+        from supertonic import TTS
+
+        _providers, intra_threads, inter_threads = _configure_supertonic_onnx_runtime()
+        supertonic_tts = TTS(
+            auto_download=True,
+            intra_op_num_threads=intra_threads,
+            inter_op_num_threads=inter_threads,
+        )
+        logger.info(
+            "Loaded Supertonic TTS with %s voices and %s languages",
+            len(SUPERTONIC_VOICES),
+            len(SUPERTONIC_LANGUAGE_CATALOG),
+        )
+        _warmup_supertonic_tts(supertonic_tts)
+    return supertonic_tts
+
+
+def get_supertonic_voice_style(tts, voice: str):
+    if voice not in supertonic_voice_styles:
+        supertonic_voice_styles[voice] = tts.get_voice_style(voice_name=voice)
+    return supertonic_voice_styles[voice]
+
+
+def _supertonic_fast_synthesize(tts, text: str, style, steps: int, lang: str):
+    from supertonic.config import DEFAULT_MAX_CHUNK_LENGTH, DEFAULT_MAX_CHUNK_LENGTH_KO
+    from supertonic.utils import chunk_text
+
+    max_chunk_length = DEFAULT_MAX_CHUNK_LENGTH_KO if lang == "ko" else DEFAULT_MAX_CHUNK_LENGTH
+    chunks = chunk_text(text, max_chunk_length)
+    wavs = []
+    durations = []
+    for chunk in chunks:
+        wav, duration = tts.model([chunk], style, steps, SUPERTONIC_SYNTH_SPEED, lang)
+        wavs.append(wav)
+        durations.append(duration)
+
+    silence = np.zeros(
+        (1, int(SUPERTONIC_DEFAULT_SILENCE_SECONDS * tts.sample_rate)),
+        dtype=np.float32,
+    )
+    parts = []
+    for index, wav in enumerate(wavs):
+        parts.append(wav)
+        if index < len(wavs) - 1:
+            parts.append(silence)
+
+    audio = np.concatenate(parts, axis=1)
+    duration = sum(durations) + SUPERTONIC_DEFAULT_SILENCE_SECONDS * max(0, len(wavs) - 1)
+    return audio, duration
+
+
+def _warmup_supertonic_tts(tts) -> None:
+    if not _env_flag("SUPERTONIC_WARMUP", True):
+        return
+    try:
+        state = np.random.get_state()
+        try:
+            style = get_supertonic_voice_style(tts, "M1")
+            _supertonic_fast_synthesize(tts, "Warmup.", style, SUPERTONIC_DEFAULT_STEPS, "en")
+        finally:
+            np.random.set_state(state)
+        logger.info("Completed Supertonic warmup")
+    except Exception as exc:
+        logger.warning("Supertonic warmup skipped: %s", exc)
+
+
+def supertonic_audio_process(text, voice="M1", speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
+    if len(text.strip()) == 0:
+        return (24000, np.zeros(0).astype(np.int16))
+
+    voice = normalize_supertonic_voice(voice)
+    if not voice:
+        supported = ", ".join(SUPERTONIC_VOICES)
+        raise ValueError(f"Unsupported Supertonic voice. Supported voices: {supported}")
+
+    lang = normalize_supertonic_language(language)
+    tts = _get_model_cache().add_or_get("supertonic_tts", load_supertonic_tts)
+    style = get_supertonic_voice_style(tts, voice)
+    steps = steps or SUPERTONIC_DEFAULT_STEPS
+    if _env_flag("SUPERTONIC_FAST_PATH", True):
+        try:
+            audio, _duration = _supertonic_fast_synthesize(tts, text, style, steps, lang)
+        except Exception as exc:
+            logger.warning("Supertonic fast path failed, falling back to package pipeline: %s", exc)
+            audio, _duration = tts.synthesize(
+                text,
+                voice_style=style,
+                total_steps=steps,
+                speed=SUPERTONIC_SYNTH_SPEED,
+                lang=lang,
+            )
+    else:
+        audio, _duration = tts.synthesize(
+            text,
+            voice_style=style,
+            total_steps=steps,
+            speed=SUPERTONIC_SYNTH_SPEED,
+            lang=lang,
+        )
+    audio = np.asarray(audio)
+    if audio.ndim == 2:
+        if audio.shape[0] == 1:
+            audio = audio[0]
+        elif audio.shape[1] == 1:
+            audio = audio[:, 0]
+        else:
+            audio = np.mean(audio, axis=0)
+    audio = audio.astype(np.float32, copy=False)
+
+    audio = apply_manual_speed(audio, speed)
+    audio = _optimize_generated_audio(audio, sample_rate=tts.sample_rate)
+    return (tts.sample_rate, audio)
+
+
 speaker_embeddings = {
     "BDL": "questions/speech/spkemb/cmu_us_bdl_arctic-wav-arctic_a0009.npy",
     "CLB": "questions/speech/spkemb/cmu_us_clb_arctic-wav-arctic_a0144.npy",
@@ -933,6 +1833,36 @@ def write_wav(processed_np_speech, rate):
     sf.write(bytes, processed_np_speech, rate, subtype="PCM_24")
     # bytesio to bytes
     return bytes.getvalue()
+
+
+@app.get("/api/v1/speech/catalog")
+async def speech_catalog():
+    return {
+        "providers": {
+            "kokoro": {
+                "voices": [
+                    "af",
+                    "af_bella",
+                    "af_sarah",
+                    "am_adam",
+                    "am_michael",
+                    "bf_emma",
+                    "bf_isabella",
+                    "bm_george",
+                    "bm_lewis",
+                    "af_nicole",
+                    "af_sky",
+                ],
+                "languages": {"en-us": "American English", "en-gb": "British English"},
+            },
+            "supertonic": {
+                "voices": list(SUPERTONIC_VOICES),
+                "languages": SUPERTONIC_LANGUAGE_CATALOG,
+                "default_steps": SUPERTONIC_DEFAULT_STEPS,
+                "default_synthesis_speed": SUPERTONIC_SYNTH_SPEED,
+            },
+        }
+    }
 
 
 @app.post("/api/v1/generate_speech")
@@ -952,25 +1882,41 @@ async def generate_speech(
 
     voice = generate_speech_params.voice
     speed = generate_speech_params.speed
-    rate, processed_np_speech = audio_process(text, voice, speed)
-    # write audio to response file
-    response.headers["Content-Disposition"] = "attachment; filename=audio.wav"
+    try:
+        rate, processed_np_speech = audio_process(
+            text,
+            voice,
+            speed,
+            language=generate_speech_params.language,
+            steps=generate_speech_params.steps,
+        )
+        wav = write_wav(processed_np_speech, rate)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Speech synthesis failed for voice=%s language=%s", voice, generate_speech_params.language)
+        return JSONResponse(
+            {"detail": "Speech synthesis failed. Please try again."},
+            status_code=500,
+        )
+
+    headers = {"Content-Disposition": "attachment; filename=audio.wav"}
     # (16000, speech)
     if "X-Rapid-API-Key" not in request.headers:
         # todo fix
         if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
             background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
-    # write np array to wav
-    wav = write_wav(processed_np_speech, rate)
-    file = Response(wav, media_type="audio/wav")
-    return file
+    return Response(wav, media_type="audio/wav", headers=headers, background=background_tasks)
     # return Response(wav, media_type="audio/wav")
 
 
-def gradio_audio_process(text, voice, speed=1.0):
+def gradio_audio_process(text, voice, speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
     """Simplified function that only takes the required parameters"""
     if len(text.strip()) == 0:
         return (24000, np.zeros(0).astype(np.int16))
+
+    if is_supertonic_voice_request(voice):
+        return supertonic_audio_process(text, voice=voice, speed=speed, language=language, steps=steps)
 
     model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
 
@@ -1011,11 +1957,14 @@ def get_speaker_embeddings_loaded():
     return speaker_embeddings_loaded
 
 
-def audio_process(text, voice="af_nicole", speed=1.0):
-    model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
-
+def audio_process(text, voice="af_nicole", speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
     if len(text.strip()) == 0:
         return (24000, np.zeros(0).astype(np.int16))
+
+    if is_supertonic_voice_request(voice):
+        return supertonic_audio_process(text, voice=voice, speed=speed, language=language, steps=steps)
+
+    model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
 
     # Get the voicepack
     voicepack = voicepacks.get(voice, voicepacks["af_nicole"])
@@ -1047,11 +1996,17 @@ class ImageCaptionParams(BaseModel):
     custom_prompt: Optional[str] = None  # For future use if needed
 
 
+class VideoQuestionParams(BaseModel):
+    video_url: Optional[str] = None
+    question: str = "Describe this video."
+
+
 @app.post("/api/v1/image-caption")
 async def image_caption(
     image_file: Optional[UploadFile] = File(None, description="Image file (JPEG, PNG, etc.)"),
     image_url: Optional[str] = Form(None, description="URL of image to caption"),
     fast_mode: bool = Form(True, description="Use fast captioning mode for speed"),
+    custom_prompt: Optional[str] = Form(None, description="Optional custom captioning prompt"),
     background_tasks: BackgroundTasks = None,
     request: Request = None,
     secret: Union[str, None] = Header(default=None),
@@ -1076,7 +2031,7 @@ async def image_caption(
     # Check authorization
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-            if not request_authorized(request, secret):
+            if not image_caption_secret_authorized(request, secret):
                 raise HTTPException(
                     status_code=401,
                     detail="Invalid secret. Please subscribe at https://text-generator.io/subscribe and use your API secret",
@@ -1135,25 +2090,30 @@ async def image_caption(
             f"Processing image captioning request: {filename}, size: {len(image_bytes)} bytes, fast_mode: {fast_mode}"
         )
 
-        # Generate caption using GitBase
+        prompt = custom_prompt or "Describe this image in a concise, useful caption."
         with log_time("image captioning"):
-            caption = _caption_image_bytes(image_bytes=image_bytes, fast_mode=fast_mode)
+            caption = _run_media_prompt_with_multimodal_model(
+                media_type="image",
+                media_bytes=image_bytes,
+                source_name=filename,
+                prompt=prompt,
+                max_tokens=256,
+            )
 
         logger.info(f"Generated caption: {caption}")
 
         # Track usage for billing
         if request and background_tasks:
             if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-                if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                    # Image captioning costs 1 unit
-                    background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
+                if not API_KEY and secret not in {sellerinfo.TEXT_GENERATOR_SECRET, NETWRCK_IMAGE_CAPTION_SECRET}:
+                    _consume_user_credits(secret, 1)
 
         return JSONResponse(
             {
                 "caption": caption,
                 "filename": filename,
                 "fast_mode": fast_mode,
-                "model": "microsoft/git-base",
+                "model": GEMMA_TEXT_IMAGE_MODEL_ID,
                 "source": "file" if image_file else "url",
             }
         )
@@ -1166,6 +2126,129 @@ async def image_caption(
 
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Image captioning failed: {str(e)}")
+
+
+@app.post("/api/v1/video-question")
+async def video_question(
+    video_file: Optional[UploadFile] = File(None, description="Video file"),
+    video_url: Optional[str] = Form(None, description="URL of video to analyze"),
+    question: str = Form("Describe this video.", description="Question to ask about the video"),
+    background_tasks: BackgroundTasks = None,
+    request: Request = None,
+    secret: Union[str, None] = Header(default=None),
+):
+    if not video_file and not video_url:
+        raise HTTPException(status_code=400, detail="Either video_file or video_url must be provided")
+    if video_file and video_url:
+        raise HTTPException(status_code=400, detail="Provide either video_file or video_url, not both")
+
+    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            if not _user_has_subscription_or_credits(secret, minimum_credits=1):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid secret. Please subscribe or buy API credits at https://text-generator.io/account",
+                )
+
+    try:
+        video_bytes = None
+        filename = None
+
+        if video_file:
+            video_bytes = await video_file.read()
+            filename = video_file.filename
+        else:
+            import httpx
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(video_url, timeout=20.0)
+                if response.status_code != 200:
+                    raise HTTPException(status_code=400, detail=f"Failed to download video from URL: HTTP {response.status_code}")
+                video_bytes = response.content
+                filename = video_url.split("/")[-1] or "video_from_url"
+
+        answer = _run_media_prompt_with_multimodal_model(
+            media_type="video",
+            media_bytes=video_bytes,
+            source_name=filename,
+            prompt=question,
+            max_tokens=512,
+        )
+
+        if request and background_tasks:
+            if "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+                if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+                    _consume_user_credits(secret, 1)
+
+        return JSONResponse(
+            {
+                "answer": answer,
+                "question": question,
+                "filename": filename,
+                "model": GEMMA_VIDEO_MODEL_ID,
+                "source": "file" if video_file else "url",
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in video question endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Video understanding failed: {str(e)}")
+
+
+
+import base64 as _base64_mod
+
+@app.post('/api/v1/multimodal-generate')
+async def multimodal_generate(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    response: Response,
+    audio_file: UploadFile = File(..., description='Audio input file'),
+    text: str = Form(''),
+    voice: str = Form('af_heart'),
+    language: str = Form('en'),
+    speed: float = Form(1.0),
+    steps: int = Form(SUPERTONIC_DEFAULT_STEPS),
+    max_length: int = Form(500),
+    secret: Union[str, None] = Header(default=None),
+):
+    """Audio+text in -> Gemma 4 generates text -> Kokoro TTS generates audio -> returns both."""
+    if request and 'X-Rapid-API-Key' not in request.headers and 'x-rapid-api-key' not in request.headers:
+        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            if not _user_has_subscription_or_credits(secret, minimum_credits=1):
+                raise HTTPException(
+                    status_code=401,
+                    detail='Please subscribe or buy API credits at https://text-generator.io/account',
+                )
+
+    audio_bytes = await audio_file.read()
+    filename = audio_file.filename or 'audio_input'
+
+    generated_text = _run_media_prompt_with_multimodal_model(
+        media_type='audio',
+        media_bytes=audio_bytes,
+        source_name=filename,
+        prompt=text or 'Respond to this audio.',
+        max_tokens=max_length,
+    )
+
+    rate, speech_np = audio_process(generated_text, voice=voice, speed=speed, language=language, steps=steps)
+    wav_bytes = write_wav(speech_np, rate)
+
+    audio_b64 = _base64_mod.b64encode(wav_bytes).decode()
+
+    if request and background_tasks:
+        if 'X-Rapid-API-Key' not in request.headers and 'x-rapid-api-key' not in request.headers:
+            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+                _consume_user_credits(secret, 2)
+
+    return JSONResponse({
+        'generated_text': generated_text,
+        'audio_base64': audio_b64,
+        'audio_sample_rate': rate,
+        'audio_format': 'wav',
+    })
 
 
 # gradio web app at https://text-generator.io/gradio_tts
@@ -1375,8 +2458,93 @@ async def generate_route(
     #             status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
     #         )
     # todo validate api key and user
-    inference_result = _fast_inference(generate_params, _get_model_cache())
+    inference_result = await _run_gpu_bound(_fast_inference, generate_params, _get_model_cache())
     return inference_result
+
+
+class AutocompleteParams(GenerateParams):
+    # Autocomplete tends to want shorter, higher-confidence completions.
+    min_probability: Optional[float] = 0.4
+    max_length: Optional[int] = 32
+
+
+AUTOCOMPLETE_TIMEOUT_SECONDS = 10.0
+AUTOCOMPLETE_QUEUE_TIMEOUT_SECONDS = 30.0
+_autocomplete_sem: "Optional[object]" = None
+
+
+def _get_autocomplete_sem():
+    # Lazily create the semaphore on the running event loop so it isn't bound
+    # to an unrelated loop at import time.
+    import asyncio
+
+    global _autocomplete_sem
+    if _autocomplete_sem is None:
+        _autocomplete_sem = asyncio.Semaphore(1)
+    return _autocomplete_sem
+
+
+async def _run_autocomplete_inference(generate_params: AutocompleteParams, model_cache):
+    import asyncio
+
+    sem = _get_inference_sem()
+    try:
+        await asyncio.wait_for(sem.acquire(), timeout=AUTOCOMPLETE_QUEUE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503, detail="Server busy, autocomplete dropped")
+
+    inference_task = None
+    timed_out = False
+    try:
+        inference_task = asyncio.create_task(
+            asyncio.to_thread(_fast_inference, generate_params, model_cache)
+        )
+        return await asyncio.wait_for(
+            asyncio.shield(inference_task),
+            timeout=AUTOCOMPLETE_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        timed_out = True
+        raise HTTPException(status_code=503, detail="Autocomplete exceeded 10s budget")
+    finally:
+        if timed_out and inference_task is not None:
+            def _release_after_timeout(task):
+                try:
+                    task.result()
+                except Exception as exc:
+                    logger.debug("Timed-out autocomplete finished with error: %s", exc)
+                sem.release()
+
+            inference_task.add_done_callback(_release_after_timeout)
+        else:
+            sem.release()
+
+
+@app.post("/api/v1/autocomplete")
+async def autocomplete_route(
+    generate_params: AutocompleteParams,
+    request: Request = None,
+    secret: Union[str, None] = Header(default=None),
+):
+    import asyncio
+
+    validation_result = validate_generate_params(generate_params)
+    if validation_result:
+        raise HTTPException(status_code=400, detail=validation_result)
+
+    sem = _get_autocomplete_sem()
+    # Load-shed autocomplete callers separately from the shared GPU queue. The
+    # short generation timeout should start after any cold-start warmup already
+    # in progress, not while waiting behind a deep liveness probe.
+    try:
+        await asyncio.wait_for(sem.acquire(), timeout=AUTOCOMPLETE_QUEUE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=503, detail="Server busy, autocomplete dropped")
+
+    try:
+        return await _run_autocomplete_inference(generate_params, _get_model_cache())
+    finally:
+        sem.release()
 
 
 @app.post("/api/discord")
@@ -1498,7 +2666,7 @@ async def openai_route_named(
             status_code=401,
             detail="Please subscribe at https://text-generator.io/subscribe first, also ensure you have a credit card on file",
         )
-    inference_result = _fast_inference(generate_params, _get_model_cache())
+    inference_result = await _run_gpu_bound(_fast_inference, generate_params, _get_model_cache())
     if not openai_params.echo:
         ## remove all the inputs from the generated texts
         for i in range(len(inference_result)):
@@ -1551,7 +2719,24 @@ async def chat_completions_route(
         else:
             messages.insert(0, {"role": "system", "content": top_level_system_message})
 
+    has_media_content = any(_message_has_media_content(message) for message in messages)
+
+    if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+        if has_media_content:
+            if not _user_has_subscription_or_credits(secret, minimum_credits=1):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Please subscribe or buy API credits at https://text-generator.io/account before sending media",
+                )
+        elif not request_authorized(request, secret):
+            raise HTTPException(
+                status_code=401,
+                detail="Please subscribe at https://text-generator.io/subscribe first, also ensure you have a credit card on file",
+            )
+
     if chat_params.stream:
+        if has_media_content:
+            raise HTTPException(status_code=400, detail="Streaming is not supported yet for multimodal chat requests")
         # Streaming SSE response
         async def event_generator():
             chat_id = "chatcmpl-" + str(random.randint(100000, 999999))
@@ -1601,22 +2786,38 @@ async def chat_completions_route(
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     # Non-streaming
-    result = _chat_inference(
-        messages=messages,
-        model_cache=_get_model_cache(),
-        enable_thinking=chat_params.enable_thinking,
-        max_tokens=chat_params.max_tokens,
-        temperature=chat_params.temperature,
-        top_p=chat_params.top_p,
-        top_k=chat_params.top_k,
-        presence_penalty=chat_params.presence_penalty,
-        repetition_penalty=chat_params.repetition_penalty,
-    )
+    if has_media_content:
+        result = await _run_gpu_bound(
+            _multimodal_chat_inference,
+            messages=messages,
+            model_cache=_get_model_cache(),
+            enable_thinking=bool(chat_params.enable_thinking),
+            max_tokens=chat_params.max_tokens,
+            temperature=chat_params.temperature,
+            top_p=chat_params.top_p,
+            top_k=chat_params.top_k,
+        )
+        if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
+            if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+                _consume_user_credits(secret, 1)
+    else:
+        result = await _run_gpu_bound(
+            _chat_inference,
+            messages=messages,
+            model_cache=_get_model_cache(),
+            enable_thinking=chat_params.enable_thinking,
+            max_tokens=chat_params.max_tokens,
+            temperature=chat_params.temperature,
+            top_p=chat_params.top_p,
+            top_k=chat_params.top_k,
+            presence_penalty=chat_params.presence_penalty,
+            repetition_penalty=chat_params.repetition_penalty,
+        )
 
     return map_to_chat_completion_response(
         generated_text=result["generated_text"],
         thinking_content=result.get("thinking_content"),
-        model=chat_params.model,
+        model=result.get("model") or chat_params.model,
     )
 
 

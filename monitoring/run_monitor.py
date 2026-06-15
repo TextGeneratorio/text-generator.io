@@ -2,7 +2,7 @@
 """
 Monitor Runner
 
-Runs E2E tests on a schedule and triggers Claude agent for fixes.
+Runs E2E tests on a schedule and triggers Codex agent for fixes.
 
 Usage:
     # Run once
@@ -18,6 +18,7 @@ Usage:
 import argparse
 import json
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -27,6 +28,16 @@ from pathlib import Path
 # Configure logging
 LOG_DIR = Path("/nvme0n1-disk/code/text-generator.io/monitoring/logs")
 LOG_DIR.mkdir(exist_ok=True)
+CODEX_LOCAL = os.environ.get("CODEX_LOCAL", "/home/administrator/code/codex/codex-rs/target/release/codex")
+CODEX_CMD = [
+    CODEX_LOCAL,
+    "exec",
+    "--yolo3",
+    "-m",
+    "gpt-5.5",
+    "--config",
+    "model_reasoning_effort=medium",
+]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -88,8 +99,8 @@ def run_e2e_test(auto_fix: bool = False) -> dict:
 
 
 def trigger_claude_fix(summary: dict):
-    """Trigger Claude agent to fix issues."""
-    logger.info("Triggering Claude agent to investigate and fix...")
+    """Trigger Codex agent to fix issues."""
+    logger.info("Triggering Codex agent to investigate and fix...")
 
     # Build error context
     if "results" in summary:
@@ -114,21 +125,21 @@ After fixing, the next monitor run will verify the fix.
 
     try:
         result = subprocess.run(
-            ["claude", "-p", prompt],
+            [*CODEX_CMD, prompt],
             cwd="/nvme0n1-disk/code/text-generator.io",
             capture_output=True,
             text=True,
             timeout=300,
         )
-        logger.info(f"Claude agent completed with return code: {result.returncode}")
+        logger.info(f"Codex agent completed with return code: {result.returncode}")
         if result.stdout:
-            logger.info(f"Claude output:\n{result.stdout[:2000]}")
+            logger.info(f"Codex output:\n{result.stdout[:2000]}")
     except subprocess.TimeoutExpired:
-        logger.error("Claude agent timed out")
+        logger.error("Codex agent timed out")
     except FileNotFoundError:
-        logger.warning("Claude CLI not found - skipping auto-fix")
+        logger.warning("Codex CLI not found - skipping auto-fix")
     except Exception as e:
-        logger.error(f"Error running Claude agent: {e}")
+        logger.error(f"Error running Codex agent: {e}")
 
 
 def cleanup_old_logs(max_age_days: int = 7):
@@ -144,7 +155,7 @@ def main():
     parser = argparse.ArgumentParser(description="Monitor Runner")
     parser.add_argument("--daemon", action="store_true", help="Run continuously")
     parser.add_argument("--interval", type=int, default=3600, help="Interval between runs in seconds (default: 3600)")
-    parser.add_argument("--auto-fix", action="store_true", help="Trigger Claude agent to fix issues")
+    parser.add_argument("--auto-fix", action="store_true", help="Trigger Codex agent to fix issues")
     args = parser.parse_args()
 
     logger.info("=" * 50)

@@ -1,6 +1,7 @@
 """Regenerate all use cases by calling the local inference server."""
 import json
 import logging
+import os
 import sys
 import time
 
@@ -12,8 +13,8 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, ".")
 from scripts.use_cases_to_generate import use_cases
 
-SERVER_URL = "http://localhost:9080/api/v1/generate"
-SECRET = "DjbkCN1iAYnz4oj28QqOEORl84jKSeUT"
+SERVER_URL = os.getenv("INFERENCE_SERVER_URL", "http://localhost:9080/api/v1/generate")
+SECRET = os.getenv("TEXT_GENERATOR_SECRET", "")
 
 
 def make_request(use_case, retries=0):

@@ -12,10 +12,13 @@ from accelerate import Accelerator
 from cachetools import TTLCache
 
 from questions.logging_config import setup_logging
+from questions.transformers_compat import disable_broken_torchvision_for_text_pipeline
 
 setup_logging()
 logger = logging.getLogger(__name__)
 import os
+
+disable_broken_torchvision_for_text_pipeline()
 
 from transformers import (
     AutoModelForCausalLM,
