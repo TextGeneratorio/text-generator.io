@@ -3,7 +3,7 @@ Inference Benchmark Test Suite
 
 Measures both speed (latency/throughput) and quality (LLM-as-a-judge) for:
 - Kokoro TTS
-- Parakeet ASR
+- Gemma ASR
 - Future models
 
 Key mini-sglang inspired improvements to measure:
@@ -212,14 +212,14 @@ class LLMQualityJudge:
         self.llm_model = None
 
     def load_asr(self):
-        """Load Parakeet ASR for transcription."""
+        """Load Gemma-backed ASR for transcription."""
         if self.asr_model is not None:
             return
 
         try:
-            import nemo.collections.asr as nemo_asr
-            self.asr_model = nemo_asr.models.ASRModel.from_pretrained("nvidia/parakeet-tdt-0.6b-v2")
-            self.asr_model.eval()
+            from questions.inference_server.inference_server import load_audio_model
+
+            self.asr_model = load_audio_model()
         except Exception as e:
             print(f"Could not load ASR model: {e}")
             self.asr_model = None
@@ -239,11 +239,12 @@ class LLMQualityJudge:
             temp_path = f.name
 
         try:
-            # Transcribe
-            transcription = self.asr_model.transcribe([temp_path])
-            if isinstance(transcription, list) and len(transcription) > 0:
-                return transcription[0] if isinstance(transcription[0], str) else str(transcription[0])
-            return str(transcription)
+            result = self.asr_model.transcribe([temp_path], timestamps=False)
+            if isinstance(result, (list, tuple)) and result:
+                result = result[0]
+            if isinstance(result, dict):
+                return str(result.get("text", "") or result.get("pred_text", "")).strip()
+            return str(result).strip()
         finally:
             os.unlink(temp_path)
 
@@ -680,7 +681,7 @@ MINI-SGLANG TECHNIQUES APPLICABLE TO THIS TTS/ASR SERVER:
 
 4. MULTI-MODEL CACHING (High Impact for multi-model workloads)
    - Current: Single model at a time, full eviction on switch
-   - Improvement: Keep both Kokoro + Parakeet in GPU memory
+   - Improvement: Keep both Kokoro + Gemma ASR in GPU memory
    - Implementation: Memory-aware model pool with priority eviction
    - Expected gain: Eliminates 5-10s model switch penalty
 

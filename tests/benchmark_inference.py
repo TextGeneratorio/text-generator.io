@@ -198,11 +198,11 @@ class InferenceBenchmark:
         return result
 
     def benchmark_audio_transcription(self) -> Optional[BenchmarkResult]:
-        """Benchmark audio transcription (NeMo Parakeet)."""
+        """Benchmark audio transcription (Gemma multimodal ASR)."""
         try:
             from questions.inference_server.inference_server import load_audio_model
         except ImportError:
-            print("  Skipping audio benchmark - NeMo not available")
+            print("  Skipping audio benchmark - Gemma transcription runtime not available")
             return None
 
         result = BenchmarkResult(

@@ -1,7 +1,9 @@
 import os
 import sys
 import types
+from unittest.mock import patch
 
+from sqlalchemy.exc import OperationalError
 from starlette.testclient import TestClient
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -55,5 +57,17 @@ client = TestClient(app)
 def test_user_signup_and_login():
     resp = client.post("/api/login", data={"email": "test@example.com", "password": "secret"}, follow_redirects=False)
     assert resp.status_code == 200
+    assert "Max-Age=315360000" in resp.headers["set-cookie"]
     resp = client.post("/api/login", data={"email": "test@example.com", "password": "secret"}, follow_redirects=False)
     assert resp.status_code == 200
+
+
+def test_login_database_error_is_not_reported_as_bad_password():
+    with patch(
+        "main.login_or_create_user",
+        side_effect=OperationalError("SELECT 1", {}, Exception("closed connection")),
+    ):
+        resp = client.post("/api/login", data={"email": "db-error@example.com", "password": "secret"})
+
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == "Login temporarily unavailable. Please try again."

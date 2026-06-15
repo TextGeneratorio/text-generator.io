@@ -125,6 +125,64 @@ def test_qwen_generate_accepts_system_prompt_alias(monkeypatch):
     assert captured["messages"][0]["content"] == "Alias prompt"
 
 
+def test_qwen_generate_disables_thinking_by_default(monkeypatch):
+    params = GenerateParams(
+        text="Hi my n",
+        max_length=16,
+        top_p=0.9,
+        top_k=40,
+        temperature=0.7,
+        repetition_penalty=1.1,
+        min_probability=0.0,
+    )
+
+    captured = {}
+
+    def fake_chat_inference(**kwargs):
+        captured.update(kwargs)
+        return {
+            "generated_text": "ame is John",
+            "thinking_content": None,
+            "stop_reason": "stop",
+        }
+
+    monkeypatch.setattr(tgi, "chat_inference", fake_chat_inference)
+    result = _qwen35_fast_inference(params, model_cache=None, weights_path="unit-test-path")
+
+    assert captured["enable_thinking"] is False
+    assert captured["strip_response"] is False
+    assert result[0]["generated_text"] == "Hi my name is John"
+
+
+def test_qwen_generate_allows_explicit_thinking(monkeypatch):
+    params = GenerateParams(
+        text="Prompt: ",
+        max_length=16,
+        top_p=0.9,
+        top_k=40,
+        temperature=0.7,
+        repetition_penalty=1.1,
+        min_probability=0.0,
+        enable_thinking=True,
+    )
+
+    captured = {}
+
+    def fake_chat_inference(**kwargs):
+        captured.update(kwargs)
+        return {
+            "generated_text": "completion",
+            "thinking_content": "internal reasoning",
+            "stop_reason": "stop",
+        }
+
+    monkeypatch.setattr(tgi, "chat_inference", fake_chat_inference)
+    result = _qwen35_fast_inference(params, model_cache=None, weights_path="unit-test-path")
+
+    assert captured["enable_thinking"] is True
+    assert result[0]["thinking_content"] == "internal reasoning"
+
+
 def test_thinking_extra_tokens_are_bounded(monkeypatch):
     monkeypatch.setenv("QWEN_THINKING_EXTRA_TOKENS", "1000")
     assert _effective_generation_max_new_tokens(80, enable_thinking=True) == 160

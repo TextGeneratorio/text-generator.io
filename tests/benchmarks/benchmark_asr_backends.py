@@ -43,7 +43,7 @@ def wer(ref: str, hyp: str) -> float:
     return dist[len(ref_words)][len(hyp_words)] / len(ref_words)
 
 
-def extract_parakeet_text(result) -> str:
+def extract_gemma_text(result) -> str:
     if isinstance(result, (list, tuple)) and result:
         result = result[0]
     if isinstance(result, str):
@@ -74,8 +74,8 @@ class SampleResult:
     audio_duration_s: float
 
 
-class ParakeetBackend:
-    name = "parakeet"
+class GemmaBackend:
+    name = "gemma"
 
     def __init__(self):
         self.model = None
@@ -90,7 +90,7 @@ class ParakeetBackend:
 
     def transcribe(self, audio_path: Path) -> str:
         result = self.model.transcribe([str(audio_path)], timestamps=False)
-        return extract_parakeet_text(result)
+        return extract_gemma_text(result)
 
 
 class CohereBackend:
@@ -165,8 +165,8 @@ def resolve_hf_token():
 
 
 def create_backend(name: str, model_id: str, language: str, batch_size: int, token: str | None):
-    if name == "parakeet":
-        return ParakeetBackend()
+    if name == "gemma":
+        return GemmaBackend()
     if name == "cohere":
         return CohereBackend(
             name="cohere",
@@ -272,7 +272,7 @@ def benchmark_backend(backend, items):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Benchmark Parakeet and Cohere ASR backends on a shared WER corpus.")
+    parser = argparse.ArgumentParser(description="Benchmark Gemma and Cohere ASR backends on a shared WER corpus.")
     parser.add_argument(
         "--audio-dir",
         default=str(default_audio_dir()),
@@ -286,7 +286,7 @@ def parse_args():
     parser.add_argument(
         "--backends",
         nargs="+",
-        default=["parakeet", "cohere", "cohere_compile", "cohere_compile_pipe"],
+        default=["gemma", "cohere", "cohere_compile", "cohere_compile_pipe"],
         help="Backends to benchmark.",
     )
     parser.add_argument("--language", default="en", help="Language code for Cohere transcription.")

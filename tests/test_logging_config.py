@@ -41,3 +41,25 @@ def test_get_logger_initializes(monkeypatch):
     monkeypatch.delenv("LOG_LEVEL", raising=False)
     logger = logging_config.get_logger("test")
     assert isinstance(logger, logging.Logger)
+
+
+def test_import_does_not_wrap_stdout_with_colorama():
+    reload_module(logging_config)
+
+    assert type(logging_config.sys.stdout).__module__ != "colorama.ansitowin32"
+
+
+def test_color_logs_default_to_tty_only(monkeypatch):
+    reload_module(logging_config)
+    reset_root_logger()
+    monkeypatch.delenv("COLOR_LOGS", raising=False)
+
+    logging_config.setup_logging()
+
+    stream_handlers = [
+        handler
+        for handler in logging.getLogger().handlers
+        if isinstance(handler, logging.StreamHandler)
+    ]
+    assert stream_handlers
+    assert not isinstance(stream_handlers[0].formatter, logging_config.ColorFormatter)

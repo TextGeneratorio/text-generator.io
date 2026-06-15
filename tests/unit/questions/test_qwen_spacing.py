@@ -140,6 +140,23 @@ def test_strip_response_false_is_passed_to_chat_inference(mock_ci):
     )
 
 
+@patch("questions.text_generator_inference.chat_inference", return_value=_mock_result("ame"))
+def test_generate_bridge_defaults_to_no_thinking(mock_ci):
+    params = _make_params("Hi my n")
+    _qwen35_fast_inference(params, model_cache=None, weights_path="models/Qwen3.5-4B")
+    _, kwargs = mock_ci.call_args
+    assert kwargs.get("enable_thinking") is False
+
+
+@patch("questions.text_generator_inference.chat_inference", return_value=_mock_result("ame"))
+def test_generate_bridge_allows_thinking_opt_in(mock_ci):
+    params = _make_params("Hi my n")
+    params.enable_thinking = True
+    _qwen35_fast_inference(params, model_cache=None, weights_path="models/Qwen3.5-4B")
+    _, kwargs = mock_ci.call_args
+    assert kwargs.get("enable_thinking") is True
+
+
 @patch(
     "questions.text_generator_inference.chat_inference",
     return_value={"generated_text": "Hi my n could chat", "thinking_content": None, "stop_reason": "stop"},

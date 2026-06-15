@@ -142,3 +142,15 @@ def test_compress_internal_silence_handles_float_waveform():
         keep_silence_ms=40,
     )
     assert compressed.shape[0] == 200  # 80 speech + 40 kept silence + 80 speech
+
+
+def test_apply_manual_speed_shortens_audio():
+    audio = np.sin(np.linspace(0, 8 * np.pi, 1000, dtype=np.float32))
+    stretched = tts_utils.apply_manual_speed(audio, 2.0)
+    assert stretched.shape[0] < audio.shape[0]
+    assert stretched.dtype == np.float32
+
+
+def test_apply_manual_speed_rejects_non_positive_speed():
+    with pytest.raises(ValueError):
+        tts_utils.apply_manual_speed(np.ones(10, dtype=np.float32), 0)
