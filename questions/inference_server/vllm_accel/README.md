@@ -24,6 +24,29 @@ while it runs at much higher tok/s than the HF-transformers path.
   onegraph/fa2sw/split-KV stack). Reference for the backend command.
 - **`bench_tps.py`** — single-stream decode TPS benchmark.
 - **`parity_test.py`** — schema + per-param parity checks vs the real server.
+- **`test_autocomplete_healing.py`** — autocomplete token-healing tests.
+
+## Autocomplete token healing
+
+`/api/v1/generate` is a text-CONTINUATION endpoint, not chat. Routing it through
+a chat turn drops the boundary space (`"...looking"` → `"lookingfor"`) and leaks
+meta-commentary, so the adapter uses raw `/v1/completions` (literal token-stream
+continuation) instead. On top of that it does **token healing**: walk back the
+last token-ish unit (the trailing word *with its leading space*), regenerate from
+the head with regex-constrained decoding forcing the output to start with that
+tail, so the model re-tokenizes the boundary while preserving the user's exact
+input:
+
+  - `"...looking"` → `"...looking for"`  (space restored — the reported bug)
+  - `"I am goin"` → `"I am going to..."`  (mid-word typo healed)
+  - `"The capital of Franc"` → `"...France is..."`
+  - `"She said hello to"` → `"...to me"`  (complete word, space kept)
+
+The tail **must include its leading whitespace** (mirrors a real token boundary);
+forcing `"to"` without the space yields `"togood"`. Constrained decoding uses
+this vLLM build's `structured_outputs={"regex": ...}` (the legacy `guided_regex`
+/ `guided_choice` params are silently ignored here). Disable with
+`AUTOCOMPLETE_TOKEN_HEALING=0`.
 
 ## Measured on RTX 5090 (greedy, full accuracy)
 

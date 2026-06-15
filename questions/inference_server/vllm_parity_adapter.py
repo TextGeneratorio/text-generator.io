@@ -152,72 +152,148 @@ def _post(path: str, body: dict) -> dict:
         return json.loads(r.read())
 
 
+# Token healing: autocomplete must continue the *literal* token stream, not start
+# a fresh chat turn (which drops the boundary space -> "lookingfor" and emits
+# meta-commentary). We walk back the last partial word, regenerate from the head,
+# and accept the result only if it reproduces the typed tail — letting the model
+# re-tokenize the boundary ("goin" -> "going", "Franc" -> "France") while keeping
+# the user's exact input. Falls back to literal continuation if healing diverges.
+HEAL = os.environ.get("AUTOCOMPLETE_TOKEN_HEALING", "1") == "1"
+
+
+def _split_heal_tail(text: str) -> tuple[str, str]:
+    """Split off the trailing token-ish unit: (head, tail) with head + tail == text.
+
+    The tail INCLUDES its leading whitespace so it mirrors a real token boundary
+    (most tokenizers attach the leading space to a word: " to", " going"). This
+    is essential — forcing regeneration to start with " to" yields " to me",
+    whereas forcing "to" (no space) yields the buggy "togood".
+
+    Returns (text, "") when there is no head context to regenerate from (the tail
+    is the whole text, e.g. a single leading word like "Photosynthe").
+    """
+    m = re.search(r"\s*\S+$", text)
+    if not m or m.start() == 0:
+        return text, ""
+    return text[: m.start()], m.group()
+
+
+def _argmax_probs_from_completion_logprobs(lp: dict) -> tuple[List[str], List[float]]:
+    """Parse vLLM /v1/completions logprobs -> (token_strings, per_token_argmax_prob)."""
+    if not lp:
+        return [], []
+    tokens = lp.get("tokens") or []
+    tops = lp.get("top_logprobs") or []
+    token_lps = lp.get("token_logprobs") or []
+    probs: List[float] = []
+    for i in range(len(tokens)):
+        if i < len(tops) and tops[i]:
+            best = max(tops[i].values())
+        elif i < len(token_lps) and token_lps[i] is not None:
+            best = token_lps[i]
+        else:
+            best = 0.0
+        probs.append(math.exp(best))
+    return tokens, probs
+
+
+def _complete_raw(prompt: str, max_tokens: int, sampling: dict, extra: dict | None = None) -> dict:
+    """Raw literal continuation via /v1/completions. Returns text + aligned probs.
+
+    `extra` may carry `structured_outputs` (this vLLM build's working param name
+    for grammar/regex-constrained decoding; `guided_regex`/`guided_choice` are
+    silently ignored here).
+    """
+    body = {
+        "model": VLLM_MODEL, "prompt": prompt, "max_tokens": max_tokens,
+        "logprobs": 1, **sampling, **(extra or {}),
+    }
+    out = _post("/v1/completions", body)
+    ch = out["choices"][0]
+    tokens, probs = _argmax_probs_from_completion_logprobs(ch.get("logprobs") or {})
+    return {"text": ch.get("text") or "", "tokens": tokens, "probs": probs,
+            "finish_reason": ch.get("finish_reason")}
+
+
+def _token_index_after_chars(tokens: List[str], nchars: int) -> int:
+    """First token index whose cumulative length covers >= nchars."""
+    acc = 0
+    for i, t in enumerate(tokens):
+        acc += len(t)
+        if acc >= nchars:
+            return i + 1
+    return len(tokens)
+
+
+def _continue_with_healing(text: str, max_tokens: int, sampling: dict) -> tuple[List[str], List[float], str]:
+    """Produce (new_tokens, new_token_argmax_probs, finish_reason).
+
+    new_tokens are the token strings to append after the user's `text`
+    (generated_text = text + "".join(new_tokens)). Uses token healing when
+    possible. Token-aligned so downstream min_probability/max_length truncate at
+    exact token boundaries (like the real server).
+    """
+    # Suppress chat/reasoning artifacts that instruct models leak into raw text.
+    stop = ["<think>", "</think>"]
+    head, tail = _split_heal_tail(text)
+    if HEAL and tail and head:
+        # Force the regeneration to start with the typed tail (incl. its leading
+        # space) via regex-constrained decoding, so the model re-tokenizes the
+        # boundary while preserving the user's exact input: " goin" -> " going",
+        # " Franc" -> " France", " to" -> " to me" (space kept).
+        regex = re.escape(tail) + r"[\s\S]*"
+        r = _complete_raw(head, max_tokens + 8, sampling,
+                          extra={"structured_outputs": {"regex": regex}, "stop": stop})
+        if r["text"].startswith(tail):
+            # The boundary token may straddle the tail (e.g. tail=" goin",
+            # token=" going" -> "g" belongs to new content). Recover the exact
+            # straddle remainder so generated_text stays byte-correct.
+            boundary = _token_index_after_chars(r["tokens"], len(tail))
+            covered = sum(len(t) for t in r["tokens"][:boundary])
+            remainder = r["text"][len(tail):covered]
+            new_tokens = ([remainder] if remainder else []) + r["tokens"][boundary:]
+            new_probs = ([r["probs"][boundary - 1]] if remainder and boundary > 0 else []) \
+                + r["probs"][boundary:]
+            return new_tokens, new_probs, r["finish_reason"]
+    # literal continuation from the full text (already correct for word boundaries)
+    r = _complete_raw(text, max_tokens, sampling, extra={"stop": stop})
+    return r["tokens"], r["probs"], r["finish_reason"]
+
+
 def _generate_one(p: GenerateParams) -> dict:
-    enable_thinking = bool(p.enable_thinking) if p.enable_thinking is not None else False
-    system = p.system_message or p.system_prompt or DEFAULT_SYSTEM
     max_tokens = p.max_length or 100
     temperature = p.temperature if (p.temperature and p.temperature > 0) else 1.0
-
-    extra = {"top_k": p.top_k if p.top_k is not None else 40,
-             "chat_template_kwargs": {"enable_thinking": enable_thinking}}
-    if p.repetition_penalty and p.repetition_penalty > 1.0:
-        extra["repetition_penalty"] = p.repetition_penalty
-    body = {
-        "model": VLLM_MODEL,
-        "messages": [{"role": "system", "content": system},
-                     {"role": "user", "content": p.text}],
-        # request a little headroom so min_probability/stop can trim down to spec
-        "max_tokens": max_tokens + (96 if enable_thinking else 0),
+    sampling = {
         "temperature": temperature,
         "top_p": p.top_p if p.top_p is not None else 0.9,
-        "logprobs": True,
-        "top_logprobs": 1,
+        "top_k": p.top_k if p.top_k is not None else 40,
+        **({"repetition_penalty": p.repetition_penalty}
+           if p.repetition_penalty and p.repetition_penalty > 1.0 else {}),
         **({"seed": p.seed} if p.seed else {}),
-        **extra,
     }
-    out = _post("/v1/chat/completions", body)
-    choice = out["choices"][0]
-    full_text = choice["message"]["content"] or ""
 
-    # per-token argmax probs from logprobs.content[*].top_logprobs[0]
-    lp = (choice.get("logprobs") or {}).get("content") or []
-    token_strs = [c.get("token", "") for c in lp]
-    argmax_probs = []
-    for c in lp:
-        tops = c.get("top_logprobs") or []
-        best = tops[0]["logprob"] if tops else c.get("logprob", 0.0)
-        argmax_probs.append(math.exp(best))
+    # An explicit system instruction means "chat", not raw continuation.
+    if p.system_message or p.system_prompt:
+        return _generate_one_chat(p, max_tokens, temperature, sampling)
 
-    thinking_content, response_text = _split_thinking(full_text)
-    # align argmax_probs / tokens to the response region (after thinking)
-    resp_token_offset = 0
-    if thinking_content is not None and token_strs:
-        # find where </think> ends in token stream by reconstructing length
-        acc = ""
-        for i, t in enumerate(token_strs):
-            acc += t
-            if "</think>" in acc:
-                resp_token_offset = i + 1
-                break
-    resp_probs = argmax_probs[resp_token_offset:]
-    resp_tokens = token_strs[resp_token_offset:]
+    # Autocomplete / continuation: raw literal continuation + token healing.
+    new_tokens, new_probs, finish = _continue_with_healing(p.text, max_tokens, sampling)
 
-    stop_reason = "stop" if choice.get("finish_reason") in ("stop", None) else "max_length"
+    stop_reason = "stop" if finish in ("stop", None) else "max_length"
 
-    # 1) min_probability (inclusive truncate on response tokens)
-    if p.min_probability and p.min_probability > 0 and resp_probs:
-        keep, triggered = _truncate_by_min_probability(resp_probs, resp_tokens, p.min_probability)
+    # 2) max_length token cap on the new content (exact token boundary)
+    if max_tokens and len(new_tokens) > max_tokens:
+        new_tokens = new_tokens[:max_tokens]
+        new_probs = new_probs[:max_tokens]
+        stop_reason = "max_length"
+    response_text = "".join(new_tokens)
+
+    # 1) min_probability (inclusive truncate at token boundaries)
+    if p.min_probability and p.min_probability > 0 and new_probs:
+        keep, triggered = _truncate_by_min_probability(new_probs, new_tokens, p.min_probability)
         if triggered:
-            response_text = "".join(resp_tokens[:keep])
+            response_text = "".join(new_tokens[:keep])
             stop_reason = "min_probability"
-
-    # 2) max_length token cap on the response
-    if max_tokens and len(resp_tokens) > max_tokens and stop_reason == "stop":
-        # only when not already trimmed shorter
-        capped = "".join(resp_tokens[:max_tokens]) if resp_tokens else response_text
-        if len(capped) < len(response_text):
-            response_text = capped
-            stop_reason = "max_length"
 
     # 3) stop_sequences (exclusive); reason becomes the matched sequence
     response_text, matched = _truncate_by_stop_sequences(response_text, p.stop_sequences)
@@ -231,6 +307,61 @@ def _generate_one(p: GenerateParams) -> dict:
 
     generated_text = p.text + response_text
     return {"generated_text": generated_text, "stop_reason": stop_reason,
+            "thinking_content": None}
+
+
+def _generate_one_chat(p: GenerateParams, max_tokens: int, temperature: float,
+                       sampling: dict) -> dict:
+    """Chat-path generation (used when an explicit system message is supplied)."""
+    enable_thinking = bool(p.enable_thinking) if p.enable_thinking is not None else False
+    system = p.system_message or p.system_prompt or DEFAULT_SYSTEM
+    body = {
+        "model": VLLM_MODEL,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": p.text}],
+        "max_tokens": max_tokens + (96 if enable_thinking else 0),
+        "temperature": temperature, "top_p": sampling["top_p"],
+        "logprobs": True, "top_logprobs": 1,
+        "top_k": sampling["top_k"],
+        "chat_template_kwargs": {"enable_thinking": enable_thinking},
+        **({"repetition_penalty": sampling["repetition_penalty"]}
+           if "repetition_penalty" in sampling else {}),
+        **({"seed": sampling["seed"]} if "seed" in sampling else {}),
+    }
+    out = _post("/v1/chat/completions", body)
+    choice = out["choices"][0]
+    full_text = choice["message"]["content"] or ""
+    lp = (choice.get("logprobs") or {}).get("content") or []
+    token_strs = [c.get("token", "") for c in lp]
+    argmax_probs = []
+    for c in lp:
+        tops = c.get("top_logprobs") or []
+        argmax_probs.append(math.exp(tops[0]["logprob"] if tops else c.get("logprob", 0.0)))
+
+    thinking_content, response_text = _split_thinking(full_text)
+    resp_offset = 0
+    if thinking_content is not None and token_strs:
+        acc = ""
+        for i, t in enumerate(token_strs):
+            acc += t
+            if "</think>" in acc:
+                resp_offset = i + 1
+                break
+    resp_probs, resp_tokens = argmax_probs[resp_offset:], token_strs[resp_offset:]
+    stop_reason = "stop" if choice.get("finish_reason") in ("stop", None) else "max_length"
+
+    if p.min_probability and p.min_probability > 0 and resp_probs:
+        keep, triggered = _truncate_by_min_probability(resp_probs, resp_tokens, p.min_probability)
+        if triggered:
+            response_text = "".join(resp_tokens[:keep])
+            stop_reason = "min_probability"
+    response_text, matched = _truncate_by_stop_sequences(response_text, p.stop_sequences)
+    if matched is not None and stop_reason == "stop":
+        stop_reason = matched
+    response_text, sent_trim = _truncate_by_max_sentences(response_text, p.max_sentences)
+    if sent_trim and stop_reason == "stop":
+        stop_reason = "max_sentences"
+    return {"generated_text": p.text + response_text, "stop_reason": stop_reason,
             "thinking_content": thinking_content}
 
 
