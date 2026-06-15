@@ -10,9 +10,13 @@ mccabe
 six>=1.16.0
 uvicorn
 wrapt>=1.16.0
-transformers>=4.57.0
+transformers>=5.5.0
 tokenizers>=0.21.0
-accelerate>=1.12.0
+accelerate>=1.13.0
+# RTX 50-series GPUs require PyTorch wheels with sm_120 kernels.
+torch==2.9.1
+torchvision==0.24.1
+torchaudio==2.9.1
 google-cloud-storage>=2.0.0
 google-api-python-client>=2.0.0
 google-api-core>=2.0.0
@@ -32,7 +36,8 @@ librosa>=0.10.0
 sentencepiece>=0.2.0
 omegaconf>=2.3.0
 phonemizer>=3.0.0
-nemo_toolkit[asr]>=2.2.0
+onnxruntime-gpu>=1.26.0
+supertonic
 ffmpeg-python>=0.2.0
 pytorch_lightning>=2.2.0
 einops>=0.7.0
