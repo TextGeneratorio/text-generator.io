@@ -36,7 +36,8 @@ class TextGeneratorDocs {
       top_k: 40,
       temperature: 0.75,
       repetition_penalty: 1.17,
-      seed: 0
+      seed: 0,
+      enable_thinking: false
     };
     
     this.currentDocId = null;
@@ -410,6 +411,10 @@ class TextGeneratorDocs {
           const userData = await response.json();
           if (userData && userData.id) {
             this.userId = userData.id;
+            if (userData.secret) {
+              this.secret = userData.secret;
+              this.setSecretKey(userData.secret);
+            }
             return true;
           }
         }
@@ -648,7 +653,8 @@ class TextGeneratorDocs {
     // Call text generation API with the proper endpoint
     const settings = {
       ...this.generationSettings,
-      text: prompt
+      text: prompt,
+      enable_thinking: false
     };
     
     try {
@@ -656,7 +662,7 @@ class TextGeneratorDocs {
       const isLocal = window.location.hostname.includes('localhost') || 
                      window.location.hostname.includes('127.0.0.1') || 
                      window.location.hostname.includes('0.0.0.0');
-      const apiEndpoint = isLocal ? '/api/v1/generate' : 'https://text-generator.io/api/v1/generate';
+      const apiEndpoint = isLocal ? '/api/v1/generate' : 'https://api.text-generator.io/api/v1/generate';
       
       // Use the correct API endpoint for text generation with secret key in header
       const response = await fetch(apiEndpoint, {
@@ -1366,88 +1372,16 @@ class TextGeneratorDocs {
   }
   
   showLoginPrompt() {
-    // Check if login prompt already exists
-    if (document.querySelector('.tgdocs-login-prompt')) {
+    if (typeof showLoginModal === 'function') {
+      const subtitle = document.querySelector('#login-modal .auth-modal-subtitle');
+      if (subtitle) {
+        subtitle.textContent = 'Sign in to save and sync your documents';
+      }
+      showLoginModal();
       return;
     }
-    
-    // Create login prompt
-    const loginPrompt = document.createElement('div');
-    loginPrompt.className = 'tgdocs-login-prompt';
-    
-    // Create login message
-    const loginMessage = document.createElement('div');
-    loginMessage.className = 'tgdocs-login-message';
-    loginMessage.innerHTML = `
-      <h2>Welcome to Text Generator Docs</h2>
-      <p>Please sign in to continue:</p>
-      <div class="tgdocs-login-options">
-        <button id="login-with-google" class="tgdocs-login-button">Sign in with Google</button>
-        <div class="tgdocs-login-divider">or</div>
-        <div class="tgdocs-secret-input-container">
-          <input type="text" id="secret-key-input" class="tgdocs-secret-input" placeholder="Enter your secret key">
-          <button id="continue-with-secret" class="tgdocs-login-button">Continue</button>
-        </div>
-        <div class="tgdocs-login-divider">or</div>
-        <button id="continue-offline" class="tgdocs-login-button">Continue Offline</button>
-      </div>
-    `;
-    
-    // Append login prompt to body
-    document.body.appendChild(loginPrompt);
-    loginPrompt.appendChild(loginMessage);
-    
-    // Add event listeners for login options
-    document.getElementById('login-with-google').addEventListener('click', () => {
-      // Redirect to Google login
-      window.location.href = '/login';
-    });
-    
-    document.getElementById('continue-with-secret').addEventListener('click', () => {
-      const secretInput = document.getElementById('secret-key-input');
-      const secret = secretInput.value.trim();
-      
-      if (secret) {
-        // Store secret key
-        this.secret = secret;
-        this.setSecretKey(secret);
-        
-        // Set user ID based on secret
-        this.userId = 'user_' + this.hashString(secret);
-        
-        // Remove login prompt
-        loginPrompt.remove();
-        
-        // Load documents
-        this.loadDocuments();
-      } else {
-        alert('Please enter a valid secret key');
-      }
-    });
-    
-    document.getElementById('continue-offline').addEventListener('click', () => {
-      // Use anonymous user ID
-      this.userId = this.anonymousUserId;
-      
-      // Remove login prompt
-      loginPrompt.remove();
-      
-      // Load documents from localStorage
-      this.loadDocumentsFromLocalStorage();
-      this.renderDocumentsList();
-      
-      // Create new document if none exist
-      if (this.documents.length === 0) {
-        this.createNewDocument();
-      } else {
-        this.loadDocument(this.documents[0].id);
-      }
-    });
-    
-    // Focus on secret key input
-    setTimeout(() => {
-      document.getElementById('secret-key-input').focus();
-    }, 100);
+
+    window.location.href = '/login';
   }
   
   showMessage(message, type = 'success') {
@@ -1484,8 +1418,7 @@ class TextGeneratorDocs {
     const storedSecret = localStorage.getItem('textGeneratorSecret');
     if (storedSecret) return storedSecret;
     
-    // Use default API key if none found
-    return 'YIvld9Ih72n0BgfrW81mSEqm08Pm0nO2';
+    return '';
   }
   
   setSecretKey(secret) {
@@ -2247,6 +2180,7 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
     } else {
       // Generate content using the standard API with adjusted settings
       const generationSettings = {...this.generationSettings};
+      generationSettings.enable_thinking = false;
       
       if (isBulkGeneration) {
         // For bulk generation, use appropriate settings

@@ -41,6 +41,18 @@
 			margin: 1rem 0;
 		}
 
+		.tts-row {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 16px;
+		}
+
+		.tts-hint {
+			color: #666;
+			font-size: 13px;
+			margin-top: 4px;
+		}
+
 		.mdl-button {
 			margin: 16px 0;
 		}
@@ -93,17 +105,77 @@
 					<div class="tts-field">
 						<label for="voiceSelect">Voice:</label>
 						<select id="voiceSelect" class="mdl-textfield__input">
-							<option value="af_nicole" selected>af_nicole</option>
-							<option value="af_bella">af_bella</option>
-							<option value="af_sarah">af_sarah</option>
-							<option value="am_adam">am_adam</option>
-							<option value="am_michael">am_michael</option>
-							<option value="bf_emma">bf_emma</option>
-							<option value="bf_isabella">bf_isabella</option>
-							<option value="bm_george">bm_george</option>
-							<option value="bm_lewis">bm_lewis</option>
-							<option value="af_sky">af_sky</option>
+							<optgroup label="Kokoro">
+								<option value="af_nicole" selected>af_nicole</option>
+								<option value="af_bella">af_bella</option>
+								<option value="af_sarah">af_sarah</option>
+								<option value="af_sky">af_sky</option>
+								<option value="am_adam">am_adam</option>
+								<option value="am_michael">am_michael</option>
+								<option value="bf_emma">bf_emma</option>
+								<option value="bf_isabella">bf_isabella</option>
+								<option value="bm_george">bm_george</option>
+								<option value="bm_lewis">bm_lewis</option>
+							</optgroup>
+							<optgroup label="Supertonic multilingual">
+								<option value="M1">M1</option>
+								<option value="M2">M2</option>
+								<option value="M3">M3</option>
+								<option value="M4">M4</option>
+								<option value="M5">M5</option>
+								<option value="F1">F1</option>
+								<option value="F2">F2</option>
+								<option value="F3">F3</option>
+								<option value="F4">F4</option>
+								<option value="F5">F5</option>
+							</optgroup>
 						</select>
+						<div id="voiceHint" class="tts-hint">Kokoro English voices use the speed value during synthesis.</div>
+					</div>
+
+					<div class="tts-row">
+						<div class="tts-field">
+							<label for="languageSelect">Language:</label>
+							<select id="languageSelect" class="mdl-textfield__input">
+								<option value="en" selected>English</option>
+								<option value="ko">Korean</option>
+								<option value="ja">Japanese</option>
+								<option value="ar">Arabic</option>
+								<option value="bg">Bulgarian</option>
+								<option value="cs">Czech</option>
+								<option value="da">Danish</option>
+								<option value="de">German</option>
+								<option value="el">Greek</option>
+								<option value="es">Spanish</option>
+								<option value="et">Estonian</option>
+								<option value="fi">Finnish</option>
+								<option value="fr">French</option>
+								<option value="hi">Hindi</option>
+								<option value="hr">Croatian</option>
+								<option value="hu">Hungarian</option>
+								<option value="id">Indonesian</option>
+								<option value="it">Italian</option>
+								<option value="lt">Lithuanian</option>
+								<option value="lv">Latvian</option>
+								<option value="nl">Dutch</option>
+								<option value="pl">Polish</option>
+								<option value="pt">Portuguese</option>
+								<option value="ro">Romanian</option>
+								<option value="ru">Russian</option>
+								<option value="sk">Slovak</option>
+								<option value="sl">Slovenian</option>
+								<option value="sv">Swedish</option>
+								<option value="tr">Turkish</option>
+								<option value="uk">Ukrainian</option>
+								<option value="vi">Vietnamese</option>
+							</select>
+						</div>
+
+						<div class="tts-field">
+							<label for="steps">Steps:</label>
+							<input type="range" id="steps" min="1" max="8" step="1" value="4" />
+							<span id="stepsValue">4</span>
+						</div>
 					</div>
 
 					<div class="tts-field">
@@ -128,8 +200,10 @@
 -H "secret: YOUR_API_KEY" \
 -d '{
   "text": "Hello world",
-  "voice": "af_nicole",
-  "speed": 1.0
+  "voice": "M1",
+  "language": "en",
+  "speed": 1.0,
+  "steps": 4
 }'</code></pre>
 
 						<h4>JavaScript</h4>
@@ -141,8 +215,10 @@
   },
   body: JSON.stringify({
     text: 'Hello world',
-    voice: 'af_nicole', 
-    speed: 1.0
+    voice: 'M1',
+    language: 'en',
+    speed: 1.0,
+    steps: 4
   })
 });</code></pre>
 
@@ -157,8 +233,10 @@ headers = {
 }
 data = {
     "text": "Hello world",
-    "voice": "af_nicole",
-    "speed": 1.0
+    "voice": "M1",
+    "language": "en",
+    "speed": 1.0,
+    "steps": 4
 }
 
 response = requests.post(url, headers=headers, json=data)</code></pre>
@@ -171,14 +249,32 @@ response = requests.post(url, headers=headers, json=data)</code></pre>
 	<script>
 		const textEl = document.getElementById("textInput");
 		const voiceEl = document.getElementById("voiceSelect");
+		const languageEl = document.getElementById("languageSelect");
 		const speedEl = document.getElementById("speed");
 		const speedValueEl = document.getElementById("speedValue");
+		const stepsEl = document.getElementById("steps");
+		const stepsValueEl = document.getElementById("stepsValue");
+		const voiceHintEl = document.getElementById("voiceHint");
 		const generateBtn = document.getElementById("generateBtn");
 		const audioPlayer = document.getElementById("audioPlayer");
 		const showCodeBtn = document.getElementById("showCodeBtn");
 		const codeExamples = document.getElementById("codeExamples");
 
 		let secret = null;
+		const supertonicVoices = new Set(["M1", "M2", "M3", "M4", "M5", "F1", "F2", "F3", "F4", "F5"]);
+
+		function isSupertonicVoice() {
+			return supertonicVoices.has(voiceEl.value);
+		}
+
+		function updateSupertonicControls() {
+			const usesSupertonic = isSupertonicVoice();
+			languageEl.disabled = !usesSupertonic;
+			stepsEl.disabled = !usesSupertonic;
+			voiceHintEl.textContent = usesSupertonic
+				? "Supertonic uses 4 steps by default; speed is applied after synthesis."
+				: "Kokoro English voices use the speed value during synthesis.";
+		}
 
 		// Get secret from PostgreSQL authentication
 		async function checkAuthAndGetSecret() {
@@ -205,6 +301,13 @@ response = requests.post(url, headers=headers, json=data)</code></pre>
 			speedValueEl.textContent = speedEl.value;
 		});
 
+		stepsEl.addEventListener("input", () => {
+			stepsValueEl.textContent = stepsEl.value;
+		});
+
+		voiceEl.addEventListener("change", updateSupertonicControls);
+		updateSupertonicControls();
+
 		showCodeBtn.addEventListener("click", () => {
 			codeExamples.style.display = codeExamples.style.display === "none" ? "block" : "none";
 		});
@@ -213,6 +316,8 @@ response = requests.post(url, headers=headers, json=data)</code></pre>
 			const text = textEl.value;
 			const voice = voiceEl.value;
 			const speed = speedEl.value;
+			const language = languageEl.value;
+			const steps = parseInt(stepsEl.value, 10);
 
 			if (!text.trim()) {
 				alert("Please enter some text");
@@ -238,7 +343,7 @@ response = requests.post(url, headers=headers, json=data)</code></pre>
 				const response = await fetch(`${baseAPIUrl}/api/v1/generate_speech`, {
 					method: "POST",
 					headers: headers,
-					body: JSON.stringify({ text, voice, speed: parseFloat(speed) }),
+					body: JSON.stringify({ text, voice, language, speed: parseFloat(speed), steps }),
 				});
 
 				if (!response.ok) {

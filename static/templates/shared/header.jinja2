@@ -16,12 +16,13 @@
             <a class="mdl-navigation__link tg-nav-link" href="/bulk-text-generator">Bulk Generator</a>
             <a class="mdl-navigation__link tg-nav-link" href="/docs">Docs</a>
 
-            <a class="mdl-navigation__link tg-nav-link header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;">Log in</a>
-            <a class="mdl-button mdl-js-button tg-btn tg-btn--secondary header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;">Sign up</a>
-
-            <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-subscribe" href="#" onclick="showCheckoutDialog('monthly'); return false;" style="display: none;">Upgrade</a>
-            <a class="mdl-navigation__link tg-nav-link header-account" href="/account" style="display: none;">Account</a>
-            <a class="mdl-navigation__link tg-nav-link header-login-signout" id="log-out" href="#" onclick="signout(); return false;" style="display: none;">Log out</a>
+            <span class="tg-header-auth tg-header-auth--logged-out">
+                <a class="mdl-button mdl-js-button tg-btn tg-btn--secondary header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;">Log in</a>
+                <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;">Sign up</a>
+            </span>
+            <span class="tg-header-auth tg-header-auth--logged-in">
+                <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-account" href="/account" style="display: none;">Account</a>
+            </span>
         </nav>
     </div>
 </header>
@@ -42,11 +43,13 @@
         <a class="mdl-navigation__link" href="/bulk-text-generator"><i class="material-icons">view_list</i>Bulk Generator</a>
         <a class="mdl-navigation__link" href="/docs"><i class="material-icons">description</i>Docs</a>
 
-        <a class="mdl-navigation__link header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;"><i class="material-icons">login</i>Log in</a>
-        <a class="mdl-navigation__link header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;"><i class="material-icons">person_add</i>Sign up</a>
-        <a class="mdl-navigation__link header-subscribe" href="#" onclick="showCheckoutDialog('monthly'); return false;" style="display: none;"><i class="material-icons">workspace_premium</i>Upgrade</a>
-        <a class="mdl-navigation__link header-account" href="/account" style="display: none;"><i class="material-icons">person</i>Account</a>
-        <a class="mdl-navigation__link header-login-signout" href="#" onclick="signout(); return false;" style="display: none;"><i class="material-icons">logout</i>Log out</a>
+        <div class="tg-header-drawer-auth tg-header-auth--logged-out">
+            <a class="mdl-navigation__link header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;"><i class="material-icons">login</i>Log in</a>
+            <a class="mdl-navigation__link header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;"><i class="material-icons">person_add</i>Sign up</a>
+        </div>
+        <div class="tg-header-drawer-auth tg-header-auth--logged-in">
+            <a class="mdl-navigation__link header-account" href="/account" style="display: none;"><i class="material-icons">person</i>Account</a>
+        </div>
     </nav>
 </div>
 
@@ -84,7 +87,7 @@
             <div class="auth-footer">
                 <p>Do not have an account? <a href="#" onclick="switchToSignup(); return false;" class="auth-link">Create one</a></p>
                 <div class="auth-help-links">
-                    <a href="#" class="auth-link-small">Forgot password?</a>
+                    <a href="/forgot-password" class="auth-link-small">Forgot password?</a>
                 </div>
             </div>
         </div>
@@ -138,6 +141,7 @@ function showLoginModal() {
     const modal = document.getElementById('login-modal');
     if (!modal) return;
 
+    window.__authReturnUrl = getAuthReturnUrl();
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -152,6 +156,7 @@ function showSignupModal() {
     const modal = document.getElementById('signup-modal');
     if (!modal) return;
 
+    window.__authReturnUrl = getAuthReturnUrl();
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -251,6 +256,21 @@ function setSignupLoading(loading) {
     if (loadingSpinner) loadingSpinner.style.display = loading ? 'block' : 'none';
 }
 
+function getAuthReturnUrl() {
+    const authPages = ['/login', '/signup', '/forgot-password'];
+    const currentPath = window.location.pathname || '/';
+
+    if (authPages.indexOf(currentPath) !== -1) {
+        return '/playground';
+    }
+
+    return `${window.location.pathname || '/'}${window.location.search || ''}${window.location.hash || ''}` || '/playground';
+}
+
+function getAuthRedirectUrl() {
+    return window.__authReturnUrl || getAuthReturnUrl();
+}
+
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -301,9 +321,9 @@ async function submitLogin() {
         const result = await response.json();
 
         if (response.ok) {
-            document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`;
+            document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
             closeLoginModal();
-            window.location.href = '/playground';
+            window.location.href = getAuthRedirectUrl();
             return;
         }
 
@@ -381,9 +401,9 @@ async function submitSignup() {
         const result = await response.json();
 
         if (response.ok) {
-            document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`;
+            document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
             closeSignupModal();
-            window.location.href = '/playground';
+            window.location.href = getAuthRedirectUrl();
             return;
         }
 

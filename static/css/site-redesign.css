@@ -72,7 +72,7 @@
 }
 
 .tg-header-row {
-    min-height: 74px;
+    min-height: 64px;
 }
 
 .tg-brand {
@@ -99,17 +99,20 @@
 .tg-nav {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .tg-site-header .tg-nav-link {
     color: var(--tg-ink) !important;
     display: inline-flex !important;
     opacity: 0.88;
-    font-size: 0.92rem;
+    font-size: 0.84rem;
     font-weight: 520;
     border-radius: 999px;
     transition: background-color 0.2s ease, opacity 0.2s ease;
+    padding: 0.44rem 0.72rem;
 }
 
 .tg-site-header .tg-nav-link:hover {
@@ -125,12 +128,28 @@
     border-radius: 999px;
     text-decoration: none !important;
     font-weight: 650;
-    font-size: 0.92rem;
+    font-size: 0.84rem;
     line-height: 1;
-    padding: 0.8rem 1.15rem;
+    padding: 0.62rem 0.95rem;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     white-space: nowrap;
+}
+
+.tg-header-auth,
+.tg-header-drawer-auth {
+    display: none;
+    align-items: center;
+    gap: 6px;
+}
+
+.tg-header-drawer-auth {
+    width: 100%;
+}
+
+.tg-header-auth--logged-in .header-account {
+    min-width: 92px;
+    justify-content: center;
 }
 
 .tg-btn:hover {

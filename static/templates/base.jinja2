@@ -44,49 +44,63 @@
       window.STRIPE_PUBLISHABLE_KEY = 'pk_live_51KjJGaDtz2XsjQRO1wdSdz8zS4bXzXq0tJ2m7lzJLdFpGhOdmGzX8fWwO9hm3vHdVVbfQc0XLJlT8l6KZGHJdUdl00zLUOHnMy';
     </script>
 
+    <script src="/static/js/frontend-error-logger.js?v=3"></script>
 
     <script src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
 
     <script>
         // User authentication - new system
         window.has_purchased = false;
+        window.skip_auth_hydration = {{ 'true' if skip_auth_hydration else 'false' }};
         
-        // Check authentication status on page load
-        checkAuthenticationStatus();
-        
-        async function checkAuthenticationStatus() {
-            try {
-                const response = await fetch('/api/current-user');
-                if (response.ok) {
-                    const userData = await response.json();
-                    // User is signed in
-                    window.currentUser = userData;
-                    $('.header-login-signup').hide();
-                    $('.header-account').show();
-                    $('.header-login-signout').show();
+	        // Check authentication status on page load for interactive browsers.
+	        if (!window.skip_auth_hydration) {
+	            checkAuthenticationStatus();
+	        } else {
+	            window.currentUser = null;
+	        }
+	        
+	        function setHeaderAuthState(isLoggedIn, userData) {
+	            const loggedOutAuth = document.querySelectorAll('.tg-header-auth--logged-out');
+	            const loggedInAuth = document.querySelectorAll('.tg-header-auth--logged-in');
+	            const loginLinks = document.querySelectorAll('.header-login-signup');
+	            const accountLinks = document.querySelectorAll('.header-account');
 
-                    if (userData.is_subscribed) {
-                        $('.header-subscribe').hide()
-                    } else {
-                        $('.header-subscribe').show()
-                    }
-                } else {
-                    // User is signed out
-                    window.currentUser = null;
-                    $('.header-login-signup').show();
-                    $('.header-account').hide();
-                    $('.header-login-signout').hide();
-                    $('.header-subscribe').hide();
-                }
-            } catch (error) {
-                console.log('Auth check error:', error);
-                window.currentUser = null;
-                $('.header-login-signup').show();
-                $('.header-account').hide();
-                $('.header-login-signout').hide();
-                $('.header-subscribe').hide();
-            }
-        }
+	            loggedOutAuth.forEach(function (el) {
+	                const visibleDisplay = el.classList.contains('tg-header-drawer-auth') ? 'block' : 'inline-flex';
+	                el.style.display = isLoggedIn ? 'none' : visibleDisplay;
+	            });
+
+	            loggedInAuth.forEach(function (el) {
+	                const visibleDisplay = el.classList.contains('tg-header-drawer-auth') ? 'block' : 'inline-flex';
+	                el.style.display = isLoggedIn ? visibleDisplay : 'none';
+	            });
+
+	            loginLinks.forEach(function (el) {
+	                el.style.display = isLoggedIn ? 'none' : '';
+	            });
+
+	            accountLinks.forEach(function (el) {
+	                el.style.display = isLoggedIn ? '' : 'none';
+	            });
+
+	            window.currentUser = isLoggedIn ? userData : null;
+	        }
+
+	        async function checkAuthenticationStatus() {
+	            try {
+	                const response = await fetch('/api/current-user');
+	                if (response.ok) {
+	                    const userData = await response.json();
+	                    setHeaderAuthState(true, userData);
+	                } else {
+	                    setHeaderAuthState(false, null);
+	                }
+	            } catch (error) {
+	                console.log('Auth check error:', error);
+	                setHeaderAuthState(false, null);
+	            }
+	        }
 
         async function signout() {
             try {
@@ -222,8 +236,7 @@
 
     </script>
     <script defer src="{{ static_url }}/js/material.min.js"></script>
-    <script src="https://js.stripe.com/v3/"></script>
-    <script src="{{ static_url }}/js/checkout-dialog.js"></script>
+    <script src="/static/js/checkout-dialog.js?v=5"></script>
     <script src="{{ static_url }}/js/subscription-modal.js"></script>
 
     {#    <script src="{{ static_url }}/js/webutils.js"></script>#}

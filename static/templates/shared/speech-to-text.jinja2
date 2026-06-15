@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>{{ title }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <style>
         body {
             font-family: sans-serif;
@@ -31,6 +32,147 @@
             margin: 0 auto;
         }
         .hidden { display: none; }
+
+        /* Audio input section */
+        .stt-input-group {
+            margin-bottom: 12px;
+        }
+        .stt-input-group label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .stt-input-group input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        .stt-input-group input[type="text"]:focus {
+            border-color: #3F51B5;
+            outline: none;
+        }
+        .stt-input-group input[type="text"].disabled-input {
+            background: #f5f5f5;
+            color: #999;
+        }
+        .stt-or-divider {
+            text-align: center;
+            color: #999;
+            font-size: 13px;
+            margin: 8px 0;
+        }
+
+        /* File chooser button */
+        .stt-file-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .stt-file-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #333;
+            transition: background 0.15s, border-color 0.15s;
+            white-space: nowrap;
+        }
+        .stt-file-btn:hover {
+            background: #eee;
+            border-color: #999;
+        }
+        .stt-file-btn.has-file {
+            border-color: #3F51B5;
+            background: #e8eaf6;
+            color: #3F51B5;
+        }
+        .stt-file-name {
+            font-size: 13px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 280px;
+        }
+        .stt-file-clear {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0 4px;
+            line-height: 1;
+        }
+        .stt-file-clear:hover { color: #f44336; }
+        #audioFile { display: none; }
+
+        /* Transcribe button */
+        #transcribeBtn {
+            margin-top: 12px;
+            padding: 10px 32px;
+            font-size: 15px;
+        }
+        #transcribeBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Input mode indicator */
+        .stt-mode-hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 2px;
+            min-height: 16px;
+        }
+
+        /* Code examples */
+        .stt-code-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 0;
+        }
+        .stt-code-tab {
+            padding: 8px 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .stt-code-tab:hover { color: #333; }
+        .stt-code-tab.active {
+            color: #3F51B5;
+            border-bottom-color: #3F51B5;
+        }
+        .stt-code-panel {
+            display: none;
+        }
+        .stt-code-panel.active {
+            display: block;
+        }
+        .stt-code-panel pre {
+            margin-top: 0;
+            border-radius: 0 0 4px 4px;
+        }
+        .stt-code-panel pre code {
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -40,17 +182,33 @@
         <div class="demo-content mdl-color--white mdl-shadow--4dp mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
             <div class="stt-container">
                 <h3>Speech To Text Playground</h3>
-                <div class="mdl-textfield mdl-js-textfield">
-                    <input class="mdl-textfield__input" type="text" id="audioUrl" placeholder="Audio URL">
+
+                <div class="stt-input-group">
+                    <label for="audioUrl">Paste an audio URL</label>
+                    <input type="text" id="audioUrl" placeholder="https://example.com/audio.mp3">
                 </div>
-                <div>
+
+                <div class="stt-or-divider">or</div>
+
+                <div class="stt-input-group">
+                    <label>Upload an audio file</label>
                     <input type="file" id="audioFile" accept="audio/*">
+                    <div class="stt-file-row">
+                        <label class="stt-file-btn" id="fileBtnLabel" for="audioFile">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 5l4-4 4 4"/><path d="M1 11v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg>
+                            Choose file
+                        </label>
+                        <span class="stt-file-name" id="fileName"></span>
+                        <button class="stt-file-clear hidden" id="fileClear" title="Remove file">&times;</button>
+                    </div>
                 </div>
+
                 <div style="margin: 10px 0;">
-                    <button id="recordBtn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">🎤 Record Audio</button>
-                    <button id="stopBtn" class="mdl-button mdl-js-button mdl-button--raised" disabled>⏹️ Stop Recording</button>
+                    <button id="recordBtn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">🎤 Record</button>
+                    <button id="stopBtn" class="mdl-button mdl-js-button mdl-button--raised" disabled>⏹️ Stop</button>
                     <span id="recordingStatus" style="margin-left: 10px; font-weight: bold; color: #f44336;"></span>
                 </div>
+
                 <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect" for="translate">
                     <input type="checkbox" id="translate" class="mdl-checkbox__input">
                     <span class="mdl-checkbox__label">Translate to English</span>
@@ -60,13 +218,22 @@
                     <span class="mdl-checkbox__label">Fast mode (lower latency)</span>
                 </label>
                 <br>
-                <button id="runUrl" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Transcribe URL</button>
-                <button id="runFile" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Transcribe File</button>
+                <button id="transcribeBtn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Transcribe</button>
+                <span class="stt-mode-hint" id="modeHint"></span>
                 <pre id="result"></pre>
                 <button id="toggleCode" class="mdl-button mdl-js-button">Show Code</button>
                 <div id="codeExamples" class="hidden">
-                    <h4>cURL</h4>
-<pre><code>curl -X POST "https://api.text-generator.io/api/v1/audio-extraction" \
+                    <div class="stt-code-tabs">
+                        <button class="stt-code-tab active" data-lang="curl">cURL</button>
+                        <button class="stt-code-tab" data-lang="python">Python</button>
+                        <button class="stt-code-tab" data-lang="javascript">JavaScript</button>
+                        <button class="stt-code-tab" data-lang="php">PHP</button>
+                        <button class="stt-code-tab" data-lang="ruby">Ruby</button>
+                    </div>
+
+                    <div class="stt-code-panel active" data-lang="curl">
+<pre><code class="language-bash"># Transcribe from URL
+curl -X POST "https://api.text-generator.io/api/v1/audio-extraction" \
  -H "Content-Type: application/json" \
  -H "secret: YOUR_API_KEY" \
  -d '{
@@ -74,37 +241,181 @@
   "translate_to_english": false
 }'
 
+# Transcribe from file
 curl -X POST "https://api.text-generator.io/api/v1/audio-file-extraction" \
  -H "secret: YOUR_API_KEY" \
  -F "audio_file=@your_file.wav" \
  -F "translate_to_english=false"
 </code></pre>
-                    <h4>Python</h4>
-<pre><code>import requests
+                    </div>
+
+                    <div class="stt-code-panel" data-lang="python">
+<pre><code class="language-python">import requests
 
 headers = {"secret": "YOUR_API_KEY"}
 
+# Transcribe from URL
 data = {
     "audio_url": "AUDIO_URL",
     "translate_to_english": False
 }
-url = "https://api.text-generator.io/api/v1/audio-extraction"
-print(requests.post(url, json=data, headers=headers).json())
+response = requests.post(
+    "https://api.text-generator.io/api/v1/audio-extraction",
+    json=data,
+    headers=headers
+)
+print(response.json())
+
+# Transcribe from file
+with open("your_file.wav", "rb") as f:
+    response = requests.post(
+        "https://api.text-generator.io/api/v1/audio-file-extraction",
+        headers=headers,
+        files={"audio_file": f},
+        data={"translate_to_english": "false"}
+    )
+print(response.json())
 </code></pre>
+                    </div>
+
+                    <div class="stt-code-panel" data-lang="javascript">
+<pre><code class="language-javascript">const API_KEY = "YOUR_API_KEY";
+
+// Transcribe from URL
+const response = await fetch(
+  "https://api.text-generator.io/api/v1/audio-extraction",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      secret: API_KEY,
+    },
+    body: JSON.stringify({
+      audio_url: "AUDIO_URL",
+      translate_to_english: false,
+    }),
+  }
+);
+console.log(await response.json());
+
+// Transcribe from file
+const formData = new FormData();
+formData.append("audio_file", fileInput.files[0]);
+formData.append("translate_to_english", "false");
+
+const res = await fetch(
+  "https://api.text-generator.io/api/v1/audio-file-extraction",
+  {
+    method: "POST",
+    headers: { secret: API_KEY },
+    body: formData,
+  }
+);
+console.log(await res.json());
+</code></pre>
+                    </div>
+
+                    <div class="stt-code-panel" data-lang="php">
+<pre><code class="language-php">&lt;?php
+$apiKey = "YOUR_API_KEY";
+
+// Transcribe from URL
+$ch = curl_init("https://api.text-generator.io/api/v1/audio-extraction");
+curl_setopt_array($ch, [
+    CURLOPT_POST =&gt; true,
+    CURLOPT_RETURNTRANSFER =&gt; true,
+    CURLOPT_HTTPHEADER =&gt; [
+        "Content-Type: application/json",
+        "secret: $apiKey",
+    ],
+    CURLOPT_POSTFIELDS =&gt; json_encode([
+        "audio_url" =&gt; "AUDIO_URL",
+        "translate_to_english" =&gt; false,
+    ]),
+]);
+$result = json_decode(curl_exec($ch), true);
+curl_close($ch);
+print_r($result);
+
+// Transcribe from file
+$ch = curl_init("https://api.text-generator.io/api/v1/audio-file-extraction");
+curl_setopt_array($ch, [
+    CURLOPT_POST =&gt; true,
+    CURLOPT_RETURNTRANSFER =&gt; true,
+    CURLOPT_HTTPHEADER =&gt; ["secret: $apiKey"],
+    CURLOPT_POSTFIELDS =&gt; [
+        "audio_file" =&gt; new CURLFile("your_file.wav"),
+        "translate_to_english" =&gt; "false",
+    ],
+]);
+$result = json_decode(curl_exec($ch), true);
+curl_close($ch);
+print_r($result);
+</code></pre>
+                    </div>
+
+                    <div class="stt-code-panel" data-lang="ruby">
+<pre><code class="language-ruby">require "net/http"
+require "json"
+require "uri"
+
+api_key = "YOUR_API_KEY"
+
+# Transcribe from URL
+uri = URI("https://api.text-generator.io/api/v1/audio-extraction")
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+
+req = Net::HTTP::Post.new(uri)
+req["Content-Type"] = "application/json"
+req["secret"] = api_key
+req.body = {
+  audio_url: "AUDIO_URL",
+  translate_to_english: false
+}.to_json
+
+res = http.request(req)
+puts JSON.parse(res.body)
+
+# Transcribe from file
+uri = URI("https://api.text-generator.io/api/v1/audio-file-extraction")
+form = [
+  ["audio_file", File.open("your_file.wav")],
+  ["translate_to_english", "false"]
+]
+req = Net::HTTP::Post.new(uri)
+req["secret"] = api_key
+req.set_form(form, "multipart/form-data")
+
+res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(req) }
+puts JSON.parse(res.body)
+</code></pre>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ruby.min.js"></script>
 <script>
-    const runUrlBtn = document.getElementById('runUrl');
-    const runFileBtn = document.getElementById('runFile');
+    const transcribeBtn = document.getElementById('transcribeBtn');
     const resultEl = document.getElementById('result');
     const codeBtn = document.getElementById('toggleCode');
     const codeExamples = document.getElementById('codeExamples');
     const fastModeCheckbox = document.getElementById('fast-mode');
+    const audioUrlInput = document.getElementById('audioUrl');
+    const audioFileInput = document.getElementById('audioFile');
+    const fileBtnLabel = document.getElementById('fileBtnLabel');
+    const fileNameEl = document.getElementById('fileName');
+    const fileClear = document.getElementById('fileClear');
+    const modeHint = document.getElementById('modeHint');
     let secret = null;
-    
+
     // Check PostgreSQL authentication
     async function checkAuthAndGetSecret() {
         try {
@@ -117,103 +428,180 @@ print(requests.post(url, json=data, headers=headers).json())
             console.log('User not authenticated');
         }
     }
-    
+
     // Get user secret on page load
     checkAuthAndGetSecret();
-    
-    codeBtn.addEventListener('click', () => {
-        codeExamples.classList.toggle('hidden');
-        if (secret) {
-            codeExamples.querySelectorAll('code').forEach(block => {
-                block.textContent = block.textContent.replace(/YOUR_API_KEY/g, secret);
-            });
+
+    // --- Mutual-exclusion: URL clears file, file clears URL ---
+    function updateModeHint() {
+        const hasUrl = audioUrlInput.value.trim() !== '';
+        const hasFile = audioFileInput.files.length > 0;
+        if (hasUrl) {
+            modeHint.textContent = 'Will transcribe from URL';
+        } else if (hasFile) {
+            modeHint.textContent = 'Will transcribe uploaded file';
+        } else {
+            modeHint.textContent = '';
         }
-    });
-    runUrlBtn.addEventListener('click', async () => {
-        const t0 = performance.now();
-        const audioUrl = document.getElementById('audioUrl').value;
-        const translate = document.getElementById('translate').checked;
-        const fastMode = fastModeCheckbox.checked;
-        if (!audioUrl) { alert('Enter audio URL'); return; }
-        const base = window.fixtures?.inference_server_url || 'https://api.text-generator.io';
-        const resp = await fetch(`${base}/api/v1/audio-extraction`, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json', ...(secret?{secret}:{})},
-            body: JSON.stringify({
-                audio_url: audioUrl,
-                translate_to_english: translate,
-                include_segments: !fastMode,
-            })
-        });
-        const payload = await resp.json();
-        const tookMs = (performance.now() - t0).toFixed(0);
-        resultEl.textContent = `transcription_ms: ${tookMs}\n` + JSON.stringify(payload, null, 2);
-    });
-    runFileBtn.addEventListener('click', async () => {
-        const t0 = performance.now();
-        const file = document.getElementById('audioFile').files[0];
-        const translate = document.getElementById('translate').checked;
-        const fastMode = fastModeCheckbox.checked;
-        if (!file) { alert('Choose a file'); return; }
-        const base = window.fixtures?.inference_server_url || 'https://api.text-generator.io';
-        const formData = new FormData();
-        formData.append('audio_file', file);
-        formData.append('translate_to_english', translate);
-        formData.append('include_segments', !fastMode);
-        const resp = await fetch(`${base}/api/v1/audio-file-extraction`, {
-            method: 'POST',
-            headers: secret ? {secret} : {},
-            body: formData
-        });
-        const payload = await resp.json();
-        const tookMs = (performance.now() - t0).toFixed(0);
-        resultEl.textContent = `transcription_ms: ${tookMs}\n` + JSON.stringify(payload, null, 2);
+    }
+
+    audioUrlInput.addEventListener('input', () => {
+        if (audioUrlInput.value.trim()) {
+            clearFileInput();
+        }
+        updateModeHint();
     });
 
-    // Audio recording functionality
+    audioFileInput.addEventListener('change', () => {
+        const file = audioFileInput.files[0];
+        if (file) {
+            audioUrlInput.value = '';
+            audioUrlInput.classList.add('disabled-input');
+            fileNameEl.textContent = file.name;
+            fileBtnLabel.classList.add('has-file');
+            fileClear.classList.remove('hidden');
+        } else {
+            clearFileInput();
+        }
+        updateModeHint();
+    });
+
+    fileClear.addEventListener('click', () => {
+        clearFileInput();
+        updateModeHint();
+    });
+
+    function clearFileInput() {
+        audioFileInput.value = '';
+        fileNameEl.textContent = '';
+        fileBtnLabel.classList.remove('has-file');
+        fileClear.classList.add('hidden');
+        audioUrlInput.classList.remove('disabled-input');
+    }
+
+    // --- Unified transcribe button ---
+    transcribeBtn.addEventListener('click', async () => {
+        const audioUrl = audioUrlInput.value.trim();
+        const file = audioFileInput.files[0];
+        const translate = document.getElementById('translate').checked;
+        const fastMode = fastModeCheckbox.checked;
+        const base = window.fixtures?.inference_server_url || 'https://api.text-generator.io';
+
+        if (!audioUrl && !file) {
+            resultEl.textContent = 'Please enter an audio URL, choose a file, or record audio.';
+            return;
+        }
+
+        transcribeBtn.disabled = true;
+        transcribeBtn.textContent = 'Transcribing...';
+        resultEl.textContent = '';
+        const t0 = performance.now();
+
+        try {
+            let resp;
+            if (file) {
+                const formData = new FormData();
+                formData.append('audio_file', file);
+                formData.append('translate_to_english', translate);
+                formData.append('include_segments', !fastMode);
+                resp = await fetch(`${base}/api/v1/audio-file-extraction`, {
+                    method: 'POST',
+                    headers: secret ? {secret} : {},
+                    body: formData
+                });
+            } else {
+                resp = await fetch(`${base}/api/v1/audio-extraction`, {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json', ...(secret?{secret}:{})},
+                    body: JSON.stringify({
+                        audio_url: audioUrl,
+                        translate_to_english: translate,
+                        include_segments: !fastMode,
+                    })
+                });
+            }
+            const payload = await resp.json();
+            const tookMs = (performance.now() - t0).toFixed(0);
+            resultEl.textContent = `transcription_ms: ${tookMs}\n` + JSON.stringify(payload, null, 2);
+        } catch (err) {
+            resultEl.textContent = 'Error: ' + err.message;
+        } finally {
+            transcribeBtn.disabled = false;
+            transcribeBtn.textContent = 'Transcribe';
+        }
+    });
+
+    // --- Code examples: tabs + syntax highlighting ---
+    let codeHighlighted = false;
+
+    codeBtn.addEventListener('click', () => {
+        codeExamples.classList.toggle('hidden');
+        if (!codeHighlighted && !codeExamples.classList.contains('hidden')) {
+            if (secret) {
+                codeExamples.querySelectorAll('code').forEach(block => {
+                    block.textContent = block.textContent.replace(/YOUR_API_KEY/g, secret);
+                });
+            }
+            codeExamples.querySelectorAll('pre code').forEach(block => {
+                hljs.highlightElement(block);
+            });
+            codeHighlighted = true;
+        }
+    });
+
+    document.querySelectorAll('.stt-code-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const lang = tab.dataset.lang;
+            document.querySelectorAll('.stt-code-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.stt-code-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.querySelector(`.stt-code-panel[data-lang="${lang}"]`).classList.add('active');
+        });
+    });
+
+    // --- Audio recording ---
     let mediaRecorder;
     let audioChunks = [];
     const recordBtn = document.getElementById('recordBtn');
     const stopBtn = document.getElementById('stopBtn');
     const recordingStatus = document.getElementById('recordingStatus');
-    const audioFileInput = document.getElementById('audioFile');
 
     recordBtn.addEventListener('click', async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
-            
+
             mediaRecorder.addEventListener('dataavailable', event => {
                 audioChunks.push(event.data);
             });
-            
+
             mediaRecorder.addEventListener('stop', () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
-                
-                // Create a new FileList-like object and assign it to the file input
+
                 const dt = new DataTransfer();
                 dt.items.add(audioFile);
                 audioFileInput.files = dt.files;
-                
-                // Stop all tracks to release microphone
+
+                // Trigger the change handler to update UI
+                audioFileInput.dispatchEvent(new Event('change'));
+
                 stream.getTracks().forEach(track => track.stop());
-                
-                recordingStatus.textContent = 'Recording saved! Click "Transcribe File" to process.';
+
+                recordingStatus.textContent = 'Recording saved!';
                 recordingStatus.style.color = '#4caf50';
-                
-                // Reset buttons
+
                 recordBtn.disabled = false;
                 stopBtn.disabled = true;
             });
-            
+
             mediaRecorder.start();
             recordBtn.disabled = true;
             stopBtn.disabled = false;
             recordingStatus.textContent = 'Recording...';
             recordingStatus.style.color = '#f44336';
-            
+
         } catch (error) {
             console.error('Error accessing microphone:', error);
             alert('Error accessing microphone. Please check your browser permissions.');
@@ -289,14 +677,31 @@ print(requests.post(url, json=data, headers=headers).json())
                 }, 100);
             });
 
-            it('should have transcribe buttons', () => {
-                expect(document.getElementById('runUrl')).toBeTruthy();
-                expect(document.getElementById('runFile')).toBeTruthy();
+            it('should have unified transcribe button', () => {
+                expect(document.getElementById('transcribeBtn')).toBeTruthy();
             });
 
             it('should have audio recording controls', () => {
                 expect(document.getElementById('recordBtn')).toBeTruthy();
                 expect(document.getElementById('stopBtn')).toBeTruthy();
+            });
+
+            it('should clear file when URL is typed', () => {
+                const dt = new DataTransfer();
+                dt.items.add(new File(['test'], 'test.wav', { type: 'audio/wav' }));
+                audioFileInput.files = dt.files;
+                audioUrlInput.value = 'http://example.com/audio.mp3';
+                audioUrlInput.dispatchEvent(new Event('input'));
+                expect(audioFileInput.files.length).toBe(0);
+            });
+
+            it('should clear URL when file is chosen', () => {
+                audioUrlInput.value = 'http://example.com/audio.mp3';
+                const dt = new DataTransfer();
+                dt.items.add(new File(['test'], 'test.wav', { type: 'audio/wav' }));
+                audioFileInput.files = dt.files;
+                audioFileInput.dispatchEvent(new Event('change'));
+                expect(audioUrlInput.value).toBe('');
             });
         });
 

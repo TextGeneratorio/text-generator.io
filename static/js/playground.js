@@ -46,6 +46,8 @@
     }
 
     var secret = '';
+    var multimodalAttachments = [];
+    var multimodalUploadInFlight = false;
     var setUrl = function () {
         // set the url to generate settings so users can share and come back to the same place
 
@@ -622,7 +624,209 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         setupFromUrl();
     }
 
+    function normalizePlaygroundResponse(data) {
+        if (Array.isArray(data)) {
+            return data;
+        }
+        if (data && data.choices && data.choices[0] && data.choices[0].message) {
+            return [{
+                generated_text: data.choices[0].message.content || '',
+                thinking_content: data.choices[0].message.reasoning_content || null,
+                stop_reason: data.choices[0].finish_reason || 'stop'
+            }];
+        }
+        return [];
+    }
+
+    function hasMultimodalAttachments() {
+        return Array.isArray(multimodalAttachments) && multimodalAttachments.length > 0;
+    }
+
+    function userHasPlaygroundAccess() {
+        if (!window.currentUser) {
+            return false;
+        }
+        if (window.currentUser.is_subscribed) {
+            return true;
+        }
+        if (hasMultimodalAttachments() && (window.currentUser.credit_balance_cents || 0) > 0) {
+            return true;
+        }
+        return false;
+    }
+
+    function updatePlaygroundAccessState() {
+        if (userHasPlaygroundAccess()) {
+            $('#playground-play').removeAttr('disabled');
+            return;
+        }
+        $('#playground-play').attr('disabled', true);
+        if (window.currentUser) {
+            if (hasMultimodalAttachments()) {
+                renderPlaygroundAccessMessage({
+                    title: 'Credits Required',
+                    message: 'Media understanding uses API credits unless you have an active subscription.',
+                    primaryLabel: 'Buy Credits',
+                    primaryTooltip: 'Purchase one-time API credits for image, audio, and video understanding.',
+                    primaryClick: "if (window.showCheckoutDialog) { showCheckoutDialog('credits'); }"
+                });
+            } else {
+                renderPlaygroundAccessMessage({
+                    title: 'Subscription Required',
+                    message: 'You are signed in, but this playground needs an active subscription.',
+                    primaryLabel: 'Subscribe Now',
+                    primaryTooltip: 'Open the branded subscription dialog to unlock playground access.',
+                    primaryClick: "if (window.subscriptionModal) { window.subscriptionModal.requireSubscription('use the playground'); } else if (window.showCheckoutDialog) { showCheckoutDialog('monthly'); }"
+                });
+                if (window.subscriptionModal && !window.subscriptionModal.isOpen) {
+                    window.subscriptionModal.requireSubscription('use the playground');
+                }
+            }
+        } else {
+            renderPlaygroundAccessMessage({
+                title: 'Sign In Required',
+                message: 'Please sign in to use the playground.',
+                primaryLabel: 'Sign In',
+                primaryTooltip: 'Open the login modal and stay on this page after authentication.',
+                primaryClick: "if (window.showLoginModal) { showLoginModal(); } else { window.location.href='/login'; }",
+                secondaryHtml: '<a href="/signup" onclick="if (window.showSignupModal) { showSignupModal(); return false; }" style="display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #f59e0b, #fbbf24); color: white; text-decoration: none; border-radius: 4px; margin: 5px; border: none; cursor: pointer; transition: all 0.2s ease;">Create account</a>'
+            });
+        }
+    }
+
+    function mapFileToAttachmentType(file) {
+        if (!file || !file.type) {
+            return null;
+        }
+        if (file.type.indexOf('image/') === 0) {
+            return 'image';
+        }
+        if (file.type.indexOf('video/') === 0) {
+            return 'video';
+        }
+        if (file.type.indexOf('audio/') === 0) {
+            return 'audio';
+        }
+        return null;
+    }
+
+    function renderAttachmentList() {
+        var attachmentList = $('#playground-media-list');
+        if (!hasMultimodalAttachments()) {
+            attachmentList.html('');
+            updatePlaygroundAccessState();
+            return;
+        }
+        var html = multimodalAttachments.map(function (attachment, index) {
+            return '<div style="display:flex; justify-content:space-between; align-items:center; margin:6px 0; padding:8px 10px; background:#fff; border:1px solid #ece9df; border-radius:8px;">'
+                + '<span>' + escapeHtml(attachment.name) + ' <strong style="text-transform:uppercase;">' + escapeHtml(attachment.type) + '</strong></span>'
+                + '<button type="button" data-attachment-index="' + index + '" class="mdl-button mdl-js-button remove-media-attachment">Remove</button>'
+                + '</div>';
+        }).join('');
+        attachmentList.html(html);
+        updatePlaygroundAccessState();
+    }
+
+    async function getSignedUploadUrl(file) {
+        var params = new URLSearchParams({
+            contentType: file.type || 'application/octet-stream',
+            fileName: file.name || 'upload.bin'
+        });
+        var response = await fetch('/file-upload-get-signed-url-cloudflare?' + params.toString());
+        if (!response.ok) {
+            throw new Error('Failed to get upload URL');
+        }
+        return response.json();
+    }
+
+    async function uploadAttachmentFile(file) {
+        var attachmentType = mapFileToAttachmentType(file);
+        if (!attachmentType) {
+            throw new Error('Unsupported media type: ' + (file.type || 'unknown'));
+        }
+        var uploadData = await getSignedUploadUrl(file);
+        var uploadResponse = await fetch(uploadData.url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+        });
+        if (!uploadResponse.ok) {
+            throw new Error('Upload failed for ' + file.name);
+        }
+        return {
+            type: attachmentType,
+            name: file.name,
+            url: 'https://' + uploadData.bucket_name + '/' + uploadData.object_path,
+            mime_type: file.type || 'application/octet-stream'
+        };
+    }
+
+    async function addAttachmentFiles(fileList) {
+        if (!fileList || !fileList.length) {
+            return;
+        }
+        multimodalUploadInFlight = true;
+        $('#loading-progress').show();
+        try {
+            for (var i = 0; i < fileList.length; i++) {
+                var uploadedAttachment = await uploadAttachmentFile(fileList[i]);
+                multimodalAttachments.push(uploadedAttachment);
+            }
+            renderAttachmentList();
+        } finally {
+            multimodalUploadInFlight = false;
+            $('#loading-progress').hide();
+        }
+    }
+
+    async function submitMultimodalPlaygroundRequest() {
+        var inferenceBase = (window.fixtures && window.fixtures.inference_server_url) || 'https://api.text-generator.io';
+        var text = editor.getValue();
+        var content = [];
+        if (text) {
+            content.push({ type: 'text', text: text });
+        }
+        multimodalAttachments.forEach(function (attachment) {
+            content.push({
+                type: attachment.type,
+                url: attachment.url,
+                mime_type: attachment.mime_type
+            });
+        });
+
+        var messages = [];
+        if (generationSettings.system_message) {
+            messages.push({ role: 'system', content: generationSettings.system_message });
+        }
+        messages.push({ role: 'user', content: content });
+
+        var response = await fetch(inferenceBase + '/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + secret
+            },
+            body: JSON.stringify({
+                model: 'google/gemma-4-26B-A4B-it',
+                messages: messages,
+                max_tokens: generationSettings.max_length || 512,
+                temperature: generationSettings.temperature,
+                top_p: generationSettings.top_p,
+                top_k: generationSettings.top_k,
+                enable_thinking: generationSettings.enable_thinking
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Multimodal request failed with status ' + response.status);
+        }
+        return response.json();
+    }
+
     function showResult(data) {
+        data = normalizePlaygroundResponse(data);
         var dataString = JSON.stringify(data, null, 2);
         var htmlEscapedData = escapeHtml(dataString);
         $('#response-results').html(`<pre id="generated-results-code"><code class="language-json">${htmlEscapedData}</code></pre>`);
@@ -655,13 +859,12 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         form.on('submit', function (event) {
             event.preventDefault();
             
-            // Check subscription before submitting
-            if (!window.currentUser || !window.currentUser.is_subscribed) {
-                if (window.subscriptionModal) {
-                    window.subscriptionModal.requireSubscription('use the playground');
-                } else {
-                    console.warn('SubscriptionModal not available');
-                }
+            if (multimodalUploadInFlight) {
+                return false;
+            }
+
+            if (!userHasPlaygroundAccess()) {
+                updatePlaygroundAccessState();
                 return false;
             }
             
@@ -671,29 +874,37 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             $('#loading-progress').show();
 
             $('#playground-play').attr('disabled');
-            fetch('https://api.text-generator.io/api/v1/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'secret': secret
-                },
-                body: JSON.stringify(generationSettings)
-            }).then(function (response) {
+            var requestPromise;
+            if (hasMultimodalAttachments()) {
+                requestPromise = submitMultimodalPlaygroundRequest();
+            } else {
+                requestPromise = fetch('https://api.text-generator.io/api/v1/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'secret': secret
+                    },
+                    body: JSON.stringify(generationSettings)
+                }).then(function (response) {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    return response.text().then(function (textError) {
+                        showError({ error: textError }, response.status + ' - ' + response.statusText);
+                        return [];
+                    });
+                });
+            }
+
+            Promise.resolve(requestPromise).then(function (data) {
                 $('#loading-progress').hide();
-
-                $('#playground-play').removeAttr('disabled');
-
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    showError(response.text(), response.status + ' - ' + response.statusText);
-                }
-            }).then(function (data) {
+                updatePlaygroundAccessState();
                 showResult(data)
                 // if editor hasn't changed write results to codemirror
                 if (editor.getValue() === text) {
-                    if (data[0] && data[0]['generated_text']) {
-                        var generatedText = data[0]['generated_text'];
+                    var normalizedData = normalizePlaygroundResponse(data);
+                    if (normalizedData[0] && normalizedData[0]['generated_text']) {
+                        var generatedText = normalizedData[0]['generated_text'];
                         // Legacy API returns full text; newer paths may return completion-only.
                         var nextValue = generatedText.startsWith(text) ? generatedText : (text + generatedText);
 
@@ -715,6 +926,7 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 console.log(error);
                 showError(error, 500)
                 $('#loading-progress').hide();
+                updatePlaygroundAccessState();
 
             })
             return false;
@@ -734,6 +946,45 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
 
             placeholder: 'Multiple stop sequences allowed'
         });
+
+        $('#playground-media').on('change', function (event) {
+            addAttachmentFiles(event.target.files).catch(function (error) {
+                console.error(error);
+                showError({ error: error.message || error }, 500);
+            }).finally(function () {
+                event.target.value = '';
+            });
+        });
+
+        $('#playground-media-list').on('click', '.remove-media-attachment', function () {
+            var index = parseInt($(this).attr('data-attachment-index'), 10);
+            multimodalAttachments.splice(index, 1);
+            renderAttachmentList();
+        });
+
+        var dropzone = document.getElementById('playground-media-dropzone');
+        if (dropzone) {
+            ['dragenter', 'dragover'].forEach(function (eventName) {
+                dropzone.addEventListener(eventName, function (event) {
+                    event.preventDefault();
+                    dropzone.style.borderColor = '#f17d34';
+                    dropzone.style.background = '#fff3e8';
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (eventName) {
+                dropzone.addEventListener(eventName, function (event) {
+                    event.preventDefault();
+                    dropzone.style.borderColor = '#b7b7c9';
+                    dropzone.style.background = '#faf8f5';
+                });
+            });
+            dropzone.addEventListener('drop', function (event) {
+                addAttachmentFiles(event.dataTransfer.files).catch(function (error) {
+                    console.error(error);
+                    showError({ error: error.message || error }, 500);
+                });
+            });
+        }
 
 
     }
@@ -755,9 +1006,9 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                         type="button"
                         class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
                         onclick="${primaryClick}"
-                        style="padding: 10px 20px; background: linear-gradient(90deg, #f39121, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; transition: all 0.2s ease;"
-                        onmouseover="this.style.background='linear-gradient(90deg, #e48516, #c23e67)'; this.style.boxShadow='0 4px 15px rgba(243, 145, 33, 0.35)'"
-                        onmouseout="this.style.background='linear-gradient(90deg, #f39121, #d34675)'; this.style.boxShadow='none'">${primaryLabel}</button>
+                        style="padding: 10px 20px; background: linear-gradient(90deg, #ea580c, #f59e0b); color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='linear-gradient(90deg, #c2410c, #d97706)'; this.style.boxShadow='0 4px 15px rgba(234, 88, 12, 0.28)'"
+                        onmouseout="this.style.background='linear-gradient(90deg, #ea580c, #f59e0b)'; this.style.boxShadow='none'">${primaryLabel}</button>
                 <div id="playground-subscribe-tooltip"
                      class="playground-tooltip mdl-tooltip mdl-tooltip--large"
                      for="playground-subscribe-button"
@@ -784,31 +1035,12 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             .then(user => {
                 secret = user.secret;
                 window.currentUser = user;
-                // enable submit form only if user is subscribed
-                if (user.is_subscribed) {
-                    $('#playground-play').removeAttr('disabled');
-                } else {
-                    $('#playground-play').attr('disabled', true);
-                    renderPlaygroundAccessMessage({
-                        title: 'Premium Feature',
-                        message: 'The playground requires an active subscription to use.',
-                        primaryLabel: 'Subscribe Now',
-                        primaryTooltip: 'Subscribe now with secure inline checkout to unlock playground access.'
-                    });
-                }
+                updatePlaygroundAccessState();
             })
             .catch(error => {
                 // User is signed out - show upsell instead of redirecting
                 console.log('User not authenticated:', error);
-                $('#playground-play').attr('disabled', true);
-                renderPlaygroundAccessMessage({
-                    title: 'Sign In Required',
-                    message: 'Please sign in to use the playground.',
-                    primaryLabel: 'Get Premium Access',
-                    primaryTooltip: 'Sign in first, then use inline checkout for premium playground access.',
-                    primaryClick: "window.location.href='/login'",
-                    secondaryHtml: '<a href="/login" style="display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; text-decoration: none; border-radius: 4px; margin: 5px; border: none; cursor: pointer; transition: all 0.2s ease;">Sign In</a>'
-                });
+                updatePlaygroundAccessState();
             });
     };
     var editor;

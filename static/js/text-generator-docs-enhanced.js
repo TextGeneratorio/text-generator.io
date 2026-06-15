@@ -607,7 +607,8 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       // Always ensure correct min_probability for autocomplete
       const settingsForAutocomplete = { 
         ...this.generationSettings, 
-        min_probability: EnhancedTextGeneratorDocs.CONFIG.AUTOCOMPLETE_MIN_PROB 
+        min_probability: EnhancedTextGeneratorDocs.CONFIG.AUTOCOMPLETE_MIN_PROB,
+        enable_thinking: false
       };
       
       // Capture the change counter when the API request is initiated
@@ -620,7 +621,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
                      window.location.hostname.includes('0.0.0.0');
       const generateEndpoint = isLocal ? 
           '/api/v1/generate' : 
-          'https://text-generator.io/api/v1/generate'; 
+          'https://api.text-generator.io/api/v1/generate'; 
 
       const response = await fetch(generateEndpoint, {
         method: 'POST',
@@ -802,9 +803,12 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    */
   async fetchSuggestion(prompt, customSettings = null) {
     // Use custom settings or default to generationSettings with min_probability=0.7
-    const settings = customSettings || {
+    const settings = {
+      ...(customSettings || {
       ...this.generationSettings,
       min_probability: EnhancedTextGeneratorDocs.CONFIG.AUTOCOMPLETE_MIN_PROB
+      }),
+      enable_thinking: false
     };
     
     // Set the text parameter
@@ -815,7 +819,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       const isLocal = window.location.hostname.includes('localhost') || 
                      window.location.hostname.includes('127.0.0.1') || 
                      window.location.hostname.includes('0.0.0.0');
-      const apiEndpoint = isLocal ? '/api/v1/generate' : 'https://text-generator.io/api/v1/generate';
+      const apiEndpoint = isLocal ? '/api/v1/generate' : 'https://api.text-generator.io/api/v1/generate';
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
@@ -878,7 +882,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
                      window.location.hostname.includes('0.0.0.0');
         const largeGenerateEndpoint = isLocal ? 
             '/api/v1/generate-large' : 
-            'https://text-generator.io/api/v1/generate-large';
+            'https://api.text-generator.io/api/v1/generate-large';
         
         // Generate content using the Claude API endpoint
         const response = await fetch(largeGenerateEndpoint, {
@@ -924,6 +928,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       } else {
         // Generate content using the standard API with adjusted settings
         const generationSettings = {...this.generationSettings};
+        generationSettings.enable_thinking = false;
         
         if (isBulkGeneration) {
           // For bulk generation, use appropriate settings
@@ -1566,7 +1571,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
                      window.location.hostname.includes('0.0.0.0');
       const largeGenerateEndpoint = isLocal ? 
           '/api/v1/generate-large' : 
-          'https://text-generator.io/api/v1/generate-large';
+          'https://api.text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for rewriting
       const system_message = `You are a world-class creative writer. Transform the following text according to these instructions: "${instructionPrompt}"
@@ -1683,7 +1688,7 @@ And finally also output the full text again if its used, as we are doing a full 
                      window.location.hostname.includes('0.0.0.0');
       const largeGenerateEndpoint = isLocal ? 
           '/api/v1/generate-large' : 
-          'https://text-generator.io/api/v1/generate-large';
+          'https://api.text-generator.io/api/v1/generate-large';
 
       // Construct a system message suitable for continuation
       const system_message = `You are a master storyteller and prose stylist. Continue this text naturally as a talented author would. 

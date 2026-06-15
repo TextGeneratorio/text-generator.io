@@ -110,7 +110,8 @@
         top_k: 40,
         temperature: 0.75,
         repetition_penalty: 1.17,
-        seed: 0
+        seed: 0,
+        enable_thinking: false
       },
       
       // Editor configuration

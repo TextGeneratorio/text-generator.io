@@ -176,6 +176,14 @@ function updateSystemMessage(value) {
                     {#                        Return) to get a completion.</label>#}
 
                 </div>
+                <div style="margin: 12px 0 18px;">
+                    <label for="playground-media" style="display:block; font-weight:600; margin-bottom:8px;">Media Attachments</label>
+                    <input id="playground-media" type="file" accept="image/*,video/*,audio/*" multiple style="display:block; margin-bottom:8px;">
+                    <div id="playground-media-dropzone" style="border: 1px dashed #b7b7c9; border-radius: 10px; padding: 16px; color: #666; background: #faf8f5;">
+                        Drop images, audio, or video here. Uploaded media is processed by AI.
+                    </div>
+                    <div id="playground-media-list" style="margin-top:10px; font-size:13px; color:#444;"></div>
+                </div>
                 <button id="playground-play"
                         class="playground-play mdl-button mdl-js-button mdl-button--fab mdl-js-ripple-effect mdl-button--colored"
                         type="submit" disabled>
