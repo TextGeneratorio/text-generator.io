@@ -1209,6 +1209,1874 @@ Return:
         "tags": ["mascot", "turnaround", "brand character", "3d", "motion"],
         "popularity": 69,
     },
+    # ── Creative & Cross-Domain Prompts ──────────────────────────────
+    {
+        "slug": "vintage-album-cover-prompt",
+        "title": "Vintage Album Cover Prompt",
+        "summary": "Design a vinyl-era album cover with retro typography and analog texture.",
+        "prompt": """Design a vintage album cover for [artist or band name] in the style of a 1970s vinyl release.
+
+Requirements:
+- Use analog-feeling textures: film grain, letterpress type, faded ink bleeds.
+- The cover should tell a visual story about the music's mood without being literal.
+- Include hand-drawn or hand-set typography that feels era-authentic.
+- Show one front cover concept, one inner sleeve detail, and one back cover layout.
+- Palette should feel sun-bleached or chemically saturated depending on genre.
+
+Return:
+- front cover art direction
+- typography treatment
+- inner sleeve concept
+- palette and texture notes""",
+        "model_slug": "midjourney",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["album cover", "vinyl", "retro", "music", "typography"],
+        "featured": True,
+        "popularity": 92,
+    },
+    {
+        "slug": "childrens-book-spread-prompt",
+        "title": "Children's Book Spread Prompt",
+        "summary": "Illustrate a picture book spread with character, environment, and narrative beat.",
+        "prompt": """Illustrate a double-page spread for a children's picture book about [story concept].
+
+Requirements:
+- One main character with a clear emotional expression and readable silhouette.
+- The environment should feel immersive but not overwhelm the character.
+- Leave a natural text zone for 2-3 sentences of story copy.
+- Use a warm, inviting palette that works for ages 3-7.
+- Include one small hidden detail that rewards re-reading.
+
+Return:
+- spread composition
+- character design notes
+- text placement zone
+- hidden detail description""",
+        "model_slug": "dall-e",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["children's book", "illustration", "picture book", "storytelling", "character"],
+        "is_free": True,
+        "featured": True,
+        "popularity": 90,
+    },
+    {
+        "slug": "architectural-digest-interior-prompt",
+        "title": "Architectural Digest Interior Prompt",
+        "summary": "Generate a magazine-worthy interior design concept for a luxury space.",
+        "prompt": """Create an Architectural Digest-worthy interior for a [room type] in a [style] home.
+
+Requirements:
+- Balance statement pieces with livable comfort.
+- Show one hero angle and one detail vignette of a curated shelf or surface.
+- Include specific material callouts: stone, wood species, textile weave, metal finish.
+- Lighting should mix natural and designed sources for editorial warmth.
+- The space should feel aspirational but not sterile.
+
+Return:
+- hero room concept
+- material palette with specific callouts
+- furniture arrangement logic
+- detail vignette description
+- lighting strategy""",
+        "model_slug": "flux",
+        "category_slug": "photography",
+        "modality": "image",
+        "tags": ["interior design", "architecture", "luxury", "editorial", "home"],
+        "featured": True,
+        "popularity": 89,
+    },
+    {
+        "slug": "data-story-infographic-prompt",
+        "title": "Data Story Infographic Prompt",
+        "summary": "Turn a dataset or trend into a compelling visual infographic narrative.",
+        "prompt": """Design an infographic that tells the story of [topic or dataset].
+
+Requirements:
+- Lead with one surprising insight that hooks the viewer.
+- Use a clear visual hierarchy: headline stat, supporting data, context, and source.
+- Avoid chart junk. Every visual element should carry information.
+- Design for both full-size web embed and a tall social-story crop.
+- Include one custom icon or illustration that makes the topic tangible.
+
+Return:
+- narrative flow and reading order
+- key data visualizations with chart type recommendations
+- color system and typography hierarchy
+- social crop adaptation notes""",
+        "model_slug": "recraft",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["infographic", "data visualization", "storytelling", "statistics", "design"],
+        "is_free": True,
+        "featured": True,
+        "popularity": 88,
+    },
+    {
+        "slug": "tattoo-flash-sheet-prompt",
+        "title": "Tattoo Flash Sheet Prompt",
+        "summary": "Create a cohesive tattoo flash sheet with multiple designs in a unified style.",
+        "prompt": """Design a tattoo flash sheet around the theme of [theme] in a [style: traditional / fine-line / blackwork / neo-traditional] style.
+
+Requirements:
+- Include 6-8 individual designs that work as standalone tattoos.
+- Each piece should be readable at actual tattoo scale (2-6 inches).
+- Maintain consistent line weight and shading language across the sheet.
+- Mix larger statement pieces with smaller filler designs.
+- Include one design that works well as a forearm wrap or band.
+
+Return:
+- flash sheet layout
+- individual design descriptions
+- line weight and shading notes
+- placement recommendations per piece""",
+        "model_slug": "stable-diffusion",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["tattoo", "flash sheet", "body art", "illustration", "design"],
+        "featured": True,
+        "popularity": 91,
+    },
+    {
+        "slug": "restaurant-menu-design-prompt",
+        "title": "Restaurant Menu Design Prompt",
+        "summary": "Design a complete restaurant menu with food photography direction and layout.",
+        "prompt": """Design a menu for [restaurant name], a [cuisine type] restaurant with a [vibe: casual / fine dining / street food / farm-to-table] atmosphere.
+
+Requirements:
+- Layout should guide the eye from appetizers through dessert with natural flow.
+- Typography must be readable in dim restaurant lighting.
+- Include one signature dish feature with larger visual treatment.
+- Balance white space with content density so it doesn't feel overwhelming.
+- Show both a single-page and fold-out version.
+
+Return:
+- menu layout concept
+- typography and hierarchy system
+- signature dish feature treatment
+- food photography art direction
+- paper stock and finish recommendation""",
+        "model_slug": "ideogram",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["menu design", "restaurant", "food", "typography", "layout"],
+        "popularity": 82,
+    },
+    {
+        "slug": "sci-fi-ui-hud-prompt",
+        "title": "Sci-Fi UI HUD Prompt",
+        "summary": "Design a futuristic heads-up display interface for a game, film, or concept project.",
+        "prompt": """Design a sci-fi HUD interface for [context: spaceship cockpit / cyberpunk visor / medical scanner / mech suit].
+
+Requirements:
+- The UI should feel functional and information-dense without being unreadable.
+- Use a coherent color system: one primary data color, one alert color, one ambient glow.
+- Include at least one radial element, one data stream, and one status indicator.
+- The design should work both as a static concept and suggest how it animates.
+- Reference real UI/UX principles even in a fictional context.
+
+Return:
+- full HUD composition
+- element breakdown with function labels
+- color and glow system
+- animation behavior notes
+- one alternate state (alert or damage mode)""",
+        "model_slug": "leonardo-ai",
+        "category_slug": "games-3d",
+        "modality": "image",
+        "tags": ["sci-fi", "hud", "ui design", "game art", "futuristic", "interface"],
+        "featured": True,
+        "popularity": 93,
+    },
+    {
+        "slug": "botanical-illustration-prompt",
+        "title": "Botanical Illustration Prompt",
+        "summary": "Create a detailed scientific botanical illustration with modern design sensibility.",
+        "prompt": """Create a botanical illustration of [plant species or arrangement] that blends scientific accuracy with modern art direction.
+
+Requirements:
+- Show the plant at multiple scales: full form, leaf detail, cross-section or seed structure.
+- Use a style that bridges vintage botanical plates and contemporary editorial illustration.
+- Include fine detail work on veins, textures, and growth patterns.
+- Background should be clean enough for print reproduction on products or wall art.
+- Add subtle labeling in a refined sans-serif that references field guide typography.
+
+Return:
+- primary illustration
+- detail studies
+- labeling system
+- palette and rendering notes
+- print application suggestions""",
+        "model_slug": "dall-e",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["botanical", "scientific illustration", "nature", "print", "editorial"],
+        "popularity": 79,
+    },
+    {
+        "slug": "podcast-brand-kit-prompt",
+        "title": "Podcast Brand Kit Prompt",
+        "summary": "Build a complete podcast brand identity: cover art, episode templates, and social assets.",
+        "prompt": """Create a full brand kit for [podcast name], a show about [topic] with a [tone: serious / conversational / comedic / investigative] feel.
+
+Requirements:
+- Cover art that reads clearly as a 300px square on podcast platforms.
+- Episode number template system for consistent publishing.
+- Audiogram / quote card template for social promotion.
+- Guest photo treatment for interview episodes.
+- The brand should feel distinct in a crowded podcast grid.
+
+Return:
+- cover art concept
+- episode template system
+- audiogram / quote card layout
+- guest photo treatment
+- color palette and type system""",
+        "model_slug": "chatgpt-image",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["podcast", "brand kit", "cover art", "social media", "audio"],
+        "is_free": True,
+        "featured": True,
+        "popularity": 86,
+    },
+    {
+        "slug": "isometric-office-scene-prompt",
+        "title": "Isometric Office Scene Prompt",
+        "summary": "Generate a detailed isometric illustration of a workspace or office environment.",
+        "prompt": """Create a detailed isometric illustration of a [workspace type: startup office / co-working space / home office / creative studio].
+
+Requirements:
+- Include recognizable human activity: people working, meeting, taking breaks.
+- Fill the scene with authentic details that tell a story about the work culture.
+- Use a controlled pastel or brand-aligned palette, not random rainbow colors.
+- The illustration should work as a hero image, presentation slide, or print poster.
+- Include at least one playful easter egg or cultural reference.
+
+Return:
+- isometric scene composition
+- character and activity descriptions
+- detail inventory
+- easter egg description
+- color system and rendering style""",
+        "model_slug": "google-imagen",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["isometric", "office", "workspace", "illustration", "culture"],
+        "popularity": 80,
+    },
+    {
+        "slug": "sneaker-concept-design-prompt",
+        "title": "Sneaker Concept Design Prompt",
+        "summary": "Design a concept sneaker with material callouts, colorways, and brand positioning.",
+        "prompt": """Design a concept sneaker for [brand or fictional label] inspired by [theme: brutalist architecture / deep ocean / vintage motorsport / solarpunk].
+
+Requirements:
+- Show three views: side profile, three-quarter, and sole detail.
+- Include specific material callouts: mesh type, leather grade, foam compound, hardware.
+- Design one hero colorway and one alternate limited-edition colorway.
+- The silhouette should feel fresh but commercially viable.
+- Include a story card that connects the design to its inspiration.
+
+Return:
+- sneaker design concept
+- material specification list
+- two colorway presentations
+- story card copy
+- retail positioning note""",
+        "model_slug": "midjourney",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["sneaker", "product design", "footwear", "concept", "fashion"],
+        "featured": True,
+        "popularity": 87,
+    },
+    {
+        "slug": "wedding-invitation-suite-prompt",
+        "title": "Wedding Invitation Suite Prompt",
+        "summary": "Design a cohesive wedding invitation suite with save-the-date and RSVP cards.",
+        "prompt": """Design a wedding invitation suite for [names] getting married at [venue type] with a [aesthetic: modern minimal / garden romantic / art deco / coastal / rustic] style.
+
+Requirements:
+- Include invitation, RSVP card, details card, and save-the-date.
+- Typography should feel considered and match the wedding's formality level.
+- Show one design with and one without an illustrated motif or monogram.
+- Paper stock and printing technique should be specified.
+- The suite should photograph well for social sharing.
+
+Return:
+- invitation suite layout
+- typography and monogram system
+- illustrated motif concept
+- paper and printing specification
+- envelope treatment""",
+        "model_slug": "recraft",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["wedding", "invitation", "stationery", "print design", "typography"],
+        "is_free": True,
+        "popularity": 78,
+    },
+    {
+        "slug": "retro-pixel-art-game-scene-prompt",
+        "title": "Retro Pixel Art Game Scene Prompt",
+        "summary": "Create a pixel art game scene with character sprites, tileset, and mood.",
+        "prompt": """Create a pixel art scene for a [genre: platformer / RPG / roguelike / adventure] game set in [setting].
+
+Requirements:
+- Use a restricted palette of 16-32 colors maximum.
+- Include one playable character sprite (idle + one action frame), ground tileset, and background layers.
+- The scene should demonstrate parallax depth with 3+ layers.
+- Keep pixel density consistent (choose 16x16, 32x32, or 48x48 tile grid).
+- Include one animated environmental element (water, fire, leaves, machinery).
+
+Return:
+- scene mockup
+- character sprite sheet
+- tileset sample
+- palette with hex values
+- animation frame descriptions""",
+        "model_slug": "stable-diffusion",
+        "category_slug": "games-3d",
+        "modality": "image",
+        "tags": ["pixel art", "retro", "game art", "sprite", "indie game"],
+        "featured": True,
+        "popularity": 88,
+    },
+    {
+        "slug": "food-photography-flat-lay-prompt",
+        "title": "Food Photography Flat Lay Prompt",
+        "summary": "Create a stunning overhead food photography composition for social or editorial.",
+        "prompt": """Create a flat-lay food photography composition featuring [dish or cuisine type].
+
+Requirements:
+- Top-down perspective with deliberate negative space and prop placement.
+- Include the hero dish, supporting ingredients, utensils, and one textile element.
+- Lighting should feel natural and directional, not flat or clinical.
+- Props should tell a story about the cooking process or culture.
+- Color harmony between food, surfaces, and props is critical.
+
+Return:
+- composition layout
+- hero dish styling notes
+- prop and surface selection
+- lighting setup description
+- one alternate angle suggestion""",
+        "model_slug": "gemini-image",
+        "category_slug": "photography",
+        "modality": "image",
+        "tags": ["food photography", "flat lay", "culinary", "styling", "editorial"],
+        "featured": True,
+        "popularity": 85,
+    },
+    {
+        "slug": "dnd-character-sheet-art-prompt",
+        "title": "D&D Character Sheet Art Prompt",
+        "summary": "Generate a full character portrait and equipment spread for a tabletop RPG character.",
+        "prompt": """Create character art for a D&D / tabletop RPG character: [race] [class] named [name], who is [personality and backstory brief].
+
+Requirements:
+- Full body portrait showing armor, weapons, and distinguishing features.
+- One close-up face/expression study showing personality.
+- Equipment spread showing 4-6 signature items laid out like a knolling photograph.
+- Art style should feel painterly and warm, suitable for a character sheet or player handout.
+- Include one action pose variant showing the character using their primary ability.
+
+Return:
+- full body portrait
+- expression study
+- equipment knolling layout
+- action pose concept
+- color palette and style notes""",
+        "model_slug": "midjourney",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["dnd", "character art", "tabletop rpg", "fantasy", "portrait"],
+        "featured": True,
+        "popularity": 94,
+    },
+    {
+        "slug": "city-map-illustration-prompt",
+        "title": "City Map Illustration Prompt",
+        "summary": "Design an illustrated city map for tourism, branding, or editorial use.",
+        "prompt": """Create an illustrated map of [city or neighborhood] in a [style: hand-drawn / isometric / watercolor / minimalist] style.
+
+Requirements:
+- Highlight 8-12 key landmarks, venues, or cultural points of interest.
+- Include illustrated icons for each point that are recognizable at small sizes.
+- Roads and paths should be simplified but navigable.
+- Leave space for a legend and title cartouche.
+- The map should work as a poster, guidebook insert, or hotel lobby print.
+
+Return:
+- map composition and layout
+- landmark icon descriptions
+- legend design
+- title cartouche concept
+- print specification notes""",
+        "model_slug": "dall-e",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["map", "illustration", "city", "tourism", "editorial"],
+        "popularity": 81,
+    },
+    {
+        "slug": "annual-report-layout-prompt",
+        "title": "Annual Report Layout Prompt",
+        "summary": "Design a modern annual report layout that makes data and narrative compelling.",
+        "prompt": """Design a 4-page annual report spread for [company type] that balances financial data with brand storytelling.
+
+Requirements:
+- Cover page with a strong visual hook that isn't generic stock imagery.
+- Data pages should make key metrics scannable with clear chart hierarchy.
+- Include one full-bleed photography or illustration moment.
+- Typography should feel modern and authoritative without being cold.
+- The layout should work both as a digital PDF and a physical print piece.
+
+Return:
+- cover concept
+- spread layout with content zones
+- data visualization approach
+- typography system
+- print vs digital adaptation notes""",
+        "model_slug": "recraft",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["annual report", "layout", "corporate", "data design", "print"],
+        "popularity": 74,
+    },
+    {
+        "slug": "movie-poster-reimagined-prompt",
+        "title": "Movie Poster Reimagined Prompt",
+        "summary": "Reimagine a classic or fictional movie as a striking alternative poster design.",
+        "prompt": """Design an alternative movie poster for [movie title or original concept] in the style of [style: Saul Bass minimalism / Polish film poster surrealism / Japanese chirashi / Mondo collectible].
+
+Requirements:
+- Capture the film's core theme or emotion in one symbolic image.
+- Typography should feel era-appropriate for the chosen style.
+- The poster should work at both billboard scale and A4 print.
+- Avoid literal scene recreation. Focus on mood, metaphor, or iconography.
+- Include a subtle visual element that rewards a second look.
+
+Return:
+- poster concept and central metaphor
+- typography treatment
+- color palette
+- print specification
+- one sentence describing the design's interpretive angle""",
+        "model_slug": "flux",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["movie poster", "alternative art", "film", "print", "graphic design"],
+        "featured": True,
+        "popularity": 91,
+    },
+    {
+        "slug": "api-documentation-guide-prompt",
+        "title": "API Documentation Guide Prompt",
+        "summary": "Write clear, developer-friendly API documentation from endpoint specifications.",
+        "prompt": """Write developer documentation for the following API endpoints: [paste endpoint list or describe the API].
+
+Requirements:
+- Write for a developer who has never seen this API before.
+- Include authentication setup, base URL, and rate limit information.
+- Each endpoint needs: method, path, description, parameters table, example request, example response, and error codes.
+- Add a quick-start section that gets someone to their first successful call in under 2 minutes.
+- Include copy-pasteable curl examples and one SDK snippet in [language].
+
+Return:
+- quick-start guide
+- authentication section
+- endpoint reference (per endpoint)
+- error handling guide
+- common patterns and tips""",
+        "model_slug": "claude",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["api docs", "developer", "documentation", "technical writing", "reference"],
+        "featured": True,
+        "popularity": 90,
+    },
+    {
+        "slug": "investor-update-email-prompt",
+        "title": "Investor Update Email Prompt",
+        "summary": "Write a concise monthly investor update that builds confidence and transparency.",
+        "prompt": """Write a monthly investor update email for [company name].
+
+Inputs:
+- Key metrics this month: [metrics]
+- Wins: [wins]
+- Challenges: [challenges]
+- Cash position / runway: [numbers]
+- Key hires or departures: [if any]
+- Asks from investors: [if any]
+
+Requirements:
+- Lead with the single most important thing that happened.
+- Present metrics with month-over-month context, not vanity numbers.
+- Be honest about challenges without being alarmist.
+- Keep the total email scannable in under 90 seconds.
+- End with specific, concrete asks if applicable.
+
+Return:
+- subject line
+- full email body
+- metrics dashboard section
+- asks section""",
+        "model_slug": "claude",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["investor update", "startup", "fundraising", "email", "transparency"],
+        "featured": True,
+        "popularity": 86,
+    },
+    {
+        "slug": "changelog-release-notes-prompt",
+        "title": "Changelog & Release Notes Prompt",
+        "summary": "Turn git commits and feature notes into polished, user-facing release notes.",
+        "prompt": """Transform these raw feature notes and commit messages into polished release notes for [product name].
+
+Input: [paste raw notes, commit messages, or ticket titles]
+
+Requirements:
+- Group changes into: New Features, Improvements, Bug Fixes, and Breaking Changes.
+- Write each item from the user's perspective, not the developer's.
+- Lead each section with the most impactful change.
+- Include migration notes for any breaking changes.
+- Add a one-paragraph TL;DR at the top that highlights the 2-3 biggest changes.
+
+Return:
+- TL;DR summary
+- categorized changelog
+- migration guide (if needed)
+- social announcement draft (1-2 sentences)""",
+        "model_slug": "chatgpt",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["changelog", "release notes", "product", "developer", "communication"],
+        "is_free": True,
+        "featured": True,
+        "popularity": 84,
+    },
+    {
+        "slug": "debate-prep-brief-prompt",
+        "title": "Debate Prep Brief Prompt",
+        "summary": "Prepare both sides of an argument with evidence, counterpoints, and rebuttals.",
+        "prompt": """Prepare a debate brief on the topic: [topic or proposition].
+
+Requirements:
+- Present the strongest 5 arguments FOR and 5 arguments AGAINST.
+- For each argument, include supporting evidence or examples.
+- Anticipate the top 3 rebuttals for each side.
+- Identify the emotional vs logical dimensions of each argument.
+- Highlight which arguments are most persuasive for different audiences.
+
+Return:
+- proposition statement
+- arguments for (with evidence and rebuttals)
+- arguments against (with evidence and rebuttals)
+- audience-specific persuasion notes
+- recommended framing strategy""",
+        "model_slug": "deepseek",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["debate", "argumentation", "critical thinking", "research", "persuasion"],
+        "is_free": True,
+        "popularity": 79,
+    },
+    {
+        "slug": "product-teardown-analysis-prompt",
+        "title": "Product Teardown Analysis Prompt",
+        "summary": "Perform a detailed UX and business model teardown of a product or app.",
+        "prompt": """Perform a product teardown of [product or app name].
+
+Requirements:
+- Analyze the onboarding flow, core loop, monetization, and retention mechanics.
+- Identify 3 things the product does exceptionally well and why.
+- Identify 3 weaknesses or missed opportunities.
+- Compare key design decisions against category best practices.
+- Suggest 3 experiments they should run next.
+
+Return:
+- product overview and positioning
+- onboarding analysis
+- core loop breakdown
+- monetization assessment
+- strengths, weaknesses, and recommended experiments""",
+        "model_slug": "gemini",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["product teardown", "ux analysis", "competitive intelligence", "strategy", "growth"],
+        "featured": True,
+        "popularity": 83,
+    },
+    {
+        "slug": "world-building-bible-prompt",
+        "title": "World-Building Bible Prompt",
+        "summary": "Create a structured world-building document for a novel, game, or creative project.",
+        "prompt": """Build a world bible for [project name], set in a [genre / setting description].
+
+Requirements:
+- Define the world's core rules: physics, magic system, technology level, or societal structure.
+- Create 3 distinct factions or cultures with conflicting goals.
+- Establish geography with one map-ready region description.
+- Define the world's central tension or conflict engine.
+- Include sensory details: what does this world sound, smell, and feel like?
+
+Return:
+- world overview and rules
+- faction profiles with motivations and conflicts
+- geography and key locations
+- central tension description
+- sensory palette and atmosphere notes
+- timeline of major historical events""",
+        "model_slug": "claude",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["world building", "creative writing", "fiction", "game design", "lore"],
+        "featured": True,
+        "popularity": 89,
+    },
+    {
+        "slug": "email-newsletter-redesign-prompt",
+        "title": "Email Newsletter Redesign Prompt",
+        "summary": "Redesign an email newsletter for higher engagement and clearer hierarchy.",
+        "prompt": """Redesign the email newsletter for [brand or publication].
+
+Current issues: [describe current problems: low click rates, cluttered layout, unclear CTA, etc.]
+
+Requirements:
+- Create a modular template system that works for weekly sends with varying content volume.
+- Establish clear visual hierarchy: one hero story, supporting items, and a persistent CTA.
+- Design for dark mode and light mode rendering.
+- Keep the template under 600px wide for email client compatibility.
+- Include a system for personalizing the header based on subscriber segment.
+
+Return:
+- template wireframe
+- module system (hero, list, quote, CTA, footer)
+- typography and color system for email
+- dark mode adaptation notes
+- subject line formula recommendations""",
+        "model_slug": "chatgpt-image",
+        "category_slug": "marketing-business",
+        "modality": "image",
+        "tags": ["email", "newsletter", "design", "template", "engagement"],
+        "popularity": 77,
+    },
+    {
+        "slug": "youtube-thumbnail-system-prompt",
+        "title": "YouTube Thumbnail System Prompt",
+        "summary": "Create a thumbnail system for YouTube that maximizes click-through rate.",
+        "prompt": """Design a YouTube thumbnail system for [channel name], a channel about [topic].
+
+Requirements:
+- Thumbnails must be instantly readable at 168x94px (mobile browse size).
+- Create a consistent visual language: face crop rules, text treatment, background style.
+- Maximum 3-4 words of text per thumbnail, set in a high-contrast treatment.
+- Show 5 example thumbnails demonstrating variety within the system.
+- Include an A/B testing framework: one emotional variant and one curiosity variant per topic.
+
+Return:
+- thumbnail system rules
+- 5 example thumbnail concepts
+- face and expression guidelines
+- text and contrast rules
+- A/B testing framework""",
+        "model_slug": "flux",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["youtube", "thumbnail", "video", "ctr", "content creator"],
+        "featured": True,
+        "popularity": 93,
+    },
+    {
+        "slug": "cocktail-recipe-card-prompt",
+        "title": "Cocktail Recipe Card Prompt",
+        "summary": "Design a beautiful recipe card for a signature cocktail with illustration and instructions.",
+        "prompt": """Design a recipe card for [cocktail name], a [spirit base] cocktail with [key ingredients].
+
+Requirements:
+- Include an illustrated or photographed hero image of the finished drink.
+- List ingredients with precise measurements and preparation method.
+- Add a flavor profile radar chart or tasting notes.
+- Include one garnish detail illustration and one glassware recommendation.
+- The card should feel collectible and suitable for a bar menu insert or social post.
+
+Return:
+- recipe card layout
+- drink illustration direction
+- ingredient list with measurements
+- flavor profile visualization
+- garnish and glassware notes""",
+        "model_slug": "ideogram",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["cocktail", "recipe", "food and drink", "illustration", "menu"],
+        "popularity": 76,
+    },
+    {
+        "slug": "github-readme-prompt",
+        "title": "GitHub README Prompt",
+        "summary": "Write a compelling open-source project README that drives stars and contributions.",
+        "prompt": """Write a GitHub README for [project name], a [brief description].
+
+Requirements:
+- Open with a one-line description and a visual badge row (build status, version, license).
+- Include a hero screenshot or GIF description showing the tool in action.
+- Write a "Why this exists" section that explains the problem, not just the solution.
+- Quick-start must get someone running in under 60 seconds with copy-paste commands.
+- Include a contribution guide section that makes first-time contributors feel welcome.
+
+Return:
+- complete README structure
+- badge row specifications
+- quick-start section
+- API or usage examples
+- contribution and license sections""",
+        "model_slug": "chatgpt",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["github", "readme", "open source", "developer", "documentation"],
+        "is_free": True,
+        "popularity": 85,
+    },
+    {
+        "slug": "conference-talk-outline-prompt",
+        "title": "Conference Talk Outline Prompt",
+        "summary": "Structure a conference talk that teaches, entertains, and leaves a lasting impression.",
+        "prompt": """Create an outline for a [length: 15 / 25 / 45 minute] conference talk titled "[talk title]" for an audience of [audience description].
+
+Requirements:
+- Open with a hook that creates tension or curiosity in the first 60 seconds.
+- Structure around 3 key ideas maximum, not a laundry list.
+- Include one live demo or interactive moment.
+- Build toward a memorable closing line or call-to-action.
+- Note where to place slides vs live coding vs storytelling.
+
+Return:
+- talk structure with time allocations
+- opening hook script
+- key idea breakdowns with transitions
+- demo or interactive moment plan
+- closing and Q&A preparation notes""",
+        "model_slug": "claude",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["conference talk", "public speaking", "presentation", "teaching", "outline"],
+        "featured": True,
+        "popularity": 82,
+    },
+    {
+        "slug": "fictional-brand-identity-prompt",
+        "title": "Fictional Brand Identity Prompt",
+        "summary": "Create a complete brand identity for a fictional company from scratch.",
+        "prompt": """Create a full brand identity for [fictional company name], a [industry] company that [value proposition].
+
+Requirements:
+- Design a logo that works in monochrome, color, and reversed-out versions.
+- Define a color system with primary, secondary, and accent colors with hex values.
+- Choose a type system with heading and body fonts that reflect the brand personality.
+- Create a one-page brand guidelines snapshot.
+- Include mockups: business card, website header, social profile, and one physical touchpoint.
+
+Return:
+- logo concept with variations
+- color system with rationale
+- typography pairing
+- brand guidelines snapshot
+- mockup applications""",
+        "model_slug": "midjourney",
+        "category_slug": "logo-icon",
+        "modality": "image",
+        "tags": ["brand identity", "logo", "design system", "mockup", "fictional"],
+        "featured": True,
+        "popularity": 90,
+    },
+    {
+        "slug": "product-comparison-blog-prompt",
+        "title": "Product Comparison Blog Post Prompt",
+        "summary": "Write a fair, detailed comparison post that ranks products for a specific audience.",
+        "prompt": """Write a detailed comparison of [Product A] vs [Product B] vs [Product C] for [target audience].
+
+Requirements:
+- Open with who each product is best for, so readers can self-select fast.
+- Compare on 5-7 criteria that actually matter to the buyer, not feature checklists.
+- Include a summary comparison table.
+- Be fair. Acknowledge genuine strengths of each option.
+- End with a clear recommendation per use case, not a wishy-washy "it depends."
+
+Return:
+- quick verdict section
+- detailed comparison by criteria
+- comparison table
+- use-case recommendations
+- methodology note""",
+        "model_slug": "deepseek",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["comparison", "blog post", "seo", "product review", "content marketing"],
+        "is_free": True,
+        "popularity": 81,
+    },
+    {
+        "slug": "neon-sign-mockup-prompt",
+        "title": "Neon Sign Mockup Prompt",
+        "summary": "Create a photorealistic neon sign design for a brand, venue, or art installation.",
+        "prompt": """Design a neon sign for [brand name or phrase] installed in a [setting: bar interior / storefront / studio wall / event backdrop].
+
+Requirements:
+- The neon should look physically believable with proper glass tube bending constraints.
+- Include a glow and ambient light spill on surrounding surfaces.
+- Show both an illuminated night version and a daylight off-state version.
+- The sign should be reproducible by an actual neon fabricator.
+- Include one alternate color variant.
+
+Return:
+- neon sign design
+- mounting and installation context
+- lit vs unlit comparison
+- color variant
+- fabrication feasibility notes""",
+        "model_slug": "flux",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["neon sign", "signage", "branding", "interior", "mockup"],
+        "popularity": 83,
+    },
+    {
+        "slug": "stop-motion-product-video-prompt",
+        "title": "Stop Motion Product Video Prompt",
+        "summary": "Create a stop-motion style product video for social content or brand storytelling.",
+        "prompt": """Create a stop-motion style product video for [product] in [duration: 8-15 seconds].
+
+Requirements:
+- Use the charming imperfection of stop motion: visible fingerprints of handmade movement.
+- Show the product assembling, unboxing, or transforming through physical steps.
+- Include tactile materials: paper, fabric, wood, or craft elements as backgrounds.
+- Keep the pacing bouncy and social-friendly.
+- End on a clean product hero frame with room for brand text.
+
+Return:
+- shot-by-shot storyboard
+- material and set direction
+- movement and pacing guide
+- sound design suggestions
+- hero frame composition""",
+        "model_slug": "kling-ai",
+        "category_slug": "marketing-business",
+        "modality": "video",
+        "tags": ["stop motion", "product video", "handmade", "social content", "craft"],
+        "featured": True,
+        "popularity": 85,
+    },
+    {
+        "slug": "cinematic-food-video-prompt",
+        "title": "Cinematic Food Video Prompt",
+        "summary": "Generate a premium cinematic food video with slow motion and macro detail.",
+        "prompt": """Create a cinematic food video featuring [dish or ingredient] in [duration: 10-20 seconds].
+
+Requirements:
+- Include at least one slow-motion pour, drizzle, or sizzle moment.
+- One macro shot showing texture at extreme close-up.
+- Lighting should feel warm, directional, and restaurant-quality.
+- Camera movement should be smooth and intentional: one dolly, one tilt, one static beauty shot.
+- The edit should feel premium enough for a food brand campaign.
+
+Return:
+- shot list with camera movements
+- lighting setup description
+- macro moment specification
+- slow-motion beat
+- color grade direction""",
+        "model_slug": "sora",
+        "category_slug": "photography",
+        "modality": "video",
+        "tags": ["food video", "cinematic", "slow motion", "macro", "culinary"],
+        "featured": True,
+        "popularity": 90,
+    },
+    {
+        "slug": "before-after-transformation-video-prompt",
+        "title": "Before/After Transformation Video Prompt",
+        "summary": "Create a satisfying before/after transformation video for renovations, makeovers, or results.",
+        "prompt": """Create a before/after transformation video for [subject: room renovation / brand redesign / fitness journey / product upgrade] in [10-15 seconds].
+
+Requirements:
+- The "before" should feel genuinely underwhelming without being insulting.
+- Use one dramatic reveal transition (swipe, match cut, or time-lapse).
+- The "after" should get 2-3x more screen time than the "before."
+- Include one detail comparison moment that shows quality difference.
+- Optimize for the dopamine hit of transformation content on social feeds.
+
+Return:
+- before scene setup
+- reveal transition technique
+- after showcase shot list
+- detail comparison moment
+- caption and music pacing notes""",
+        "model_slug": "veo",
+        "category_slug": "marketing-business",
+        "modality": "video",
+        "tags": ["before after", "transformation", "reveal", "social video", "renovation"],
+        "featured": True,
+        "popularity": 92,
+    },
+    {
+        "slug": "travel-destination-reel-prompt",
+        "title": "Travel Destination Reel Prompt",
+        "summary": "Generate a scroll-stopping travel reel that makes viewers want to book immediately.",
+        "prompt": """Create a travel destination reel for [destination] in [12-18 seconds].
+
+Requirements:
+- Open with the single most jaw-dropping visual of the destination.
+- Mix landscape wides, cultural close-ups, food moments, and human activity.
+- Include one golden-hour or blue-hour shot for emotional pull.
+- Pacing should match trending travel reel rhythms: fast cuts, one slow beat, fast finish.
+- End on a frame that works as both a thumbnail and a "save for later" moment.
+
+Return:
+- shot sequence with locations
+- golden hour moment
+- cultural detail shots
+- pacing and music sync notes
+- thumbnail frame""",
+        "model_slug": "hailuo-ai",
+        "category_slug": "photography",
+        "modality": "video",
+        "tags": ["travel", "destination", "reel", "tourism", "social video"],
+        "popularity": 84,
+    },
+    {
+        "slug": "saas-explainer-animation-prompt",
+        "title": "SaaS Explainer Animation Prompt",
+        "summary": "Create a clean explainer animation that communicates a SaaS product's value in seconds.",
+        "prompt": """Create an explainer animation for [product name], a SaaS tool that [value proposition], in [15-30 seconds].
+
+Requirements:
+- Open with the problem: show the pain point visually in 3-4 seconds.
+- Transition to the solution with one clean UI reveal.
+- Show the product solving the problem in 2-3 clear steps.
+- Use motion graphics, not cartoon characters, for B2B credibility.
+- End with logo, tagline, and one CTA.
+
+Return:
+- storyboard with scene descriptions
+- problem visualization
+- UI reveal and product demo beats
+- motion style guide
+- voiceover script or caption text""",
+        "model_slug": "sora",
+        "category_slug": "marketing-business",
+        "modality": "video",
+        "tags": ["saas", "explainer", "animation", "b2b", "product marketing"],
+        "featured": True,
+        "popularity": 87,
+    },
+    {
+        "slug": "music-visualizer-loop-prompt",
+        "title": "Music Visualizer Loop Prompt",
+        "summary": "Generate an abstract music visualizer loop for streaming, events, or social content.",
+        "prompt": """Create an abstract music visualizer loop for [genre: electronic / jazz / hip-hop / ambient / orchestral] in [8-12 seconds].
+
+Requirements:
+- Motion should feel reactive to rhythm even without actual audio sync.
+- Use abstract forms: particles, waveforms, liquid, geometry, or light.
+- Keep the palette to 3-4 colors that feel genre-appropriate.
+- The loop should be seamless for extended playback.
+- Include one climax moment that suggests a drop or crescendo.
+
+Return:
+- visual concept and motion language
+- color palette with mood rationale
+- loop structure and climax beat
+- rendering style notes
+- suggested BPM range for pairing""",
+        "model_slug": "midjourney-video",
+        "category_slug": "art-illustration",
+        "modality": "video",
+        "tags": ["music visualizer", "abstract", "loop", "vj", "motion graphics"],
+        "popularity": 78,
+    },
+    {
+        "slug": "personal-swot-analysis-prompt",
+        "title": "Personal SWOT Analysis Prompt",
+        "summary": "Run a structured SWOT analysis on yourself or your career for strategic planning.",
+        "prompt": """Conduct a personal SWOT analysis based on my background.
+
+My context:
+- Current role: [role]
+- Industry: [industry]
+- Years of experience: [years]
+- Key skills: [skills]
+- Career goal: [goal]
+
+Requirements:
+- Be genuinely critical in weaknesses and threats, not just politely encouraging.
+- Identify strengths that are actually differentiating, not generic.
+- Map opportunities to specific actions I can take in the next 90 days.
+- Connect threats to market trends or industry shifts, not vague fears.
+- End with a prioritized action plan.
+
+Return:
+- strengths (with what makes them rare)
+- weaknesses (with honest assessment)
+- opportunities (with 90-day actions)
+- threats (with market context)
+- prioritized action plan""",
+        "model_slug": "claude",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["swot analysis", "career planning", "self assessment", "strategy", "personal development"],
+        "is_free": True,
+        "popularity": 80,
+    },
+    {
+        "slug": "newsletter-growth-strategy-prompt",
+        "title": "Newsletter Growth Strategy Prompt",
+        "summary": "Build a practical newsletter growth plan from zero to 10K subscribers.",
+        "prompt": """Create a newsletter growth strategy for [newsletter name] about [topic], currently at [subscriber count] subscribers.
+
+Requirements:
+- Map the growth engine: where will subscribers actually come from?
+- Include 5 acquisition channels ranked by effort vs impact.
+- Define the referral loop or viral mechanic.
+- Specify a content calendar cadence and pillar topics.
+- Set realistic milestone targets with specific tactics for each stage.
+
+Return:
+- growth engine overview
+- channel-by-channel acquisition plan
+- referral mechanic design
+- content strategy and cadence
+- milestone roadmap (1K, 5K, 10K)""",
+        "model_slug": "grok",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["newsletter", "growth", "audience building", "content strategy", "email"],
+        "featured": True,
+        "popularity": 84,
+    },
+    {
+        "slug": "board-game-design-prompt",
+        "title": "Board Game Design Prompt",
+        "summary": "Design core mechanics, components, and theme for an original board game concept.",
+        "prompt": """Design a board game concept for [theme or setting] aimed at [player count] players, [age range], with a target play time of [duration].
+
+Requirements:
+- Define the core mechanic that makes the game unique and replayable.
+- Describe 3-5 key components: board, cards, tokens, dice, or custom pieces.
+- Explain the turn structure and win condition clearly.
+- Include one catch-up mechanic so trailing players stay engaged.
+- Describe the emotional arc: what feelings should players have at start, middle, and end?
+
+Return:
+- game overview and theme
+- core mechanic explanation
+- component list with descriptions
+- turn structure and rules summary
+- catch-up mechanic
+- emotional arc and playtesting notes""",
+        "model_slug": "chatgpt",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["board game", "game design", "tabletop", "mechanics", "creative"],
+        "is_free": True,
+        "popularity": 81,
+    },
+    {
+        "slug": "brand-photography-moodboard-prompt",
+        "title": "Brand Photography Moodboard Prompt",
+        "summary": "Create a photography moodboard that defines the visual direction for a brand shoot.",
+        "prompt": """Create a photography moodboard for [brand name], a [brand type] targeting [audience].
+
+Requirements:
+- Define 4 distinct photography moods: hero product, lifestyle in-use, detail/texture, and team/culture.
+- Specify lighting direction, color temperature, and depth of field for each mood.
+- Include wardrobe and prop styling notes.
+- Reference real-world locations or set types.
+- The moodboard should be specific enough to brief a photographer directly.
+
+Return:
+- 4 mood categories with descriptions
+- lighting and camera specs per mood
+- styling and prop direction
+- location or set references
+- shot list template""",
+        "model_slug": "gemini-image",
+        "category_slug": "photography",
+        "modality": "image",
+        "tags": ["moodboard", "brand photography", "art direction", "shoot planning", "styling"],
+        "featured": True,
+        "popularity": 83,
+    },
+    {
+        "slug": "horror-game-environment-prompt",
+        "title": "Horror Game Environment Prompt",
+        "summary": "Design an atmospheric horror game environment with lighting and tension cues.",
+        "prompt": """Design a horror game environment for [setting: abandoned hospital / underground lab / Victorian manor / deep space station].
+
+Requirements:
+- Lighting should guide the player while creating dread: one safe zone, one danger zone, one unknown.
+- Include environmental storytelling: 3 discoverable narrative details visible in the scene.
+- Design sightlines that create anticipation (long corridors, blind corners, reflective surfaces).
+- Specify audio design cues that pair with the visual: ambient, proximity, and jump triggers.
+- Show one "before the horror" version and one "after something went wrong" version.
+
+Return:
+- environment concept
+- lighting zones with gameplay function
+- environmental storytelling inventory
+- audio design pairing notes
+- before/after comparison""",
+        "model_slug": "stable-diffusion",
+        "category_slug": "games-3d",
+        "modality": "image",
+        "tags": ["horror", "game environment", "atmosphere", "level design", "narrative"],
+        "featured": True,
+        "popularity": 86,
+    },
+    {
+        "slug": "typography-specimen-poster-prompt",
+        "title": "Typography Specimen Poster Prompt",
+        "summary": "Design a type specimen poster that showcases a font's personality and range.",
+        "prompt": """Design a typography specimen poster for [font name or style description].
+
+Requirements:
+- Show the full character set: uppercase, lowercase, numerals, and key glyphs.
+- Include the typeface at display, subheading, body, and caption sizes.
+- Use one creative typographic composition that shows the font's personality.
+- Include weight and style variations if available.
+- The poster should work as both a reference tool and wall art.
+
+Return:
+- poster layout concept
+- character showcase arrangement
+- creative composition concept
+- size and weight demonstrations
+- print specification""",
+        "model_slug": "recraft",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["typography", "specimen", "poster", "type design", "print"],
+        "is_free": True,
+        "popularity": 75,
+    },
+    {
+        "slug": "ai-workflow-automation-prompt",
+        "title": "AI Workflow Automation Prompt",
+        "summary": "Design an AI-powered workflow that automates a repetitive business process.",
+        "prompt": """Design an AI-powered automation workflow for [process: content review / lead qualification / support triage / invoice processing / hiring pipeline].
+
+Requirements:
+- Map the current manual workflow with time and cost estimates per step.
+- Identify which steps can be fully automated, partially automated, or must stay human.
+- Specify the AI models or tools needed for each automated step.
+- Include error handling and human-in-the-loop escalation points.
+- Calculate projected time savings and ROI.
+
+Return:
+- current workflow map with bottlenecks
+- automated workflow design
+- tool and model recommendations per step
+- escalation and error handling rules
+- ROI projection""",
+        "model_slug": "gemini",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["automation", "workflow", "ai tools", "operations", "efficiency"],
+        "featured": True,
+        "popularity": 87,
+    },
+    {
+        "slug": "comic-book-page-prompt",
+        "title": "Comic Book Page Layout Prompt",
+        "summary": "Design a dynamic comic book page with panel layout, action, and storytelling.",
+        "prompt": """Design a comic book page for a [genre: superhero / noir / manga / sci-fi / slice-of-life] story.
+
+Scene to depict: [describe the scene]
+
+Requirements:
+- Use 5-7 panels with varied sizes to control pacing and emphasis.
+- Include one splash or dominant panel for the page's key moment.
+- Panel compositions should guide the reader's eye through the page naturally.
+- Show dynamic camera angles: at least one low angle, one close-up, and one wide.
+- Leave appropriate space for speech bubbles and captions without crowding the art.
+
+Return:
+- panel layout with dimensions
+- per-panel composition descriptions
+- camera angle and shot type for each panel
+- speech bubble placement zones
+- page flow and pacing notes""",
+        "model_slug": "leonardo-ai",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["comic book", "sequential art", "panel layout", "storytelling", "manga"],
+        "featured": True,
+        "popularity": 86,
+    },
+    {
+        "slug": "startup-naming-brainstorm-prompt",
+        "title": "Startup Naming Brainstorm Prompt",
+        "summary": "Generate and evaluate startup name candidates with domain and trademark checks.",
+        "prompt": """Generate 20 name candidates for a [industry] startup that [value proposition].
+
+Target brand personality: [personality traits]
+Target audience: [audience]
+
+Requirements:
+- Include a mix of: invented words, compound words, metaphors, and abbreviations.
+- For each name, explain the linguistic logic and what it evokes.
+- Flag likely domain availability (.com and .io).
+- Rate each name on: memorability, pronunciation clarity, and trademark risk.
+- Shortlist the top 5 with rationale.
+
+Return:
+- 20 name candidates with explanations
+- domain availability assessment
+- scoring matrix
+- top 5 shortlist with rationale
+- naming direction recommendations""",
+        "model_slug": "grok",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["naming", "startup", "branding", "domain", "trademark"],
+        "featured": True,
+        "popularity": 88,
+    },
+    {
+        "slug": "architectural-walkthrough-video-prompt",
+        "title": "Architectural Walkthrough Video Prompt",
+        "summary": "Generate a cinematic architectural walkthrough for a property or design concept.",
+        "prompt": """Create a cinematic architectural walkthrough of [property type: modern villa / loft apartment / restaurant / boutique hotel] in [15-25 seconds].
+
+Requirements:
+- Begin outside with an establishing shot showing the building in its context.
+- Transition through the entrance with a single continuous-feeling camera move.
+- Reveal 3-4 key spaces with deliberate pauses on material details.
+- Lighting should progress from natural exterior to designed interior.
+- End on the signature space or view that sells the property.
+
+Return:
+- walkthrough path with room sequence
+- camera movement and transition descriptions
+- material and lighting callouts per space
+- signature reveal moment
+- music and ambient sound suggestions""",
+        "model_slug": "hunyuan",
+        "category_slug": "photography",
+        "modality": "video",
+        "tags": ["architecture", "walkthrough", "real estate", "interior", "cinematic"],
+        "featured": True,
+        "popularity": 83,
+    },
+    {
+        "slug": "unboxing-experience-video-prompt",
+        "title": "Unboxing Experience Video Prompt",
+        "summary": "Design a premium unboxing video that makes viewers feel the product quality.",
+        "prompt": """Create a premium unboxing video for [product] in [12-20 seconds].
+
+Requirements:
+- ASMR-adjacent: emphasize tactile sounds, paper textures, and material reveals.
+- Hands should interact with packaging deliberately, not rushed.
+- Include one satisfying peel, fold, or magnetic closure moment.
+- Lighting should make materials look premium: shadows, reflections, surface detail.
+- Final product reveal should have a clear hero moment with breathing room.
+
+Return:
+- unboxing sequence with beats
+- tactile moment highlights
+- sound design notes
+- lighting and camera setup
+- hero reveal composition""",
+        "model_slug": "seedream",
+        "category_slug": "marketing-business",
+        "modality": "video",
+        "tags": ["unboxing", "product", "asmr", "premium", "ecommerce"],
+        "popularity": 82,
+    },
+    {
+        "slug": "character-turnaround-sheet-prompt",
+        "title": "Character Turnaround Sheet Prompt",
+        "summary": "Create a production-ready character turnaround for animation or game development.",
+        "prompt": """Create a character turnaround sheet for [character description] in a [art style: anime / western animation / semi-realistic / chibi] style.
+
+Requirements:
+- Show front, three-quarter, side, and back views on a consistent baseline.
+- Include a height reference and proportion grid.
+- Add a color palette swatch with material callouts (skin, fabric, metal, etc.).
+- Show 3-4 facial expression variants.
+- Include one action pose that demonstrates the character's personality.
+
+Return:
+- turnaround views
+- proportion and height reference
+- color palette with material notes
+- expression sheet
+- action pose""",
+        "model_slug": "wan",
+        "category_slug": "games-3d",
+        "modality": "image",
+        "tags": ["character design", "turnaround", "animation", "game dev", "model sheet"],
+        "popularity": 80,
+    },
+    {
+        "slug": "ecommerce-product-listing-prompt",
+        "title": "E-commerce Product Listing Prompt",
+        "summary": "Write a high-converting product listing with SEO-optimized copy and bullet points.",
+        "prompt": """Write a product listing for [product name] sold on [platform: Amazon / Shopify / Etsy].
+
+Product details: [key features, materials, dimensions, use cases]
+
+Requirements:
+- Title optimized for search with primary keyword naturally placed.
+- 5 benefit-driven bullet points that address buyer objections.
+- Product description that tells a story and builds desire, not just lists specs.
+- Include backend search keywords and suggested A+ content sections.
+- Write for the buyer who is comparing 3 tabs side by side.
+
+Return:
+- optimized title
+- bullet points
+- product description
+- search keywords
+- A+ content section suggestions""",
+        "model_slug": "chatgpt",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["ecommerce", "product listing", "amazon", "seo", "copywriting"],
+        "is_free": True,
+        "featured": True,
+        "popularity": 89,
+    },
+    {
+        "slug": "motion-logo-reveal-prompt",
+        "title": "Motion Logo Reveal Prompt",
+        "summary": "Create an animated logo reveal for video intros, presentations, or brand content.",
+        "prompt": """Create a motion logo reveal for [brand name] in [3-5 seconds].
+
+Requirements:
+- The animation should reflect the brand's personality: [playful / premium / technical / bold].
+- Build from simple to complete, not just fade in.
+- Include a subtle sound design moment (whoosh, click, tone) at the resolve.
+- The logo must land on a clean, usable hold frame for at least 1 second.
+- Show one alternate version: dark background and light background.
+
+Return:
+- animation sequence description
+- build-up technique
+- sound design beat
+- hold frame composition
+- dark/light variants""",
+        "model_slug": "grok-video",
+        "category_slug": "logo-icon",
+        "modality": "video",
+        "tags": ["logo animation", "motion", "brand", "intro", "reveal"],
+        "featured": True,
+        "popularity": 86,
+    },
+    {
+        "slug": "vaporwave-aesthetic-prompt",
+        "title": "Vaporwave Aesthetic Prompt",
+        "summary": "Create a vaporwave or retrowave aesthetic piece with neon grids and surreal elements.",
+        "prompt": """Create a vaporwave / retrowave artwork for [subject: album art / poster / social banner / desktop wallpaper].
+
+Requirements:
+- Classic vaporwave elements: chrome text, marble busts, neon grids, palm trees, sunset gradients.
+- But push beyond cliché: add one unexpected modern element that makes it fresh.
+- Color palette should center on magenta, cyan, and deep purple with chrome accents.
+- Include glitch artifacts, scan lines, or VHS texture for authenticity.
+- The composition should feel like a place you want to be, not just a meme.
+
+Return:
+- composition concept
+- key visual elements
+- unexpected fresh element
+- color palette and texture treatment
+- resolution and format notes""",
+        "model_slug": "stable-diffusion",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["vaporwave", "retrowave", "aesthetic", "neon", "retro"],
+        "popularity": 79,
+    },
+    {
+        "slug": "ux-audit-report-prompt",
+        "title": "UX Audit Report Prompt",
+        "summary": "Conduct a structured UX audit of a product with prioritized recommendations.",
+        "prompt": """Conduct a UX audit of [product or website URL description].
+
+Requirements:
+- Evaluate: information architecture, navigation, visual hierarchy, forms, CTAs, and mobile experience.
+- Score each area on a 1-5 scale with specific evidence for each score.
+- Identify the top 3 quick wins (high impact, low effort fixes).
+- Identify the top 3 strategic improvements (high impact, higher effort).
+- Include annotated screenshots descriptions showing exact problem areas.
+
+Return:
+- executive summary with overall score
+- area-by-area assessment with scores
+- quick wins with implementation notes
+- strategic improvements with rationale
+- prioritized recommendations matrix""",
+        "model_slug": "gemini",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["ux audit", "design review", "usability", "product", "recommendations"],
+        "featured": True,
+        "popularity": 82,
+    },
+    {
+        "slug": "generative-pattern-design-prompt",
+        "title": "Generative Pattern Design Prompt",
+        "summary": "Create a seamless repeating pattern for textiles, wallpaper, or packaging.",
+        "prompt": """Design a seamless repeating pattern inspired by [theme: tropical botanicals / geometric art deco / Japanese wave motifs / microscopic organisms / circuit boards].
+
+Requirements:
+- The pattern must tile seamlessly in all directions.
+- Include a hero colorway and two alternate colorways for different applications.
+- Scale should work for both large format (wallpaper, fabric bolt) and small format (gift wrap, phone case).
+- Balance density: not so sparse it looks empty, not so dense it overwhelms.
+- Include one subtle motif variation that prevents the repeat from feeling mechanical.
+
+Return:
+- pattern tile design
+- three colorways
+- scale demonstration at different sizes
+- repeat logic and variation notes
+- application mockups (textile, packaging, digital)""",
+        "model_slug": "qwen-image",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["pattern design", "textile", "seamless", "surface design", "wallpaper"],
+        "popularity": 77,
+    },
+    {
+        "slug": "crisis-communication-plan-prompt",
+        "title": "Crisis Communication Plan Prompt",
+        "summary": "Draft a crisis communication plan with holding statements and escalation protocols.",
+        "prompt": """Create a crisis communication plan for [company] addressing a [crisis type: data breach / product recall / PR incident / executive misconduct / service outage].
+
+Requirements:
+- Write 3 holding statements for different stages: first 30 minutes, first 4 hours, next day.
+- Define the approval chain and spokesperson hierarchy.
+- Include templates for: press statement, customer email, social media post, and internal memo.
+- Map stakeholder communication priority and channel.
+- Include a "what not to say" section with common mistakes.
+
+Return:
+- holding statements (3 stages)
+- approval and spokesperson protocol
+- communication templates per channel
+- stakeholder priority matrix
+- common mistakes to avoid""",
+        "model_slug": "llama",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["crisis communication", "pr", "reputation", "stakeholder", "emergency"],
+        "popularity": 76,
+    },
+    {
+        "slug": "timelapse-nature-video-prompt",
+        "title": "Timelapse Nature Video Prompt",
+        "summary": "Create a mesmerizing nature timelapse with dynamic sky and landscape movement.",
+        "prompt": """Create a nature timelapse video of [subject: cloud formations over mountains / flower blooming / ice melting / starfield rotation / city sunrise] in [8-15 seconds].
+
+Requirements:
+- The passage of time should feel dramatic and awe-inspiring.
+- Include one foreground anchor element for depth and scale.
+- Lighting transition should be the emotional core: sunrise, sunset, or day-to-night.
+- Camera should be locked or have one very slow pan/tilt for gentle dynamism.
+- The final frame should feel like a photograph worth printing.
+
+Return:
+- scene composition
+- time compression ratio
+- foreground anchor element
+- lighting transition arc
+- final frame description""",
+        "model_slug": "seedance",
+        "category_slug": "photography",
+        "modality": "video",
+        "tags": ["timelapse", "nature", "landscape", "sky", "cinematic"],
+        "popularity": 78,
+    },
+    {
+        "slug": "lesson-plan-generator-prompt",
+        "title": "Lesson Plan Generator Prompt",
+        "summary": "Create a structured lesson plan with activities, assessments, and differentiation.",
+        "prompt": """Create a lesson plan for teaching [topic] to [grade level / audience] in a [duration] session.
+
+Requirements:
+- Include a hook activity that sparks curiosity in the first 5 minutes.
+- Structure the lesson with: warm-up, direct instruction, guided practice, independent work, and debrief.
+- Provide differentiation strategies for advanced, on-level, and struggling learners.
+- Include one formative assessment check and one summative assessment option.
+- Add real-world connections that make the topic feel relevant to students' lives.
+
+Return:
+- lesson overview and objectives
+- detailed timeline with activities
+- differentiation strategies
+- assessment tools
+- materials list and prep notes""",
+        "model_slug": "chatgpt",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["lesson plan", "education", "teaching", "curriculum", "learning"],
+        "is_free": True,
+        "popularity": 83,
+    },
+    {
+        "slug": "rpg-dungeon-map-prompt",
+        "title": "RPG Dungeon Map Prompt",
+        "summary": "Design a tabletop RPG dungeon map with encounters, secrets, and narrative flow.",
+        "prompt": """Design a dungeon map for a [theme: haunted crypt / dwarven forge / arcane library / sunken temple / dragon's lair] suitable for [party level] adventurers.
+
+Requirements:
+- 8-12 rooms with distinct visual identity and gameplay purpose.
+- Include 2 combat encounter rooms, 1 puzzle room, 1 trap corridor, and 1 treasure room.
+- Add 2 hidden areas that reward exploration or investigation checks.
+- The map should have multiple paths so players feel agency in their route.
+- Include environmental hazards that interact with the dungeon's theme.
+
+Return:
+- dungeon map layout
+- room-by-room descriptions with encounters
+- secret areas and discovery conditions
+- environmental hazard notes
+- boss room setup and narrative climax""",
+        "model_slug": "grok-image",
+        "category_slug": "games-3d",
+        "modality": "image",
+        "tags": ["dungeon map", "rpg", "tabletop", "fantasy", "encounter design"],
+        "popularity": 80,
+    },
+    {
+        "slug": "micro-saas-launch-strategy-prompt",
+        "title": "Micro-SaaS Launch Strategy Prompt",
+        "summary": "Plan a complete launch strategy for a micro-SaaS product from beta to first 100 customers.",
+        "prompt": """Create a launch strategy for [product name], a micro-SaaS tool that [what it does] for [target customer].
+
+Current stage: [pre-launch / beta / just launched]
+Budget: [bootstrapped / small budget / funded]
+
+Requirements:
+- Define the launch in phases: pre-launch, launch week, and post-launch growth.
+- Identify the 3 highest-leverage distribution channels for this specific audience.
+- Include a pricing strategy with specific tier recommendations and reasoning.
+- Plan the first 30 days of content and community engagement.
+- Set concrete metrics for each phase: not vanity metrics, real business outcomes.
+
+Return:
+- phase-by-phase launch plan
+- channel strategy with prioritization
+- pricing recommendation with tiers
+- 30-day content and engagement calendar
+- metrics and milestones per phase""",
+        "model_slug": "deepseek",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["micro saas", "launch strategy", "startup", "growth", "pricing"],
+        "is_free": True,
+        "featured": True,
+        "popularity": 85,
+    },
+    {
+        "slug": "surreal-dreamscape-prompt",
+        "title": "Surreal Dreamscape Prompt",
+        "summary": "Create a surrealist artwork that bends reality with impossible architecture and symbolism.",
+        "prompt": """Create a surrealist dreamscape painting inspired by [theme: memory / time / identity / technology / nature reclaiming civilization].
+
+Requirements:
+- Blend at least two impossible spatial relationships (Escher-like gravity, recursive spaces, scale contradictions).
+- Include one recognizable everyday object transformed into something uncanny.
+- Lighting should feel both natural and wrong simultaneously.
+- The composition should have a clear focal point despite the surreal chaos.
+- Color palette should evoke a specific emotional temperature: warm nostalgia, cold alienation, or electric wonder.
+
+Return:
+- scene concept and central metaphor
+- spatial impossibility descriptions
+- transformed object concept
+- lighting and color direction
+- emotional interpretation notes""",
+        "model_slug": "midjourney",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["surrealism", "dreamscape", "impossible", "art", "conceptual"],
+        "popularity": 84,
+    },
+    {
+        "slug": "landing-page-roast-prompt",
+        "title": "Landing Page Roast Prompt",
+        "summary": "Get a brutally honest review of a landing page with specific fix recommendations.",
+        "prompt": """Roast this landing page and tell me exactly what to fix.
+
+Page description: [describe your landing page: headline, subhead, hero image, sections, CTA, etc.]
+Target audience: [who you're trying to convert]
+Goal: [sign up / buy / book a demo / download]
+
+Requirements:
+- Be brutally honest. If the headline is vague, say so. If the CTA is weak, call it out.
+- Grade each section: headline, subhead, hero visual, social proof, features, objection handling, CTA.
+- For every criticism, give a specific rewrite or fix suggestion.
+- Identify the single biggest conversion killer on the page.
+- End with a prioritized fix list: what to change today, this week, and this month.
+
+Return:
+- section-by-section roast with grades
+- specific rewrite suggestions
+- biggest conversion killer
+- prioritized fix list
+- one example of a page in this category that does it well""",
+        "model_slug": "grok",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["landing page", "conversion", "roast", "cro", "copywriting"],
+        "featured": True,
+        "popularity": 91,
+    },
+    {
+        "slug": "vintage-travel-poster-prompt",
+        "title": "Vintage Travel Poster Prompt",
+        "summary": "Design a vintage-style travel poster with retro illustration and bold typography.",
+        "prompt": """Design a vintage travel poster for [destination] in the style of [era: 1920s Art Deco / 1950s mid-century / 1960s airline / WPA national parks].
+
+Requirements:
+- Capture the destination's most iconic visual element in a simplified, graphic style.
+- Typography should feel hand-lettered and era-authentic.
+- Use a limited color palette of 4-6 flat colors with overprint effects.
+- Include a tagline or slogan that captures the spirit of the destination.
+- The poster should work as both a travel promotion and collectible wall art.
+
+Return:
+- poster illustration concept
+- typography treatment and tagline
+- color palette with printing notes
+- era-specific style details
+- print size and paper recommendation""",
+        "model_slug": "google-imagen",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["vintage poster", "travel", "retro", "illustration", "typography"],
+        "popularity": 82,
+    },
+    {
+        "slug": "saas-onboarding-email-sequence-prompt",
+        "title": "SaaS Onboarding Email Sequence Prompt",
+        "summary": "Write a behavior-triggered email sequence that drives new users to activation.",
+        "prompt": """Write a 7-email onboarding sequence for [product name], a [product type] where activation means [define activation event].
+
+Requirements:
+- Email 1: Welcome + single most important first action (sent immediately).
+- Emails 2-4: Behavior-triggered based on whether they completed key actions or not.
+- Email 5: Social proof and use case inspiration.
+- Email 6: Address the #1 reason users churn early.
+- Email 7: Personal check-in from founder or success team.
+- Each email should have one CTA, not three.
+
+Return:
+- email sequence map with triggers
+- subject lines and preview text
+- full email copy for all 7 emails
+- send timing and trigger logic
+- metrics to track per email""",
+        "model_slug": "claude",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["onboarding", "email sequence", "saas", "activation", "retention"],
+        "featured": True,
+        "popularity": 88,
+    },
+    {
+        "slug": "vehicle-wrap-design-prompt",
+        "title": "Vehicle Wrap Design Prompt",
+        "summary": "Design a vehicle wrap for a van, truck, or fleet that turns heads and communicates.",
+        "prompt": """Design a vehicle wrap for a [vehicle type: delivery van / food truck / company car / fleet vehicle] for [brand name], a [business type].
+
+Requirements:
+- The brand name and phone/URL must be readable at 40mph from 30 feet.
+- Design must account for door handles, windows, wheel wells, and panel seams.
+- Use one hero visual element that makes the vehicle recognizable from any angle.
+- Include both side panel and rear door designs.
+- The wrap should make someone pull out their phone to look up the business.
+
+Return:
+- side panel design
+- rear door design
+- hero visual element concept
+- readability and distance notes
+- color and material specification""",
+        "model_slug": "flux",
+        "category_slug": "graphic-design",
+        "modality": "image",
+        "tags": ["vehicle wrap", "fleet", "outdoor advertising", "branding", "signage"],
+        "popularity": 73,
+    },
+    {
+        "slug": "ai-art-style-mashup-prompt",
+        "title": "AI Art Style Mashup Prompt",
+        "summary": "Combine two unexpected art styles or movements into a single cohesive piece.",
+        "prompt": """Create an artwork that fuses [Style A: e.g., Japanese ukiyo-e] with [Style B: e.g., cyberpunk neon] depicting [subject].
+
+Requirements:
+- Both styles should be recognizably present, not one overwhelming the other.
+- Find a visual logic for how these two aesthetics coexist (shared geometry, complementary palettes, transitional zones).
+- The subject should feel natural in this hybrid world, not pasted on.
+- Include enough detail from each style that a knowledgeable viewer could identify both influences.
+- The piece should look intentional, not like a glitch or accident.
+
+Return:
+- composition concept
+- style fusion logic
+- key elements from each style
+- color harmony approach
+- one sentence artist statement""",
+        "model_slug": "midjourney",
+        "category_slug": "art-illustration",
+        "modality": "image",
+        "tags": ["style mashup", "fusion", "art direction", "creative", "experimental"],
+        "featured": True,
+        "popularity": 89,
+    },
+    {
+        "slug": "tiktok-content-strategy-prompt",
+        "title": "TikTok Content Strategy Prompt",
+        "summary": "Build a TikTok content strategy with formats, hooks, and posting cadence.",
+        "prompt": """Create a TikTok content strategy for [brand or creator] in the [niche] space.
+
+Current situation: [follower count, posting frequency, what's working or not]
+
+Requirements:
+- Define 4-5 repeatable content formats (series, templates, recurring hooks).
+- For each format, include: hook formula, structure, ideal length, and example topic.
+- Map content to the funnel: awareness, engagement, and conversion.
+- Include a posting cadence recommendation with best times for this niche.
+- Identify 3 trending formats to adapt and 3 formats to avoid.
+
+Return:
+- content format library with examples
+- hook formulas per format
+- posting cadence and timing
+- funnel mapping
+- trends to ride and avoid""",
+        "model_slug": "grok",
+        "category_slug": "marketing-business",
+        "modality": "text",
+        "tags": ["tiktok", "content strategy", "social media", "short form", "creator"],
+        "featured": True,
+        "popularity": 90,
+    },
+    {
+        "slug": "minimalist-logo-one-line-prompt",
+        "title": "Minimalist One-Line Logo Prompt",
+        "summary": "Design a logo using a single continuous line that captures the brand essence.",
+        "prompt": """Design a minimalist logo for [brand name] using a single continuous line or minimal stroke count.
+
+Requirements:
+- The entire mark should feel like it was drawn without lifting the pen (or nearly so).
+- The line must form a recognizable symbol related to the brand's offering.
+- Works in monochrome at any size from favicon to billboard.
+- Include one version with the line forming negative space to create a second reading.
+- Show the logo in three contexts: business card, app icon, and embossed on paper.
+
+Return:
+- primary line logo concept
+- negative space variant
+- three application mockups
+- line weight specification
+- construction grid""",
+        "model_slug": "ideogram",
+        "category_slug": "logo-icon",
+        "modality": "image",
+        "tags": ["minimalist", "one line", "logo", "mark", "continuous"],
+        "popularity": 81,
+    },
+    {
+        "slug": "podcast-episode-show-notes-prompt",
+        "title": "Podcast Episode Show Notes Prompt",
+        "summary": "Transform a podcast episode transcript into rich show notes with timestamps and takeaways.",
+        "prompt": """Create comprehensive show notes for a podcast episode.
+
+Episode title: [title]
+Guest: [guest name and bio]
+Transcript or summary: [paste content]
+
+Requirements:
+- Write a compelling episode description that works as both a podcast app summary and blog post intro.
+- Create timestamped chapter markers for key topic shifts.
+- Extract the 5 most quotable moments with exact timestamps.
+- List all resources, tools, books, or links mentioned.
+- Write 3 social media clips: one provocative take, one actionable tip, one surprising fact.
+
+Return:
+- episode description (150 words)
+- timestamped chapters
+- key quotes with timestamps
+- resources and links mentioned
+- 3 social media clips""",
+        "model_slug": "llama",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["podcast", "show notes", "transcript", "content repurposing", "timestamps"],
+        "popularity": 77,
+    },
+    {
+        "slug": "3d-product-render-prompt",
+        "title": "3D Product Render Prompt",
+        "summary": "Create a photorealistic 3D product render for marketing and ecommerce.",
+        "prompt": """Create a photorealistic 3D product render of [product] for [use: ecommerce listing / social ad / hero banner / packaging].
+
+Requirements:
+- Material rendering should be physically accurate: metal reflections, plastic translucency, fabric weave.
+- Include one hero angle, one detail crop, and one lifestyle context placement.
+- Lighting should be studio-quality with controlled highlights and shadows.
+- Background should complement but not compete with the product.
+- Show one exploded view or cutaway if the product has internal complexity.
+
+Return:
+- hero render angle and setup
+- detail crop concept
+- lifestyle placement scene
+- material and lighting specifications
+- optional exploded view""",
+        "model_slug": "leonardo-ai",
+        "category_slug": "photography",
+        "modality": "image",
+        "tags": ["3d render", "product visualization", "cgi", "ecommerce", "marketing"],
+        "popularity": 79,
+    },
+    {
+        "slug": "daily-standup-summary-prompt",
+        "title": "Daily Standup Summary Prompt",
+        "summary": "Turn messy standup notes into a clear async update for distributed teams.",
+        "prompt": """Transform these daily standup notes into a clear async team update.
+
+Team notes: [paste raw standup notes from multiple team members]
+
+Requirements:
+- Group updates by workstream, not by person.
+- Highlight blockers prominently at the top.
+- Flag items where two people's work might conflict or depend on each other.
+- Keep each update to one line maximum.
+- Add a "needs attention" section for anything that looks at risk.
+
+Return:
+- blockers (urgent, at top)
+- workstream updates
+- dependency alerts
+- needs attention flags
+- one-line team momentum summary""",
+        "model_slug": "chatgpt",
+        "category_slug": "productivity-writing",
+        "modality": "text",
+        "tags": ["standup", "async", "team update", "project management", "remote work"],
+        "is_free": True,
+        "popularity": 78,
+    },
 ]
 
 

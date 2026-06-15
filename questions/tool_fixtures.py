@@ -35,6 +35,13 @@ tools_fixtures = {
         "url": "/tools/keyword-explorer",
         "image": "img/text-generator-brain.png",
     },
+    "speech-to-speech": {
+        "name": "Speech to Speech",
+        "description": "Send audio (plus an optional text prompt) to Gemma and get back a spoken reply from Kokoro TTS — all in one request.",
+        "keywords": "speech to speech, audio to audio, voice assistant, gemma, kokoro tts, multimodal audio",
+        "url": "/tools/speech-to-speech",
+        "image": "img/text-generator-brain.png",
+    },
     "domain-generator": {
         "name": "Domain Name Generator",
         "description": "Generate creative domain names and check their availability instantly.",

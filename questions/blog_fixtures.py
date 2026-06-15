@@ -59,4 +59,9 @@ blogs = {
         "description": "Text Generator upgraded to Qwen3.5-4B with built-in thinking and reasoning, OpenAI-compatible chat completions API with streaming",
         "keywords": "thinking model, reasoning, chain of thought, chat completions, streaming, OpenAI API, text generation, Machine Learning",
     },
+    "gemma4-multimodal-audio-api": {
+        "title": "Gemma 4 Multimodal Audio API - Audio In, Text + Audio Out",
+        "description": "New API endpoint powered by Gemma 4 and Kokoro TTS: send audio and text, get intelligent text responses with natural speech audio in a single request",
+        "keywords": "gemma 4, multimodal, audio API, text to speech, speech to text, kokoro TTS, voice AI, Machine Learning"
+    },
 }
