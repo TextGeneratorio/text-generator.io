@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0f0f14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f0f14;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#18181f;border-radius:12px;overflow:hidden;border:1px solid #2a2a35;">
+
+<tr><td style="background:linear-gradient(135deg,#d79f2a,#d34675,#7c3aed);padding:32px 40px;text-align:center;">
+  <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Day 90 · Power User Guide</p>
+  <h1 style="margin:8px 0 0;color:#fff;font-size:24px;font-weight:700;">Power User Guide: Tips, Tricks &amp; What's Next</h1>
+</td></tr>
+
+<tr><td style="padding:40px;">
+  <p style="color:#e2e2e8;font-size:16px;line-height:1.7;margin:0 0 24px;">
+    You've been with us for 90 days &mdash; and you now have access to one of the most versatile AI platforms out there. Here are the pro tips that separate casual users from <strong style="color:#e8b84a;">power users</strong>.
+  </p>
+
+  <h2 style="color:#e8b84a;font-size:18px;margin:0 0 16px;">Pro Tips</h2>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;border-left:3px solid #d79f2a;">
+      <p style="margin:0 0 4px;color:#e8b84a;font-size:13px;font-weight:600;text-transform:uppercase;">Tip 1</p>
+      <p style="margin:0;color:#c4c4cc;font-size:14px;line-height:1.5;">Use <code style="color:#e8b84a;background:#1a1508;padding:2px 6px;border-radius:4px;">temperature</code> and <code style="color:#e8b84a;background:#1a1508;padding:2px 6px;border-radius:4px;">top_p</code> together to control creativity vs consistency. Low temperature (0.1-0.3) for factual tasks, higher (0.7-1.0) for creative writing.</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;border-left:3px solid #d34675;">
+      <p style="margin:0 0 4px;color:#e06690;font-size:13px;font-weight:600;text-transform:uppercase;">Tip 2</p>
+      <p style="margin:0;color:#c4c4cc;font-size:14px;line-height:1.5;">Set <code style="color:#e06690;background:#1a0810;padding:2px 6px;border-radius:4px;">max_length</code> and <code style="color:#e06690;background:#1a0810;padding:2px 6px;border-radius:4px;">stop_sequences</code> for precise output control. Stop on newlines for single-line answers, or set max_length to cap token spend.</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;border-left:3px solid #7c3aed;">
+      <p style="margin:0 0 4px;color:#a78bfa;font-size:13px;font-weight:600;text-transform:uppercase;">Tip 3</p>
+      <p style="margin:0;color:#c4c4cc;font-size:14px;line-height:1.5;">Use the OpenAI-compatible endpoint for easy SDK integration. Change one line &mdash; the base URL &mdash; and your existing OpenAI code works with our models instantly.</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;border-left:3px solid #d79f2a;">
+      <p style="margin:0 0 4px;color:#e8b84a;font-size:13px;font-weight:600;text-transform:uppercase;">Tip 4</p>
+      <p style="margin:0;color:#c4c4cc;font-size:14px;line-height:1.5;">Combine TTS + text generation for audio content pipelines. Generate a script, then convert it to speech &mdash; perfect for podcasts, narration, and accessibility.</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;border-left:3px solid #d34675;">
+      <p style="margin:0 0 4px;color:#e06690;font-size:13px;font-weight:600;text-transform:uppercase;">Tip 5</p>
+      <p style="margin:0;color:#c4c4cc;font-size:14px;line-height:1.5;">Use embeddings + generation for RAG workflows. Embed your documents, retrieve the most relevant chunks, then pass them as context to the generation API for grounded answers.</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;border-left:3px solid #7c3aed;">
+      <p style="margin:0 0 4px;color:#a78bfa;font-size:13px;font-weight:600;text-transform:uppercase;">Tip 6</p>
+      <p style="margin:0;color:#c4c4cc;font-size:14px;line-height:1.5;">Batch process with the bulk endpoint for high-volume needs. Send up to 100 prompts in a single request and get results back in parallel &mdash; far faster than sequential calls.</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;border-left:3px solid #d79f2a;">
+      <p style="margin:0 0 4px;color:#e8b84a;font-size:13px;font-weight:600;text-transform:uppercase;">Tip 7</p>
+      <p style="margin:0;color:#c4c4cc;font-size:14px;line-height:1.5;">Self-host for full data sovereignty. Run the inference server on your own infrastructure when compliance requires it &mdash; your data never leaves your network.</p>
+    </td></tr>
+  </table>
+
+  <h2 style="color:#a78bfa;font-size:18px;margin:0 0 16px;">What's Coming</h2>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="padding:10px 16px;background-color:#1a1028;border-radius:6px;border:1px solid #3b1f7a;">
+      <p style="margin:0;color:#c4b5fd;font-size:14px;">New models added regularly &mdash; we stay on the cutting edge so you don't have to</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="padding:10px 16px;background-color:#1a1028;border-radius:6px;border:1px solid #3b1f7a;">
+      <p style="margin:0;color:#c4b5fd;font-size:14px;">More TTS voices with expanded language and accent support</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="padding:10px 16px;background-color:#1a1028;border-radius:6px;border:1px solid #3b1f7a;">
+      <p style="margin:0;color:#c4b5fd;font-size:14px;">Real-time streaming improvements for faster time-to-first-token</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:30px;">
+    <tr><td style="padding:10px 16px;background-color:#1a1028;border-radius:6px;border:1px solid #3b1f7a;">
+      <p style="margin:0;color:#c4b5fd;font-size:14px;">Expanded tool suite &mdash; more research, SEO, and content automation features</p>
+    </td></tr>
+  </table>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:20px;border:1px solid #2a2a35;text-align:center;">
+      <p style="margin:0 0 8px;color:#e2e2e8;font-size:16px;line-height:1.6;">Thank you for being part of Text Generator. We built this platform for builders like you, and we're just getting started.</p>
+      <p style="margin:0;color:#8888a0;font-size:14px;">This is the final email in our onboarding series. You'll still receive occasional product updates and new feature announcements.</p>
+    </td></tr>
+  </table>
+
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:16px 0 8px;">
+      <a href="https://text-generator.io/playground" style="display:inline-block;background:linear-gradient(135deg,#d79f2a,#d34675,#7c3aed);color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:600;">Go Build Something</a>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:8px 0 20px;">
+      <a href="https://github.com/TextGeneratorio" style="color:#818cf8;text-decoration:none;font-size:14px;">Star on GitHub</a>
+      <span style="color:#44445a;"> &nbsp;·&nbsp; </span>
+      <a href="https://text-generator.io/blog" style="color:#818cf8;text-decoration:none;font-size:14px;">Read the Blog</a>
+    </td></tr>
+  </table>
+
+  <p style="color:#e2e2e8;font-size:15px;margin:0;">Happy building,<br><span style="color:#e8b84a;">&mdash; Text Generator Team</span></p>
+</td></tr>
+
+<tr><td style="padding:24px 40px;border-top:1px solid #2a2a35;text-align:center;">
+  <p style="margin:0 0 8px;color:#55556a;font-size:13px;">
+    <a href="https://text-generator.io/blog" style="color:#d79f2a;text-decoration:none;">Blog</a> &nbsp;·&nbsp;
+    <a href="https://text-generator.io/docs/api" style="color:#d79f2a;text-decoration:none;">API Docs</a> &nbsp;·&nbsp;
+    <a href="{{.UnsubscribeURL}}" style="color:#d79f2a;text-decoration:none;">Unsubscribe</a>
+  </p>
+  <p style="margin:0;color:#44445a;font-size:12px;">Text Generator · by <a href="https://app.nz" style="color:#55556a;text-decoration:none;">Applied Science</a></p>
+  <p style="margin:4px 0 0;color:#44445a;font-size:11px;"><a href="https://text-generator.io" style="color:#55556a;text-decoration:none;">text-generator.io</a> · <a href="https://ebank.nz" style="color:#55556a;text-decoration:none;">ebank.nz art generator</a></p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

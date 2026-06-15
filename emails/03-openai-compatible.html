@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0f0f14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f0f14;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#18181f;border-radius:12px;overflow:hidden;border:1px solid #2a2a35;">
+
+<tr><td style="background:linear-gradient(135deg,#0284c7,#38bdf8);padding:32px 40px;text-align:center;">
+  <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Day 3 · Migration</p>
+  <h1 style="margin:8px 0 0;color:#fff;font-size:24px;font-weight:700;">Drop-In OpenAI Replacement</h1>
+</td></tr>
+
+<tr><td style="padding:40px;">
+  <p style="color:#e2e2e8;font-size:16px;line-height:1.7;margin:0 0 20px;">
+    Already using the OpenAI API? <strong style="color:#7dd3fc;">Switch to Text Generator with one line.</strong> Our <code style="background:#1a1a24;padding:2px 6px;border-radius:4px;color:#7dd3fc;">/v1/chat/completions</code> endpoint is fully compatible.
+  </p>
+
+  <p style="color:#7dd3fc;font-size:13px;font-weight:600;margin:0 0 8px;">Before (OpenAI)</p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+    <tr><td style="background-color:#1a1a24;border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:13px;color:#c4c4cc;line-height:1.6;">
+      client = OpenAI(api_key=<span style="color:#86efac;">"sk-..."</span>)
+    </td></tr>
+  </table>
+
+  <p style="color:#7dd3fc;font-size:13px;font-weight:600;margin:0 0 8px;">After (Text Generator)</p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+    <tr><td style="background-color:#1a1a24;border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:13px;color:#c4c4cc;line-height:1.6;">
+      client = OpenAI(<br>
+      &nbsp;&nbsp;api_key=<span style="color:#86efac;">"YOUR_SECRET"</span>,<br>
+      &nbsp;&nbsp;base_url=<span style="color:#86efac;">"https://api.text-generator.io/v1"</span><br>
+      )
+    </td></tr>
+  </table>
+
+  <p style="color:#c4c4cc;font-size:15px;line-height:1.7;margin:0 0 16px;">That's it. Same <code style="background:#1a1a24;padding:2px 6px;border-radius:4px;color:#7dd3fc;">chat.completions.create()</code>, same streaming, same response format. Your existing code just works.</p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;">
+      <p style="margin:0;color:#e2e2e8;font-size:14px;"><span style="color:#7dd3fc;">Streaming</span> — SSE streaming works identically</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;">
+      <p style="margin:0;color:#e2e2e8;font-size:14px;"><span style="color:#7dd3fc;">Models</span> — powered by Claude Sonnet under the hood</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:30px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:14px 20px;">
+      <p style="margin:0;color:#e2e2e8;font-size:14px;"><span style="color:#7dd3fc;">Cost</span> — competitive pricing, no surprise charges</p>
+    </td></tr>
+  </table>
+
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:10px 0 20px;">
+      <a href="https://text-generator.io/blog/10x-openai-cost-savings-one-line-change" style="display:inline-block;background:linear-gradient(135deg,#0284c7,#38bdf8);color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:600;">Read: 10x Cost Savings</a>
+    </td></tr>
+  </table>
+  <p style="color:#8888a0;font-size:14px;line-height:1.6;margin:0;">Next: text-to-speech with 7 natural voices.</p>
+</td></tr>
+
+<tr><td style="padding:24px 40px;border-top:1px solid #2a2a35;text-align:center;">
+  <p style="margin:0 0 8px;color:#55556a;font-size:13px;">
+    <a href="https://text-generator.io/blog" style="color:#d79f2a;text-decoration:none;">Blog</a> &nbsp;·&nbsp;
+    <a href="https://text-generator.io/docs/api" style="color:#d79f2a;text-decoration:none;">API Docs</a> &nbsp;·&nbsp;
+    <a href="{{.UnsubscribeURL}}" style="color:#d79f2a;text-decoration:none;">Unsubscribe</a>
+  </p>
+  <p style="margin:0;color:#44445a;font-size:12px;">Text Generator · by <a href="https://app.nz" style="color:#55556a;text-decoration:none;">Applied Science</a></p>
+  <p style="margin:4px 0 0;color:#44445a;font-size:11px;"><a href="https://text-generator.io" style="color:#55556a;text-decoration:none;">text-generator.io</a> · <a href="https://ebank.nz" style="color:#55556a;text-decoration:none;">ebank.nz art generator</a></p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
