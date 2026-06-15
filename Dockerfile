@@ -67,7 +67,6 @@ CMD ["pytest", "-v", "tests/unit"]
 
 FROM python-deps as release
 
-COPY appengine_config.py appengine_config.py
 COPY main.py main.py
 COPY sellerinfo.py sellerinfo.py
 COPY static/ static/

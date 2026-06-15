@@ -62,3 +62,9 @@ monitors/monitor_site.log
 onnxtests/
 monitors/monitor_inference_agent.log
 monitors/claude_inference_fix.log
+monitors/codex_inference_fix.log
+monitors/*.log
+monitoring/logs/
+monitoring/runtime/
+visualbench/
+monitoring
