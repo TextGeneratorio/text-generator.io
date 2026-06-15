@@ -15,8 +15,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.datastructures import URL
+from starlette.requests import ClientDisconnect
 from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
@@ -51,6 +53,7 @@ USE_POSTGRES = True
 # Import new PostgreSQL models and auth
 try:
     from questions.auth import (
+        SESSION_COOKIE_MAX_AGE_SECONDS,
         create_user,
         create_password_reset_token,
         get_current_user,
@@ -59,7 +62,7 @@ try:
         set_session_for_user,
         validate_and_consume_reset_token,
     )
-    from questions.db_models_postgres import DATABASE_URL, get_db
+    from questions.db_models_postgres import DATABASE_URL, create_tables, get_db
 
     # Test if the functions actually work with a proper database
     USE_POSTGRES = True  # Enable PostgreSQL for production
@@ -78,6 +81,7 @@ except ImportError as e:
 
 # Create dummy get_db function if needed
 if not USE_POSTGRES:
+    SESSION_COOKIE_MAX_AGE_SECONDS = 10 * 365 * 24 * 60 * 60
 
     def get_db():
         return None
@@ -92,6 +96,29 @@ from questions.payments.payments import (
     validate_stripe_customer,
 )
 from questions.utils import get_env_var, random_string
+
+
+def normalize_surrogate_text(value: Any) -> Any:
+    """Convert escaped UTF-16 surrogate pairs in fixture data into valid Unicode."""
+    if isinstance(value, str):
+        return value.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
+    if isinstance(value, list):
+        return [normalize_surrogate_text(item) for item in value]
+    if isinstance(value, dict):
+        return {key: normalize_surrogate_text(item) for key, item in value.items()}
+    return value
+
+
+def set_session_cookie(response: Response, session_secret: str) -> None:
+    response.set_cookie(
+        key="session_secret",
+        value=session_secret,
+        max_age=SESSION_COOKIE_MAX_AGE_SECONDS,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        path="/",
+    )
 
 # Import gameon utils conditionally
 try:
@@ -125,18 +152,52 @@ config["webapp2_extras.sessions"] = dict(secret_key="93986c9cdd240540f70efaea56a
 templates = Jinja2Templates(directory=".")
 
 
+def is_crawler_user_agent(user_agent: str) -> bool:
+    """Return True for crawlers and link preview agents that do not need auth UI hydration."""
+    if not user_agent:
+        return False
+
+    lowered = user_agent.lower()
+    crawler_markers = (
+        "ahrefsbot",
+        "applebot",
+        "baiduspider",
+        "bingbot",
+        "discordbot",
+        "duckduckbot",
+        "facebookexternalhit",
+        "facebot",
+        "googlebot",
+        "linkedinbot",
+        "meta-externalagent",
+        "pinterestbot",
+        "semrushbot",
+        "slackbot",
+        "telegrambot",
+        "twitterbot",
+        "whatsapp",
+        "yandexbot",
+        "yandexrenderresourcesbot",
+    )
+    return any(marker in lowered for marker in crawler_markers)
+
+
 def get_base_template_vars(request: Request) -> Dict[str, Any]:
     """
     Get base template variables that are common to all templates
     """
     # Detect if user is on Mac for keyboard shortcuts
     is_mac = False
+    user_agent = ""
     try:
         user_agent = request.headers.get("user-agent", "")
         if user_agent:
             is_mac = user_agent.lower().find("mac") != -1
     except Exception:
         is_mac = False
+        user_agent = ""
+
+    skip_auth_hydration = is_crawler_user_agent(user_agent)
 
     return {
         "request": request,
@@ -145,10 +206,12 @@ def get_base_template_vars(request: Request) -> Dict[str, Any]:
         "app_name": "Text Generator",
         "gcloud_static_bucket_url": GCLOUD_STATIC_BUCKET_URL,
         "facebook_app_id": FACEBOOK_APP_ID,
+        "skip_auth_hydration": skip_auth_hydration,
         "fixtures": json.dumps(
             {
                 "is_mac": is_mac,
                 "inference_server_url": INFERENCE_SERVER_URL,
+                "skip_auth_hydration": skip_auth_hydration,
             }
         ),
     }
@@ -176,12 +239,51 @@ app = FastAPI(
 # Initialize logger
 logger = get_logger(__name__)
 
+MONITORING_RUNTIME_DIR = Path(
+    os.getenv(
+        "TEXTGEN_MONITORING_RUNTIME_DIR",
+        str(Path(__file__).resolve().parent / "monitoring" / "runtime"),
+    )
+)
+FRONTEND_ERROR_LOG_FILE = Path(
+    os.getenv("TEXTGEN_FRONTEND_ERROR_LOG", str(MONITORING_RUNTIME_DIR / "frontend-errors.jsonl"))
+)
+MAX_FRONTEND_ERROR_LOG_BYTES = max(1024, int(os.getenv("TEXTGEN_FRONTEND_ERROR_MAX_BYTES", "131072")))
+MAX_REQUEST_LOG_URL_LENGTH = max(128, int(os.getenv("TEXTGEN_REQUEST_LOG_URL_MAX_CHARS", "2048")))
+OPENAPI_JSON_PATH = Path("static/openapi.json")
+_OPENAPI_SPEC_CACHE: Optional[dict[str, Any]] = None
+
+
+def format_request_url_for_log(request: Request) -> str:
+    url = str(request.url)
+    if len(url) <= MAX_REQUEST_LOG_URL_LENGTH:
+        return url
+
+    suffix = f"...[truncated {len(url) - MAX_REQUEST_LOG_URL_LENGTH} chars]"
+    keep_length = max(1, MAX_REQUEST_LOG_URL_LENGTH - len(suffix))
+    return url[:keep_length] + suffix
+
+
+def load_openapi_spec() -> dict[str, Any]:
+    global _OPENAPI_SPEC_CACHE
+    try:
+        spec = json.loads(OPENAPI_JSON_PATH.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        logger.exception("Failed to load static OpenAPI spec from %s", OPENAPI_JSON_PATH)
+        if _OPENAPI_SPEC_CACHE is not None:
+            return deepcopy(_OPENAPI_SPEC_CACHE)
+        return app.openapi()
+
+    _OPENAPI_SPEC_CACHE = spec
+    return deepcopy(spec)
+
 
 # Add logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
-    logger.info(f"Starting request: {request.method} {request.url}")
+    request_url = format_request_url_for_log(request)
+    logger.info(f"Starting request: {request.method} {request_url}")
 
     # Process the request
     response = await call_next(request)
@@ -191,12 +293,80 @@ async def log_requests(request: Request, call_next):
 
     # Log the response
     logger.info(
-        f"Completed request: {request.method} {request.url} "
+        f"Completed request: {request.method} {request_url} "
         f"- Status: {response.status_code} "
         f"- Time: {process_time:.3f}s"
     )
 
     return response
+
+
+def truncate_frontend_log_value(value: Any, max_string_length: int = 12000, depth: int = 0) -> Any:
+    if depth > 5:
+        return "[truncated-depth]"
+    if isinstance(value, str):
+        if len(value) <= max_string_length:
+            return value
+        return value[:max_string_length] + "...[truncated]"
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if isinstance(value, list):
+        return [truncate_frontend_log_value(item, max_string_length, depth + 1) for item in value[:50]]
+    if isinstance(value, dict):
+        redacted_keys = {"cookie", "authorization", "secret", "password", "token"}
+        sanitized = {}
+        for key, item in list(value.items())[:80]:
+            key_text = str(key)
+            if key_text.lower() in redacted_keys:
+                sanitized[key_text] = "[redacted]"
+            else:
+                sanitized[key_text] = truncate_frontend_log_value(item, max_string_length, depth + 1)
+        return sanitized
+    return truncate_frontend_log_value(str(value), max_string_length, depth + 1)
+
+
+@app.post("/api/frontend-error")
+async def log_frontend_error(request: Request):
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_FRONTEND_ERROR_LOG_BYTES:
+                raise HTTPException(status_code=413, detail="Frontend log payload too large")
+        except ValueError:
+            pass
+
+    try:
+        body = await request.body()
+    except ClientDisconnect:
+        logger.info("Frontend error reporter disconnected before request body was read")
+        return Response(status_code=204)
+
+    if len(body) > MAX_FRONTEND_ERROR_LOG_BYTES:
+        raise HTTPException(status_code=413, detail="Frontend log payload too large")
+
+    try:
+        payload = json.loads(body.decode("utf-8") or "{}")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid frontend log payload")
+
+    record = {
+        "received_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "client_ip": request.headers.get("cf-connecting-ip") or (request.client.host if request.client else None),
+        "cf_ray": request.headers.get("cf-ray"),
+        "user_agent": request.headers.get("user-agent"),
+        "referer": request.headers.get("referer"),
+        "payload": truncate_frontend_log_value(payload),
+    }
+
+    try:
+        FRONTEND_ERROR_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with FRONTEND_ERROR_LOG_FILE.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+    except Exception:
+        logger.exception("Failed to write frontend error log")
+        raise HTTPException(status_code=503, detail="Frontend logging temporarily unavailable")
+
+    return JSONResponse({"status": "logged"})
 
 
 @app.on_event("startup")
@@ -205,6 +375,13 @@ async def startup_event():
     logger.info("Starting 20-questions application")
     logger.info(f"USE_POSTGRES: {USE_POSTGRES}")
     logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
+
+    if USE_POSTGRES:
+        try:
+            create_tables()
+            logger.info("Ensured PostgreSQL schema exists")
+        except Exception:
+            logger.exception("Failed to ensure PostgreSQL schema on startup")
 
 
 @app.on_event("shutdown")
@@ -645,7 +822,9 @@ async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_
     base_vars = get_base_template_vars(request)
 
     # Define a dictionary of available tools and their details
-    tool_info = tool_fixtures.tools_fixtures.get(tool_name, {})
+    tool_info = tool_fixtures.tools_fixtures.get(tool_name)
+    if not tool_info:
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
 
     # Check if this tool requires subscription access
     subscription_required = bool(tool_info.get("premium", False))
@@ -779,6 +958,43 @@ async def subscribe(request: Request):
 
 
 YOUR_DOMAIN = "https://text-generator.io"
+MONTHLY_SUBSCRIPTION_PRICE_ID = "price_0RXdbtDtz2XsjQROW0xgtU8H"
+ANNUAL_SUBSCRIPTION_PRICE_ID = "price_0RXdd4Dtz2XsjQRO5hYsdfjx"
+SELF_HOSTED_PRICE_ID = "price_0MuAuxDtz2XsjQROz3Hp5Tcx"
+SELF_HOSTED_NZD_PRICE_ID = "price_0MuBEoDtz2XsjQROiRewGRFi"
+MONTHLY_NZD_PRICE_ID = "price_0LCAb8Dtz2XsjQROnv1GhCL4"
+CREDIT_PACK_PRICE_ID = "price_0THs1HDtz2XsjQROy725vbpS"
+CREDIT_PACK_UNIT_CENTS = 1
+STRIPE_CREDIT_BALANCE_METADATA_KEY = "textgen_credit_balance_cents"
+
+
+def get_stripe_credit_balance_cents(stripe_id: Optional[str]) -> int:
+    if not stripe_id:
+        return 0
+    try:
+        customer = stripe.Customer.retrieve(stripe_id)
+        metadata = getattr(customer, "metadata", None) or customer.get("metadata", {}) or {}
+        raw_value = metadata.get(STRIPE_CREDIT_BALANCE_METADATA_KEY, 0)
+        return max(0, int(raw_value))
+    except Exception as exc:
+        logger.warning("Failed to read Stripe credit balance for %s: %s", stripe_id, exc)
+        return 0
+
+
+def set_stripe_credit_balance_cents(stripe_id: str, balance_cents: int) -> int:
+    normalized_balance = max(0, int(balance_cents))
+    stripe.Customer.modify(
+        stripe_id,
+        metadata={STRIPE_CREDIT_BALANCE_METADATA_KEY: str(normalized_balance)},
+    )
+    return normalized_balance
+
+
+def increment_stripe_credit_balance_cents(stripe_id: Optional[str], delta_cents: int) -> int:
+    if not stripe_id or not delta_cents:
+        return get_stripe_credit_balance_cents(stripe_id)
+    current_balance = get_stripe_credit_balance_cents(stripe_id)
+    return set_stripe_credit_balance_cents(stripe_id, current_balance + int(delta_cents))
 
 
 @app.post("/create-checkout-session")
@@ -813,22 +1029,36 @@ async def create_checkout_session(
     # Define line_item with type hint (basic structure)
     # For metered subscriptions, quantity should not be specified
     success_url = YOUR_DOMAIN + "/playground"
+    checkout_mode = "subscription"
+    metadata = None
 
     if type == "annual":
         line_item: Dict[str, Any] = {
-            "price": "price_0RXdd4Dtz2XsjQRO5hYsdfjx",  # New annual price ID ($190/year)
+            "price": ANNUAL_SUBSCRIPTION_PRICE_ID,
             "quantity": 1,
         }
     elif type == "self-hosted":
         line_item: Dict[str, Any] = {
-            "price": "price_0MuAuxDtz2XsjQROz3Hp5Tcx",
+            "price": SELF_HOSTED_PRICE_ID,
             "quantity": quantity,  # Only self-hosted subscriptions use quantity
         }
         success_url = YOUR_DOMAIN + "/account"
+    elif type == "credits":
+        line_item = {
+            "price": CREDIT_PACK_PRICE_ID,
+            "quantity": quantity,
+        }
+        success_url = YOUR_DOMAIN + "/account?credits=success"
+        checkout_mode = "payment"
+        metadata = {
+            "purchase_type": "credits",
+            "credit_unit_cents": str(CREDIT_PACK_UNIT_CENTS),
+            "quantity": str(quantity),
+        }
     else:
         # Default monthly - metered subscription, no quantity
         line_item: Dict[str, Any] = {
-            "price": "price_0RXdbtDtz2XsjQROW0xgtU8H",  # New monthly price ID ($19/month)
+            "price": MONTHLY_SUBSCRIPTION_PRICE_ID,
             "quantity": 1,
         }
 
@@ -839,7 +1069,8 @@ async def create_checkout_session(
         checkout_session = stripe.checkout.Session.create(
             customer=stripe_id,  # stripe_id is confirmed not None here
             line_items=checkout_items,  # type: ignore
-            mode="subscription",
+            mode=checkout_mode,
+            metadata=metadata,
             success_url=success_url,
             cancel_url=YOUR_DOMAIN + "/",
         )
@@ -847,9 +1078,9 @@ async def create_checkout_session(
     except Exception as e:
         if "combine currencies" in str(e):
             # Fallback for NZD plans
-            line_item_nzd: Dict[str, Any] = {"price": "price_0LCAb8Dtz2XsjQROnv1GhCL4", "quantity": 1}
+            line_item_nzd: Dict[str, Any] = {"price": MONTHLY_NZD_PRICE_ID, "quantity": 1}
             if type == "self-hosted":
-                line_item_nzd["price"] = "price_0MuBEoDtz2XsjQROiRewGRFi"
+                line_item_nzd["price"] = SELF_HOSTED_NZD_PRICE_ID
                 line_item_nzd["quantity"] = quantity  # Only self-hosted uses quantity
                 success_url = YOUR_DOMAIN + "/account"
 
@@ -859,7 +1090,8 @@ async def create_checkout_session(
                 checkout_session_nzd = stripe.checkout.Session.create(
                     customer=stripe_id,  # Still checked
                     line_items=checkout_items_nzd,  # type: ignore
-                    mode="subscription",
+                    mode=checkout_mode,
+                    metadata=metadata,
                     success_url=success_url,
                     cancel_url=YOUR_DOMAIN + "/",
                 )
@@ -885,6 +1117,7 @@ async def create_checkout_session_embedded(
 ):
     subscription_type = checkoutRequest.subscription_type or checkoutRequest.type
     referral = checkoutRequest.referral
+    quantity = max(1, int(checkoutRequest.quantity or 1))
 
     # Get user from cookie-based authentication
     if USE_POSTGRES:
@@ -922,22 +1155,32 @@ async def create_checkout_session_embedded(
         # Fallback for non-PostgreSQL setup
         raise HTTPException(status_code=501, detail="Checkout not available without PostgreSQL")
 
-    # Set up pricing based on subscription type
-    if subscription_type and subscription_type == "annual":
-        subscription_price = "price_0RXdd4Dtz2XsjQRO5hYsdfjx"  # $190/year
-    else:
-        subscription_price = "price_0RXdbtDtz2XsjQROW0xgtU8H"  # $19/month
-
-    success_url = YOUR_DOMAIN + "/playground"
-
-    line_item = {
-        "price": subscription_price,
-        "quantity": 1,
-    }
-
     metadata = None
     if referral:
         metadata = {"referral": referral}
+
+    checkout_mode = "subscription"
+    return_path = normalize_return_path(checkoutRequest.return_url, "/playground")
+    success_url = YOUR_DOMAIN + return_path + ("&" if "?" in return_path else "?") + "session_id={CHECKOUT_SESSION_ID}"
+    line_item = {
+        "price": MONTHLY_SUBSCRIPTION_PRICE_ID,
+        "quantity": 1,
+    }
+    if subscription_type and subscription_type == "annual":
+        line_item["price"] = ANNUAL_SUBSCRIPTION_PRICE_ID
+    elif subscription_type and subscription_type == "credits":
+        checkout_mode = "payment"
+        success_url = YOUR_DOMAIN + "/account?credits=success&session_id={CHECKOUT_SESSION_ID}"
+        line_item = {
+            "price": CREDIT_PACK_PRICE_ID,
+            "quantity": quantity,
+        }
+        metadata = {
+            **(metadata or {}),
+            "purchase_type": "credits",
+            "credit_unit_cents": str(CREDIT_PACK_UNIT_CENTS),
+            "quantity": str(quantity),
+        }
 
     # Create checkout session with embedded UI mode
     try:
@@ -947,7 +1190,7 @@ async def create_checkout_session_embedded(
             customer_update={"address": "auto"},
             metadata=metadata,
             ui_mode="embedded",
-            mode="subscription",
+            mode=checkout_mode,
             return_url=success_url,
             automatic_tax={"enabled": True},
         )
@@ -959,7 +1202,7 @@ async def create_checkout_session_embedded(
                 line_items=[line_item],
                 metadata=metadata,
                 ui_mode="embedded",
-                mode="subscription",
+                mode=checkout_mode,
                 return_url=success_url,
                 automatic_tax={"enabled": True},
             )
@@ -970,49 +1213,44 @@ async def create_checkout_session_embedded(
     return JSONResponse({"clientSecret": checkout_session.client_secret})
 
 
-# @app.post('/webhook')
-# async def webhook_received(request: Request):
-#     # Replace this endpoint secret with your endpoint's unique secret
-#     # If you are testing with the CLI, find the secret by running 'stripe listen'
-#     # If you are using an endpoint defined with the API or dashboard, look in your webhook settings
-#     # at https://dashboard.stripe.com/webhooks
-#     webhook_secret = 'whsec_12345'
-#     request_data = json.loads(await request.json())
-#
-#     if webhook_secret:
-#         # Retrieve the event by verifying the signature using the raw body and secret if webhook signing is configured.
-#         signature = request.headers.get('stripe-signature')
-#         try:
-#             event = stripe.Webhook.construct_event(
-#                 payload=await request.json(), sig_header=signature, secret=webhook_secret)
-#             data = event['data']
-#         except Exception as e:
-#             return e
-#         # Get the type of webhook event sent - used to check the status of PaymentIntents.
-#         event_type = event['type']
-#     else:
-#         data = request_data['data']
-#         event_type = request_data['type']
-#     data_object = data['object']
-#
-#     print('event ' + event_type)
-#
-#     if event_type == 'checkout.session.completed':
-#         print('🔔 Payment succeeded!')
-#
-#     elif event_type == 'customer.subscription.trial_will_end':
-#         print('Subscription trial will end')
-#     elif event_type == 'customer.subscription.created':
-#         subscription = event['data']['object']
-#     elif event_type == 'customer.subscription.updated':
-#         print('Subscription created %s', event.id)
-#     elif event_type == 'customer.subscription.deleted':
-#         # handle subscription canceled automatically based
-#         # upon your subscription settings. Or if the user cancels it.
-#         print('Subscription canceled: %s', event.id)
-#         subscription = event['data']['object']
-#
-#     return JSONResponse({'status': 'success'})
+@app.post("/webhook")
+async def webhook_received(request: Request, db: Session = Depends(get_db)):
+    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature")
+
+    try:
+        if webhook_secret:
+            event = stripe.Webhook.construct_event(payload=payload, sig_header=signature, secret=webhook_secret)
+        else:
+            event = json.loads(payload.decode("utf-8"))
+    except Exception as exc:
+        logger.error("Invalid Stripe webhook payload: %s", exc)
+        raise HTTPException(status_code=400, detail="Invalid webhook payload")
+
+    event_type = event.get("type")
+    data_object = event.get("data", {}).get("object", {})
+
+    if event_type == "checkout.session.completed":
+        metadata = data_object.get("metadata", {}) or {}
+        if metadata.get("purchase_type") == "credits":
+            stripe_id = data_object.get("customer")
+            quantity = max(1, int(metadata.get("quantity", "1")))
+            credits_delta_cents = quantity * CREDIT_PACK_UNIT_CENTS
+            new_balance = increment_stripe_credit_balance_cents(stripe_id, credits_delta_cents)
+
+            if USE_POSTGRES and stripe_id:
+                try:
+                    from questions.db_models_postgres import User as UserPG
+
+                    db_user = db.query(UserPG).filter(UserPG.stripe_id == stripe_id).first()
+                    if db_user:
+                        db_user.free_credits = new_balance
+                        db.commit()
+                except Exception as exc:
+                    logger.warning("Failed to sync purchased credits into local cache for %s: %s", stripe_id, exc)
+
+    return JSONResponse({"status": "success"})
 
 
 @app.get("/questions-game")
@@ -1077,12 +1315,15 @@ async def api_forgot_password(request: Request, email: str = Form(...), db: Sess
     try:
         from questions.email_utils import send_password_reset_email
         token = create_password_reset_token(email, db)
-        if token:
+        if not token:
+            logger.warning(f"Password reset requested for unknown email: {email}")
+        else:
             base_url = str(request.base_url).rstrip("/")
             reset_link = f"{base_url}/reset-password?token={token}"
             send_password_reset_email(email, reset_link)
+            logger.info(f"Password reset email sent to {email}")
     except Exception as e:
-        logger.error(f"Password reset email error for {email}: {e}")
+        logger.exception(f"Password reset email error for {email}: {e}")
     return JSONResponse({"message": "If that email exists, a reset link has been sent."})
 
 
@@ -1173,6 +1414,17 @@ def set_session_for_user_legacy(user):
         set_session_for_user(user)
 
 
+def normalize_return_path(return_url: Optional[str], default: str = "/playground") -> str:
+    if not return_url:
+        return default
+
+    normalized = return_url.strip()
+    if not normalized.startswith("/") or normalized.startswith("//"):
+        return default
+
+    return normalized
+
+
 @app.get("/portal")
 async def portal_redirect(request: Request, db: Session = Depends(get_db)):
     """redirect to the stripe customer portal"""
@@ -1233,7 +1485,11 @@ async def get_user(request: Request, db: Session = Depends(get_db)):
                     db.refresh(user)
                     set_session_for_user(user)
 
-            return JSONResponse(user.to_dict())
+            user_to_dict = user.to_dict()
+            credit_balance_cents = get_stripe_credit_balance_cents(user.stripe_id)
+            user_to_dict["credit_balance_cents"] = credit_balance_cents
+            user_to_dict["free_credits"] = credit_balance_cents
+            return JSONResponse(user_to_dict)
         except HTTPException:
             raise
         except Exception as e:
@@ -1281,6 +1537,9 @@ async def get_user_stripe_usage(request: Request, db: Session = Depends(get_db))
             user.num_self_hosted_instances = get_self_hosted_subscription_count_for_user(user.stripe_id)
 
             user_to_dict = user.to_dict()
+            credit_balance_cents = get_stripe_credit_balance_cents(user.stripe_id)
+            user_to_dict["credit_balance_cents"] = credit_balance_cents
+            user_to_dict["free_credits"] = credit_balance_cents
             # No usage tracking anymore - we don't do metering
             return JSONResponse(user_to_dict)
         except HTTPException:
@@ -1334,17 +1593,13 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
 
             # Set session_secret cookie
             response = JSONResponse(user.to_dict())
-            response.set_cookie(
-                key="session_secret",
-                value=user.secret,
-                httponly=True,
-                secure=False,  # Set to True in production with HTTPS
-                samesite="lax",
-                path="/",
-            )
+            set_session_cookie(response, user.secret)
             return response
         except HTTPException:
             raise
+        except SQLAlchemyError as e:
+            logger.error(f"PostgreSQL login database error: {e}")
+            raise HTTPException(status_code=503, detail="Login temporarily unavailable. Please try again.")
         except Exception as e:
             logger.error(f"PostgreSQL login error: {e}")
             raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -1364,14 +1619,7 @@ async def api_login(request: Request, email: str = Form(...), password: str = Fo
 
             # Set session_secret cookie
             response = JSONResponse(user_data)
-            response.set_cookie(
-                key="session_secret",
-                value=session_secret,
-                httponly=True,
-                secure=False,  # Set to True in production with HTTPS
-                samesite="lax",
-                path="/",
-            )
+            set_session_cookie(response, session_secret)
             return response
         else:
             raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -1407,26 +1655,12 @@ async def api_signup(
             # For form submissions, redirect to playground
             if not is_ajax:
                 response = RedirectResponse(url="/playground", status_code=303)
-                response.set_cookie(
-                    key="session_secret",
-                    value=user.secret,
-                    httponly=True,
-                    secure=False,  # Set to True in production with HTTPS
-                    samesite="lax",
-                    path="/",
-                )
+                set_session_cookie(response, user.secret)
                 return response
 
             # For AJAX requests, return JSON
             response = JSONResponse(user.to_dict())
-            response.set_cookie(
-                key="session_secret",
-                value=user.secret,
-                httponly=True,
-                secure=False,  # Set to True in production with HTTPS
-                samesite="lax",
-                path="/",
-            )
+            set_session_cookie(response, user.secret)
             return response
         except HTTPException as e:
             # For form submissions with errors, redirect back to signup with error
@@ -1466,14 +1700,7 @@ async def api_signup(
 
             # Set session_secret cookie
             response = JSONResponse(user_data)
-            response.set_cookie(
-                key="session_secret",
-                value=session_secret,
-                httponly=True,
-                secure=False,  # Set to True in production with HTTPS
-                samesite="lax",
-                path="/",
-            )
+            set_session_cookie(response, session_secret)
             return response
         except HTTPException:
             raise
@@ -1529,6 +1756,59 @@ async def api_delete_account(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error deleting account: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete account")
+
+
+@app.get("/api/email/unsubscribe")
+async def email_unsubscribe(token: str, db: Session = Depends(get_db)):
+    """One-click email unsubscribe via token in drip emails."""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=501, detail="Not available")
+    user = db.query(User).filter(User.email_unsubscribe_token == token).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Invalid unsubscribe token")
+    user.email_unsubscribed = True
+    db.commit()
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+        "<h2>You've been unsubscribed</h2>"
+        "<p>You won't receive any more marketing emails from Text Generator.</p>"
+        "<p><a href='https://text-generator.io'>Back to Text Generator</a></p>"
+        "</body></html>"
+    )
+
+
+@app.post("/api/email/unsubscribe")
+async def email_unsubscribe_post(request: Request, db: Session = Depends(get_db)):
+    """RFC 8058 one-click unsubscribe (POST from email clients like Gmail)."""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=501, detail="Not available")
+    form = await request.form()
+    token = request.query_params.get("token", form.get("token", ""))
+    user = db.query(User).filter(User.email_unsubscribe_token == token).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Invalid unsubscribe token")
+    user.email_unsubscribed = True
+    db.commit()
+    return JSONResponse({"status": "unsubscribed"})
+
+
+@app.get("/api/email/resubscribe")
+async def email_resubscribe(token: str, db: Session = Depends(get_db)):
+    """Re-subscribe to marketing emails."""
+    if not USE_POSTGRES:
+        raise HTTPException(status_code=501, detail="Not available")
+    user = db.query(User).filter(User.email_unsubscribe_token == token).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Invalid token")
+    user.email_unsubscribed = False
+    db.commit()
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;text-align:center;padding:60px;'>"
+        "<h2>You're re-subscribed!</h2>"
+        "<p>Welcome back. You'll receive product updates from Text Generator.</p>"
+        "<p><a href='https://text-generator.io'>Back to Text Generator</a></p>"
+        "</body></html>"
+    )
 
 
 @app.post("/api/upload-image")
@@ -1620,6 +1900,13 @@ async def api_current_user(request: Request, db: Session = Depends(get_db)):
                     user_dict["is_subscribed"] = user.is_subscribed
             else:
                 user_dict["is_subscribed"] = user.is_subscribed
+
+            if user.stripe_id:
+                credit_balance_cents = await asyncio.to_thread(get_stripe_credit_balance_cents, user.stripe_id)
+            else:
+                credit_balance_cents = max(0, int(user.free_credits or 0))
+            user_dict["credit_balance_cents"] = credit_balance_cents
+            user_dict["free_credits"] = credit_balance_cents
 
             # Set default values for optional fields
             user_dict["num_self_hosted_instances"] = 0
@@ -1819,7 +2106,7 @@ async def speech_to_text(request: Request):
 
 @app.get("/use-cases/{usecase}")
 async def use_case_route(request: Request, usecase: str):
-    use_case_data = deepcopy(fixtures.use_cases.get(usecase))
+    use_case_data = normalize_surrogate_text(deepcopy(fixtures.use_cases.get(usecase)))
 
     if not use_case_data:
         raise HTTPException(status_code=404, detail=f"Use case '{usecase}' not found")
@@ -1958,14 +2245,7 @@ app.router.routes = [
 
 @app.get("/openapi.json")
 async def openapi(request: Request):
-    # render json file openapi.json
-    # read dict
-    with open("static/openapi.json") as f:
-        text = f.read()
-        j = json.loads(text)
-        # set api key in example
-
-        return JSONResponse(j)
+    return JSONResponse(load_openapi_spec())
 
 
 @app.get("/file{file_path:path}")

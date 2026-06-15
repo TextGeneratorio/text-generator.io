@@ -46,7 +46,7 @@ else:
 def create_engine_with_testing():
     """Create database engine and test the connection."""
     try:
-        engine = create_engine(DATABASE_URL)
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
         # Test the connection
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -70,7 +70,7 @@ try:
     engine = create_engine_with_testing()
 except Exception as e:
     print(f"⚠️  Using basic engine configuration: {e}")
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -97,6 +97,12 @@ class User(Base):
     free_credits = Column(Integer, default=0)
     charges_monthly = Column(Integer, default=0)
     num_self_hosted_instances = Column(Integer, default=0)
+
+    # Email preferences
+    email_unsubscribed = Column(Boolean, default=False)
+    email_unsubscribe_token = Column(String, nullable=True, unique=True)
+    drip_email_sent = Column(Integer, default=0)  # last drip email index sent
+    drip_email_last_sent_at = Column(DateTime, nullable=True)
 
     # Legacy fields
     cookie_user = Column(Integer, nullable=True)

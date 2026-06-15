@@ -59,10 +59,13 @@
 
                         var api_key = data['secret'];
                         $('.api_key').html(api_key);
+                        var creditBalanceCents = data['credit_balance_cents'] || 0;
+                        $('.credit_balance').html(`$${(creditBalanceCents / 100).toFixed(2)} (${creditBalanceCents} credits)`);
 
                         {#var referral_url_key = data['referral_url_key'];#}
                         {#$('.referral_url_key').html('https://bitbank.nz?r=' + referral_url_key)#}
                         $('#manage-subscriptions-link').html(`<a href="/portal" target="_blank" class="mdl-button mdl-js-button">Manage Subscriptions</a>`)
+                        $('#buy-credits-link').html(`<button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" onclick="if(window.showCheckoutDialog){ showCheckoutDialog('credits'); }">Buy API Credits</button>`)
                         // No usage tracking anymore - we don't do metering
 
                         $('#self-hosting').html("<h4>Download Self Hosted Server</h4> <h5>Direct Docker Image Download</h5><p> <a href='https://storage.googleapis.com/questions-346919/text-generator.tar'>Docker Container .tar Download</a></p>" +
@@ -105,9 +108,11 @@
 
                 {#                <p>Your referral url: <span class="referral_url_key"></span></p>#}
                 <p>Your API key: <code><span class="api_key"></span></code></p>
+                <p>Your credit balance: <strong><span class="credit_balance"></span></strong></p>
 
                 <h4>Settings</h4>
                 <p id="manage-subscriptions-link"></p>
+                <p id="buy-credits-link"></p>
                 <h4>Self Hosting</h4>
                 <div id="self-hosting"></div>
 
@@ -135,5 +140,4 @@
     </main>
 
 {% endblock %}
-
 

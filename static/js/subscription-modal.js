@@ -34,7 +34,15 @@ window.SubscriptionModal = class SubscriptionModal {
                     <button class="subscription-modal-close" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">×</button>
                     
                     <div class="subscription-modal-header">
-                        <h2 class="subscription-modal-title">Subscription Required</h2>
+                        <div class="subscription-modal-brand">
+                            <div class="subscription-modal-logo">
+                                <img src="/static/img/android-chrome-192x192.png" alt="Text Generator" width="32" height="32">
+                            </div>
+                            <div>
+                                <p class="subscription-modal-kicker">Text Generator</p>
+                                <h2 class="subscription-modal-title">Subscription Required</h2>
+                            </div>
+                        </div>
                         <p class="subscription-modal-subtitle">You need an active subscription to use advanced AI features</p>
                     </div>
 
@@ -110,7 +118,7 @@ window.SubscriptionModal = class SubscriptionModal {
                 }
 
                 .subscription-modal-content {
-                    background: linear-gradient(135deg, #fff 0%, #fef7f7 100%);
+                    background: linear-gradient(135deg, #fff9ef 0%, #fff3dd 100%);
                     border-radius: 16px;
                     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
                     max-width: 480px;
@@ -118,7 +126,7 @@ window.SubscriptionModal = class SubscriptionModal {
                     max-height: 90vh;
                     overflow-y: auto;
                     position: relative;
-                    border: 1px solid rgba(255, 182, 193, 0.3);
+                    border: 1px solid rgba(245, 158, 11, 0.22);
                 }
 
                 .subscription-modal-close {
@@ -140,24 +148,52 @@ window.SubscriptionModal = class SubscriptionModal {
                 }
 
                 .subscription-modal-close:hover {
-                    background: rgba(255, 182, 193, 0.2);
+                    background: rgba(245, 158, 11, 0.14);
                     color: #333;
                 }
 
                 .subscription-modal-header {
                     text-align: center;
-                    padding: 32px 32px 16px;
-                    background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A  50%, #FF6347 100%);
-                    background-clip: text;
-                    -webkit-background-clip: text;
-                    color: transparent;
+                    padding: 30px 32px 16px;
+                }
+
+                .subscription-modal-brand {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 10px;
+                    text-align: left;
+                }
+
+                .subscription-modal-logo {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 13px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: linear-gradient(135deg, #f59e0b, #ea580c);
+                    box-shadow: 0 12px 24px rgba(234, 88, 12, 0.22);
+                    flex-shrink: 0;
+                }
+
+                .subscription-modal-logo img {
+                    display: block;
+                }
+
+                .subscription-modal-kicker {
+                    margin: 0 0 4px;
+                    font: 700 0.72rem/1 'IBM Plex Mono', monospace;
+                    text-transform: uppercase;
+                    letter-spacing: 0.12em;
+                    color: #c2410c;
                 }
 
                 .subscription-modal-title {
                     font-size: 28px;
                     font-weight: 700;
-                    margin: 0 0 8px;
-                    background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 50%, #FF6347 100%);
+                    margin: 0;
+                    background: linear-gradient(135deg, #c2410c 0%, #f59e0b 52%, #fbbf24 100%);
                     background-clip: text;
                     -webkit-background-clip: text;
                     color: transparent;
@@ -165,7 +201,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 .subscription-modal-subtitle {
                     font-size: 16px;
-                    color: #666;
+                    color: #7c5b43;
                     margin: 0;
                     font-weight: 400;
                 }
@@ -178,15 +214,15 @@ window.SubscriptionModal = class SubscriptionModal {
                     text-align: center;
                     margin: 24px 0 32px;
                     padding: 20px;
-                    background: linear-gradient(135deg, rgba(255, 182, 193, 0.1) 0%, rgba(255, 160, 122, 0.1) 100%);
+                    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.12) 100%);
                     border-radius: 12px;
-                    border: 1px solid rgba(255, 182, 193, 0.3);
+                    border: 1px solid rgba(245, 158, 11, 0.22);
                 }
 
                 .subscription-price {
                     font-size: 36px;
                     font-weight: 700;
-                    background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 50%, #FF6347 100%);
+                    background: linear-gradient(135deg, #c2410c 0%, #f59e0b 52%, #fbbf24 100%);
                     background-clip: text;
                     -webkit-background-clip: text;
                     color: transparent;
@@ -195,7 +231,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 .subscription-period {
                     font-size: 16px;
-                    color: #666;
+                    color: #7c5b43;
                     font-weight: 500;
                 }
 
@@ -210,8 +246,8 @@ window.SubscriptionModal = class SubscriptionModal {
                     align-items: center;
                     padding: 12px 0;
                     font-size: 15px;
-                    color: #333;
-                    border-bottom: 1px solid rgba(255, 182, 193, 0.2);
+                    color: #3b2a1f;
+                    border-bottom: 1px solid rgba(245, 158, 11, 0.16);
                 }
 
                 .subscription-feature:last-child {
@@ -222,7 +258,7 @@ window.SubscriptionModal = class SubscriptionModal {
                     width: 20px;
                     height: 20px;
                     margin-right: 12px;
-                    color: #FF6347;
+                    color: #ea580c;
                     flex-shrink: 0;
                 }
 
@@ -247,29 +283,29 @@ window.SubscriptionModal = class SubscriptionModal {
                 }
 
                 .subscription-btn-primary {
-                    background: linear-gradient(90deg, #f39121, #d34675);
+                    background: linear-gradient(90deg, #ea580c, #f59e0b);
                     color: white;
-                    box-shadow: 0 4px 15px rgba(243, 145, 33, 0.35);
+                    box-shadow: 0 4px 15px rgba(234, 88, 12, 0.28);
                     transition: all 0.2s ease;
                 }
 
                 .subscription-btn-primary:hover {
-                    background: linear-gradient(90deg, #e48516, #c23e67);
+                    background: linear-gradient(90deg, #c2410c, #d97706);
                     transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(243, 145, 33, 0.45);
+                    box-shadow: 0 6px 20px rgba(234, 88, 12, 0.36);
                     text-decoration: none;
                     color: white;
                 }
 
                 .subscription-btn-secondary {
-                    background: rgba(255, 182, 193, 0.1);
-                    color: #666;
-                    border: 1px solid rgba(255, 182, 193, 0.3);
+                    background: #fff1e6;
+                    color: #9a3412;
+                    border: 1px solid rgba(245, 158, 11, 0.16);
                 }
 
                 .subscription-btn-secondary:hover {
-                    background: rgba(255, 182, 193, 0.2);
-                    color: #333;
+                    background: #fde8d8;
+                    color: #7c2d12;
                 }
 
                 .subscription-modal.show {

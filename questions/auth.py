@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 from .db_models_postgres import User, get_db
 
 # Configuration
-BCRYPT_ROUNDS = 12
+BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
 BCRYPT_PEPPER = os.getenv("BCRYPT_PEPPER", "")
+SESSION_COOKIE_MAX_AGE_SECONDS = int(os.getenv("SESSION_COOKIE_MAX_AGE_SECONDS", str(10 * 365 * 24 * 60 * 60)))
 
 
 def hash_password(password: str) -> str:
@@ -95,19 +96,18 @@ def login_or_create_user(email: str, password: str, db: Session) -> User:
     return user
 
 
-# Session management (simple in-memory for now, could be Redis later)
-session_dict = {}
-
-
 def set_session_for_user(user: User):
-    """Store user session."""
-    if user:
-        session_dict[user.secret] = user
+    """Compatibility hook for older call sites.
+
+    Sessions are backed by the persisted user secret, so we avoid caching
+    request-scoped SQLAlchemy objects across requests.
+    """
+    return None
 
 
 def get_user_from_session(secret: str) -> Optional[User]:
-    """Get user from session by secret."""
-    return session_dict.get(secret)
+    """Compatibility hook for older call sites."""
+    return None
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
@@ -124,16 +124,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optiona
     if not secret:
         return None
 
-    # First try from memory cache
-    user = get_user_from_session(secret)
-    if user:
-        return user
-
-    # Fallback to database lookup
+    # Look up every request so the returned ORM object is bound to this request's DB session.
     user = User.get_by_secret(db, secret)
-    if user:
-        set_session_for_user(user)
-
     return user
 
 

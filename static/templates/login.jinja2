@@ -398,7 +398,7 @@
             
             if (response.ok) {
                 // Success - set session and redirect
-                document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
+                document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
                 window.location.href = '/playground';
             } else {
                 let errorMessage = 'Invalid email or password';

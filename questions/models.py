@@ -1,5 +1,5 @@
 from time import time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fastapi import UploadFile
 from pydantic import BaseModel, root_validator
@@ -83,8 +83,9 @@ class GenerateParams(BaseModel):
 class GenerateSpeechParams(BaseModel):
     text: str
     voice: str = "af"  # Default voice (50-50 mix of Bella & Sarah)
-    language: str = "en-us"  # Default to US English
+    language: str = "en"
     speed: float = 1.0
+    steps: int = 4
     volume: float = 1.0
     sample_rate: int = 24000  # Kokoro outputs 24kHz audio
 
@@ -205,9 +206,16 @@ def map_to_openai_response(results, generate_params: GenerateParams):
     return response
 
 
+class ChatContentPart(BaseModel):
+    type: str
+    text: Optional[str] = None
+    url: Optional[str] = None
+    mime_type: Optional[str] = None
+
+
 class ChatMessage(BaseModel):
     role: str  # "system", "user", "assistant"
-    content: str
+    content: Union[str, List[ChatContentPart]]
 
 
 class ChatCompletionParams(BaseModel):
@@ -279,6 +287,8 @@ class CreateCheckoutRequest(BaseModel):
     type: Optional[str] = "monthly"  # legacy todo rm me
     subscription_type: Optional[str] = "monthly"
     referral: Optional[str] = ""
+    quantity: Optional[int] = 1
+    return_url: Optional[str] = ""
 
 
 def create_generate_params(

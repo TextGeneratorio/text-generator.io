@@ -22,6 +22,7 @@ function setupSubscription(user) {
     $('.subscribe-uid').val(user.id);
     $('.subscribe-secret').val(user.secret);
     $('.checkout-button').attr('disabled', false);
+    $('#buy-credits-button').attr('disabled', false);
     
     // Show user info if needed
     if (user.email) {
@@ -119,6 +120,10 @@ window.addEventListener('load', function() {
     function openCheckoutDialog() {
         const subscriptionType = $('.subscription-toggle').is(':checked') ? 'annual' : 'monthly';
         showCheckoutDialog(subscriptionType);
+    }
+
+    function openCreditsCheckout() {
+        showCheckoutDialog('credits');
     }
 </script>
 <style>
@@ -270,61 +275,56 @@ window.addEventListener('load', function() {
     height: 30px;
     width: 43px;
     font-size: 30px;
-">construction</i>
-            <h4>Self Host - DIY Free</h4>
-            <p>All APIs Unlimited Access.</p>
+">toll</i>
+            <h4>API Credits</h4>
+
+            <p><b>$0.01 USD</b> per credit &mdash; pay as you go</p>
+
             <ul class="demo-list-icon mdl-list">
-                <li class="mdl-list__item" id="self-list-item-1">
+                <li class="mdl-list__item" id="credits-list-item-1">
                     <span class="mdl-list__item-primary-content">
-                    <i class="material-icons mdl-list__item-icon">gps_fixed</i>
-                    Advanced prediction engine
+                    <i class="material-icons mdl-list__item-icon">bolt</i>
+                    Pay only for what you use
+                    <div class="mdl-tooltip" for="credits-list-item-1">
+                        No subscription required &mdash; buy credits and use them at your own pace.
+                    </div>
                 </span>
-                    <div class="mdl-tooltip" for="self-list-item-1">
-                        Same Cloud APIs you know, under your control.
-                    </div>
                 </li>
-                <li class="mdl-list__item" id="self-list-item-2">
+                <li class="mdl-list__item" id="credits-list-item-2">
                     <span class="mdl-list__item-primary-content">
-                    <i class="material-icons mdl-list__item-icon">rocket_launch</i>
-                    Docker build and Kubernetes deployment
+                    <i class="material-icons mdl-list__item-icon">all_inclusive</i>
+                    Credits never expire
                   </span>
-                    <div class="mdl-tooltip" for="self-list-item-2">
-                        Autoscaling best practice config and zero downtime deploys.
+                    <div class="mdl-tooltip" for="credits-list-item-2">
+                        Your credit balance carries forward indefinitely.
                     </div>
                 </li>
-                <li class="mdl-list__item" id="self-list-item-3">
+                <li class="mdl-list__item" id="credits-list-item-3">
                     <span class="mdl-list__item-primary-content">
-                    <i class="material-icons mdl-list__item-icon">hub</i>
-                    Embedding, Generation, Speech to text APIs
+                    <i class="material-icons mdl-list__item-icon">api</i>
+                    Full API access
                   </span>
-                    <div class="mdl-tooltip" for="self-list-item-3">
-                        Host all Text Generator services behind a single easy to operate service.
+                    <div class="mdl-tooltip" for="credits-list-item-3">
+                        Access all text generation, speech-to-text, and embedding APIs.
                     </div>
                 </li>
-                <li class="mdl-list__item" id="self-list-item-4">
+                <li class="mdl-list__item" id="credits-list-item-4">
                     <span class="mdl-list__item-primary-content">
                     <i class="material-icons mdl-list__item-icon">lock</i>
-                    Network isolation
+                    Complete data privacy
                   </span>
-
-                    <div class="mdl-tooltip" for="self-list-item-4">
-                        No network requirements - Although text generator can download and analyze any input links to
-                        write better copy.
+                    <div class="mdl-tooltip" for="credits-list-item-4">
+                        We do not store any private data sent to the APIs.
                     </div>
                 </li>
             </ul>
 
-            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
-                <input id="subscribe-uid" class="subscribe-uid" type="hidden" name="uid" value="">
-                <input id="subscribe-secret" class="subscribe-secret" type="hidden" name="secret" value="">
-                <input id="subscribe-type" type="hidden" name="type" value="annual">
-
-                <br><br>
-
-                <br>
-                <a class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect" href="https://github.com/TextGeneratorio/text-generator.io">
-Get On Github</a>
-            </form>
+            <div class="centered-cta-form">
+                <button type="button" id="buy-credits-button" onclick="openCreditsCheckout()"
+                        class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
+                        disabled="disabled">Buy Credits
+                </button>
+            </div>
         </div>
         <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
         <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
@@ -419,6 +419,64 @@ Get On Github</a>
                 <br>
                 <br>
 
+            </form>
+        </div>
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-desktop"></div>
+
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--4-col">
+            <i class="material-icons mdl-list__item-icon" style="
+    float: right;
+    height: 30px;
+    width: 43px;
+    font-size: 30px;
+">construction</i>
+            <h4>Self Host - DIY Free</h4>
+            <p>All APIs Unlimited Access.</p>
+            <ul class="demo-list-icon mdl-list">
+                <li class="mdl-list__item" id="self-list-item-1">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">gps_fixed</i>
+                    Advanced prediction engine
+                </span>
+                    <div class="mdl-tooltip" for="self-list-item-1">
+                        Same Cloud APIs you know, under your control.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="self-list-item-2">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">rocket_launch</i>
+                    Docker build and Kubernetes deployment
+                  </span>
+                    <div class="mdl-tooltip" for="self-list-item-2">
+                        Autoscaling best practice config and zero downtime deploys.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="self-list-item-3">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">hub</i>
+                    Embedding, Generation, Speech to text APIs
+                  </span>
+                    <div class="mdl-tooltip" for="self-list-item-3">
+                        Host all Text Generator services behind a single easy to operate service.
+                    </div>
+                </li>
+                <li class="mdl-list__item" id="self-list-item-4">
+                    <span class="mdl-list__item-primary-content">
+                    <i class="material-icons mdl-list__item-icon">lock</i>
+                    Network isolation
+                  </span>
+
+                    <div class="mdl-tooltip" for="self-list-item-4">
+                        No network requirements - Although text generator can download and analyze any input links to
+                        write better copy.
+                    </div>
+                </li>
+            </ul>
+
+            <form class="centered-cta-form" action="/create-checkout-session" method="POST">
+                <a class="checkout-button mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect" href="https://github.com/TextGeneratorio/text-generator.io">
+Get On Github</a>
             </form>
         </div>
 
