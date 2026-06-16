@@ -77,6 +77,7 @@ MULTIMODAL_PROCESSORS = {}
 MULTIMODAL_MODELS = {}
 INFERENCE_CONCURRENCY = max(1, int(os.getenv("INFERENCE_CONCURRENCY", "1")))
 _inference_sem = None
+DEEP_LIVENESS_MIN_FREE_VRAM_GB = float(os.getenv("DEEP_LIVENESS_MIN_FREE_VRAM_GB", "8.0"))
 
 GEMMA_TEXT_IMAGE_MODEL_ID = os.getenv(
     "GEMMA_TEXT_IMAGE_MODEL_ID",
@@ -153,6 +154,19 @@ def _clear_global_model_refs():
     MULTIMODAL_MODELS = {}
     MULTIMODAL_PROCESSORS = {}
     logger.info("Cleared all global model references (idle unload)")
+
+
+def _deep_liveness_vram_status():
+    try:
+        from questions.inference_server import model_cache as model_cache_module
+    except Exception:
+        return True, None
+
+    if model_cache_module.DEVICE != "cuda":
+        return True, None
+
+    mem = model_cache_module.get_gpu_memory_info()
+    return mem.get("free", 0) >= DEEP_LIVENESS_MIN_FREE_VRAM_GB, mem
 
 
 def _get_model_cache():
@@ -1414,6 +1428,22 @@ async def liveness_check(request: Request, deep: int = 0):
         model_cache = _get_model_cache()
         cached = model_cache.list_models()
         if deep:
+            has_vram, gpu_memory = _deep_liveness_vram_status()
+            if not has_vram:
+                logger.warning(
+                    "Skipping deep liveness inference: %.2fGB free VRAM below %.2fGB threshold",
+                    gpu_memory.get("free", 0),
+                    DEEP_LIVENESS_MIN_FREE_VRAM_GB,
+                )
+                return JSONResponse({
+                    "status": "ok",
+                    "inference": "ok",
+                    "cached_models": cached,
+                    "deep_check": "skipped_low_vram",
+                    "gpu_memory": gpu_memory,
+                    "min_free_vram_gb": DEEP_LIVENESS_MIN_FREE_VRAM_GB,
+                })
+
             # Run a real inference to confirm the pipeline actually works.
             result = await _run_gpu_bound(
                 _fast_inference,
@@ -2092,13 +2122,7 @@ async def image_caption(
 
         prompt = custom_prompt or "Describe this image in a concise, useful caption."
         with log_time("image captioning"):
-            caption = _run_media_prompt_with_multimodal_model(
-                media_type="image",
-                media_bytes=image_bytes,
-                source_name=filename,
-                prompt=prompt,
-                max_tokens=256,
-            )
+            caption = _caption_image_bytes(image_bytes, prompt=prompt, fast_mode=fast_mode)
 
         logger.info(f"Generated caption: {caption}")
 
@@ -2113,7 +2137,7 @@ async def image_caption(
                 "caption": caption,
                 "filename": filename,
                 "fast_mode": fast_mode,
-                "model": GEMMA_TEXT_IMAGE_MODEL_ID,
+                "model": "microsoft/git-base",
                 "source": "file" if image_file else "url",
             }
         )

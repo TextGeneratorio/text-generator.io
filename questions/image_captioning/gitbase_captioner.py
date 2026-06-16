@@ -28,7 +28,7 @@ class GitBaseCaptioner:
         model_name: str = "microsoft/git-base",
         dtype: torch.dtype = torch.float16,
         device: str = "cuda",
-        use_compile: bool = True,
+        use_compile: bool = False,
         use_channels_last: bool = True,
     ):
         """
@@ -214,7 +214,7 @@ _GITBASE_CACHE = ModelCache()
 
 
 def get_gitbase_captioner(
-    dtype: torch.dtype = torch.float16, use_compile: bool = True, use_channels_last: bool = True
+    dtype: torch.dtype = torch.float16, use_compile: bool = False, use_channels_last: bool = True
 ) -> GitBaseCaptioner:
     """
     Get cached GitBase captioner instance.
