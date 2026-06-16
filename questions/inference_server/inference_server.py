@@ -85,6 +85,11 @@ GEMMA_TEXT_IMAGE_MODEL_ID = os.getenv(
 )
 GEMMA_AUDIO_MODEL_ID = os.getenv("GEMMA_AUDIO_MODEL_ID", "google/gemma-4-e4b-it")
 GEMMA_VIDEO_MODEL_ID = os.getenv("GEMMA_VIDEO_MODEL_ID", GEMMA_AUDIO_MODEL_ID)
+GEMMA_VIDEO_SAMPLE_INTERVAL_SECONDS = max(0.1, float(os.getenv("GEMMA_VIDEO_SAMPLE_INTERVAL_SECONDS", "2.0")))
+GEMMA_VIDEO_CHANGE_THRESHOLD = max(0.0, float(os.getenv("GEMMA_VIDEO_CHANGE_THRESHOLD", "8.0")))
+GEMMA_VIDEO_MAX_FRAMES = max(1, int(os.getenv("GEMMA_VIDEO_MAX_FRAMES", "32")))
+GEMMA_VIDEO_MAX_CANDIDATES = max(GEMMA_VIDEO_MAX_FRAMES, int(os.getenv("GEMMA_VIDEO_MAX_CANDIDATES", "600")))
+GEMMA_FRAME_MAX_DIM = max(64, int(os.getenv("GEMMA_FRAME_MAX_DIM", "896")))
 GEMMA_AUDIO_MAX_SECONDS = max(1, int(os.getenv("GEMMA_AUDIO_MAX_SECONDS", "30")))
 GEMMA_AUDIO_SAMPLE_RATE = max(8000, int(os.getenv("GEMMA_AUDIO_SAMPLE_RATE", "16000")))
 GEMMA_AUDIO_SILENCE_TOP_DB = max(10, int(os.getenv("GEMMA_AUDIO_SILENCE_TOP_DB", "32")))
@@ -1056,6 +1061,92 @@ def _transcription_prompt(translate_to_english: bool) -> str:
     return "Transcribe the audio verbatim. Return only the transcript text."
 
 
+def _sample_video_frames(video_bytes: bytes, source_name: Optional[str]) -> list:
+    import cv2
+    import numpy as np
+
+    suffix = _guess_media_suffix(source_name, ".mp4")
+    tmp = NamedTemporaryFile(dir="/dev/shm", delete=False, suffix=suffix)
+    tmp.write(video_bytes)
+    tmp.flush()
+    tmp.close()
+    frame_paths = []
+    try:
+        cap = cv2.VideoCapture(tmp.name)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if not fps or fps != fps or fps <= 0:
+            fps = 1.0
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        step = max(1, int(round(GEMMA_VIDEO_SAMPLE_INTERVAL_SECONDS * fps)))
+        if total > 0 and total // step > GEMMA_VIDEO_MAX_CANDIDATES:
+            step = max(step, total // GEMMA_VIDEO_MAX_CANDIDATES)
+        use_seek = total > 0
+        last = None
+        cand = 0
+        pos = 0
+        while cand < GEMMA_VIDEO_MAX_CANDIDATES:
+            if use_seek:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
+            ok, frame = cap.read()
+            if not ok:
+                break
+            cand += 1
+            pos += step
+            small = cv2.cvtColor(cv2.resize(frame, (64, 64)), cv2.COLOR_BGR2GRAY).astype(np.float32)
+            if last is None or float(np.mean(np.abs(small - last))) >= GEMMA_VIDEO_CHANGE_THRESHOLD:
+                last = small
+                h, w = frame.shape[:2]
+                m = max(h, w)
+                if m > GEMMA_FRAME_MAX_DIM:
+                    scale = GEMMA_FRAME_MAX_DIM / float(m)
+                    frame = cv2.resize(frame, (max(1, int(w * scale)), max(1, int(h * scale))))
+                fp = NamedTemporaryFile(dir="/dev/shm", delete=False, suffix=".jpg")
+                fp.close()
+                cv2.imwrite(fp.name, frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
+                frame_paths.append(fp.name)
+                if len(frame_paths) >= GEMMA_VIDEO_MAX_FRAMES:
+                    break
+            if not use_seek and step > 1:
+                skipped = 0
+                while skipped < step - 1 and cap.grab():
+                    skipped += 1
+        cap.release()
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+    return frame_paths
+
+
+def _run_video_prompt_with_multimodal_model(video_bytes, source_name, prompt, max_tokens):
+    with log_time("sample video frames"):
+        frame_paths = _sample_video_frames(video_bytes, source_name)
+    if not frame_paths:
+        raise HTTPException(status_code=400, detail="Could not extract frames from video")
+    logger.info("Sampled %d frames for video", len(frame_paths))
+    try:
+        content = [{"type": "image", "url": p} for p in frame_paths]
+        content.append({"type": "text", "text": prompt})
+        result = _multimodal_chat_inference(
+            messages=[{"role": "user", "content": content}],
+            model_cache=_get_model_cache(),
+            model_id=GEMMA_VIDEO_MODEL_ID,
+            enable_thinking=False,
+            max_tokens=max_tokens,
+            temperature=0.0,
+            top_p=0.95,
+            top_k=64,
+        )
+        return (result.get("generated_text") or "").strip()
+    finally:
+        for p in frame_paths:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
 def _run_media_prompt_with_multimodal_model(
     media_type: str,
     media_bytes: bytes,
@@ -1063,6 +1154,8 @@ def _run_media_prompt_with_multimodal_model(
     prompt: str,
     max_tokens: int = 512,
 ) -> str:
+    if media_type == "video":
+        return _run_video_prompt_with_multimodal_model(media_bytes, source_name, prompt, max_tokens)
     suffix_defaults = {
         "audio": ".wav",
         "image": ".png",
