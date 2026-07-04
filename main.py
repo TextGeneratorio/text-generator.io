@@ -630,19 +630,20 @@ async def create_checkout_session(
 
     # Define line_item with type hint (basic structure)
     # For metered subscriptions, quantity should not be specified
-    success_url = YOUR_DOMAIN + "/playground"
+    success_url = YOUR_DOMAIN + "/playground?sub=1&plan=monthly"
 
     if type == "annual":
         line_item: Dict[str, Any] = {
             "price": ANNUAL_SUBSCRIPTION_PRICE_ID,
             "quantity": 1,
         }
+        success_url = YOUR_DOMAIN + "/playground?sub=1&plan=annual"
     elif type == "self-hosted":
         line_item: Dict[str, Any] = {
             "price": "price_0MuAuxDtz2XsjQROz3Hp5Tcx",
             "quantity": quantity,  # Only self-hosted subscriptions use quantity
         }
-        success_url = YOUR_DOMAIN + "/account"
+        success_url = YOUR_DOMAIN + "/account?sub=1&plan=self-hosted"
     else:
         # Default monthly - metered subscription, no quantity
         line_item: Dict[str, Any] = {
@@ -669,7 +670,7 @@ async def create_checkout_session(
             if type == "self-hosted":
                 line_item_nzd["price"] = "price_0MuBEoDtz2XsjQROiRewGRFi"
                 line_item_nzd["quantity"] = quantity  # Only self-hosted uses quantity
-                success_url = YOUR_DOMAIN + "/account"
+                success_url = YOUR_DOMAIN + "/account?sub=1&plan=self-hosted"
 
             try:
                 # Type hint removed for line_items list to satisfy linter
@@ -743,10 +744,10 @@ async def create_checkout_session_embedded(
     # Set up pricing based on subscription type
     if subscription_type and subscription_type == "annual":
         subscription_price = ANNUAL_SUBSCRIPTION_PRICE_ID
+        success_url = YOUR_DOMAIN + "/playground?sub=1&plan=annual"
     else:
         subscription_price = MONTHLY_SUBSCRIPTION_PRICE_ID
-
-    success_url = YOUR_DOMAIN + "/playground"
+        success_url = YOUR_DOMAIN + "/playground?sub=1&plan=monthly"
 
     line_item = {
         "price": subscription_price,

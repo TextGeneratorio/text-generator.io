@@ -224,6 +224,29 @@
     {#    <script src="{{ static_url }}/js/templates/coins-table.js"></script>#}
     {#    <script defer src="{{ static_url }}/js/userauth.js"></script>#}
 
+    <script>window.evangelTrackingCode = 'kKnIiYGs5FMjnZAA5y4wLczmBrLsiHDV';</script>
+    <script src="https://evangeler.com/js/evangeler-tracking.js"></script>
+    <script>
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('sub') === '1') {
+            var plan = params.get('plan') || 'monthly';
+            var amount = plan === 'annual' ? 190 : 19;
+            var email = (window.currentUser && window.currentUser.email) || '';
+            var orderId = 'tg_' + Date.now();
+            try {
+                if (typeof evangelTrackConversion === 'function') {
+                    evangelTrackConversion(amount, orderId, email);
+                }
+            } catch(e) {}
+            var url = new URL(window.location);
+            url.searchParams.delete('sub');
+            url.searchParams.delete('plan');
+            window.history.replaceState({}, '', url);
+        }
+    })();
+    </script>
+
     {% block js %}
     {% endblock %}
 </head>
