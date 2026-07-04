@@ -41,7 +41,7 @@ import time
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from questions.inference_server.vllm_backend_manager import from_env as _backend_from_env
+from questions.inference_server.vllm_backend_manager import registry_from_env as _registry_from_env
 
 VLLM_BASE = os.environ.get("VLLM_BASE", "http://127.0.0.1:8200").rstrip("/")
 VLLM_MODEL = os.environ.get("VLLM_MODEL", "gemma-4-e4b-it")
@@ -56,14 +56,21 @@ DEFAULT_SYSTEM = (
 
 app = FastAPI(title="vLLM inference_server parity adapter", version="1")
 
-# Optional on-demand backend lifecycle (lazy start + idle-unload to free GPU).
-# Disabled (None) when VLLM_BACKEND_CMD is unset -> we just proxy a running server.
-BACKEND = _backend_from_env()
+# Optional on-demand backend lifecycle (lazy start + idle-unload + model swap).
+# Disabled (None) when VLLM_BACKEND_CMD/VLLM_MODELS_JSON are unset -> plain proxy.
+REGISTRY = _registry_from_env()
 
 
-def _ensure_backend():
-    if BACKEND is not None:
-        BACKEND.ensure_up()
+def _ensure_backend(model: Optional[str] = None) -> str:
+    """Ensure a backend serving `model` is up; returns the served model name."""
+    if REGISTRY is None:
+        return model or VLLM_MODEL
+    return REGISTRY.ensure(model)
+
+
+def _touch(model: Optional[str] = None) -> None:
+    if REGISTRY is not None:
+        REGISTRY.touch(model)
 
 
 def _rand_id(n: int = 10) -> str:
@@ -197,7 +204,8 @@ def _argmax_probs_from_completion_logprobs(lp: dict) -> tuple[List[str], List[fl
     return tokens, probs
 
 
-def _complete_raw(prompt: str, max_tokens: int, sampling: dict, extra: dict | None = None) -> dict:
+def _complete_raw(prompt: str, max_tokens: int, sampling: dict, extra: dict | None = None,
+                  model: str | None = None) -> dict:
     """Raw literal continuation via /v1/completions. Returns text + aligned probs.
 
     `extra` may carry `structured_outputs` (this vLLM build's working param name
@@ -205,7 +213,7 @@ def _complete_raw(prompt: str, max_tokens: int, sampling: dict, extra: dict | No
     silently ignored here).
     """
     body = {
-        "model": VLLM_MODEL, "prompt": prompt, "max_tokens": max_tokens,
+        "model": model or VLLM_MODEL, "prompt": prompt, "max_tokens": max_tokens,
         "logprobs": 1, **sampling, **(extra or {}),
     }
     out = _post("/v1/completions", body)
@@ -225,7 +233,8 @@ def _token_index_after_chars(tokens: List[str], nchars: int) -> int:
     return len(tokens)
 
 
-def _continue_with_healing(text: str, max_tokens: int, sampling: dict) -> tuple[List[str], List[float], str]:
+def _continue_with_healing(text: str, max_tokens: int, sampling: dict,
+                           model: str | None = None) -> tuple[List[str], List[float], str]:
     """Produce (new_tokens, new_token_argmax_probs, finish_reason).
 
     new_tokens are the token strings to append after the user's `text`
@@ -243,7 +252,8 @@ def _continue_with_healing(text: str, max_tokens: int, sampling: dict) -> tuple[
         # " Franc" -> " France", " to" -> " to me" (space kept).
         regex = re.escape(tail) + r"[\s\S]*"
         r = _complete_raw(head, max_tokens + 8, sampling,
-                          extra={"structured_outputs": {"regex": regex}, "stop": stop})
+                          extra={"structured_outputs": {"regex": regex}, "stop": stop},
+                          model=model)
         if r["text"].startswith(tail):
             # The boundary token may straddle the tail (e.g. tail=" goin",
             # token=" going" -> "g" belongs to new content). Recover the exact
@@ -256,11 +266,11 @@ def _continue_with_healing(text: str, max_tokens: int, sampling: dict) -> tuple[
                 + r["probs"][boundary:]
             return new_tokens, new_probs, r["finish_reason"]
     # literal continuation from the full text (already correct for word boundaries)
-    r = _complete_raw(text, max_tokens, sampling, extra={"stop": stop})
+    r = _complete_raw(text, max_tokens, sampling, extra={"stop": stop}, model=model)
     return r["tokens"], r["probs"], r["finish_reason"]
 
 
-def _generate_one(p: GenerateParams) -> dict:
+def _generate_one(p: GenerateParams, model: str | None = None) -> dict:
     max_tokens = p.max_length or 100
     temperature = p.temperature if (p.temperature and p.temperature > 0) else 1.0
     sampling = {
@@ -274,10 +284,11 @@ def _generate_one(p: GenerateParams) -> dict:
 
     # An explicit system instruction means "chat", not raw continuation.
     if p.system_message or p.system_prompt:
-        return _generate_one_chat(p, max_tokens, temperature, sampling)
+        return _generate_one_chat(p, max_tokens, temperature, sampling, model=model)
 
     # Autocomplete / continuation: raw literal continuation + token healing.
-    new_tokens, new_probs, finish = _continue_with_healing(p.text, max_tokens, sampling)
+    new_tokens, new_probs, finish = _continue_with_healing(p.text, max_tokens, sampling,
+                                                           model=model)
 
     stop_reason = "stop" if finish in ("stop", None) else "max_length"
 
@@ -311,12 +322,12 @@ def _generate_one(p: GenerateParams) -> dict:
 
 
 def _generate_one_chat(p: GenerateParams, max_tokens: int, temperature: float,
-                       sampling: dict) -> dict:
+                       sampling: dict, model: str | None = None) -> dict:
     """Chat-path generation (used when an explicit system message is supplied)."""
     enable_thinking = bool(p.enable_thinking) if p.enable_thinking is not None else False
     system = p.system_message or p.system_prompt or DEFAULT_SYSTEM
     body = {
-        "model": VLLM_MODEL,
+        "model": model or VLLM_MODEL,
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": p.text}],
         "max_tokens": max_tokens + (96 if enable_thinking else 0),
@@ -373,9 +384,11 @@ def _generate_one_chat(p: GenerateParams, max_tokens: int, temperature: float,
 def generate(params: GenerateParams, secret: Optional[str] = Header(default=None)):
     if not params.text or not params.text.strip():
         raise HTTPException(status_code=400, detail="Please enter some text")
-    _ensure_backend()
+    served = _ensure_backend(params.model)
     n = max(1, params.number_of_results or 1)
-    return [_generate_one(params) for _ in range(n)]
+    out = [_generate_one(params, model=served) for _ in range(n)]
+    _touch(served)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -415,20 +428,21 @@ class ChatCompletionParams(BaseModel):
 
 @app.post("/v1/completions")
 def completions(params: OpenaiParams):
-    _ensure_backend()
+    served = _ensure_backend(params.model)
     gp = GenerateParams(
         text=params.prompt or "", max_length=params.max_tokens or 100,
         temperature=params.temperature, top_p=params.top_p, top_k=params.top_k,
         stop_sequences=params.stop or [], seed=params.seed,
         repetition_penalty=params.repetition_penalty,
     )
-    res = _generate_one(gp)
+    res = _generate_one(gp, model=served)
+    _touch(served)
     text = res["generated_text"]
     if not params.echo and text.startswith(gp.text):
         text = text[len(gp.text):]
     return {
         "id": "cmpl-" + _rand_id(), "object": "text_completion",
-        "created": int(time.time()), "model": SERVED_NAME,
+        "created": int(time.time()), "model": served or SERVED_NAME,
         "choices": [{"text": text, "index": 0, "logprobs": None,
                      "finish_reason": res["stop_reason"]}],
         "usage": {"prompt_tokens": 0, "completion_tokens": 1, "total_tokens": 1},
@@ -437,14 +451,14 @@ def completions(params: OpenaiParams):
 
 @app.post("/v1/chat/completions")
 def chat_completions(params: ChatCompletionParams):
-    _ensure_backend()
+    served = _ensure_backend(params.model)
     # forward chat messages straight to the vLLM chat backend
     extra = {"top_k": params.top_k if params.top_k is not None else 40,
              "chat_template_kwargs": {"enable_thinking": bool(params.enable_thinking)}}
     if params.repetition_penalty and params.repetition_penalty > 1.0:
         extra["repetition_penalty"] = params.repetition_penalty
     body = {
-        "model": VLLM_MODEL,
+        "model": served,
         "messages": [m.dict() for m in params.messages],
         "max_tokens": params.max_tokens or 512,
         "temperature": params.temperature if (params.temperature and params.temperature > 0) else 1.0,
@@ -454,6 +468,7 @@ def chat_completions(params: ChatCompletionParams):
         **extra,
     }
     out = _post("/v1/chat/completions", body)
+    _touch(served)
     choice = out["choices"][0]
     full = choice["message"]["content"] or ""
     thinking, response = _split_thinking(full)
@@ -462,7 +477,7 @@ def chat_completions(params: ChatCompletionParams):
         message["reasoning_content"] = thinking
     return {
         "id": "chatcmpl-" + _rand_id(), "object": "chat.completion",
-        "created": int(time.time()), "model": SERVED_NAME,
+        "created": int(time.time()), "model": served or SERVED_NAME,
         "choices": [{"index": 0, "message": message,
                      "finish_reason": choice.get("finish_reason") or "stop"}],
         "usage": out.get("usage", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}),
@@ -473,7 +488,8 @@ def chat_completions(params: ChatCompletionParams):
 def liveness_check(deep: int = 0):
     # In managed mode an intentionally idle-unloaded backend is HEALTHY, not down:
     # report ok with empty cached_models (mirrors the real server's idle state).
-    if BACKEND is not None and not BACKEND.status()["ready"]:
+    if REGISTRY is not None and not any(
+            m["ready"] for m in REGISTRY.status()["models"].values()):
         return {"status": "ok", "inference": "ok", "cached_models": []}
     try:
         with urllib.request.urlopen(VLLM_BASE + "/v1/models", timeout=10) as r:
@@ -491,9 +507,33 @@ def liveness_check(deep: int = 0):
 
 @app.get("/backend_status")
 def backend_status():
-    if BACKEND is None:
+    if REGISTRY is None:
         return {"managed": False, "backend": VLLM_BASE}
-    return BACKEND.status()
+    return REGISTRY.status()
+
+
+@app.post("/backend/stop")
+def backend_stop():
+    """Ops: immediately unload all managed backends, freeing GPU memory."""
+    if REGISTRY is None:
+        raise HTTPException(status_code=400, detail="unmanaged mode")
+    REGISTRY.stop_all()
+    return REGISTRY.status()
+
+
+@app.post("/backend/ensure")
+def backend_ensure(model: Optional[str] = None):
+    """Ops: pre-warm (or swap to) a model without sending a generation."""
+    served = _ensure_backend(model)
+    return {"served": served, **({} if REGISTRY is None else REGISTRY.status())}
+
+
+@app.on_event("shutdown")
+def _shutdown():
+    # vLLM children run in their own session (start_new_session), so supervisor
+    # group-kill cannot reach them — stop them here to avoid VRAM orphans.
+    if REGISTRY is not None:
+        REGISTRY.stop_all()
 
 
 @app.get("/")

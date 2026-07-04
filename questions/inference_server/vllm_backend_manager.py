@@ -50,8 +50,10 @@ class BackendManager:
         startup_timeout: int = 240,
         cwd: str | None = None,
         env: dict | None = None,
+        expect_model: str | None = None,
     ):
         self.cmd = cmd
+        self.expect_model = expect_model
         self.host = host
         self.port = port
         self.ready_url = f"http://{host}:{port}{ready_path}"
@@ -74,9 +76,18 @@ class BackendManager:
             return s.connect_ex((self.host, self.port)) == 0
 
     def _ready(self) -> bool:
+        # expect_model guards the shared-port case: another registry backend
+        # answering on the same port must not count as "ready" for this one.
         try:
             with urllib.request.urlopen(self.ready_url, timeout=3) as r:
-                return r.status == 200
+                if r.status != 200:
+                    return False
+                if not self.expect_model:
+                    return True
+                import json
+                data = json.loads(r.read())
+                return any(m.get("id") == self.expect_model
+                           for m in data.get("data", []))
         except Exception:
             return False
 
@@ -97,6 +108,11 @@ class BackendManager:
             self._starting = True
             try:
                 if self.proc is None or self.proc.poll() is not None:
+                    # a not-ready listener on our port with no live managed proc
+                    # is an orphan from a previous adapter life — reap it or the
+                    # new launch dies on bind and its VRAM leaks
+                    if self._listening():
+                        self._kill_port_orphans()
                     logger.info("Launching vLLM backend: %s", self.cmd)
                     # start_new_session => own process group; we kill the group on stop
                     self.proc = subprocess.Popen(
@@ -117,6 +133,27 @@ class BackendManager:
                 raise RuntimeError(f"backend not ready within {self.startup_timeout}s")
             finally:
                 self._starting = False
+
+    def _kill_port_orphans(self) -> None:
+        try:
+            out = subprocess.run(
+                ["lsof", "-t", f"-iTCP:{self.port}", "-sTCP:LISTEN"],
+                capture_output=True, text=True, timeout=10).stdout.split()
+        except Exception:
+            out = []
+        for pid in out:
+            try:
+                pgid = os.getpgid(int(pid))
+                logger.warning("Killing orphan pid %s (pgid %s) on port %s",
+                               pid, pgid, self.port)
+                os.killpg(pgid, signal.SIGKILL)
+            except (ProcessLookupError, ValueError, PermissionError):
+                pass
+        for _ in range(30):
+            if not self._listening():
+                return
+            time.sleep(1)
+        logger.warning("Port %s still occupied after orphan kill", self.port)
 
     def stop(self) -> None:
         with self._lock:
@@ -185,4 +222,85 @@ def from_env() -> "BackendManager | None":
         startup_timeout=int(os.environ.get("BACKEND_STARTUP_TIMEOUT", "240")),
         cwd=os.environ.get("VLLM_BACKEND_CWD") or None,
         env={**os.environ},
+        expect_model=os.environ.get("VLLM_MODEL") or None,
     )
+
+
+class BackendRegistry:
+    """One GPU, many models: at most one vLLM backend runs at a time.
+
+    ensure(name) stops whichever other backend is up, then boots the target.
+    All backends share a port; expect_model on each manager disambiguates
+    readiness. Each manager keeps its own idle-unload thread.
+    """
+
+    def __init__(self, managers: dict, default: str):
+        if default not in managers:
+            raise ValueError(f"default model {default!r} not in registry")
+        self.managers = managers
+        self.default = default
+        self._swap_lock = threading.Lock()
+
+    def resolve(self, name: "str | None") -> str:
+        return name if name and name in self.managers else self.default
+
+    def ensure(self, name: "str | None" = None) -> str:
+        name = self.resolve(name)
+        with self._swap_lock:
+            for other_name, other in self.managers.items():
+                if other_name != name:
+                    if other.proc is not None and other.proc.poll() is None:
+                        logger.info("Swapping backend %s -> %s", other_name, name)
+                        other.stop()
+            self.managers[name].ensure_up()
+        return name
+
+    def touch(self, name: "str | None" = None) -> None:
+        self.managers[self.resolve(name)].touch()
+
+    def status(self) -> dict:
+        return {"default": self.default,
+                "models": {n: m.status() for n, m in self.managers.items()}}
+
+    def stop_all(self) -> None:
+        for m in self.managers.values():
+            m.stop()
+
+
+def registry_from_env() -> "BackendRegistry | None":
+    """Multi-model registry from VLLM_MODELS_JSON, else single-model wrap of
+    from_env(), else None (unmanaged proxy mode).
+
+    VLLM_MODELS_JSON example:
+      {"qwen3.5-4b": {"cmd": "MODEL=/path SERVED=qwen3.5-4b ./serve_generic.sh"},
+       "gemma-4-e4b-it": {"cmd": "...", "startup_timeout": 300}}
+    Optional per-model keys: port, idle_seconds, startup_timeout, cwd.
+    VLLM_DEFAULT_MODEL picks the default (else first key).
+    """
+    import json as _json
+    spec = os.environ.get("VLLM_MODELS_JSON", "").strip()
+    if spec:
+        cfg = _json.loads(spec)
+        managers = {}
+        for name, m in cfg.items():
+            if isinstance(m, str):
+                m = {"cmd": m}
+            managers[name] = BackendManager(
+                cmd=m["cmd"],
+                host=os.environ.get("VLLM_BACKEND_HOST", "127.0.0.1"),
+                port=int(m.get("port", os.environ.get("VLLM_BACKEND_PORT", "8200"))),
+                idle_seconds=int(m.get("idle_seconds",
+                                       os.environ.get("IDLE_UNLOAD_SECONDS", "600"))),
+                startup_timeout=int(m.get("startup_timeout",
+                                          os.environ.get("BACKEND_STARTUP_TIMEOUT", "240"))),
+                cwd=m.get("cwd") or os.environ.get("VLLM_BACKEND_CWD") or None,
+                env={**os.environ},
+                expect_model=name,
+            )
+        default = os.environ.get("VLLM_DEFAULT_MODEL") or next(iter(managers))
+        return BackendRegistry(managers, default)
+    single = from_env()
+    if single is None:
+        return None
+    name = os.environ.get("VLLM_MODEL", "model")
+    return BackendRegistry({name: single}, name)
