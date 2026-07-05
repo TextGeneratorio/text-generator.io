@@ -160,7 +160,7 @@ class CheckoutDialog {
 
         const user = await this.getCurrentUser();
         if (!user) {
-            this.showError('Please log in to subscribe');
+            this.showSignupPrompt();
             return;
         }
 
@@ -208,6 +208,37 @@ class CheckoutDialog {
         } catch (error) {
             console.error('Error loading checkout:', error);
             this.showError('Failed to load checkout. Please try again.');
+        }
+    }
+
+    showSignupPrompt() {
+        const checkoutContainer = document.getElementById('checkout-container');
+        checkoutContainer.innerHTML = `
+            <div class="checkout-error">
+                <p>Create a free account to subscribe — it takes 10 seconds.</p>
+                <button onclick="window.checkoutDialog.handleSignupClick()" class="checkout-btn">Create Free Account</button>
+                <p style="margin-top:8px;font-size:13px;">Already have an account?
+                    <a href="#" onclick="window.checkoutDialog.handleLoginClick(); return false;">Log in</a>
+                </p>
+            </div>
+        `;
+    }
+
+    handleSignupClick() {
+        if (typeof window.showSignupModal === 'function') {
+            this.close();
+            window.showSignupModal();
+        } else {
+            window.location.href = '/signup?next=' + encodeURIComponent(window.location.pathname + '#subscribe');
+        }
+    }
+
+    handleLoginClick() {
+        if (typeof window.showLoginModal === 'function') {
+            this.close();
+            window.showLoginModal();
+        } else {
+            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + '#subscribe');
         }
     }
 

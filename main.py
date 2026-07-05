@@ -660,7 +660,7 @@ async def create_checkout_session(
             line_items=checkout_items,  # type: ignore
             mode="subscription",
             success_url=success_url,
-            cancel_url=YOUR_DOMAIN + "/",
+            cancel_url=YOUR_DOMAIN + "/subscribe",
         )
         checkout_session_url = checkout_session.url  # type: ignore
     except Exception as e:
@@ -680,7 +680,7 @@ async def create_checkout_session(
                     line_items=checkout_items_nzd,  # type: ignore
                     mode="subscription",
                     success_url=success_url,
-                    cancel_url=YOUR_DOMAIN + "/",
+                    cancel_url=YOUR_DOMAIN + "/subscribe",
                 )
                 checkout_session_url = checkout_session_nzd.url  # type: ignore
             except Exception as ex:

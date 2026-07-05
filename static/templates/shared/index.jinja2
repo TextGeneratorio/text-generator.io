@@ -43,6 +43,12 @@
     </div>
 </section>
 
+<style>
+.tg-tool-card{position:relative;transition:box-shadow .2s}
+.tg-tool-card:hover{box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.tg-card-link{color:inherit;text-decoration:none}
+.tg-card-link::after{content:"";position:absolute;inset:0}
+</style>
 <section class="tg-section" id="tools">
     <div class="tg-container">
         <div class="tg-section-title">
@@ -56,49 +62,49 @@
         <div class="tg-tool-grid">
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">public</i>
-                <h3>Domain Name Generator</h3>
+                <h3><a class="tg-card-link" href="/tools/domain-name-generator">Domain Name Generator</a></h3>
                 <p>Create high-quality brand names and domain ideas quickly, then move to launch with less friction.</p>
             </article>
 
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">draw</i>
-                <h3>AI Text Editor</h3>
+                <h3><a class="tg-card-link" href="/ai-text-editor">AI Text Editor</a></h3>
                 <p>Write and revise long-form content with autocomplete and rewriting tuned for clarity and speed.</p>
             </article>
 
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">tune</i>
-                <h3>Prompt Optimizer</h3>
+                <h3><a class="tg-card-link" href="/tools/prompt-optimizer">Prompt Optimizer</a></h3>
                 <p>Iterate toward dependable outputs by refining prompts and routing to the right model profiles.</p>
             </article>
 
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">image_search</i>
-                <h3>Image Captioning AI</h3>
+                <h3><a class="tg-card-link" href="/tools/image-captioning">Image Captioning AI</a></h3>
                 <p>Extract useful insight from images with fast multimodal analysis suited for real customer workflows.</p>
             </article>
 
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">travel_explore</i>
-                <h3>Competitor Teardown</h3>
+                <h3><a class="tg-card-link" href="/tools/competitor-teardown">Competitor Teardown</a></h3>
                 <p>Audit competing pages and get a prioritized list of positioning and conversion opportunities.</p>
             </article>
 
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">find_in_page</i>
-                <h3>SEO Content Gap Finder</h3>
+                <h3><a class="tg-card-link" href="/tools/seo-content-gap-finder">SEO Content Gap Finder</a></h3>
                 <p>Find missing topics, prioritize content opportunities, and build practical publishing roadmaps.</p>
             </article>
 
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">menu_book</i>
-                <h3>Keyword & Glossary Explorer</h3>
+                <h3><a class="tg-card-link" href="/tools/keyword-glossary-explorer">Keyword & Glossary Explorer</a></h3>
                 <p>Generate keyword clusters and glossary plans that improve long-tail topical coverage.</p>
             </article>
 
             <article class="tg-tool-card">
                 <i class="material-icons" aria-hidden="true">psychology_alt</i>
-                <h3>Deep Researcher</h3>
+                <h3><a class="tg-card-link" href="/tools/deep-researcher">Deep Researcher</a></h3>
                 <p>Synthesize complex topics into clear findings, risks, and next-step recommendations.</p>
             </article>
         </div>
@@ -156,7 +162,33 @@
             <span class="tg-trust-pill">Fintech Partners</span>
         </div>
 
-        <div class="tg-cta-band" id="pricing">
+        <div class="tg-section-title" id="pricing" style="margin-top:48px;">
+            <h2>Simple, <span class="tg-gradient-text">Predictable Pricing</span></h2>
+            <p>Unlimited text, speech, and vision API access on one flat plan. Cancel anytime.</p>
+        </div>
+
+        <div class="tg-feature-layout" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+            <article class="tg-feature-item" style="flex-direction:column;align-items:flex-start;">
+                <h4 style="margin:0;">Monthly</h4>
+                <p style="font-size:32px;font-weight:700;margin:8px 0;">$9.99<span style="font-size:15px;font-weight:400;">/month</span></p>
+                <p>All APIs, unlimited generation, playground and tools included.</p>
+                <a href="/subscribe" class="tg-btn tg-btn--primary">Get Started</a>
+            </article>
+            <article class="tg-feature-item" style="flex-direction:column;align-items:flex-start;">
+                <h4 style="margin:0;">Annual <span class="tg-trust-pill" style="margin-left:6px;">Save 17%</span></h4>
+                <p style="font-size:32px;font-weight:700;margin:8px 0;">$99.99<span style="font-size:15px;font-weight:400;">/year</span></p>
+                <p>Everything in Monthly, two months free.</p>
+                <a href="/subscribe" class="tg-btn tg-btn--primary">Get Started</a>
+            </article>
+            <article class="tg-feature-item" style="flex-direction:column;align-items:flex-start;">
+                <h4 style="margin:0;">Self-Hosted</h4>
+                <p style="font-size:32px;font-weight:700;margin:8px 0;">Free<span style="font-size:15px;font-weight:400;"> DIY</span></p>
+                <p>Run the full stack on your own hardware. Enterprise support available.</p>
+                <a href="/subscribe" class="tg-btn tg-btn--ghost">Learn More</a>
+            </article>
+        </div>
+
+        <div class="tg-cta-band">
             <div>
                 <h3>Ready to Improve Your AI Funnel?</h3>
                 <p>Start free, test quality in your own use case, and scale only when metrics improve.</p>

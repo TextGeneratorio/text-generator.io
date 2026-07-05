@@ -449,9 +449,10 @@
             const result = await response.json();
             
             if (response.ok) {
-                // Success - set session and redirect to playground
+                // Success - set session and redirect to next or playground
                 document.cookie = `session_secret=${result.secret}; path=/; max-age=2592000`; // 30 days
-                window.location.href = '/playground';
+                const next = new URLSearchParams(window.location.search).get('next');
+                window.location.href = (next && next.startsWith('/')) ? next : '/playground';
             } else {
                 let errorMessage = 'Account creation failed';
                 if (response.status === 409) {

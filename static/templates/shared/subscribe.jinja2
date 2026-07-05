@@ -8,13 +8,19 @@ async function checkAuthStatus() {
             window.user = user;
             setupSubscription(user);
         } else {
-            // User not logged in, redirect to login
-            window.location.href = '/login';
+            setupAnonymous();
         }
     } catch (error) {
         console.log('Auth check error:', error);
-        window.location.href = '/login';
+        setupAnonymous();
     }
+}
+
+// Anonymous visitors can see pricing; CTA leads to signup then checkout
+function setupAnonymous() {
+    $('.checkout-button#checkout-button')
+        .attr('disabled', false)
+        .text('Create Free Account & Subscribe');
 }
 
 // Setup subscription UI for authenticated user
