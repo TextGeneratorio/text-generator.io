@@ -18,7 +18,7 @@ async function checkAuthStatus() {
 
 // Anonymous visitors can see pricing; CTA leads to signup then checkout
 function setupAnonymous() {
-    $('.checkout-button#checkout-button')
+    $('button#checkout-button')
         .attr('disabled', false)
         .text('Create Free Account & Subscribe');
 }
