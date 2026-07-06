@@ -159,6 +159,51 @@ def _post(path: str, body: dict) -> dict:
         return json.loads(r.read())
 
 
+# Reasoning suppression: Qwen3.5 leaks <think> into raw continuations. Stopping
+# at <think> (the old approach) truncated responses to a fraction of max_length,
+# so instead we BAN the think tokens via logit_bias (looked up once via
+# /tokenize) and keep generating to the requested length. A strip pass remains
+# as a safety net for literal multi-token "<think>...</think>" spellings.
+_THINK_BIAS: "dict[str, float] | None" = None
+
+
+def _think_bias(model: str | None = None) -> dict:
+    global _THINK_BIAS
+    if _THINK_BIAS is None:
+        bias: dict[str, float] = {}
+        for s in ("<think>", "</think>"):
+            try:
+                out = _post("/tokenize", {"model": model or VLLM_MODEL, "prompt": s,
+                                          "add_special_tokens": False})
+                toks = out.get("tokens") or []
+                if len(toks) == 1:
+                    bias[str(toks[0])] = -100
+            except Exception:  # noqa: BLE001
+                return bias  # don't cache a partial failure
+        _THINK_BIAS = bias
+    return _THINK_BIAS
+
+
+def _strip_think_spans(tokens: List[str], probs: List[float]):
+    """Safety net: drop any <think>...</think> span tokens (token-aligned)."""
+    if "<think>" not in "".join(tokens):
+        return tokens, probs
+    out_t: List[str] = []
+    out_p: List[float] = []
+    in_think = False
+    for t, pr in zip(tokens, probs):
+        if "<think>" in t:
+            in_think = True
+            continue
+        if "</think>" in t:
+            in_think = False
+            continue
+        if not in_think:
+            out_t.append(t)
+            out_p.append(pr)
+    return out_t, out_p
+
+
 # Token healing: autocomplete must continue the *literal* token stream, not start
 # a fresh chat turn (which drops the boundary space -> "lookingfor" and emits
 # meta-commentary). We walk back the last partial word, regenerate from the head,
@@ -219,7 +264,13 @@ def _complete_raw(prompt: str, max_tokens: int, sampling: dict, extra: dict | No
     out = _post("/v1/completions", body)
     ch = out["choices"][0]
     tokens, probs = _argmax_probs_from_completion_logprobs(ch.get("logprobs") or {})
-    return {"text": ch.get("text") or "", "tokens": tokens, "probs": probs,
+    text = ch.get("text") or ""
+    # logprobs token strings can include the EOS token ("<|endoftext|>") that the
+    # completion text excludes — trim trailing tokens so join(tokens) == text.
+    while tokens and len("".join(tokens)) > len(text):
+        tokens.pop()
+        probs.pop()
+    return {"text": text, "tokens": tokens, "probs": probs,
             "finish_reason": ch.get("finish_reason")}
 
 
@@ -242,8 +293,10 @@ def _continue_with_healing(text: str, max_tokens: int, sampling: dict,
     possible. Token-aligned so downstream min_probability/max_length truncate at
     exact token boundaries (like the real server).
     """
-    # Suppress chat/reasoning artifacts that instruct models leak into raw text.
-    stop = ["<think>", "</think>"]
+    # Suppress chat/reasoning artifacts that instruct models leak into raw text
+    # (ban the tokens rather than stop — stopping truncated output early).
+    bias = _think_bias(model)
+    anti_think = {"logit_bias": bias} if bias else {}
     head, tail = _split_heal_tail(text)
     if HEAL and tail and head:
         # Force the regeneration to start with the typed tail (incl. its leading
@@ -252,7 +305,7 @@ def _continue_with_healing(text: str, max_tokens: int, sampling: dict,
         # " Franc" -> " France", " to" -> " to me" (space kept).
         regex = re.escape(tail) + r"[\s\S]*"
         r = _complete_raw(head, max_tokens + 8, sampling,
-                          extra={"structured_outputs": {"regex": regex}, "stop": stop},
+                          extra={"structured_outputs": {"regex": regex}, **anti_think},
                           model=model)
         if r["text"].startswith(tail):
             # The boundary token may straddle the tail (e.g. tail=" goin",
@@ -264,10 +317,12 @@ def _continue_with_healing(text: str, max_tokens: int, sampling: dict,
             new_tokens = ([remainder] if remainder else []) + r["tokens"][boundary:]
             new_probs = ([r["probs"][boundary - 1]] if remainder and boundary > 0 else []) \
                 + r["probs"][boundary:]
+            new_tokens, new_probs = _strip_think_spans(new_tokens, new_probs)
             return new_tokens, new_probs, r["finish_reason"]
     # literal continuation from the full text (already correct for word boundaries)
-    r = _complete_raw(text, max_tokens, sampling, extra={"stop": stop}, model=model)
-    return r["tokens"], r["probs"], r["finish_reason"]
+    r = _complete_raw(text, max_tokens, sampling, extra=anti_think, model=model)
+    tokens, probs = _strip_think_spans(r["tokens"], r["probs"])
+    return tokens, probs, r["finish_reason"]
 
 
 def _generate_one(p: GenerateParams, model: str | None = None) -> dict:
