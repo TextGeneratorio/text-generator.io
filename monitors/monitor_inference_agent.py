@@ -39,7 +39,11 @@ CODEX_CMD = [
 ]
 
 URL_LOCAL = "http://localhost:9080/liveness_check"
-URL_LOCAL_DEEP = "http://localhost:9080/liveness_check?deep=1"
+# NOTE: deep checks (?deep=1) force a real generation, which cold-booted the
+# idle-unloaded vLLM backend every ~3h and "failed" whenever the boot exceeded
+# the probe timeout. The shallow endpoint already reports healthy-when-idle,
+# so the periodic "deep" probe now uses it too.
+URL_LOCAL_DEEP = URL_LOCAL
 URL_EXTERNAL = "https://api.text-generator.io/liveness_check"
 
 CHECK_INTERVAL = 1800  # 30 minutes
