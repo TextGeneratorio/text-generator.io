@@ -23,6 +23,10 @@ ARGS=( "${ENTRY[@]}" --model "$MODEL"
   --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION:-0.45}" --max-num-seqs 1
   --trust-remote-code --no-enable-log-requests --disable-uvicorn-access-log )
 [[ "${TEXT_ONLY:-1}" == "1" ]] && ARGS+=( --skip-mm-profiling )
+# Sleep mode routes allocations through CuMemAllocator so /sleep level 1 can
+# actually release VRAM (weights -> pinned CPU RAM, KV dropped). Paired with
+# VLLM_SERVER_DEV_MODE=1 (set by vllm_backend_manager) for the /sleep routes.
+[[ "${SLEEP_MODE:-1}" == "1" ]] && ARGS+=( --enable-sleep-mode )
 [[ -n "${SPEC:-}" ]] && ARGS+=( --speculative-config "$SPEC" )
 ARGS+=( "$@" )
 echo "launching: ${ARGS[*]}"

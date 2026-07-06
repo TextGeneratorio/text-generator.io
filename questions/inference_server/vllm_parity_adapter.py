@@ -576,6 +576,15 @@ def backend_stop():
     return REGISTRY.status()
 
 
+@app.post("/backend/sleep")
+def backend_sleep():
+    """Ops/testing: force the idle sleep tier now (vLLM sleep level 1)."""
+    if REGISTRY is None:
+        raise HTTPException(status_code=400, detail="unmanaged mode")
+    REGISTRY.sleep_all()
+    return REGISTRY.status()
+
+
 @app.post("/backend/ensure")
 def backend_ensure(model: Optional[str] = None):
     """Ops: pre-warm (or swap to) a model without sending a generation."""

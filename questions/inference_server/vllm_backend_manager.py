@@ -6,11 +6,18 @@ Mirrors the idle-unload behavior of questions/inference_server/model_cache.py
 freed when the model sees no traffic for a configurable window:
 
   - lazy start:   first request boots the backend and blocks until it is ready
-  - idle unload:  a daemon thread stops the backend after IDLE_UNLOAD_SECONDS
-                  of no `touch()`, releasing all VRAM (kills the whole process
-                  group so the vLLM EngineCore child dies too — a plain SIGTERM
-                  to the API server leaks the worker's VRAM)
-  - re-wake:      the next request boots it again (compile cache makes this ~1 min)
+  - tiered idle:  after IDLE_UNLOAD_SECONDS of no `touch()` the backend is put
+                  to SLEEP (vLLM sleep level 1: weights offloaded to pinned CPU
+                  RAM, KV cache dropped, VRAM freed; needs VLLM_SERVER_DEV_MODE=1
+                  on the backend for /sleep, /wake_up, /is_sleeping). A request
+                  while sleeping wakes it in seconds instead of a ~2 min cold
+                  boot. After DEEP_IDLE_SECONDS the process is fully stopped
+                  (kills the whole process group so the vLLM EngineCore child
+                  dies too — a plain SIGTERM to the API server leaks the
+                  worker's VRAM). VLLM_SLEEP_MODE=0 restores stop-at-idle.
+  - re-wake:      /wake_up when sleeping; full boot otherwise (compile cache
+                  makes a cold boot ~1 min). Wake failure falls back to
+                  kill + cold boot.
 
 The backend launch command is fully configurable via env so the same manager
 works for Gemma, Qwen, SmolLM, etc.:
@@ -20,11 +27,14 @@ works for Gemma, Qwen, SmolLM, etc.:
   VLLM_BACKEND_CWD   working dir for the command
   VLLM_BACKEND_HOST  default 127.0.0.1
   VLLM_BACKEND_PORT  default 8200
-  IDLE_UNLOAD_SECONDS  default 600 (0 disables idle unload)
+  IDLE_UNLOAD_SECONDS  default 600 (0 disables idle handling)
+  DEEP_IDLE_SECONDS  default 10800 (full process stop tier; 0 disables)
+  VLLM_SLEEP_MODE    default 1 (sleep at idle tier; 0 = stop at idle tier)
   BACKEND_STARTUP_TIMEOUT  default 240 (seconds to wait for readiness)
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import signal
@@ -51,17 +61,26 @@ class BackendManager:
         cwd: str | None = None,
         env: dict | None = None,
         expect_model: str | None = None,
+        deep_idle_seconds: int = 10800,
+        sleep_mode: bool = True,
     ):
         self.cmd = cmd
         self.expect_model = expect_model
         self.host = host
         self.port = port
-        self.ready_url = f"http://{host}:{port}{ready_path}"
+        self.base_url = f"http://{host}:{port}"
+        self.ready_url = f"{self.base_url}{ready_path}"
         self.idle_seconds = idle_seconds
+        self.deep_idle_seconds = deep_idle_seconds
+        self.sleep_mode = sleep_mode
         self.startup_timeout = startup_timeout
         self.cwd = cwd
         self.env = env
+        if env is not None and sleep_mode:
+            # dev-mode admin endpoints (/sleep, /wake_up, /is_sleeping)
+            env.setdefault("VLLM_SERVER_DEV_MODE", "1")
         self.proc: subprocess.Popen | None = None
+        self.sleeping = False
         self._lock = threading.Lock()
         self._last_access = time.time()
         self._starting = False  # guards the idle thread from reaping a booting backend
@@ -91,17 +110,71 @@ class BackendManager:
         except Exception:
             return False
 
+    def _post_ctl(self, path: str, timeout: float = 120) -> bool:
+        """POST a dev-mode control endpoint (/sleep, /wake_up)."""
+        try:
+            req = urllib.request.Request(self.base_url + path, data=b"", method="POST")
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return 200 <= r.status < 300
+        except Exception as e:  # noqa: BLE001
+            logger.warning("backend ctl %s failed: %r", path, e)
+            return False
+
+    def _is_sleeping(self) -> bool:
+        try:
+            with urllib.request.urlopen(self.base_url + "/is_sleeping", timeout=5) as r:
+                return bool(json.loads(r.read()).get("is_sleeping"))
+        except Exception:  # noqa: BLE001
+            return False
+
     # -- lifecycle ---------------------------------------------------------
     def touch(self) -> None:
         self._last_access = time.time()
 
+    def _alive(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
+
+    def sleep(self) -> bool:
+        """Tier-1 idle: offload weights to pinned CPU RAM, drop KV, free VRAM."""
+        with self._lock:
+            if not self._alive() or self.sleeping:
+                return self.sleeping
+            t0 = time.time()
+            if self._post_ctl("/sleep?level=1") and self._is_sleeping():
+                self.sleeping = True
+                logger.info("Backend slept (level 1) in %.1fs; VRAM freed", time.time() - t0)
+                return True
+            logger.warning("Sleep request failed; falling back to full stop")
+            self._stop_locked()
+            return False
+
+    def _try_wake(self) -> bool:
+        t0 = time.time()
+        if not self._post_ctl("/wake_up"):
+            return False
+        if self._is_sleeping():
+            return False
+        self.sleeping = False
+        ok = self._ready()
+        if ok:
+            logger.info("Backend woke from sleep in %.1fs", time.time() - t0)
+        return ok
+
     def ensure_up(self) -> None:
-        """Block until the backend is ready, launching it if necessary."""
+        """Block until the backend is ready, launching or waking it if necessary."""
         self.touch()
-        if self._ready():
+        if self.sleeping and self._alive():
+            with self._lock:
+                if self.sleeping and self._alive():
+                    if self._try_wake():
+                        self.touch()
+                        return
+                    logger.warning("Wake failed; killing backend for a cold boot")
+                    self._stop_locked()
+        if self._ready() and not self.sleeping:
             return
         with self._lock:
-            if self._ready():
+            if self._ready() and not self.sleeping:
                 return
             if not self.cmd:
                 raise RuntimeError("backend not running and VLLM_BACKEND_CMD unset")
@@ -157,10 +230,14 @@ class BackendManager:
 
     def stop(self) -> None:
         with self._lock:
+            self._stop_locked()
+
+    def _stop_locked(self) -> None:
+            self.sleeping = False
             if self.proc is None or self.proc.poll() is not None:
                 self.proc = None
                 return
-            logger.info("Idle-unloading vLLM backend (pid %s) to free GPU", self.proc.pid)
+            logger.info("Stopping vLLM backend (pid %s) to free GPU", self.proc.pid)
             try:
                 os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
             except ProcessLookupError:
@@ -187,12 +264,23 @@ class BackendManager:
                 if self._starting or self.proc is None or self.proc.poll() is not None:
                     continue
                 idle = time.time() - self._last_access
-                if idle >= self.idle_seconds:
-                    logger.info("Backend idle %.0fs >= %ss; unloading", idle, self.idle_seconds)
-                    try:
+                try:
+                    if self.deep_idle_seconds and idle >= self.deep_idle_seconds:
+                        logger.info("Backend deep-idle %.0fs >= %ss; stopping process",
+                                    idle, self.deep_idle_seconds)
                         self.stop()
-                    except Exception as e:  # noqa: BLE001
-                        logger.warning("idle stop failed: %r", e)
+                    elif idle >= self.idle_seconds:
+                        if self.sleep_mode:
+                            if not self.sleeping:
+                                logger.info("Backend idle %.0fs >= %ss; sleeping (level 1)",
+                                            idle, self.idle_seconds)
+                                self.sleep()
+                        else:
+                            logger.info("Backend idle %.0fs >= %ss; unloading",
+                                        idle, self.idle_seconds)
+                            self.stop()
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("idle tier action failed: %r", e)
 
         self._idle_thread = threading.Thread(target=loop, daemon=True, name="vllm-idle-unload")
         self._idle_thread.start()
@@ -202,8 +290,11 @@ class BackendManager:
         return {
             "managed": bool(self.cmd),
             "running": running,
-            "ready": self._ready(),
+            "ready": self._ready() and not self.sleeping,
+            "sleeping": self.sleeping,
             "idle_seconds": self.idle_seconds,
+            "deep_idle_seconds": self.deep_idle_seconds,
+            "sleep_mode": self.sleep_mode,
             "seconds_since_last_access": round(time.time() - self._last_access, 1),
             "pid": self.proc.pid if running else None,
         }
@@ -219,6 +310,8 @@ def from_env() -> "BackendManager | None":
         host=os.environ.get("VLLM_BACKEND_HOST", "127.0.0.1"),
         port=int(os.environ.get("VLLM_BACKEND_PORT", "8200")),
         idle_seconds=int(os.environ.get("IDLE_UNLOAD_SECONDS", "600")),
+        deep_idle_seconds=int(os.environ.get("DEEP_IDLE_SECONDS", "10800")),
+        sleep_mode=os.environ.get("VLLM_SLEEP_MODE", "1") == "1",
         startup_timeout=int(os.environ.get("BACKEND_STARTUP_TIMEOUT", "240")),
         cwd=os.environ.get("VLLM_BACKEND_CWD") or None,
         env={**os.environ},
@@ -266,6 +359,12 @@ class BackendRegistry:
         for m in self.managers.values():
             m.stop()
 
+    def sleep_all(self) -> None:
+        """Ops/testing: force the idle sleep tier now on any live backend."""
+        for m in self.managers.values():
+            if m.proc is not None and m.proc.poll() is None:
+                m.sleep()
+
 
 def registry_from_env() -> "BackendRegistry | None":
     """Multi-model registry from VLLM_MODELS_JSON, else single-model wrap of
@@ -291,6 +390,9 @@ def registry_from_env() -> "BackendRegistry | None":
                 port=int(m.get("port", os.environ.get("VLLM_BACKEND_PORT", "8200"))),
                 idle_seconds=int(m.get("idle_seconds",
                                        os.environ.get("IDLE_UNLOAD_SECONDS", "600"))),
+                deep_idle_seconds=int(m.get("deep_idle_seconds",
+                                            os.environ.get("DEEP_IDLE_SECONDS", "10800"))),
+                sleep_mode=os.environ.get("VLLM_SLEEP_MODE", "1") == "1",
                 startup_timeout=int(m.get("startup_timeout",
                                           os.environ.get("BACKEND_STARTUP_TIMEOUT", "240"))),
                 cwd=m.get("cwd") or os.environ.get("VLLM_BACKEND_CWD") or None,
