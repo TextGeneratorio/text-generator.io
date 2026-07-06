@@ -61,3 +61,4 @@ monitors/monitor_api.log
 monitors/monitor_site.log
 onnxtests/
 wer_results.json
+visual_bench/
