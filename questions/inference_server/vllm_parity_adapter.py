@@ -250,8 +250,9 @@ def _argmax_probs_from_completion_logprobs(lp: dict) -> tuple[List[str], List[fl
 
 
 def _complete_raw(prompt: str, max_tokens: int, sampling: dict, extra: dict | None = None,
-                  model: str | None = None) -> dict:
-    """Raw literal continuation via /v1/completions. Returns text + aligned probs.
+                  model: str | None = None, n: int = 1) -> list[dict]:
+    """Raw literal continuation via /v1/completions. Returns one dict per choice
+    (n samples in a single batched vLLM call) with text + aligned probs.
 
     `extra` may carry `structured_outputs` (this vLLM build's working param name
     for grammar/regex-constrained decoding; `guided_regex`/`guided_choice` are
@@ -259,19 +260,21 @@ def _complete_raw(prompt: str, max_tokens: int, sampling: dict, extra: dict | No
     """
     body = {
         "model": model or VLLM_MODEL, "prompt": prompt, "max_tokens": max_tokens,
-        "logprobs": 1, **sampling, **(extra or {}),
+        "logprobs": 1, **({"n": n} if n > 1 else {}), **sampling, **(extra or {}),
     }
     out = _post("/v1/completions", body)
-    ch = out["choices"][0]
-    tokens, probs = _argmax_probs_from_completion_logprobs(ch.get("logprobs") or {})
-    text = ch.get("text") or ""
-    # logprobs token strings can include the EOS token ("<|endoftext|>") that the
-    # completion text excludes — trim trailing tokens so join(tokens) == text.
-    while tokens and len("".join(tokens)) > len(text):
-        tokens.pop()
-        probs.pop()
-    return {"text": text, "tokens": tokens, "probs": probs,
-            "finish_reason": ch.get("finish_reason")}
+    results = []
+    for ch in out["choices"]:
+        tokens, probs = _argmax_probs_from_completion_logprobs(ch.get("logprobs") or {})
+        text = ch.get("text") or ""
+        # logprobs token strings can include the EOS token ("<|endoftext|>") that
+        # the completion text excludes — trim trailing tokens so join(tokens) == text.
+        while tokens and len("".join(tokens)) > len(text):
+            tokens.pop()
+            probs.pop()
+        results.append({"text": text, "tokens": tokens, "probs": probs,
+                        "finish_reason": ch.get("finish_reason")})
+    return results
 
 
 def _token_index_after_chars(tokens: List[str], nchars: int) -> int:
@@ -284,9 +287,26 @@ def _token_index_after_chars(tokens: List[str], nchars: int) -> int:
     return len(tokens)
 
 
+def _heal_choice(r: dict, tail: str) -> tuple[List[str], List[float], str]:
+    """Re-align one healed choice: drop the regenerated tail, keep new content."""
+    # The boundary token may straddle the tail (e.g. tail=" goin",
+    # token=" going" -> "g" belongs to new content). Recover the exact
+    # straddle remainder so generated_text stays byte-correct.
+    boundary = _token_index_after_chars(r["tokens"], len(tail))
+    covered = sum(len(t) for t in r["tokens"][:boundary])
+    remainder = r["text"][len(tail):covered]
+    new_tokens = ([remainder] if remainder else []) + r["tokens"][boundary:]
+    new_probs = ([r["probs"][boundary - 1]] if remainder and boundary > 0 else []) \
+        + r["probs"][boundary:]
+    new_tokens, new_probs = _strip_think_spans(new_tokens, new_probs)
+    return new_tokens, new_probs, r["finish_reason"]
+
+
 def _continue_with_healing(text: str, max_tokens: int, sampling: dict,
-                           model: str | None = None) -> tuple[List[str], List[float], str]:
-    """Produce (new_tokens, new_token_argmax_probs, finish_reason).
+                           model: str | None = None,
+                           n: int = 1) -> list[tuple[List[str], List[float], str]]:
+    """Produce n samples of (new_tokens, new_token_argmax_probs, finish_reason)
+    in a single batched vLLM call.
 
     new_tokens are the token strings to append after the user's `text`
     (generated_text = text + "".join(new_tokens)). Uses token healing when
@@ -304,28 +324,19 @@ def _continue_with_healing(text: str, max_tokens: int, sampling: dict,
         # boundary while preserving the user's exact input: " goin" -> " going",
         # " Franc" -> " France", " to" -> " to me" (space kept).
         regex = re.escape(tail) + r"[\s\S]*"
-        r = _complete_raw(head, max_tokens + 8, sampling,
-                          extra={"structured_outputs": {"regex": regex}, **anti_think},
-                          model=model)
-        if r["text"].startswith(tail):
-            # The boundary token may straddle the tail (e.g. tail=" goin",
-            # token=" going" -> "g" belongs to new content). Recover the exact
-            # straddle remainder so generated_text stays byte-correct.
-            boundary = _token_index_after_chars(r["tokens"], len(tail))
-            covered = sum(len(t) for t in r["tokens"][:boundary])
-            remainder = r["text"][len(tail):covered]
-            new_tokens = ([remainder] if remainder else []) + r["tokens"][boundary:]
-            new_probs = ([r["probs"][boundary - 1]] if remainder and boundary > 0 else []) \
-                + r["probs"][boundary:]
-            new_tokens, new_probs = _strip_think_spans(new_tokens, new_probs)
-            return new_tokens, new_probs, r["finish_reason"]
+        choices = _complete_raw(head, max_tokens + 8, sampling,
+                                extra={"structured_outputs": {"regex": regex}, **anti_think},
+                                model=model, n=n)
+        if all(r["text"].startswith(tail) for r in choices):
+            return [_heal_choice(r, tail) for r in choices]
     # literal continuation from the full text (already correct for word boundaries)
-    r = _complete_raw(text, max_tokens, sampling, extra=anti_think, model=model)
-    tokens, probs = _strip_think_spans(r["tokens"], r["probs"])
-    return tokens, probs, r["finish_reason"]
+    choices = _complete_raw(text, max_tokens, sampling, extra=anti_think, model=model, n=n)
+    return [(*_strip_think_spans(r["tokens"], r["probs"]), r["finish_reason"])
+            for r in choices]
 
 
-def _generate_one(p: GenerateParams, model: str | None = None) -> dict:
+def _generate_batch(p: GenerateParams, model: str | None = None, n: int = 1) -> list[dict]:
+    """n independent samples in ONE batched vLLM call (n=N), not a serial loop."""
     max_tokens = p.max_length or 100
     temperature = p.temperature if (p.temperature and p.temperature > 0) else 1.0
     sampling = {
@@ -339,12 +350,20 @@ def _generate_one(p: GenerateParams, model: str | None = None) -> dict:
 
     # An explicit system instruction means "chat", not raw continuation.
     if p.system_message or p.system_prompt:
-        return _generate_one_chat(p, max_tokens, temperature, sampling, model=model)
+        return _generate_chat_batch(p, max_tokens, temperature, sampling, model=model, n=n)
 
     # Autocomplete / continuation: raw literal continuation + token healing.
-    new_tokens, new_probs, finish = _continue_with_healing(p.text, max_tokens, sampling,
-                                                           model=model)
+    samples = _continue_with_healing(p.text, max_tokens, sampling, model=model, n=n)
+    return [_postprocess_raw(p, max_tokens, toks, probs, fin)
+            for toks, probs, fin in samples]
 
+
+def _generate_one(p: GenerateParams, model: str | None = None) -> dict:
+    return _generate_batch(p, model=model, n=1)[0]
+
+
+def _postprocess_raw(p: GenerateParams, max_tokens: int, new_tokens: List[str],
+                     new_probs: List[float], finish: "str | None") -> dict:
     stop_reason = "stop" if finish in ("stop", None) else "max_length"
 
     # 2) max_length token cap on the new content (exact token boundary)
@@ -376,8 +395,9 @@ def _generate_one(p: GenerateParams, model: str | None = None) -> dict:
             "thinking_content": None}
 
 
-def _generate_one_chat(p: GenerateParams, max_tokens: int, temperature: float,
-                       sampling: dict, model: str | None = None) -> dict:
+def _generate_chat_batch(p: GenerateParams, max_tokens: int, temperature: float,
+                         sampling: dict, model: str | None = None,
+                         n: int = 1) -> list[dict]:
     """Chat-path generation (used when an explicit system message is supplied)."""
     enable_thinking = bool(p.enable_thinking) if p.enable_thinking is not None else False
     system = p.system_message or p.system_prompt or DEFAULT_SYSTEM
@@ -389,46 +409,50 @@ def _generate_one_chat(p: GenerateParams, max_tokens: int, temperature: float,
         "temperature": temperature, "top_p": sampling["top_p"],
         "logprobs": True, "top_logprobs": 1,
         "top_k": sampling["top_k"],
+        **({"n": n} if n > 1 else {}),
         "chat_template_kwargs": {"enable_thinking": enable_thinking},
         **({"repetition_penalty": sampling["repetition_penalty"]}
            if "repetition_penalty" in sampling else {}),
         **({"seed": sampling["seed"]} if "seed" in sampling else {}),
     }
     out = _post("/v1/chat/completions", body)
-    choice = out["choices"][0]
-    full_text = choice["message"]["content"] or ""
-    lp = (choice.get("logprobs") or {}).get("content") or []
-    token_strs = [c.get("token", "") for c in lp]
-    argmax_probs = []
-    for c in lp:
-        tops = c.get("top_logprobs") or []
-        argmax_probs.append(math.exp(tops[0]["logprob"] if tops else c.get("logprob", 0.0)))
+    results = []
+    for choice in out["choices"]:
+        full_text = choice["message"]["content"] or ""
+        lp = (choice.get("logprobs") or {}).get("content") or []
+        token_strs = [c.get("token", "") for c in lp]
+        argmax_probs = []
+        for c in lp:
+            tops = c.get("top_logprobs") or []
+            argmax_probs.append(math.exp(tops[0]["logprob"] if tops else c.get("logprob", 0.0)))
 
-    thinking_content, response_text = _split_thinking(full_text)
-    resp_offset = 0
-    if thinking_content is not None and token_strs:
-        acc = ""
-        for i, t in enumerate(token_strs):
-            acc += t
-            if "</think>" in acc:
-                resp_offset = i + 1
-                break
-    resp_probs, resp_tokens = argmax_probs[resp_offset:], token_strs[resp_offset:]
-    stop_reason = "stop" if choice.get("finish_reason") in ("stop", None) else "max_length"
+        thinking_content, response_text = _split_thinking(full_text)
+        resp_offset = 0
+        if thinking_content is not None and token_strs:
+            acc = ""
+            for i, t in enumerate(token_strs):
+                acc += t
+                if "</think>" in acc:
+                    resp_offset = i + 1
+                    break
+        resp_probs, resp_tokens = argmax_probs[resp_offset:], token_strs[resp_offset:]
+        stop_reason = "stop" if choice.get("finish_reason") in ("stop", None) else "max_length"
 
-    if p.min_probability and p.min_probability > 0 and resp_probs:
-        keep, triggered = _truncate_by_min_probability(resp_probs, resp_tokens, p.min_probability)
-        if triggered:
-            response_text = "".join(resp_tokens[:keep])
-            stop_reason = "min_probability"
-    response_text, matched = _truncate_by_stop_sequences(response_text, p.stop_sequences)
-    if matched is not None and stop_reason == "stop":
-        stop_reason = matched
-    response_text, sent_trim = _truncate_by_max_sentences(response_text, p.max_sentences)
-    if sent_trim and stop_reason == "stop":
-        stop_reason = "max_sentences"
-    return {"generated_text": p.text + response_text, "stop_reason": stop_reason,
-            "thinking_content": thinking_content}
+        if p.min_probability and p.min_probability > 0 and resp_probs:
+            keep, triggered = _truncate_by_min_probability(resp_probs, resp_tokens,
+                                                           p.min_probability)
+            if triggered:
+                response_text = "".join(resp_tokens[:keep])
+                stop_reason = "min_probability"
+        response_text, matched = _truncate_by_stop_sequences(response_text, p.stop_sequences)
+        if matched is not None and stop_reason == "stop":
+            stop_reason = matched
+        response_text, sent_trim = _truncate_by_max_sentences(response_text, p.max_sentences)
+        if sent_trim and stop_reason == "stop":
+            stop_reason = "max_sentences"
+        results.append({"generated_text": p.text + response_text, "stop_reason": stop_reason,
+                        "thinking_content": thinking_content})
+    return results
 
 
 # --------------------------------------------------------------------------
@@ -441,7 +465,7 @@ def generate(params: GenerateParams, secret: Optional[str] = Header(default=None
         raise HTTPException(status_code=400, detail="Please enter some text")
     served = _ensure_backend(params.model)
     n = max(1, params.number_of_results or 1)
-    out = [_generate_one(params, model=served) for _ in range(n)]
+    out = _generate_batch(params, model=served, n=n)
     _touch(served)
     return out
 
