@@ -29,6 +29,7 @@ Run (in the vLLM venv):
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -47,6 +48,7 @@ VLLM_BASE = os.environ.get("VLLM_BASE", "http://127.0.0.1:8200").rstrip("/")
 VLLM_MODEL = os.environ.get("VLLM_MODEL", "gemma-4-e4b-it")
 SERVED_NAME = os.environ.get("ADAPTER_MODEL_NAME", VLLM_MODEL)
 REQUEST_TIMEOUT = float(os.environ.get("ADAPTER_TIMEOUT", "600"))
+logger = logging.getLogger(__name__)
 
 # Default system prompt mirrors text_generator_inference's continuation engine.
 DEFAULT_SYSTEM = (
@@ -65,7 +67,11 @@ def _ensure_backend(model: Optional[str] = None) -> str:
     """Ensure a backend serving `model` is up; returns the served model name."""
     if REGISTRY is None:
         return model or VLLM_MODEL
-    return REGISTRY.ensure(model)
+    try:
+        return REGISTRY.ensure(model)
+    except RuntimeError as exc:
+        logger.warning("managed vLLM backend unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail="Text generation backend unavailable") from exc
 
 
 def _touch(model: Optional[str] = None) -> None:
@@ -149,14 +155,30 @@ def _truncate_by_max_sentences(text: str, max_sentences: Optional[int]):
 # vLLM backend call
 # --------------------------------------------------------------------------
 
+_session = None
+
+
+def _get_session():
+    global _session
+    if _session is None:
+        import requests
+        from requests.adapters import HTTPAdapter
+
+        s = requests.Session()
+        s.mount("http://", HTTPAdapter(pool_connections=4, pool_maxsize=32))
+        _session = s
+    return _session
+
+
 def _post(path: str, body: dict) -> dict:
-    req = urllib.request.Request(
+    r = _get_session().post(
         VLLM_BASE + path,
         data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json"},
+        timeout=REQUEST_TIMEOUT,
     )
-    with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as r:
-        return json.loads(r.read())
+    r.raise_for_status()
+    return r.json()
 
 
 # Reasoning suppression: Qwen3.5 leaks <think> into raw continuations. Stopping
@@ -606,6 +628,26 @@ def backend_sleep():
     if REGISTRY is None:
         raise HTTPException(status_code=400, detail="unmanaged mode")
     REGISTRY.sleep_all()
+    return REGISTRY.status()
+
+
+@app.post("/backend/hold")
+def backend_hold(seconds: float = 5400):
+    """Ops: stop all backends and refuse lazy-starts for a maintenance window
+    (e.g. benchmark sweeps that need the GPU). Generation requests 503 until
+    the hold expires or /backend/release is called."""
+    if REGISTRY is None:
+        raise HTTPException(status_code=400, detail="unmanaged mode")
+    REGISTRY.hold(seconds)
+    return REGISTRY.status()
+
+
+@app.post("/backend/release")
+def backend_release():
+    """Ops: end a maintenance hold early; lazy-start resumes on next request."""
+    if REGISTRY is None:
+        raise HTTPException(status_code=400, detail="unmanaged mode")
+    REGISTRY.release_hold()
     return REGISTRY.status()
 
 

@@ -1,0 +1,24 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+
+    {% set title = 'Voice Chat - Text Generator' -%}
+    {% set description = 'Talk to an AI assistant. Push-to-talk speech in, spoken replies out, powered by Gemma + Supertonic voices.' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description" content="{{ description }}">
+    <meta name="keywords" content="voice chat, audio to audio, push to talk, speech assistant, tts, asr, API">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="{{ url }}">
+    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:description" content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+    <meta property="fb:admins" content="337972272904903">
+
+{% endblock %}
+
+{% block mainbody %}
+    {% include "/templates/shared/voice-chat.jinja2" %}
+{% endblock %}

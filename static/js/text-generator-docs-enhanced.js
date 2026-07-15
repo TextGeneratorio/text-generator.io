@@ -1001,7 +1001,8 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       }
       
       // Check if the response contains markdown
-      const containsMarkdown = /(\#{1,6}\s+.+)|(\*\*.*?\*\*)|(\*[^\*]+?\*)|(\`[^\`]+?\`)|(\[[^\]]+?\]\([^\)]+?\))|(\>\s+.*?)|(^\s*[\*\-+]\s+.*?)|(^\s*\d+\.\s+.*?)|(\`\`\`[\s\S]*?\`\`\`)/m.test(generatedText);
+      const containsMarkdown = TGDocsTableUtils.containsMarkdownTable(generatedText) ||
+        /(\#{1,6}\s+.+)|(\*\*.*?\*\*)|(\*[^\*]+?\*)|(\`[^\`]+?\`)|(\[[^\]]+?\]\([^\)]+?\))|(\>\s+.*?)|(^\s*[\*\-+]\s+.*?)|(^\s*\d+\.\s+.*?)|(\`\`\`[\s\S]*?\`\`\`)/m.test(generatedText);
       
       if (containsMarkdown) {
         // Insert as markdown

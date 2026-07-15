@@ -41,14 +41,27 @@ _IDLE_CHECK_INTERVAL = 30
 def get_gpu_memory_info():
     """Get GPU memory info in GB."""
     if not torch.cuda.is_available():
-        return {"total": 0, "used": 0, "free": 0}
+        return {"total": 0, "used": 0, "free": 0, "reserved": 0, "allocated": 0}
 
-    total = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+    try:
+        free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+    except Exception:
+        total_bytes = torch.cuda.get_device_properties(0).total_memory
+        free_bytes = total_bytes - torch.cuda.memory_reserved(0)
+
+    total = total_bytes / (1024**3)
+    free = free_bytes / (1024**3)
+    used = total - free
     reserved = torch.cuda.memory_reserved(0) / (1024**3)
     allocated = torch.cuda.memory_allocated(0) / (1024**3)
-    free = total - reserved
 
-    return {"total": total, "used": allocated, "reserved": reserved, "free": free}
+    return {
+        "total": total,
+        "used": used,
+        "reserved": reserved,
+        "allocated": allocated,
+        "free": free,
+    }
 
 
 class ModelCache:
@@ -166,13 +179,13 @@ class ModelCache:
         self._idle_thread = t
         t.start()
 
-    def _unload_all_idle(self):
+    def _unload_all(self, reason: str):
         """Unload all cached models and fire idle callbacks.
 
         Caller must hold ``_idle_lock``.
         """
         for model_name in list(self.cache.keys()):
-            logger.info("Idle-unloading model: %s", model_name)
+            logger.info("Unloading model for %s: %s", reason, model_name)
             model = self.cache.pop(model_name)
             try:
                 if isinstance(model, (list, tuple)):
@@ -201,7 +214,19 @@ class ModelCache:
             torch.cuda.empty_cache()
 
         self._log_memory_status()
-        logger.info("All models unloaded due to idle timeout")
+        logger.info("All models unloaded (%s)", reason)
+
+    def _unload_all_idle(self):
+        """Unload all cached models after idle timeout.
+
+        Caller must hold ``_idle_lock``.
+        """
+        self._unload_all("idle timeout")
+
+    def unload_all(self, reason: str = "manual"):
+        """Unload all cached models and clear global model references."""
+        with self._idle_lock:
+            self._unload_all(reason)
 
     def add_or_get(self, model_name: str, add_model_func: Callable):
         """Get model from cache or load it. Models stay on GPU."""
@@ -220,11 +245,10 @@ class ModelCache:
                 if not self._evict_lru_model(model_name):
                     break
 
-            # If configured to keep all on GPU, only evict when memory is tight
-            if KEEP_ALL_ON_GPU:
-                while self._should_evict_for_memory() and len(self.cache) > 0:
-                    if not self._evict_lru_model(model_name):
-                        break
+            # Always release cached models before loading into global VRAM pressure.
+            while self._should_evict_for_memory() and len(self.cache) > 0:
+                if not self._evict_lru_model(model_name):
+                    break
 
             # Load the new model
             logger.info(f"Loading model: {model_name}")
@@ -270,11 +294,4 @@ class ModelCache:
 
     def empty_all_caches(self):
         """Clear all models from cache."""
-        for _ in list(self.cache.keys()):
-            self._evict_lru_model(exclude_name=None)
-        self.cache.clear()
-        gc.collect()
-        if DEVICE == "cuda":
-            torch.cuda.empty_cache()
-        logger.info("Cleared all model caches")
-        self._log_memory_status()
+        self.unload_all("manual cache clear")

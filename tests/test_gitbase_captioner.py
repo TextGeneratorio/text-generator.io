@@ -279,6 +279,75 @@ class TestModuleFunctions:
             assert result_quality == "quality caption"
             mock_captioner.caption_image_quality.assert_called_once()
 
+    @patch("questions.image_captioning.gitbase_captioner.torch.cuda.mem_get_info")
+    @patch("questions.image_captioning.gitbase_captioner.torch.cuda.is_available")
+    @patch("questions.image_captioning.gitbase_captioner.get_gitbase_captioner")
+    def test_caption_image_bytes_uses_cpu_when_vram_low(
+        self,
+        mock_get_captioner,
+        mock_cuda_available,
+        mock_mem_get_info,
+    ):
+        """Test low-VRAM CUDA hosts avoid loading GitBase onto GPU."""
+        sample_image = Image.new("RGB", (224, 224), color=(255, 0, 0))
+        buffer = BytesIO()
+        sample_image.save(buffer, format="JPEG")
+        image_bytes = buffer.getvalue()
+
+        mock_cuda_available.return_value = True
+        mock_mem_get_info.return_value = (16 * 1024**2, 32 * 1024**3)
+        mock_captioner = Mock()
+        mock_captioner.caption_image_fast.return_value = "cpu caption"
+        mock_get_captioner.return_value = mock_captioner
+
+        result = caption_image_bytes(image_bytes, fast_mode=True)
+
+        assert result == "cpu caption"
+        mock_get_captioner.assert_called_once_with(
+            dtype=torch.float32,
+            use_channels_last=False,
+            device="cpu",
+        )
+
+    @patch("questions.image_captioning.gitbase_captioner.torch.cuda.mem_get_info")
+    @patch("questions.image_captioning.gitbase_captioner.torch.cuda.is_available")
+    @patch("questions.image_captioning.gitbase_captioner.get_gitbase_captioner")
+    def test_caption_image_bytes_retries_cpu_after_cuda_oom(
+        self,
+        mock_get_captioner,
+        mock_cuda_available,
+        mock_mem_get_info,
+    ):
+        """Test CUDA OOM during captioning falls back to CPU instead of bubbling a 500."""
+        sample_image = Image.new("RGB", (224, 224), color=(255, 0, 0))
+        buffer = BytesIO()
+        sample_image.save(buffer, format="JPEG")
+        image_bytes = buffer.getvalue()
+
+        mock_cuda_available.return_value = True
+        mock_mem_get_info.return_value = (8 * 1024**3, 32 * 1024**3)
+        cuda_captioner = Mock()
+        cuda_captioner.caption_image_fast.side_effect = torch.cuda.OutOfMemoryError("oom")
+        cpu_captioner = Mock()
+        cpu_captioner.caption_image_fast.return_value = "cpu retry caption"
+        mock_get_captioner.side_effect = [cuda_captioner, cpu_captioner]
+
+        result = caption_image_bytes(image_bytes, fast_mode=True)
+
+        assert result == "cpu retry caption"
+        assert mock_get_captioner.call_args_list[0].kwargs == {
+            "dtype": torch.float16,
+            "use_channels_last": True,
+            "device": "cuda",
+        }
+        assert mock_get_captioner.call_args_list[1].kwargs == {
+            "dtype": torch.float32,
+            "use_compile": False,
+            "use_channels_last": False,
+            "device": "cpu",
+        }
+        cuda_captioner.unload.assert_called_once()
+
 
 class TestPerformanceOptimizations:
     """Test performance optimization features."""

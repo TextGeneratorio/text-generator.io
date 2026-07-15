@@ -102,10 +102,20 @@ class GenerateSpeechParams(BaseModel):
 
         legacy_to_voice = {
             "Male fast": "am_adam",
-            "Male default": "af",
+            "Male default": "am_michael",
             "Male slower": "bm_lewis",
             "Female 1": "af_bella",
             "Female 2": "af_sarah",
+            "BDL": "am_adam",
+            "BDL (male)": "am_adam",
+            "KSP": "am_michael",
+            "KSP (male)": "am_michael",
+            "RMS": "bm_lewis",
+            "RMS (male)": "bm_lewis",
+            "CLB": "af_bella",
+            "CLB (female)": "af_bella",
+            "SLT": "af_sarah",
+            "SLT (female)": "af_sarah",
         }
         values["voice"] = legacy_to_voice.get(speaker, speaker)
         return values

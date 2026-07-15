@@ -22,8 +22,8 @@ async def test_image_caption_accepts_legacy_valid_secret_without_credits(monkeyp
     monkeypatch.setattr(inference_server, "_consume_user_credits", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(
         inference_server,
-        "_run_media_prompt_with_multimodal_model",
-        lambda **_kwargs: "a small test image",
+        "_caption_image_bytes",
+        lambda *_args, **_kwargs: "a small test image",
     )
 
     upload = UploadFile(
@@ -54,8 +54,8 @@ async def test_image_caption_accepts_netwrck_caption_secret(monkeypatch):
     monkeypatch.setattr(inference_server, "_consume_user_credits", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(
         inference_server,
-        "_run_media_prompt_with_multimodal_model",
-        lambda **_kwargs: "a small test image",
+        "_caption_image_bytes",
+        lambda *_args, **_kwargs: "a small test image",
     )
 
     upload = UploadFile(

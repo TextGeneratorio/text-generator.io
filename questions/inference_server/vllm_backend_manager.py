@@ -63,6 +63,7 @@ class BackendManager:
         expect_model: str | None = None,
         deep_idle_seconds: int = 10800,
         sleep_mode: bool = True,
+        failure_cooldown_seconds: int = 60,
     ):
         self.cmd = cmd
         self.expect_model = expect_model
@@ -73,6 +74,7 @@ class BackendManager:
         self.idle_seconds = idle_seconds
         self.deep_idle_seconds = deep_idle_seconds
         self.sleep_mode = sleep_mode
+        self.failure_cooldown_seconds = failure_cooldown_seconds
         self.startup_timeout = startup_timeout
         self.cwd = cwd
         self.env = env
@@ -84,6 +86,8 @@ class BackendManager:
         self._lock = threading.Lock()
         self._last_access = time.time()
         self._starting = False  # guards the idle thread from reaping a booting backend
+        self._last_startup_failure_at = 0.0
+        self._last_startup_failure = ""
         self._idle_thread: threading.Thread | None = None
         if self.idle_seconds and self.cmd:
             self._start_idle_thread()
@@ -134,6 +138,21 @@ class BackendManager:
     def _alive(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
 
+    def _raise_if_startup_failure_cooldown_active(self) -> None:
+        if not self.failure_cooldown_seconds or not self._last_startup_failure_at:
+            return
+        elapsed = time.time() - self._last_startup_failure_at
+        if elapsed < self.failure_cooldown_seconds:
+            remaining = round(self.failure_cooldown_seconds - elapsed, 1)
+            raise RuntimeError(
+                f"backend startup failed recently; retrying in {remaining}s"
+                + (f": {self._last_startup_failure}" if self._last_startup_failure else "")
+            )
+
+    def _record_startup_failure(self, message: str) -> None:
+        self._last_startup_failure_at = time.time()
+        self._last_startup_failure = message
+
     def sleep(self) -> bool:
         """Tier-1 idle: offload weights to pinned CPU RAM, drop KV, free VRAM."""
         with self._lock:
@@ -172,10 +191,15 @@ class BackendManager:
                     logger.warning("Wake failed; killing backend for a cold boot")
                     self._stop_locked()
         if self._ready() and not self.sleeping:
+            self._last_startup_failure_at = 0.0
+            self._last_startup_failure = ""
             return
         with self._lock:
             if self._ready() and not self.sleeping:
+                self._last_startup_failure_at = 0.0
+                self._last_startup_failure = ""
                 return
+            self._raise_if_startup_failure_cooldown_active()
             if not self.cmd:
                 raise RuntimeError("backend not running and VLLM_BACKEND_CMD unset")
             self._starting = True
@@ -195,15 +219,21 @@ class BackendManager:
                 deadline = time.time() + self.startup_timeout
                 while time.time() < deadline:
                     if self.proc.poll() is not None:
-                        raise RuntimeError(
-                            f"backend exited during startup (code {self.proc.returncode})")
+                        message = f"backend exited during startup (code {self.proc.returncode})"
+                        self.proc = None
+                        self._record_startup_failure(message)
+                        raise RuntimeError(message)
                     if self._ready():
                         logger.info("vLLM backend ready on %s:%s", self.host, self.port)
                         self.touch()
+                        self._last_startup_failure_at = 0.0
+                        self._last_startup_failure = ""
                         return
                     self.touch()  # keep alive during a long (compile) boot
                     time.sleep(2)
-                raise RuntimeError(f"backend not ready within {self.startup_timeout}s")
+                message = f"backend not ready within {self.startup_timeout}s"
+                self._record_startup_failure(message)
+                raise RuntimeError(message)
             finally:
                 self._starting = False
 
@@ -295,6 +325,7 @@ class BackendManager:
             "idle_seconds": self.idle_seconds,
             "deep_idle_seconds": self.deep_idle_seconds,
             "sleep_mode": self.sleep_mode,
+            "failure_cooldown_seconds": self.failure_cooldown_seconds,
             "seconds_since_last_access": round(time.time() - self._last_access, 1),
             "pid": self.proc.pid if running else None,
         }
@@ -312,6 +343,7 @@ def from_env() -> "BackendManager | None":
         idle_seconds=int(os.environ.get("IDLE_UNLOAD_SECONDS", "600")),
         deep_idle_seconds=int(os.environ.get("DEEP_IDLE_SECONDS", "10800")),
         sleep_mode=os.environ.get("VLLM_SLEEP_MODE", "1") == "1",
+        failure_cooldown_seconds=int(os.environ.get("BACKEND_FAILURE_COOLDOWN", "60")),
         startup_timeout=int(os.environ.get("BACKEND_STARTUP_TIMEOUT", "240")),
         cwd=os.environ.get("VLLM_BACKEND_CWD") or None,
         env={**os.environ},
@@ -333,13 +365,28 @@ class BackendRegistry:
         self.managers = managers
         self.default = default
         self._swap_lock = threading.Lock()
+        self.hold_until = 0.0
 
     def resolve(self, name: "str | None") -> str:
         return name if name and name in self.managers else self.default
 
+    def hold(self, seconds: float) -> None:
+        """Maintenance window: stop everything and refuse lazy-starts until expiry."""
+        with self._swap_lock:
+            self.hold_until = time.time() + seconds
+            self._stop_all_locked()
+
+    def release_hold(self) -> None:
+        with self._swap_lock:
+            self.hold_until = 0.0
+
     def ensure(self, name: "str | None" = None) -> str:
         name = self.resolve(name)
         with self._swap_lock:
+            remaining = self.hold_until - time.time()
+            if remaining > 0:
+                raise RuntimeError(
+                    f"backend held for maintenance ({remaining:.0f}s remaining)")
             for other_name, other in self.managers.items():
                 if other_name != name:
                     if other.proc is not None and other.proc.poll() is None:
@@ -352,10 +399,16 @@ class BackendRegistry:
         self.managers[self.resolve(name)].touch()
 
     def status(self) -> dict:
+        hold_remaining = max(0.0, self.hold_until - time.time())
         return {"default": self.default,
+                "hold_seconds_remaining": round(hold_remaining, 1),
                 "models": {n: m.status() for n, m in self.managers.items()}}
 
     def stop_all(self) -> None:
+        with self._swap_lock:
+            self._stop_all_locked()
+
+    def _stop_all_locked(self) -> None:
         for m in self.managers.values():
             m.stop()
 
@@ -393,6 +446,10 @@ def registry_from_env() -> "BackendRegistry | None":
                 deep_idle_seconds=int(m.get("deep_idle_seconds",
                                             os.environ.get("DEEP_IDLE_SECONDS", "10800"))),
                 sleep_mode=os.environ.get("VLLM_SLEEP_MODE", "1") == "1",
+                failure_cooldown_seconds=int(m.get(
+                    "failure_cooldown_seconds",
+                    os.environ.get("BACKEND_FAILURE_COOLDOWN", "60"),
+                )),
                 startup_timeout=int(m.get("startup_timeout",
                                           os.environ.get("BACKEND_STARTUP_TIMEOUT", "240"))),
                 cwd=m.get("cwd") or os.environ.get("VLLM_BACKEND_CWD") or None,

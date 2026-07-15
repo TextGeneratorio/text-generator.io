@@ -66,6 +66,18 @@ def test_frontend_error_log_rejects_large_payload(monkeypatch):
     assert response.status_code == 413
 
 
+def test_frontend_error_log_drops_when_log_file_unavailable(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "FRONTEND_ERROR_LOG_FILE", tmp_path)
+
+    response = client.post(
+        "/api/frontend-error",
+        json={"event": {"type": "window_error", "message": "Script error."}},
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {"status": "dropped", "reason": "log_unavailable"}
+
+
 def test_frontend_error_log_ignores_client_disconnect():
     response = asyncio.run(main.log_frontend_error(DisconnectedFrontendLogRequest()))
 

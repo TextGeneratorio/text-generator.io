@@ -48,6 +48,32 @@
     var secret = '';
     var multimodalAttachments = [];
     var multimodalUploadInFlight = false;
+    function parseQueryParams(search) {
+        var params = {};
+        var query = search || '';
+        if (query.charAt(0) === '?') {
+            query = query.slice(1);
+        }
+        if (!query) {
+            return params;
+        }
+        query.split('&').forEach(function (part) {
+            if (!part) {
+                return;
+            }
+            var separatorIndex = part.indexOf('=');
+            var key = separatorIndex === -1 ? part : part.slice(0, separatorIndex);
+            var value = separatorIndex === -1 ? '' : part.slice(separatorIndex + 1);
+            try {
+                key = decodeURIComponent(key.replace(/\+/g, ' '));
+                value = decodeURIComponent(value.replace(/\+/g, ' '));
+            } catch (error) {
+                return;
+            }
+            params[key] = value;
+        });
+        return params;
+    }
     var setUrl = function () {
         // set the url to generate settings so users can share and come back to the same place
 
@@ -58,7 +84,7 @@
 
     }
     var setupFromUrl = function () {
-        const params = Object.fromEntries(new URLSearchParams(location.search));
+        var params = parseQueryParams(location.search);
         if (!params.text) {
             return;
         }

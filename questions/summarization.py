@@ -105,10 +105,11 @@ def get_extractive_summary_inner(summarizer, text: str, max_length: int = 0, ret
         #         continue
         #     summaries.append(summary)
 
-        # batched execution up to 30 in a batch - this is fairly aggressive?
+        # Batched in windows so long inputs do not repeat every chunk for each
+        # batch window.
         batch_size = 10
         for i in range(0, len(chunks), batch_size):
-            # current_chunks = chunks[i:i + batch_size]
+            current_chunks = chunks[i : i + batch_size]
             # try:
             #     summaries = summarizer(current_chunks)
             #     summaries = [summary['summary_text'].strip().replace(" .", ".") for summary in summaries]
@@ -124,7 +125,7 @@ def get_extractive_summary_inner(summarizer, text: str, max_length: int = 0, ret
             # except Exception as e:
             #     logger.error(e)
             # fallback to slow iteration?
-            for chunk in chunks:
+            for chunk in current_chunks:
                 try:
                     summary = summarizer(chunk)[0]["summary_text"].strip().replace(" .", ".")
                 except Exception as e:

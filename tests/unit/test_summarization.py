@@ -1,5 +1,6 @@
 import pytest
 
+import questions.summarization as summarization
 from questions.summarization import get_extractive_summary_inner
 
 # pytestmark = [pytest.mark.integration, pytest.mark.inference]
@@ -45,6 +46,23 @@ def test_empty_text_summarization():
     short_text = "Hello"
     result_short = get_extractive_summary_inner(mock_summarizer, short_text, max_length=10)
     assert result_short == "Hello"
+
+
+def test_long_text_processes_each_chunk_once(monkeypatch):
+    calls = []
+
+    class CountingSummarizer:
+        def __call__(self, text):
+            calls.append(text)
+            return [{"summary_text": text[:20]}]
+
+    sentences = [f"{index} {'x' * 1098}" for index in range(25)]
+    monkeypatch.setattr(summarization, "sent_tokenize", lambda text: sentences)
+
+    result = get_extractive_summary_inner(CountingSummarizer(), "ignored", max_length=0)
+
+    assert len(calls) == 25
+    assert result
 
 
 @pytest.mark.skipif(True, reason="Summarization tests require inference dependencies")

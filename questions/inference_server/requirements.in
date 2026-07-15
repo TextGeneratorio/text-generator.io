@@ -4,7 +4,7 @@ colorama
 
 starlette>=0.36.0
 
-gunicorn
+gunicorn>=23.0.0
 h11
 isort>=5.13.0
 lazy-object-proxy
@@ -31,6 +31,7 @@ torchaudio>=2.7.0
 youtube_dl
 anthropic
 runpod
+anyio>=4.8.0
 # python-dev-tools
 httptools>0.5.0
 #torch
@@ -73,7 +74,7 @@ youtube_dl
 # OCR/pdf processing
 pypdf2>=3.0.0
 pytesseract>=0.3.10
-setuptools>=69.0.0
+setuptools>=69.0.0,<81
 
 ffmpeg-python>=0.2.0
 tensorboard>=2.15.0

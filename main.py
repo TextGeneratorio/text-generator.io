@@ -3,11 +3,30 @@ import asyncio
 import io
 import json
 import os
+import sys
 import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote_plus, urlencode
+
+def _reload_stale_anyio_modules() -> None:
+    """Repair workers forked from a gunicorn master with pre-upgrade AnyIO modules."""
+    eventloop = sys.modules.get("anyio._core._eventloop")
+    exceptions = sys.modules.get("anyio._core._exceptions")
+    if (
+        eventloop is not None
+        and not hasattr(eventloop, "set_current_async_library")
+    ) or (
+        exceptions is not None
+        and not hasattr(exceptions, "RunFinishedError")
+    ):
+        for module_name in list(sys.modules):
+            if module_name == "anyio" or module_name.startswith("anyio."):
+                del sys.modules[module_name]
+
+
+_reload_stale_anyio_modules()
 
 import boto3
 from fastapi import Depends, File, Form, Header, HTTPException, Request, UploadFile
@@ -362,9 +381,9 @@ async def log_frontend_error(request: Request):
         FRONTEND_ERROR_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with FRONTEND_ERROR_LOG_FILE.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except Exception:
-        logger.exception("Failed to write frontend error log")
-        raise HTTPException(status_code=503, detail="Frontend logging temporarily unavailable")
+    except OSError:
+        logger.warning("Dropping frontend error log because the log file is unavailable", exc_info=True)
+        return JSONResponse({"status": "dropped", "reason": "log_unavailable"}, status_code=202)
 
     return JSONResponse({"status": "logged"})
 
@@ -2080,6 +2099,16 @@ async def docs(request: Request):
     base_vars.update({})
     return templates.TemplateResponse(
         "templates/docs.jinja2",
+        base_vars,
+    )
+
+
+@app.get("/voice-chat")
+async def voice_chat(request: Request):
+    base_vars = get_base_template_vars(request)
+    base_vars.update({})
+    return templates.TemplateResponse(
+        "templates/voice-chat.jinja2",
         base_vars,
     )
 

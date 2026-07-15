@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 import asyncio
+import http.client
+import json
 import logging
 import os
 import random
+import socket
+import urllib.error
+import urllib.request
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -78,6 +83,19 @@ MULTIMODAL_MODELS = {}
 INFERENCE_CONCURRENCY = max(1, int(os.getenv("INFERENCE_CONCURRENCY", "1")))
 _inference_sem = None
 DEEP_LIVENESS_MIN_FREE_VRAM_GB = float(os.getenv("DEEP_LIVENESS_MIN_FREE_VRAM_GB", "8.0"))
+
+
+def _resolve_vllm_text_backend_base() -> str:
+    """Resolve the optional proxy without overriding an explicit disable."""
+    backend_base = os.getenv("VLLM_TEXT_BACKEND_BASE")
+    if backend_base is None:
+        backend_base = os.getenv("VLLM_ADAPTER_BASE", "")
+    return backend_base.rstrip("/")
+
+
+VLLM_TEXT_BACKEND_BASE = _resolve_vllm_text_backend_base()
+VLLM_TEXT_BACKEND_TIMEOUT = float(os.getenv("VLLM_TEXT_BACKEND_TIMEOUT", "180"))
+VLLM_AUTOCOMPLETE_READY_TIMEOUT = float(os.getenv("VLLM_AUTOCOMPLETE_READY_TIMEOUT", "0.5"))
 
 GEMMA_TEXT_IMAGE_MODEL_ID = os.getenv(
     "GEMMA_TEXT_IMAGE_MODEL_ID",
@@ -202,6 +220,279 @@ async def _run_gpu_bound(func, *args, **kwargs):
     sem = _get_inference_sem()
     async with sem:
         return await asyncio.to_thread(func, *args, **kwargs)
+
+
+def _is_vllm_text_backend_enabled() -> bool:
+    return bool(VLLM_TEXT_BACKEND_BASE)
+
+
+def _model_dump_jsonable(model) -> dict:
+    if hasattr(model, "model_dump"):
+        return model.model_dump(exclude_none=True)
+    return model.dict(exclude_none=True)
+
+
+_vllm_session = None
+
+
+def _get_vllm_session():
+    global _vllm_session
+    if _vllm_session is None:
+        import requests
+        from requests.adapters import HTTPAdapter
+
+        session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=4, pool_maxsize=16, pool_block=True)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        _vllm_session = session
+    return _vllm_session
+
+
+def _proxy_vllm_json(
+    path: str,
+    body: dict,
+    secret: Optional[str] = None,
+    timeout: Optional[float] = None,
+) -> dict | list:
+    import requests
+
+    headers = {"Content-Type": "application/json"}
+    if secret:
+        headers["secret"] = secret
+    backend_timeout = VLLM_TEXT_BACKEND_TIMEOUT if timeout is None else timeout
+    try:
+        response = _get_vllm_session().post(
+            f"{VLLM_TEXT_BACKEND_BASE}{path}",
+            data=json.dumps(body).encode("utf-8"),
+            headers=headers,
+            timeout=backend_timeout,
+        )
+        _raise_for_vllm_response(response, path)
+        return response.json()
+    except requests.Timeout as exc:
+        logger.warning("vLLM text backend timed out for %s: %s", path, exc)
+        raise HTTPException(status_code=504, detail="Text generation backend timed out") from exc
+    except requests.RequestException as exc:
+        logger.warning("vLLM text backend unavailable for %s: %s", path, exc)
+        raise HTTPException(status_code=503, detail="Text generation backend unavailable") from exc
+
+
+def _raise_for_vllm_response(response, path: str) -> None:
+    if response.status_code < 400:
+        return
+    if response.status_code >= 500:
+        logger.warning(
+            "vLLM text backend returned %s for %s: %s",
+            response.status_code,
+            path,
+            (response.text or response.reason or "")[:500],
+        )
+        raise HTTPException(status_code=503, detail="Text generation backend unavailable")
+    raise HTTPException(status_code=response.status_code, detail=response.text or response.reason)
+
+
+def _proxy_vllm_generate(
+    generate_params: GenerateParams,
+    secret: Optional[str] = None,
+    timeout: Optional[float] = None,
+):
+    return _proxy_vllm_json(
+        "/api/v1/generate",
+        _model_dump_jsonable(generate_params),
+        secret=secret,
+        timeout=timeout,
+    )
+
+
+def _vllm_text_backend_ready() -> bool:
+    if not _is_vllm_text_backend_enabled():
+        return False
+    request = urllib.request.Request(f"{VLLM_TEXT_BACKEND_BASE}/backend_status")
+    try:
+        with urllib.request.urlopen(request, timeout=VLLM_AUTOCOMPLETE_READY_TIMEOUT) as response:
+            status = json.loads(response.read())
+    except Exception as exc:
+        logger.warning("vLLM autocomplete readiness check failed: %s", exc)
+        return False
+
+    models = status.get("models") or {}
+    if models:
+        return any(
+            model.get("ready")
+            for model in models.values()
+            if isinstance(model, dict) and model.get("managed", True)
+        )
+
+    if not status.get("managed"):
+        return True
+
+    return bool(status.get("ready"))
+
+
+def _vllm_text_backend_needs_warmup() -> bool:
+    if not _is_vllm_text_backend_enabled():
+        return False
+
+    request = urllib.request.Request(f"{VLLM_TEXT_BACKEND_BASE}/backend_status")
+    try:
+        with urllib.request.urlopen(request, timeout=VLLM_AUTOCOMPLETE_READY_TIMEOUT) as response:
+            status = json.loads(response.read())
+    except Exception as exc:
+        logger.debug("vLLM backend status check skipped before generate: %s", exc)
+        return False
+
+    if not status.get("managed"):
+        return False
+
+    models = status.get("models") or {}
+    if models:
+        return not any(
+            model.get("ready")
+            for model in models.values()
+            if isinstance(model, dict) and model.get("managed", True)
+        )
+
+    return not bool(status.get("ready"))
+
+
+def _free_local_model_cache_for_vllm(model_cache) -> None:
+    if not _vllm_text_backend_needs_warmup():
+        return
+
+    cached_models = []
+    if model_cache is not None and hasattr(model_cache, "list_models"):
+        try:
+            cached_models = model_cache.list_models()
+        except Exception as exc:
+            logger.debug("Could not list local models before vLLM warmup: %s", exc)
+
+    if not cached_models:
+        return
+
+    logger.info(
+        "Unloading local cached models before vLLM warmup to free GPU memory: %s",
+        cached_models,
+    )
+    if hasattr(model_cache, "unload_all"):
+        model_cache.unload_all("vLLM text backend warmup")
+    elif hasattr(model_cache, "empty_all_caches"):
+        model_cache.empty_all_caches()
+        _clear_global_model_refs()
+
+
+async def _run_text_generate(generate_params: GenerateParams, model_cache, secret: Optional[str] = None):
+    if _is_vllm_text_backend_enabled():
+        return await _run_gpu_bound(
+            _proxy_vllm_generate_with_cache,
+            generate_params,
+            model_cache,
+            secret,
+        )
+    return await _run_gpu_bound(_fast_inference, generate_params, model_cache)
+
+
+def _proxy_vllm_generate_with_cache(
+    generate_params: GenerateParams,
+    model_cache,
+    secret: Optional[str] = None,
+):
+    _free_local_model_cache_for_vllm(model_cache)
+    return _proxy_vllm_generate(generate_params, secret)
+
+
+def _proxy_vllm_chat_completion(chat_params: ChatCompletionParams, messages: list[dict], secret: Optional[str] = None):
+    body = _model_dump_jsonable(chat_params)
+    body["messages"] = messages
+    return _proxy_vllm_json("/v1/chat/completions", body, secret=secret)
+
+
+def _proxy_vllm_chat_completion_with_cache(
+    chat_params: ChatCompletionParams,
+    messages: list[dict],
+    model_cache,
+    secret: Optional[str] = None,
+):
+    _free_local_model_cache_for_vllm(model_cache)
+    return _proxy_vllm_chat_completion(chat_params, messages, secret)
+
+
+def _open_vllm_chat_stream(
+    chat_params: ChatCompletionParams,
+    messages: list[dict],
+    model_cache,
+    secret: Optional[str] = None,
+):
+    import requests
+
+    _free_local_model_cache_for_vllm(model_cache)
+    body = _model_dump_jsonable(chat_params)
+    body["messages"] = messages
+    headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+    if secret:
+        headers["secret"] = secret
+    try:
+        response = _get_vllm_session().post(
+            f"{VLLM_TEXT_BACKEND_BASE}/v1/chat/completions",
+            data=json.dumps(body).encode("utf-8"),
+            headers=headers,
+            timeout=VLLM_TEXT_BACKEND_TIMEOUT,
+            stream=True,
+        )
+        _raise_for_vllm_response(response, "/v1/chat/completions")
+        return response
+    except requests.Timeout as exc:
+        logger.warning("vLLM text backend timed out while opening chat stream: %s", exc)
+        raise HTTPException(status_code=504, detail="Text generation backend timed out") from exc
+    except requests.RequestException as exc:
+        logger.warning("vLLM text backend unavailable while opening chat stream: %s", exc)
+        raise HTTPException(status_code=503, detail="Text generation backend unavailable") from exc
+
+
+def _next_stream_chunk(iterator):
+    try:
+        return next(iterator)
+    except StopIteration:
+        return None
+
+
+async def _proxy_vllm_chat_streaming_response(
+    chat_params: ChatCompletionParams,
+    messages: list[dict],
+    model_cache,
+    secret: Optional[str] = None,
+):
+    from starlette.responses import StreamingResponse
+
+    sem = _get_inference_sem()
+    await sem.acquire()
+    try:
+        response = await asyncio.to_thread(
+            _open_vllm_chat_stream,
+            chat_params,
+            messages,
+            model_cache,
+            secret,
+        )
+    except BaseException:
+        sem.release()
+        raise
+
+    iterator = response.iter_content(chunk_size=None)
+
+    async def event_generator():
+        try:
+            while True:
+                chunk = await asyncio.to_thread(_next_stream_chunk, iterator)
+                if chunk is None:
+                    break
+                if chunk:
+                    yield chunk
+        finally:
+            await asyncio.to_thread(response.close)
+            sem.release()
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 def _parse_optional_bool_env(value: Optional[str]) -> Optional[bool]:
@@ -580,6 +871,9 @@ STRIPE_CREDIT_BALANCE_METADATA_KEY = "textgen_credit_balance_cents"
 # real secret ships in source. The auth check requires a truthy secret, so an
 # empty value here never authorizes a request.
 NETWRCK_IMAGE_CAPTION_SECRET = os.getenv("NETWRCK_IMAGE_CAPTION_SECRET", "")
+# Scoped credential for trusted service-to-service calls. The fallback keeps
+# existing deployments working while the historical variable is renamed.
+NETWRCK_PARTNER_SECRET = os.getenv("NETWRCK_PARTNER_SECRET", NETWRCK_IMAGE_CAPTION_SECRET)
 
 
 # if API_KEY:
@@ -1437,7 +1731,7 @@ async def audio_extraction(
 
 async def audio_extract_shared(background_tasks, feature_extract_params, request, response, secret):
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
-        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+        if not API_KEY and secret not in {sellerinfo.TEXT_GENERATOR_SECRET, NETWRCK_PARTNER_SECRET}:
             if not _user_has_subscription_or_credits(secret, minimum_credits=1):
                 raise HTTPException(
                     status_code=401,
@@ -1467,7 +1761,7 @@ async def audio_extract_shared(background_tasks, feature_extract_params, request
         remainder = price % 0.01
         if random.random() < remainder * 100:
             quantity += 1
-        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+        if not API_KEY and secret not in {sellerinfo.TEXT_GENERATOR_SECRET, NETWRCK_PARTNER_SECRET}:
             _consume_user_credits(secret, max(1, int(quantity or 1)))
     if feature_extract_params.output_filetype == "srt":
         # response = StreamingResponse(
@@ -1538,8 +1832,7 @@ async def liveness_check(request: Request, deep: int = 0):
                 })
 
             # Run a real inference to confirm the pipeline actually works.
-            result = await _run_gpu_bound(
-                _fast_inference,
+            result = await _run_text_generate(
                 GenerateParams(text="hello", max_length=3, min_probability=0, number_of_results=1),
                 model_cache,
             )
@@ -1550,6 +1843,7 @@ async def liveness_check(request: Request, deep: int = 0):
                 "inference": "ok",
                 "cached_models": cached,
                 "deep_check": "ok",
+                "vllm_text_backend": VLLM_TEXT_BACKEND_BASE or None,
             })
         # Lightweight health check — never loads or touches models so that
         # periodic health probes don't defeat the idle unload timer.
@@ -1557,6 +1851,7 @@ async def liveness_check(request: Request, deep: int = 0):
             "status": "ok",
             "inference": "ok",
             "cached_models": cached,
+            "vllm_text_backend": VLLM_TEXT_BACKEND_BASE or None,
         })
     except Exception as e:
         logger.error(f"Liveness check failed: {e}")
@@ -1586,6 +1881,8 @@ def user_secret_matches(secret):
 
 
 def request_authorized(request: Request, secret):
+    if secret and secret == NETWRCK_PARTNER_SECRET:
+        return True
     if API_KEY:
         if secret == API_KEY:
             return True
@@ -1599,7 +1896,7 @@ def request_authorized(request: Request, secret):
 
 
 def image_caption_secret_authorized(request: Request, secret):
-    if secret and secret == NETWRCK_IMAGE_CAPTION_SECRET:
+    if secret and secret in {NETWRCK_IMAGE_CAPTION_SECRET, NETWRCK_PARTNER_SECRET}:
         return True
     return request_authorized(request, secret)
 
@@ -1643,6 +1940,37 @@ speech_vocoder = None
 speech_voicepacks = None  # Global voicepacks cache
 supertonic_tts = None
 supertonic_voice_styles = {}
+
+KOKORO_VOICES = (
+    "af",
+    "af_bella",
+    "af_sarah",
+    "am_adam",
+    "am_michael",
+    "bf_emma",
+    "bf_isabella",
+    "bm_george",
+    "bm_lewis",
+    "af_nicole",
+    "af_sky",
+)
+KOKORO_LEGACY_VOICE_ALIASES = {
+    "male fast": "am_adam",
+    "male default": "am_michael",
+    "male slower": "bm_lewis",
+    "female 1": "af_bella",
+    "female 2": "af_sarah",
+    "bdl": "am_adam",
+    "bdl (male)": "am_adam",
+    "ksp": "am_michael",
+    "ksp (male)": "am_michael",
+    "rms": "bm_lewis",
+    "rms (male)": "bm_lewis",
+    "clb": "af_bella",
+    "clb (female)": "af_bella",
+    "slt": "af_sarah",
+    "slt (female)": "af_sarah",
+}
 
 SUPERTONIC_LANGUAGE_CATALOG = {
     "en": "English",
@@ -1705,21 +2033,7 @@ def load_speechgen_model():
 
         # Load voice packs
         speech_voicepacks = {}
-        voice_names = [
-            "af",
-            "af_bella",
-            "af_sarah",
-            "am_adam",
-            "am_michael",
-            "bf_emma",
-            "bf_isabella",
-            "bm_george",
-            "bm_lewis",
-            "af_nicole",
-            "af_sky",
-        ]
-
-        for voice in voice_names:
+        for voice in KOKORO_VOICES:
             speech_voicepacks[voice] = torch.load(f"models/voices/{voice}.pt", weights_only=True).to(device)
 
         logger.info(f"Loaded Kokoro TTS with {len(speech_voicepacks)} voices")
@@ -1740,6 +2054,15 @@ def normalize_supertonic_voice(voice: str) -> str:
 def is_supertonic_voice_request(voice: str) -> bool:
     voice = (voice or "").strip()
     return voice.lower().startswith("supertonic:") or bool(normalize_supertonic_voice(voice))
+
+
+def normalize_kokoro_voice(voice: str, voicepacks: dict) -> str:
+    requested = (voice or "af").strip()
+    normalized = KOKORO_LEGACY_VOICE_ALIASES.get(requested.lower(), requested)
+    if normalized in voicepacks:
+        return normalized
+    supported = ", ".join(sorted(voicepacks))
+    raise ValueError(f"Unsupported Kokoro voice '{requested}'. Supported voices: {supported}")
 
 
 def normalize_supertonic_language(language: str) -> str:
@@ -1963,19 +2286,7 @@ async def speech_catalog():
     return {
         "providers": {
             "kokoro": {
-                "voices": [
-                    "af",
-                    "af_bella",
-                    "af_sarah",
-                    "am_adam",
-                    "am_michael",
-                    "bf_emma",
-                    "bf_isabella",
-                    "bm_george",
-                    "bm_lewis",
-                    "af_nicole",
-                    "af_sky",
-                ],
+                "voices": list(KOKORO_VOICES),
                 "languages": {"en-us": "American English", "en-gb": "British English"},
             },
             "supertonic": {
@@ -2043,8 +2354,8 @@ def gradio_audio_process(text, voice, speed=1.0, language="en", steps=SUPERTONIC
 
     model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
 
-    # Get the voicepack
-    voicepack = voicepacks.get(voice, voicepacks["af_nicole"])
+    voice = normalize_kokoro_voice(voice, voicepacks)
+    voicepack = voicepacks[voice]
 
     # Generate audio using Kokoro
     # generate_full handles inputs longer than the default token limit
@@ -2089,8 +2400,8 @@ def audio_process(text, voice="af_nicole", speed=1.0, language="en", steps=SUPER
 
     model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
 
-    # Get the voicepack
-    voicepack = voicepacks.get(voice, voicepacks["af_nicole"])
+    voice = normalize_kokoro_voice(voice, voicepacks)
+    voicepack = voicepacks[voice]
 
     # Generate audio using Kokoro
     # generate_full handles inputs longer than the default token limit
@@ -2368,6 +2679,127 @@ async def multimodal_generate(
     })
 
 
+DEFAULT_VOICE_CHAT_SYSTEM_PROMPT = (
+    "You are a friendly, concise voice assistant in a spoken conversation. "
+    "Reply in 1-3 short sentences of plain spoken language with no markdown, lists, "
+    "emoji or code blocks, since your reply will be read aloud."
+)
+
+
+async def _generate_voice_chat_reply(messages, max_tokens, temperature, secret):
+    """Generate an assistant reply for a voice chat turn using the text backend."""
+    if _is_vllm_text_backend_enabled():
+        params = ChatCompletionParams(
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=0.95,
+            top_k=40,
+            stream=False,
+            enable_thinking=False,
+        )
+        result = await _run_gpu_bound(
+            _proxy_vllm_chat_completion_with_cache,
+            params,
+            messages,
+            _get_model_cache(),
+            secret,
+        )
+        return ((result.get('choices') or [{}])[0].get('message', {}).get('content') or '').strip()
+
+    result = await _run_gpu_bound(
+        _chat_inference,
+        messages=messages,
+        model_cache=_get_model_cache(),
+        enable_thinking=False,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=0.95,
+        top_k=40,
+        presence_penalty=0.0,
+        repetition_penalty=1.1,
+    )
+    return (result.get('generated_text') or '').strip()
+
+
+@app.post('/api/v1/voice-chat')
+async def voice_chat(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    response: Response,
+    audio_file: UploadFile = File(..., description='Recorded user speech'),
+    history: str = Form('[]', description='JSON list of prior {role, content} turns'),
+    system_prompt: str = Form(''),
+    voice: str = Form('F1'),
+    language: str = Form('en'),
+    speed: float = Form(1.0),
+    steps: int = Form(SUPERTONIC_DEFAULT_STEPS),
+    max_length: int = Form(400),
+    temperature: float = Form(0.7),
+    secret: Union[str, None] = Header(default=None),
+):
+    """Push-to-talk turn: transcribe speech -> chat with history -> Supertonic TTS.
+
+    Returns the user transcript, assistant reply text and base64 wav so the client
+    can render a documented conversation and autoplay the spoken response.
+    """
+    if request and 'X-Rapid-API-Key' not in request.headers and 'x-rapid-api-key' not in request.headers:
+        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            if not _user_has_subscription_or_credits(secret, minimum_credits=1):
+                raise HTTPException(
+                    status_code=401,
+                    detail='Please subscribe or buy API credits at https://text-generator.io/account',
+                )
+
+    audio_bytes = await audio_file.read()
+    filename = audio_file.filename or 'audio_input'
+
+    user_text = await _run_gpu_bound(
+        _run_media_prompt_with_multimodal_model,
+        media_type='audio',
+        media_bytes=audio_bytes,
+        source_name=filename,
+        prompt='Transcribe the spoken audio verbatim. Output only the words spoken, with no commentary.',
+        max_tokens=256,
+    )
+    user_text = (user_text or '').strip()
+
+    try:
+        prior = json.loads(history) if history else []
+    except (ValueError, TypeError):
+        prior = []
+    if not isinstance(prior, list):
+        prior = []
+
+    messages = [{'role': 'system', 'content': (system_prompt.strip() or DEFAULT_VOICE_CHAT_SYSTEM_PROMPT)}]
+    for turn in prior:
+        if isinstance(turn, dict) and turn.get('role') in ('user', 'assistant') and turn.get('content'):
+            messages.append({'role': turn['role'], 'content': str(turn['content'])})
+    messages.append({'role': 'user', 'content': user_text or '(no speech detected)'})
+
+    reply_text = await _generate_voice_chat_reply(messages, max_length, temperature, secret)
+    if not reply_text:
+        reply_text = "Sorry, I didn't catch that."
+
+    rate, speech_np = await _run_gpu_bound(
+        audio_process, reply_text, voice, speed, language, steps,
+    )
+    wav_bytes = write_wav(speech_np, rate)
+    audio_b64 = _base64_mod.b64encode(wav_bytes).decode()
+
+    if request and 'X-Rapid-API-Key' not in request.headers and 'x-rapid-api-key' not in request.headers:
+        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            _consume_user_credits(secret, 2)
+
+    return JSONResponse({
+        'user_text': user_text,
+        'reply_text': reply_text,
+        'audio_base64': audio_b64,
+        'audio_sample_rate': rate,
+        'audio_format': 'wav',
+    })
+
+
 # gradio web app at https://text-generator.io/gradio_tts
 
 examples = [
@@ -2575,7 +3007,7 @@ async def generate_route(
     #             status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
     #         )
     # todo validate api key and user
-    inference_result = await _run_gpu_bound(_fast_inference, generate_params, _get_model_cache())
+    inference_result = await _run_text_generate(generate_params, _get_model_cache(), secret=secret)
     return inference_result
 
 
@@ -2583,6 +3015,14 @@ class AutocompleteParams(GenerateParams):
     # Autocomplete tends to want shorter, higher-confidence completions.
     min_probability: Optional[float] = 0.4
     max_length: Optional[int] = 32
+
+
+def _empty_autocomplete_response(generate_params: AutocompleteParams, stop_reason: str):
+    return [{
+        "generated_text": generate_params.text,
+        "stop_reason": stop_reason,
+        "thinking_content": None,
+    }]
 
 
 AUTOCOMPLETE_TIMEOUT_SECONDS = 10.0
@@ -2604,11 +3044,38 @@ def _get_autocomplete_sem():
 async def _run_autocomplete_inference(generate_params: AutocompleteParams, model_cache):
     import asyncio
 
+    if _is_vllm_text_backend_enabled():
+        if not await asyncio.to_thread(_vllm_text_backend_ready):
+            logger.warning("vLLM autocomplete backend is not ready")
+            return _empty_autocomplete_response(generate_params, "backend_unavailable")
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(
+                    _proxy_vllm_generate,
+                    generate_params,
+                    None,
+                    AUTOCOMPLETE_TIMEOUT_SECONDS,
+                ),
+                timeout=AUTOCOMPLETE_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            logger.warning("vLLM autocomplete exceeded %.1fs budget", AUTOCOMPLETE_TIMEOUT_SECONDS)
+            return _empty_autocomplete_response(generate_params, "timeout")
+        except HTTPException as exc:
+            if exc.status_code not in {503, 504}:
+                raise
+            logger.warning(
+                "vLLM autocomplete unavailable (%s)",
+                exc.detail,
+            )
+            return _empty_autocomplete_response(generate_params, "backend_unavailable")
+
     sem = _get_inference_sem()
     try:
         await asyncio.wait_for(sem.acquire(), timeout=AUTOCOMPLETE_QUEUE_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
-        raise HTTPException(status_code=503, detail="Server busy, autocomplete dropped")
+        logger.warning("Autocomplete dropped because shared inference queue is busy")
+        return _empty_autocomplete_response(generate_params, "server_busy")
 
     inference_task = None
     timed_out = False
@@ -2622,7 +3089,11 @@ async def _run_autocomplete_inference(generate_params: AutocompleteParams, model
         )
     except asyncio.TimeoutError:
         timed_out = True
-        raise HTTPException(status_code=503, detail="Autocomplete exceeded 10s budget")
+        logger.warning("Autocomplete exceeded %.1fs budget", AUTOCOMPLETE_TIMEOUT_SECONDS)
+        return _empty_autocomplete_response(generate_params, "timeout")
+    except Exception as exc:
+        logger.warning("Autocomplete local inference unavailable: %s", exc)
+        return _empty_autocomplete_response(generate_params, "backend_unavailable")
     finally:
         if timed_out and inference_task is not None:
             def _release_after_timeout(task):
@@ -2656,7 +3127,8 @@ async def autocomplete_route(
     try:
         await asyncio.wait_for(sem.acquire(), timeout=AUTOCOMPLETE_QUEUE_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
-        raise HTTPException(status_code=503, detail="Server busy, autocomplete dropped")
+        logger.warning("Autocomplete dropped because autocomplete queue is busy")
+        return _empty_autocomplete_response(generate_params, "server_busy")
 
     try:
         return await _run_autocomplete_inference(generate_params, _get_model_cache())
@@ -2704,7 +3176,8 @@ async def generate_route_bulk(
     # print(tokenizer.model_max_length)
     # model.config.max_length = tokenizer.model_max_length
     model_cache = _get_model_cache()
-    model_cache.add_or_get("text_model", lambda: _load_pipelines_and_model(weights_path_tgz))
+    if not _is_vllm_text_backend_enabled():
+        model_cache.add_or_get("text_model", lambda: _load_pipelines_and_model(weights_path_tgz))
     # daemon.join()
     inference_results = []
     for generate_params in bulk_params:
@@ -2714,7 +3187,10 @@ async def generate_route_bulk(
             raise HTTPException(status_code=400, detail=validation_result)
 
     for generate_params in bulk_params:
-        inference_result = _fast_inference(generate_params, model_cache)
+        if _is_vllm_text_backend_enabled():
+            inference_result = await _run_text_generate(generate_params, model_cache, secret=secret)
+        else:
+            inference_result = _fast_inference(generate_params, model_cache)
         inference_results.append(inference_result)
     return inference_results
 
@@ -2783,7 +3259,7 @@ async def openai_route_named(
             status_code=401,
             detail="Please subscribe at https://text-generator.io/subscribe first, also ensure you have a credit card on file",
         )
-    inference_result = await _run_gpu_bound(_fast_inference, generate_params, _get_model_cache())
+    inference_result = await _run_text_generate(generate_params, _get_model_cache(), secret=secret)
     if not openai_params.echo:
         ## remove all the inputs from the generated texts
         for i in range(len(inference_result)):
@@ -2850,6 +3326,23 @@ async def chat_completions_route(
                 status_code=401,
                 detail="Please subscribe at https://text-generator.io/subscribe first, also ensure you have a credit card on file",
             )
+
+    if _is_vllm_text_backend_enabled() and not has_media_content:
+        model_cache = _get_model_cache()
+        if chat_params.stream:
+            return await _proxy_vllm_chat_streaming_response(
+                chat_params,
+                messages,
+                model_cache,
+                secret,
+            )
+        return await _run_gpu_bound(
+            _proxy_vllm_chat_completion_with_cache,
+            chat_params,
+            messages,
+            model_cache,
+            secret,
+        )
 
     if chat_params.stream:
         if has_media_content:

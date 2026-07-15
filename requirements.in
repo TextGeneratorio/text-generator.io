@@ -2,7 +2,7 @@ astroid>=3.0.0
 markitdown[all]
 munch>=4.0.0
 Click>=8.0.0
-gunicorn
+gunicorn>=23.0.0
 h11
 isort>=5.13.0
 lazy-object-proxy
@@ -73,10 +73,11 @@ httpcore>=1.0.0
 gradio>=5.12.0
 youtube_dl
 aiohttp
+anyio>=4.8.0
 boto3
 tenacity
 runpod
-setuptools>=69.0.0
+setuptools>=69.0.0,<81
 tensorboard>=2.15.0
 pytest>=8.0.0
 pytest-asyncio>=0.21.0

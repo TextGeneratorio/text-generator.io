@@ -27,13 +27,13 @@ LOG_DIR = REPO_ROOT / "monitors"
 LOG_FILE = LOG_DIR / "monitor_inference_agent.log"
 CODEX_LOG_FILE = LOG_DIR / "codex_inference_fix.log"
 LOCK_FILE = Path("/tmp/text-generator-monitor-inference-agent.lock")
-CODEX_LOCAL = os.environ.get("CODEX_LOCAL", "/home/administrator/code/codex/codex-rs/target/release/codex")
+CODEX_LOCAL = os.environ.get("CODEX_LOCAL", "/usr/local/bin/codex")
 CODEX_CMD = [
     CODEX_LOCAL,
     "exec",
-    "--yolo3",
+    "--dangerously-bypass-approvals-and-sandbox",
     "-m",
-    "gpt-5.5",
+    "gpt-5.6-sol",
     "--config",
     "model_reasoning_effort=medium",
 ]

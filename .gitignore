@@ -68,3 +68,10 @@ monitoring/logs/
 monitoring/runtime/
 visualbench/
 monitoring
+
+# local training workbench (not committed)
+llmtraining/
+.claude/
+*min.js
+*min.js.map
+!static/libs/quill.min.js

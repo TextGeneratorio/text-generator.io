@@ -146,7 +146,7 @@ def test_crawler_first_party_fetch_5xx_errors_are_still_detected(tmp_path):
     assert "fetch_5xx" in signals[0]
 
 
-def test_current_user_fetch_exceptions_are_ignored(tmp_path):
+def test_auth_probe_fetch_exceptions_are_ignored(tmp_path):
     frontend_log = tmp_path / "frontend-errors.jsonl"
     frontend_log.write_text(
         "\n".join(
@@ -165,6 +165,18 @@ def test_current_user_fetch_exceptions_are_ignored(tmp_path):
                 ),
                 json.dumps(
                     {
+                        "user_agent": "Mozilla/5.0 Chrome/143.0.0.0 Safari/537.36",
+                        "payload": {
+                            "event": {
+                                "type": "fetch_exception",
+                                "url": "/api/get-user/stripe-usage",
+                                "error": {"name": "TypeError", "message": "Failed to fetch"},
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
                         "user_agent": (
                             "Mozilla/5.0 (compatible; YandexRenderResourcesBot/1.0; "
                             "+http://yandex.com/bots)"
@@ -173,6 +185,21 @@ def test_current_user_fetch_exceptions_are_ignored(tmp_path):
                             "event": {
                                 "type": "fetch_exception",
                                 "url": "https://text-generator.io/api/current-user",
+                                "error": {"name": "TypeError", "message": "Failed to fetch"},
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "user_agent": (
+                            "Mozilla/5.0 (compatible; YandexRenderResourcesBot/1.0; "
+                            "+http://yandex.com/bots)"
+                        ),
+                        "payload": {
+                            "event": {
+                                "type": "fetch_exception",
+                                "url": "https://text-generator.io/api/get-user/stripe-usage",
                                 "error": {"name": "TypeError", "message": "Failed to fetch"},
                             }
                         },
@@ -295,17 +322,34 @@ def test_browser_extension_resource_errors_are_ignored(tmp_path):
 def test_known_logo_image_resource_errors_are_ignored_for_non_crawlers(tmp_path):
     frontend_log = tmp_path / "frontend-errors.jsonl"
     frontend_log.write_text(
-        json.dumps(
-            {
-                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
-                "payload": {
-                    "event": {
-                        "type": "resource_error",
-                        "tagName": "IMG",
-                        "sourceUrl": "https://text-generator.io/static/img/android-chrome-192x192.png",
-                    }
-                },
-            }
+        "\n".join(
+            json.dumps(
+                {
+                    "user_agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) "
+                        "Gecko/20100101 Firefox/135.0"
+                    ),
+                    "payload": {
+                        "event": {
+                            "type": "resource_error",
+                            "tagName": "IMG",
+                            "sourceUrl": f"https://text-generator.io{path}",
+                        }
+                    },
+                }
+            )
+            for path in [
+                "/static/img/android-chrome-192x192.png",
+                "/static/img/askfelix-robot-icon-transp.png",
+                "/static/img/codex-infinity-logo.webp",
+                "/static/img/dictatorflow-logo.webp",
+                "/static/img/ebank-logo-removebg-full387.webp",
+                "/static/img/evangeler-logo.png",
+                "/static/img/journeai-logo.svg",
+                "/static/img/netwrck-logo-colord256.png",
+                "/static/img/openpaths-logo.webp",
+                "/static/img/v5games-logo.webp",
+            ]
         ),
         encoding="utf-8",
     )
@@ -447,6 +491,110 @@ def test_known_optional_third_party_resource_errors_are_ignored_for_non_crawlers
                                 "type": "resource_error",
                                 "tagName": "IMG",
                                 "sourceUrl": "https://indiehunt.io/badges/indiehunt-badge-light.svg",
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "user_agent": "Mozilla/5.0 Chrome/132.0.0.0 Safari/537.36",
+                        "payload": {
+                            "event": {
+                                "type": "resource_error",
+                                "tagName": "LINK",
+                                "sourceUrl": (
+                                    "https://translate.googleapis.com/"
+                                    "translate_static/css/translateelement.css"
+                                ),
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "user_agent": "Mozilla/5.0 Chrome/149.0.0.0 Safari/537.36",
+                        "payload": {
+                            "event": {
+                                "type": "resource_error",
+                                "tagName": "LINK",
+                                "sourceUrl": "https://v5games.com/",
+                            }
+                        },
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    signals = monitor_500s.extract_signals(frontend_log, frontend_log.read_text(encoding="utf-8"))
+
+    assert signals == []
+
+
+def test_known_first_party_stylesheet_resource_errors_are_ignored(tmp_path):
+    frontend_log = tmp_path / "frontend-errors.jsonl"
+    frontend_log.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "user_agent": "Mozilla/5.0 Chrome/148.0.7778.96 Safari/537.36",
+                    "payload": {
+                        "event": {
+                            "type": "resource_error",
+                            "tagName": "LINK",
+                            "sourceUrl": f"https://text-generator.io{path}",
+                        }
+                    },
+                }
+            )
+            for path in [
+                "/static/css/subscription-modal.css",
+                "/static/libs/codemirror.css",
+                "/static/libs/select2/dist/css/select2.min.css",
+                "/static/libs/styles/atom-one-dark.css",
+                "/static/libs/styles/default.css",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    signals = monitor_500s.extract_signals(frontend_log, frontend_log.read_text(encoding="utf-8"))
+
+    assert signals == []
+
+
+def test_known_highlightjs_cdn_resource_errors_are_ignored(tmp_path):
+    frontend_log = tmp_path / "frontend-errors.jsonl"
+    frontend_log.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "user_agent": "Mozilla/5.0 Chrome/148.0.7778.96 Safari/537.36",
+                        "payload": {
+                            "event": {
+                                "type": "resource_error",
+                                "tagName": "LINK",
+                                "sourceUrl": (
+                                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                                    "highlight.js/11.9.0/styles/github.min.css"
+                                ),
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "user_agent": "Mozilla/5.0 Chrome/148.0.7778.96 Safari/537.36",
+                        "payload": {
+                            "event": {
+                                "type": "resource_error",
+                                "tagName": "SCRIPT",
+                                "sourceUrl": (
+                                    "https://cdnjs.cloudflare.com/ajax/libs/"
+                                    "highlight.js/11.9.0/highlight.min.js"
+                                ),
                             }
                         },
                     }

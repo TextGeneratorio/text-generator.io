@@ -3,7 +3,9 @@ GitBase image captioning module with performance optimizations.
 Replaces Moondream with Microsoft's GIT-base model for improved speed and accuracy.
 """
 
+import gc
 import logging
+import os
 import time
 from typing import Dict, Tuple
 
@@ -16,6 +18,47 @@ from questions.logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+GITBASE_MIN_FREE_VRAM_GB = float(os.getenv("GITBASE_MIN_FREE_VRAM_GB", "1.0"))
+
+
+def _cuda_free_vram_gb() -> float:
+    if not torch.cuda.is_available():
+        return 0.0
+    try:
+        free_bytes, _ = torch.cuda.mem_get_info(0)
+        return free_bytes / (1024**3)
+    except Exception as e:
+        logger.debug("Unable to read CUDA free memory: %s", e)
+        return 0.0
+
+
+def _select_caption_device() -> str:
+    if not torch.cuda.is_available():
+        return "cpu"
+
+    free_gb = _cuda_free_vram_gb()
+    if free_gb < GITBASE_MIN_FREE_VRAM_GB:
+        logger.warning(
+            "Using CPU for GitBase captioning: %.2fGB free VRAM below %.2fGB threshold",
+            free_gb,
+            GITBASE_MIN_FREE_VRAM_GB,
+        )
+        return "cpu"
+
+    return "cuda"
+
+
+def _captioner_settings_for_device(device: str) -> tuple[torch.dtype, bool]:
+    if device == "cuda":
+        return torch.float16, True
+    return torch.float32, False
+
+
+def _clear_cuda_after_oom():
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 class GitBaseCaptioner:
@@ -78,6 +121,20 @@ class GitBaseCaptioner:
             self.processor, self.model = self._load_model()
             self._is_loaded = True
             logger.info("GitBase model loaded successfully")
+
+    def unload(self):
+        """Release loaded model resources."""
+        try:
+            if self.model is not None and hasattr(self.model, "to"):
+                self.model.to("cpu")
+        except Exception as e:
+            logger.debug("GitBase unload cleanup failed: %s", e)
+
+        self.processor = None
+        self.model = None
+        self._is_loaded = False
+        self._warmup_done = False
+        _clear_cuda_after_oom()
 
     def _warmup(self):
         """Warmup the model with a dummy inference to optimize performance."""
@@ -214,7 +271,10 @@ _GITBASE_CACHE = ModelCache()
 
 
 def get_gitbase_captioner(
-    dtype: torch.dtype = torch.float16, use_compile: bool = False, use_channels_last: bool = True
+    dtype: torch.dtype = torch.float16,
+    use_compile: bool = False,
+    use_channels_last: bool = True,
+    device: str = "cuda",
 ) -> GitBaseCaptioner:
     """
     Get cached GitBase captioner instance.
@@ -227,12 +287,23 @@ def get_gitbase_captioner(
     Returns:
         GitBaseCaptioner instance
     """
-    cache_key = f"gitbase_{dtype}_{use_compile}_{use_channels_last}"
+    cache_key = f"gitbase_{device}_{dtype}_{use_compile}_{use_channels_last}"
 
     def create_captioner():
-        return GitBaseCaptioner(dtype=dtype, use_compile=use_compile, use_channels_last=use_channels_last)
+        return GitBaseCaptioner(
+            dtype=dtype,
+            device=device,
+            use_compile=use_compile,
+            use_channels_last=use_channels_last,
+        )
 
     return _GITBASE_CACHE.add_or_get(cache_key, create_captioner)
+
+
+def _caption_with_captioner(captioner: GitBaseCaptioner, image: Image.Image, fast_mode: bool) -> str:
+    if fast_mode:
+        return captioner.caption_image_fast(image)
+    return captioner.caption_image_quality(image)
 
 
 def caption_image_bytes(image_bytes: bytes, prompt: str = "Describe this image.", fast_mode: bool = True) -> str:
@@ -252,11 +323,21 @@ def caption_image_bytes(image_bytes: bytes, prompt: str = "Describe this image."
     # Convert bytes to PIL Image
     image = Image.open(BytesIO(image_bytes)).convert("RGB")
 
-    # Get captioner
-    captioner = get_gitbase_captioner()
+    device = _select_caption_device()
+    dtype, use_channels_last = _captioner_settings_for_device(device)
+    captioner = get_gitbase_captioner(dtype=dtype, use_channels_last=use_channels_last, device=device)
 
-    # Generate caption
-    if fast_mode:
-        return captioner.caption_image_fast(image)
-    else:
-        return captioner.caption_image_quality(image)
+    try:
+        return _caption_with_captioner(captioner, image, fast_mode)
+    except torch.cuda.OutOfMemoryError:
+        if device != "cuda":
+            raise
+        logger.warning("GitBase CUDA captioning ran out of memory; retrying on CPU")
+        captioner.unload()
+        cpu_captioner = get_gitbase_captioner(
+            dtype=torch.float32,
+            use_compile=False,
+            use_channels_last=False,
+            device="cpu",
+        )
+        return _caption_with_captioner(cpu_captioner, image, fast_mode)

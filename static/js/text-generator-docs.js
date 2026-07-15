@@ -5,6 +5,202 @@
 // Import Quill Delta for operations
 const Delta = Quill.import('delta');
 
+const TGDocsTableUtils = (() => {
+  function normalizeClipboardText(text) {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/^\n+|\n+$/g, '');
+  }
+
+  function parseCsvLine(line) {
+    const cells = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const next = line[i + 1];
+
+      if (char === '"' && inQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        cells.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+
+    cells.push(current);
+    return cells;
+  }
+
+  function normalizeRows(rows) {
+    const meaningfulRows = rows
+      .map(row => row.map(cell => String(cell == null ? '' : cell).replace(/\u00a0/g, ' ').trim()))
+      .filter(row => row.some(cell => cell.length > 0));
+
+    if (meaningfulRows.length === 0) return null;
+
+    const maxColumns = Math.max(...meaningfulRows.map(row => row.length));
+    const hasEnoughCellData = meaningfulRows.some(row => row.filter(cell => cell.length > 0).length >= 2);
+
+    if (maxColumns < 2 || !hasEnoughCellData) return null;
+
+    return meaningfulRows.map(row => {
+      const paddedRow = row.slice(0, maxColumns);
+      while (paddedRow.length < maxColumns) {
+        paddedRow.push('');
+      }
+      return paddedRow;
+    });
+  }
+
+  function parseDelimitedRows(text) {
+    const normalized = normalizeClipboardText(text);
+    if (!normalized.trim()) return null;
+
+    const lines = normalized
+      .split('\n')
+      .filter(line => line.trim().length > 0 || line.includes('\t'));
+
+    if (lines.length === 0) return null;
+
+    if (lines.some(line => line.includes('\t'))) {
+      return normalizeRows(lines.map(line => line.split('\t')));
+    }
+
+    if (lines.length < 2 || !lines.every(line => line.includes(','))) {
+      return null;
+    }
+
+    const csvRows = lines.map(parseCsvLine);
+    if (!csvRows.every(row => row.length >= 2)) {
+      return null;
+    }
+
+    return normalizeRows(csvRows);
+  }
+
+  function cellLooksNumeric(cell) {
+    return /^[\s$+-]*\d[\d,]*(?:\.\d+)?%?\s*$/.test(cell);
+  }
+
+  function shouldUseFirstRowAsHeader(rows) {
+    if (!rows || rows.length < 2) return false;
+
+    const firstRow = rows[0];
+    const bodyRows = rows.slice(1);
+    const firstRowHasText = firstRow.some(cell => /[A-Za-z]/.test(cell));
+    const firstNumericCells = firstRow.filter(cellLooksNumeric).length;
+    const bodyHasNumericCell = bodyRows.some(row => row.some(cellLooksNumeric));
+
+    return firstRowHasText && firstNumericCells <= Math.floor(firstRow.length / 2) && bodyHasNumericCell;
+  }
+
+  function sanitizeMarkdownCell(cell) {
+    return String(cell == null ? '' : cell)
+      .replace(/\s+/g, ' ')
+      .replace(/\|/g, '\\|')
+      .trim();
+  }
+
+  function formatMarkdownRow(cells) {
+    return `| ${cells.map(sanitizeMarkdownCell).join(' | ')} |`;
+  }
+
+  function buildMarkdownTableFromRows(rows, options = {}) {
+    const normalizedRows = normalizeRows(rows);
+    if (!normalizedRows) return '';
+
+    const columnCount = normalizedRows[0].length;
+    const useFirstRowAsHeader = typeof options.useFirstRowAsHeader === 'boolean'
+      ? options.useFirstRowAsHeader
+      : shouldUseFirstRowAsHeader(normalizedRows);
+    const header = useFirstRowAsHeader
+      ? normalizedRows[0]
+      : Array.from({ length: columnCount }, (_, index) => `Column ${index + 1}`);
+    const bodyRows = useFirstRowAsHeader ? normalizedRows.slice(1) : normalizedRows;
+    const rowsToRender = bodyRows.length > 0 ? bodyRows : [Array(columnCount).fill('')];
+    const separator = Array(columnCount).fill('---');
+
+    return [
+      formatMarkdownRow(header),
+      formatMarkdownRow(separator),
+      ...rowsToRender.map(formatMarkdownRow)
+    ].join('\n') + '\n';
+  }
+
+  function buildBlankMarkdownTable(columns = 3, rows = 2) {
+    const columnCount = Math.max(2, columns);
+    const rowCount = Math.max(1, rows);
+    const header = Array.from({ length: columnCount }, (_, index) => `Column ${index + 1}`);
+    const separator = Array(columnCount).fill('---');
+    const bodyRows = Array.from({ length: rowCount }, () => Array(columnCount).fill(''));
+
+    return [
+      formatMarkdownRow(header),
+      formatMarkdownRow(separator),
+      ...bodyRows.map(formatMarkdownRow)
+    ].join('\n') + '\n';
+  }
+
+  function convertDelimitedTextToMarkdownTable(text) {
+    const rows = parseDelimitedRows(text);
+    if (!rows) return '';
+    return buildMarkdownTableFromRows(rows);
+  }
+
+  function getMarkdownTableCells(line) {
+    const trimmed = String(line || '').trim();
+    if (!trimmed.includes('|')) return [];
+    return trimmed
+      .replace(/^\|/, '')
+      .replace(/\|$/, '')
+      .split('|')
+      .map(cell => cell.trim());
+  }
+
+  function isMarkdownTableRow(line) {
+    const cells = getMarkdownTableCells(line);
+    return cells.length >= 2;
+  }
+
+  function isMarkdownTableSeparator(line) {
+    const cells = getMarkdownTableCells(line);
+    return cells.length >= 2 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
+  }
+
+  function containsMarkdownTable(text) {
+    const lines = normalizeClipboardText(text).split('\n');
+    for (let i = 0; i < lines.length - 1; i++) {
+      if (isMarkdownTableRow(lines[i]) && isMarkdownTableSeparator(lines[i + 1])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return {
+    buildBlankMarkdownTable,
+    buildMarkdownTableFromRows,
+    containsMarkdownTable,
+    convertDelimitedTextToMarkdownTable,
+    isMarkdownTableRow,
+    isMarkdownTableSeparator,
+    parseDelimitedRows
+  };
+})();
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.TGDocsTableUtils = TGDocsTableUtils;
+}
+
 class TextGeneratorDocs {
   constructor(options) {
     this.options = options || {};
@@ -25,6 +221,7 @@ class TextGeneratorDocs {
     this.exportDocButton = safeGetElement(options.exportDocButton);
     this.docTitleInput = safeGetElement(options.docTitleInput);
     this.generateContentButton = safeGetElement(options.generateContentButton);
+    this.insertTableButton = safeGetElement(options.insertTableButton);
     this.claudeToggle = safeGetElement(options.claudeToggle);
     this.generationSettings = options.generationSettings || {
       number_of_results: 1,
@@ -399,6 +596,16 @@ class TextGeneratorDocs {
       this.generateContentButton.addEventListener('click', () => {
         this.showGenerateContentDialog();
       });
+    }
+
+    if (this.insertTableButton) {
+      if (!this._boundInsertEmptyMarkdownTable) {
+        this._boundInsertEmptyMarkdownTable = () => {
+          this.insertEmptyMarkdownTable();
+        };
+      }
+      this.insertTableButton.removeEventListener('click', this._boundInsertEmptyMarkdownTable);
+      this.insertTableButton.addEventListener('click', this._boundInsertEmptyMarkdownTable);
     }
   }
   
@@ -1682,11 +1889,58 @@ class TextGeneratorDocs {
       }
     `;
   }
+
+  convertDelimitedTextToMarkdownTable(text) {
+    return TGDocsTableUtils.convertDelimitedTextToMarkdownTable(text);
+  }
+
+  insertEmptyMarkdownTable() {
+    const markdownTable = TGDocsTableUtils.buildBlankMarkdownTable(3, 2);
+    this.insertMarkdownTable(markdownTable);
+    this.updateSaveStatus('Table inserted');
+  }
+
+  getTableInsertionText(markdownTable, index, deleteLength = 0) {
+    let insertionText = String(markdownTable || '').trim();
+    if (!insertionText) return '';
+
+    const beforeIndex = Math.max(0, index - 1);
+    const beforeText = index > 0 ? this.editor.getText(beforeIndex, 1) : '\n';
+    const afterText = this.editor.getText(index + deleteLength, 1);
+
+    if (beforeText !== '\n') {
+      insertionText = '\n' + insertionText;
+    }
+
+    if (afterText && afterText !== '\n') {
+      insertionText += '\n';
+    }
+
+    return insertionText + '\n';
+  }
+
+  insertMarkdownTable(markdownTable) {
+    if (!this.editor || !markdownTable) return;
+
+    const selection = this.editor.getSelection();
+    const index = selection ? selection.index : Math.max(0, this.editor.getLength() - 1);
+    const deleteLength = selection ? selection.length : 0;
+    const insertionText = this.getTableInsertionText(markdownTable, index, deleteLength);
+
+    if (!insertionText) return;
+
+    this.editor.updateContents(
+      new Delta().retain(index).delete(deleteLength).insert(insertionText),
+      'user'
+    );
+    this.editor.setSelection(index + insertionText.length, 0, 'silent');
+    this.editor.focus();
+  }
   
   initializeImageUpload() {
     // Handle paste events for image upload
     if (this.editor) {
-      this.editor.root.addEventListener('paste', this.handlePaste.bind(this));
+      this.editor.root.addEventListener('paste', this.handlePaste.bind(this), true);
     }
     
     // Handle drag and drop for image upload
@@ -1697,15 +1951,28 @@ class TextGeneratorDocs {
   }
   
   handlePaste(event) {
-    const items = event.clipboardData.items;
+    if (event.defaultPrevented || !event.clipboardData) {
+      return;
+    }
+
+    const items = event.clipboardData.items || [];
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (item.type.indexOf('image') !== -1) {
         event.preventDefault();
         const file = item.getAsFile();
         this.uploadImage(file);
-        break;
+        return;
       }
+    }
+
+    const plainText = event.clipboardData.getData('text/plain');
+    const markdownTable = this.convertDelimitedTextToMarkdownTable(plainText);
+
+    if (markdownTable) {
+      event.preventDefault();
+      this.insertMarkdownTable(markdownTable);
+      this.updateSaveStatus('Table inserted');
     }
   }
   
@@ -1848,6 +2115,25 @@ class MarkdownToQuillDelta {
     
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
+
+      // Preserve Markdown table blocks as editable Markdown text.
+      if (
+        TGDocsTableUtils.isMarkdownTableRow(line) &&
+        i + 1 < lines.length &&
+        TGDocsTableUtils.isMarkdownTableSeparator(lines[i + 1])
+      ) {
+        const tableLines = [line, lines[i + 1]];
+        let j = i + 2;
+
+        while (j < lines.length && TGDocsTableUtils.isMarkdownTableRow(lines[j])) {
+          tableLines.push(lines[j]);
+          j++;
+        }
+
+        delta.ops.push({ insert: tableLines.join('\n') + '\n' });
+        i = j - 1;
+        continue;
+      }
       
       // Handle headers
       const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
@@ -2231,7 +2517,8 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
       }
       
       // Check if the response contains markdown by looking for common markers
-      const containsMarkdown = /(\#{1,6}\s+.+)|(\*\*.*?\*\*)|(\*[^\*]+?\*)|(\`[^\`]+?\`)|(\[[^\]]+?\]\([^\)]+?\))|(\>\s+.*?)|(^\s*[\*\-+]\s+.*?)|(^\s*\d+\.\s+.*?)|(\`\`\`[\s\S]*?\`\`\`)/m.test(generatedText);
+      const containsMarkdown = TGDocsTableUtils.containsMarkdownTable(generatedText) ||
+        /(\#{1,6}\s+.+)|(\*\*.*?\*\*)|(\*[^\*]+?\*)|(\`[^\`]+?\`)|(\[[^\]]+?\]\([^\)]+?\))|(\>\s+.*?)|(^\s*[\*\-+]\s+.*?)|(^\s*\d+\.\s+.*?)|(\`\`\`[\s\S]*?\`\`\`)/m.test(generatedText);
       
       if (containsMarkdown) {
         // Get current cursor position again in case it changed

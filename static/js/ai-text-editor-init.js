@@ -98,6 +98,7 @@
       docTitleInput: document.getElementById('doc-title'),
       generateContentButton: document.getElementById('generate-content-btn'),
       rewriteContentButton: document.getElementById('rewrite-content-btn'),
+      insertTableButton: document.getElementById('insert-table-btn'),
       
       // Generation settings
       generationSettings: {

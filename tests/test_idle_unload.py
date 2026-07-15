@@ -118,6 +118,7 @@ def test_idle_thread_stops_when_cache_empty(cache):
 def test_multiple_models_all_unloaded(monkeypatch):
     """All models get unloaded when idle, not just LRU."""
     monkeypatch.setattr(mc, "MAX_CACHED_MODELS", 5)
+    monkeypatch.setattr(mc.ModelCache, "_should_evict_for_memory", lambda self: False)
     cache = mc.ModelCache()
 
     cache.add_or_get("m1", lambda: "model_1")
@@ -162,3 +163,20 @@ def test_disabled_when_zero(monkeypatch):
 
     cache.add_or_get("m1", lambda: "model_1")
     assert cache._idle_thread is None
+
+
+def test_gpu_memory_info_uses_global_cuda_free_memory(monkeypatch):
+    gib = 1024**3
+
+    monkeypatch.setattr(mc.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(mc.torch.cuda, "mem_get_info", lambda device=0: (2 * gib, 32 * gib))
+    monkeypatch.setattr(mc.torch.cuda, "memory_reserved", lambda device=0: 4 * gib)
+    monkeypatch.setattr(mc.torch.cuda, "memory_allocated", lambda device=0: 3 * gib)
+
+    mem = mc.get_gpu_memory_info()
+
+    assert mem["total"] == 32
+    assert mem["free"] == 2
+    assert mem["used"] == 30
+    assert mem["reserved"] == 4
+    assert mem["allocated"] == 3
