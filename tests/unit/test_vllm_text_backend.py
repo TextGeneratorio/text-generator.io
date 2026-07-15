@@ -389,6 +389,20 @@ def test_vllm_warmup_unloads_local_model_cache(monkeypatch):
     assert cache.unloaded_reason == "vLLM text backend warmup"
 
 
+def test_empty_local_cache_skips_vllm_status_probe(monkeypatch):
+    class EmptyCache:
+        def list_models(self):
+            return []
+
+    monkeypatch.setattr(
+        inference_server,
+        "_vllm_text_backend_needs_warmup",
+        lambda: (_ for _ in ()).throw(AssertionError("empty cache does not need a backend status probe")),
+    )
+
+    inference_server._free_local_model_cache_for_vllm(EmptyCache())
+
+
 def test_vllm_ready_backend_keeps_local_model_cache(monkeypatch):
     class DummyCache:
         def list_models(self):

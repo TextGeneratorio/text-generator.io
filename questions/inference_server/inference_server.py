@@ -357,17 +357,19 @@ def _vllm_text_backend_needs_warmup() -> bool:
 
 
 def _free_local_model_cache_for_vllm(model_cache) -> None:
-    if not _vllm_text_backend_needs_warmup():
+    if model_cache is None or not hasattr(model_cache, "list_models"):
         return
 
-    cached_models = []
-    if model_cache is not None and hasattr(model_cache, "list_models"):
-        try:
-            cached_models = model_cache.list_models()
-        except Exception as exc:
-            logger.debug("Could not list local models before vLLM warmup: %s", exc)
+    try:
+        cached_models = model_cache.list_models()
+    except Exception as exc:
+        logger.debug("Could not list local models before vLLM warmup: %s", exc)
+        return
 
     if not cached_models:
+        return
+
+    if not _vllm_text_backend_needs_warmup():
         return
 
     logger.info(
