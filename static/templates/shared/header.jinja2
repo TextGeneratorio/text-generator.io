@@ -8,13 +8,11 @@
         <div class="mdl-layout-spacer"></div>
 
         <nav class="mdl-navigation tg-nav mdl-layout--large-screen-only">
+            <a class="mdl-navigation__link tg-nav-link" href="/models">Models</a>
+            <a class="mdl-navigation__link tg-nav-link" href="/providers">Providers</a>
+            <a class="mdl-navigation__link tg-nav-link" href="/playground">Playground</a>
             <a class="mdl-navigation__link tg-nav-link" href="/tools">Tools</a>
             <a class="mdl-navigation__link tg-nav-link" href="/prompts">Prompts</a>
-            <a class="mdl-navigation__link tg-nav-link" href="/playground">Playground</a>
-            <a class="mdl-navigation__link tg-nav-link" href="/voice-chat">Voice Chat</a>
-            <a class="mdl-navigation__link tg-nav-link" href="/text-to-speech">Text To Speech</a>
-            <a class="mdl-navigation__link tg-nav-link" href="/speech-to-text">Speech To Text</a>
-            <a class="mdl-navigation__link tg-nav-link" href="/bulk-text-generator">Bulk Generator</a>
             <a class="mdl-navigation__link tg-nav-link" href="/docs">Docs</a>
 
             <span class="tg-header-auth tg-header-auth--logged-out">
@@ -22,6 +20,7 @@
                 <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;">Sign up</a>
             </span>
             <span class="tg-header-auth tg-header-auth--logged-in">
+                <a class="tg-header-credit header-account" href="/account" style="display: none;" title="API credit balance"><i class="material-icons">account_balance_wallet</i><span data-credit-balance>$0.00</span></a>
                 <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-account" href="/account" style="display: none;">Account</a>
             </span>
         </nav>
@@ -36,6 +35,8 @@
         </a>
     </span>
     <nav class="mdl-navigation">
+        <a class="mdl-navigation__link" href="/models"><i class="material-icons">view_in_ar</i>Models</a>
+        <a class="mdl-navigation__link" href="/providers"><i class="material-icons">hub</i>Providers</a>
         <a class="mdl-navigation__link" href="/tools"><i class="material-icons">build</i>Tools</a>
         <a class="mdl-navigation__link" href="/prompts"><i class="material-icons">library_books</i>Prompts</a>
         <a class="mdl-navigation__link" href="/playground"><i class="material-icons">smart_toy</i>Playground</a>

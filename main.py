@@ -45,6 +45,15 @@ from questions import blog_fixtures, doc_fixtures, fixtures, prompt_fixtures, pr
 from questions.deep_research import DeepResearchError, run_deep_research
 from questions.keyword_explorer import run_keyword_explorer
 from questions.logging_config import get_logger
+from questions.provider_catalog import (
+    MODELS,
+    PROVIDERS,
+    PROVIDERS_BY_SLUG,
+    model_to_dict,
+    provider_models,
+    provider_to_dict,
+    resolve_model,
+)
 
 # Import database models conditionally
 HAS_NDB = False
@@ -571,11 +580,100 @@ stripe.api_key = stripe_keys["secret_key"]
 @app.get("/")
 async def index(request: Request):
     base_vars = get_base_template_vars(request)
-    base_vars.update({})
+    base_vars.update({
+        "providers": [provider_to_dict(provider) for provider in PROVIDERS],
+        "featured_models": [model_to_dict(model) for model in MODELS if model.auto_profile],
+        "provider_count": len(PROVIDERS),
+        "model_count": len(MODELS),
+    })
     return templates.TemplateResponse(
         "templates/index.jinja2",
         base_vars,
     )
+
+
+@app.get("/api/providers")
+async def api_providers():
+    return JSONResponse({
+        "providers": [provider_to_dict(provider) for provider in PROVIDERS]
+    })
+
+
+@app.get("/api/models")
+async def api_models(provider: Optional[str] = None, tag: Optional[str] = None):
+    models = list(MODELS)
+    if provider:
+        models = [model for model in models if model.provider == provider]
+    if tag:
+        models = [model for model in models if tag in model.tags]
+    return JSONResponse({"models": [model_to_dict(model) for model in models]})
+
+
+def get_catalog_context(request: Request) -> Dict[str, Any]:
+    base_vars = get_base_template_vars(request)
+    base_vars.update({
+        "providers": [provider_to_dict(item) for item in PROVIDERS],
+        "models": [model_to_dict(item) for item in MODELS],
+        "provider_count": len(PROVIDERS),
+        "model_count": len(MODELS),
+    })
+    return base_vars
+
+
+@app.get("/providers")
+async def providers_directory(request: Request):
+    base_vars = get_catalog_context(request)
+    base_vars.update({
+        "page_title": "AI Providers - One API for Leading Model Platforms",
+        "page_description": "Browse AI providers and their models available through the Text Generator unified OpenAI-compatible router.",
+    })
+    return templates.TemplateResponse("templates/providers.jinja2", base_vars)
+
+
+@app.get("/providers/{provider_slug}")
+async def provider_detail(request: Request, provider_slug: str):
+    provider = PROVIDERS_BY_SLUG.get(provider_slug)
+    if provider is None:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    base_vars = get_catalog_context(request)
+    base_vars.update({
+        "provider": provider_to_dict(provider),
+        "provider_models": [model_to_dict(item) for item in provider_models(provider.slug)],
+        "page_title": f"{provider.name} Models - Text Generator",
+        "page_description": provider.description,
+    })
+    return templates.TemplateResponse("templates/provider-detail.jinja2", base_vars)
+
+
+@app.get("/models")
+async def models_directory(request: Request):
+    base_vars = get_catalog_context(request)
+    base_vars.update({
+        "page_title": "AI Model Catalogue - Text Generator",
+        "page_description": "Compare chat, coding, reasoning, vision, and auto-routed AI models behind one OpenAI-compatible API.",
+    })
+    return templates.TemplateResponse("templates/models.jinja2", base_vars)
+
+
+@app.get("/models/{model_id:path}")
+async def model_detail(request: Request, model_id: str):
+    model = resolve_model(model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    provider = PROVIDERS_BY_SLUG[model.provider]
+    base_vars = get_catalog_context(request)
+    base_vars.update({
+        "model": model_to_dict(model),
+        "provider": provider_to_dict(provider),
+        "fallback_models": [
+            model_to_dict(item)
+            for fallback_id in model.fallback_models
+            if (item := resolve_model(fallback_id)) is not None
+        ],
+        "page_title": f"{model.name} - Text Generator Models",
+        "page_description": model.description,
+    })
+    return templates.TemplateResponse("templates/model-detail.jinja2", base_vars)
 
 
 @app.get("/tools")

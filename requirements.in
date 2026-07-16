@@ -57,6 +57,8 @@ Pillow>=10.0.0
 bs4
 requests
 requests-futures
+# Semantic auto-routing: int16 WordPiece + int8 512d embeddings and CAGRA search.
+pybed @ git+https://github.com/lee101/pybed.git@8aff1c4
 
 # PostgreSQL dependencies
 sqlalchemy

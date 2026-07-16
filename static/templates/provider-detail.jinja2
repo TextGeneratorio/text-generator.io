@@ -1,0 +1,30 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}<title>{{ page_title }}</title><meta name="description" content="{{ page_description }}">{% endblock %}
+
+{% block mainbody %}
+<div class="tg-catalog-page">
+    <section class="tg-detail-hero">
+        <div class="tg-container">
+            <div class="tg-breadcrumbs"><a href="/providers">Providers</a><i class="material-icons">chevron_right</i><span>{{ provider.name }}</span></div>
+            <div class="tg-detail-title">
+                <span class="tg-detail-logo"><img src="{{ provider.logo_url }}" alt="{{ provider.name }} logo"></span>
+                <div><span class="tg-kicker">Model provider</span><h1>{{ provider.name }}</h1><p>{{ provider.description }}</p></div>
+            </div>
+            <div class="tg-detail-actions"><a class="tg-btn tg-btn--primary" href="/playground">Try in Playground</a><a class="tg-btn tg-btn--ghost" href="{{ provider.website }}" target="_blank" rel="noopener noreferrer">Provider website</a></div>
+        </div>
+    </section>
+    <section class="tg-section tg-section--white tg-catalog-content">
+        <div class="tg-container">
+            <div class="tg-catalog-heading"><div><span class="tg-kicker tg-kicker--light">Available through one endpoint</span><h2>{{ provider_models|length }} {{ provider.name }} models</h2></div><a href="/docs">API documentation →</a></div>
+            {% if provider_models %}
+            <div class="tg-model-grid">
+                {% for model in provider_models %}
+                <a class="tg-model-card" href="{{ model.url }}"><span class="tg-model-top"><span>{{ provider.name }}</span><i class="material-icons">north_east</i></span><strong>{{ model.name }}</strong><code>{{ model.id }}</code><p>{{ model.description }}</p><span class="tg-model-meta"><span>{{ model.context_window }} context</span><span>${{ '%.2f'|format(model.input_price) }} / ${{ '%.2f'|format(model.output_price) }}</span></span><span class="tg-tag-row">{% for tag in model.tags[:4] %}<small>{{ tag }}</small>{% endfor %}</span></a>
+                {% endfor %}
+            </div>
+            {% else %}<div class="tg-empty-state">Models for this provider are being prepared for the public catalogue.</div>{% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}

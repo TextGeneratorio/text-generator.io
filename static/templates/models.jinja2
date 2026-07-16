@@ -1,0 +1,62 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ page_description }}">
+{% endblock %}
+
+{% block mainbody %}
+<div class="tg-catalog-page">
+    <section class="tg-catalog-hero tg-catalog-hero--compact">
+        <div class="tg-container">
+            <span class="tg-kicker">Live model catalogue</span>
+            <h1>Find the right model.<br><span>Or stop choosing.</span></h1>
+            <p>Compare {{ model_count }} routed model IDs across {{ provider_count }} providers. Start with <code>text-generator/auto</code> when you want the router to decide.</p>
+        </div>
+    </section>
+    <section class="tg-section tg-section--white tg-catalog-content">
+        <div class="tg-container">
+            <div class="tg-model-toolbar">
+                <label class="tg-search-field"><i class="material-icons">search</i><input id="model-search" type="search" placeholder="Search models, providers, or capabilities" autocomplete="off"></label>
+                <select id="model-provider" aria-label="Filter by provider"><option value="">All providers</option>{% for provider in providers %}<option value="{{ provider.slug }}">{{ provider.name }}</option>{% endfor %}</select>
+                <span id="model-count">{{ model_count }} models</span>
+            </div>
+            <div class="tg-model-grid" id="model-grid">
+                {% for model in models %}
+                <a class="tg-model-card" href="{{ model.url }}" data-provider="{{ model.provider }}" data-search="{{ model.name|lower }} {{ model.id|lower }} {{ model.provider_name|lower }} {{ model.tags|join(' ') }}">
+                    <span class="tg-model-top"><span class="tg-provider-logo tg-provider-logo--small"><img src="{{ model.logo_url }}" alt=""></span><span>{% if model.auto_profile %}Auto route{% else %}{{ model.provider_name }}{% endif %}</span><i class="material-icons">north_east</i></span>
+                    <strong>{{ model.name }}</strong><code>{{ model.id }}</code>
+                    <p>{{ model.description }}</p>
+                    <span class="tg-model-meta"><span>{{ model.context_window }} context</span><span>${{ '%.2f'|format(model.input_price) }} / ${{ '%.2f'|format(model.output_price) }}</span></span>
+                    <span class="tg-tag-row">{% for tag in model.tags[:4] %}<small>{{ tag }}</small>{% endfor %}</span>
+                </a>
+                {% endfor %}
+            </div>
+            <div class="tg-empty-state" id="model-empty" hidden>No models match those filters.</div>
+        </div>
+    </section>
+</div>
+<script>
+(function () {
+    const search = document.getElementById('model-search');
+    const provider = document.getElementById('model-provider');
+    const cards = Array.from(document.querySelectorAll('.tg-model-card'));
+    const count = document.getElementById('model-count');
+    const empty = document.getElementById('model-empty');
+    function filterModels() {
+        const query = search.value.trim().toLowerCase();
+        const selected = provider.value;
+        let visible = 0;
+        cards.forEach(function (card) {
+            const show = (!query || card.dataset.search.includes(query)) && (!selected || card.dataset.provider === selected);
+            card.hidden = !show;
+            if (show) visible += 1;
+        });
+        count.textContent = visible + (visible === 1 ? ' model' : ' models');
+        empty.hidden = visible !== 0;
+    }
+    search.addEventListener('input', filterModels);
+    provider.addEventListener('change', filterModels);
+})();
+</script>
+{% endblock %}

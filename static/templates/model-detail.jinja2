@@ -1,0 +1,39 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}<title>{{ page_title }}</title><meta name="description" content="{{ page_description }}">{% endblock %}
+
+{% block mainbody %}
+<div class="tg-catalog-page">
+    <section class="tg-detail-hero">
+        <div class="tg-container">
+            <div class="tg-breadcrumbs"><a href="/models">Models</a><i class="material-icons">chevron_right</i>{% if not model.auto_profile %}<a href="{{ provider.url }}">{{ provider.name }}</a><i class="material-icons">chevron_right</i>{% endif %}<span>{{ model.name }}</span></div>
+            <div class="tg-detail-title"><span class="tg-detail-logo"><img src="{{ model.logo_url }}" alt="{{ model.provider_name }} logo"></span><div><span class="tg-kicker">{% if model.auto_profile %}Semantic auto-router{% else %}{{ provider.name }} model{% endif %}</span><h1>{{ model.name }}</h1><code>{{ model.id }}</code><p>{{ model.description }}</p></div></div>
+            <div class="tg-detail-actions"><a class="tg-btn tg-btn--primary" href="/playground?model={{ model.id|urlencode }}">Try in Playground</a><a class="tg-btn tg-btn--ghost" href="/docs">API docs</a></div>
+        </div>
+    </section>
+    <section class="tg-section tg-section--white tg-catalog-content">
+        <div class="tg-container tg-model-detail-grid">
+            <div>
+                <span class="tg-kicker tg-kicker--light">Drop-in OpenAI compatibility</span><h2>Use one model ID.</h2>
+                <div class="tg-code-card"><div><span>Python</span><button type="button" data-copy-code>Copy</button></div><pre><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.text-generator.io/v1",
+    api_key="YOUR_TEXT_GENERATOR_KEY",
+)
+
+response = client.chat.completions.create(
+    model="{{ model.id }}",
+    messages=[{"role": "user", "content": "Hello"}],
+)</code></pre></div>
+            </div>
+            <aside class="tg-model-specs">
+                <h3>Model details</h3><dl><div><dt>Provider</dt><dd><a href="{{ model.provider_url }}">{{ model.provider_name }}</a></dd></div><div><dt>Context</dt><dd>{{ model.context_window }}</dd></div><div><dt>Input / 1M</dt><dd>${{ '%.2f'|format(model.input_price) }}</dd></div><div><dt>Output / 1M</dt><dd>${{ '%.2f'|format(model.output_price) }}</dd></div></dl>
+                <div class="tg-tag-row">{% for tag in model.tags %}<small>{{ tag }}</small>{% endfor %}</div>
+            </aside>
+        </div>
+        {% if fallback_models %}<div class="tg-container tg-fallback-block"><span class="tg-kicker tg-kicker--light">Resilient by default</span><h2>Configured fallback path</h2><div class="tg-fallback-row"><span class="tg-fallback-node tg-fallback-node--active">{{ model.name }}</span>{% for fallback in fallback_models %}<i class="material-icons">arrow_forward</i><a class="tg-fallback-node" href="{{ fallback.url }}">{{ fallback.name }}</a>{% endfor %}</div></div>{% endif %}
+    </section>
+</div>
+<script>document.querySelector('[data-copy-code]').addEventListener('click', function () { navigator.clipboard.writeText(document.querySelector('.tg-code-card code').textContent); this.textContent = 'Copied'; });</script>
+{% endblock %}

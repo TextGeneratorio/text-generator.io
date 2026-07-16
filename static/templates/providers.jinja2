@@ -1,0 +1,60 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ page_description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ page_description }}">
+{% endblock %}
+
+{% block mainbody %}
+<div class="tg-catalog-page">
+    <section class="tg-catalog-hero">
+        <div class="tg-container tg-catalog-hero-grid">
+            <div>
+                <span class="tg-kicker">Unified provider router</span>
+                <h1>Every serious AI provider.<br><span>One clean API.</span></h1>
+                <p>Use one OpenAI-compatible endpoint, keep your application code stable, and route across {{ provider_count }} providers with model-aware fallbacks.</p>
+                <div class="tg-cta-row">
+                    <a class="tg-btn tg-btn--primary tg-btn--xl" href="/signup">Get an API key</a>
+                    <a class="tg-btn tg-btn--ghost tg-btn--xl" href="/models">Browse {{ model_count }} models</a>
+                </div>
+            </div>
+            <div class="tg-router-visual" aria-label="Provider routing overview">
+                <div class="tg-router-core"><img src="/static/img/text-generator-brain.png" alt=""><strong>Text Generator</strong><span>/v1/chat/completions</span></div>
+                <div class="tg-router-orbits" aria-hidden="true">
+                    {% for provider in providers[:8] %}<img src="{{ provider.logo_url }}" alt="">{% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tg-section tg-section--white">
+        <div class="tg-container">
+            <div class="tg-catalog-heading">
+                <div><span class="tg-kicker tg-kicker--light">Provider network</span><h2>Choose directly or let Auto route.</h2></div>
+                <p>Every card opens a provider page with its available models, capabilities, context, and pricing.</p>
+            </div>
+            <div class="tg-provider-grid">
+                {% for provider in providers %}
+                <a class="tg-provider-card" href="{{ provider.url }}">
+                    <span class="tg-provider-logo"><img src="{{ provider.logo_url }}" alt="{{ provider.name }} logo"></span>
+                    <span class="tg-provider-card-copy">
+                        <span class="tg-provider-title"><strong>{{ provider.name }}</strong><small>{{ provider.model_count }} models</small></span>
+                        <span>{{ provider.description }}</span>
+                    </span>
+                    <i class="material-icons" aria-hidden="true">north_east</i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="tg-section">
+        <div class="tg-container tg-open-source-band">
+            <div><span class="tg-kicker tg-kicker--light">No black box</span><h2>Fully open source routing.</h2><p>Inspect the router, self-host it, or build on the optimized pybed semantic selector.</p></div>
+            <a class="tg-btn tg-btn--primary tg-btn--xl" href="https://github.com/TextGeneratorio/text-generator.io" target="_blank" rel="noopener noreferrer">View source on GitHub</a>
+        </div>
+    </section>
+</div>
+{% endblock %}

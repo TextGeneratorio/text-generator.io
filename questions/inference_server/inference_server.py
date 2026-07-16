@@ -50,6 +50,8 @@ from questions.models import (
     map_to_generate_params,
     map_to_openai_response,
 )
+from questions.provider_catalog import openai_model_list, usage_cost_cents
+from questions.provider_router import ProviderRoutingError, get_provider_router
 from questions.utils import log_time
 from sellerinfo import session_secret
 
@@ -3280,6 +3282,12 @@ async def openai_route(
     return await openai_route_named("engine", openai_params, background_tasks, request, secret)
 
 
+@app.get("/v1/models")
+async def routed_models():
+    """Return the public multi-provider model catalogue in OpenAI format."""
+    return JSONResponse(openai_model_list())
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions_route(
     chat_params: ChatCompletionParams,
@@ -3298,7 +3306,15 @@ async def chat_completions_route(
             if bearer_token:
                 secret = bearer_token
 
-    messages = [{"role": m.role, "content": m.content} for m in chat_params.messages]
+    def jsonable_content(content):
+        if not isinstance(content, list):
+            return content
+        return [
+            part.model_dump(exclude_none=True) if hasattr(part, "model_dump") else part
+            for part in content
+        ]
+
+    messages = [{"role": m.role, "content": jsonable_content(m.content)} for m in chat_params.messages]
 
     # Convenience alias for clients that use top-level system prompt fields.
     # If both top-level prompt and a leading system role are provided,
@@ -3323,32 +3339,110 @@ async def chat_completions_route(
                     status_code=401,
                     detail="Please subscribe or buy API credits at https://text-generator.io/account before sending media",
                 )
-        elif not request_authorized(request, secret):
+        elif not request_authorized(request, secret) and not _user_has_subscription_or_credits(secret, minimum_credits=1):
             raise HTTPException(
                 status_code=401,
-                detail="Please subscribe at https://text-generator.io/subscribe first, also ensure you have a credit card on file",
+                detail="Please subscribe or buy API credits at https://text-generator.io/account before calling chat",
             )
+
+    should_meter_chat_credit = bool(
+        request
+        and "X-Rapid-API-Key" not in request.headers
+        and "x-rapid-api-key" not in request.headers
+        and not API_KEY
+        and secret != sellerinfo.TEXT_GENERATOR_SECRET
+    )
+
+    # Models in the public provider catalogue are routed before the local vLLM
+    # path. Unrecognised/local model IDs retain the existing inference behavior.
+    provider_router = get_provider_router()
+    if provider_router.can_route(chat_params.model):
+        routed_payload = _model_dump_jsonable(chat_params)
+        routed_payload["messages"] = messages
+        # The router normalizes every upstream into one OpenAI response. For a
+        # streaming client we emit that response as one valid SSE delta; this
+        # keeps provider failover possible before any bytes reach the caller.
+        routed_payload["stream"] = False
+        try:
+            routed_result = await asyncio.to_thread(provider_router.chat_completion, routed_payload)
+        except ProviderRoutingError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+        if should_meter_chat_credit:
+            _consume_user_credits(
+                secret,
+                usage_cost_cents(
+                    routed_result.selected_model,
+                    routed_result.data.get("usage"),
+                ),
+            )
+
+        if chat_params.stream:
+            from starlette.responses import StreamingResponse
+
+            async def routed_event_generator():
+                data = routed_result.data
+                choice = (data.get("choices") or [{}])[0]
+                message = choice.get("message") or {}
+                chunk = {
+                    "id": data.get("id", "chatcmpl-routed"),
+                    "object": "chat.completion.chunk",
+                    "created": data.get("created", int(time_now())),
+                    "model": data.get("model", routed_result.selected_model),
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": message.get("content", "")},
+                        "finish_reason": choice.get("finish_reason") or "stop",
+                    }],
+                    "provider": routed_result.provider,
+                }
+                yield f"data: {json.dumps(chunk)}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return StreamingResponse(
+                routed_event_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "X-Text-Generator-Provider": routed_result.provider,
+                    "X-Text-Generator-Model": routed_result.selected_model,
+                },
+            )
+
+        return JSONResponse(
+            routed_result.data,
+            headers={
+                "X-Text-Generator-Provider": routed_result.provider,
+                "X-Text-Generator-Model": routed_result.selected_model,
+            },
+        )
 
     if _is_vllm_text_backend_enabled() and not has_media_content:
         model_cache = _get_model_cache()
         if chat_params.stream:
+            if should_meter_chat_credit:
+                _consume_user_credits(secret, 1)
             return await _proxy_vllm_chat_streaming_response(
                 chat_params,
                 messages,
                 model_cache,
                 secret,
             )
-        return await _run_gpu_bound(
+        response = await _run_gpu_bound(
             _proxy_vllm_chat_completion_with_cache,
             chat_params,
             messages,
             model_cache,
             secret,
         )
+        if should_meter_chat_credit:
+            _consume_user_credits(secret, 1)
+        return response
 
     if chat_params.stream:
         if has_media_content:
             raise HTTPException(status_code=400, detail="Streaming is not supported yet for multimodal chat requests")
+        if should_meter_chat_credit:
+            _consume_user_credits(secret, 1)
         # Streaming SSE response
         async def event_generator():
             chat_id = "chatcmpl-" + str(random.randint(100000, 999999))
@@ -3425,6 +3519,8 @@ async def chat_completions_route(
             presence_penalty=chat_params.presence_penalty,
             repetition_penalty=chat_params.repetition_penalty,
         )
+        if should_meter_chat_credit:
+            _consume_user_credits(secret, 1)
 
     return map_to_chat_completion_response(
         generated_text=result["generated_text"],

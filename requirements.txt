@@ -409,6 +409,7 @@ numpy==1.26.4
     #   onnxruntime-gpu
     #   opencv-python
     #   pandas
+    #   pybed
     #   scikit-learn
     #   scipy
     #   soundfile
@@ -562,6 +563,8 @@ pyasn1==0.6.1
     #   rsa
 pyasn1-modules==0.4.2
     # via google-auth
+pybed @ git+https://github.com/lee101/pybed.git@8aff1c427148e33e6e4abe9225d669080e056e56
+    # via -r requirements.in
 pycares==4.9.0
     # via aiodns
 pycparser==2.22

@@ -1,302 +1,140 @@
-<section class="tg-hero">
+<section class="tg-hero tg-hero--router">
     <div class="tg-container tg-hero-grid">
         <div>
-            <h1 class="tg-hero-title">AI Text, Vision, and Speech That Helps Teams Convert Faster</h1>
-            <p class="tg-hero-subtitle">
-                Launch higher-performing AI experiences with one unified API. Get strong output quality,
-                privacy-focused processing, and lower operating cost from day one.
-            </p>
-
+            <span class="tg-eyebrow">One API for the best AI models</span>
+            <h1 class="tg-hero-title">Build once.<br><span class="tg-hero-accent">Use the best of AI.</span></h1>
+            <p class="tg-hero-subtitle">Reach the leading models for chat, code, reasoning, and vision through one familiar API. Choose a model yourself, or let Auto choose for every request.</p>
             <div class="tg-cta-row">
-                <a href="/signup" class="tg-btn tg-btn--primary tg-btn--xl">Start Building Free</a>
-                <a href="/docs" class="tg-btn tg-btn--ghost tg-btn--xl">View API Docs</a>
+                <a href="/signup" class="tg-btn tg-btn--primary tg-btn--xl">Start building free <i class="material-icons">arrow_forward</i></a>
+                <a href="https://github.com/TextGeneratorio/text-generator.io" target="_blank" rel="noopener noreferrer" class="tg-btn tg-btn--ghost tg-btn--xl"><span class="tg-github-mark">⌘</span> View on GitHub</a>
             </div>
-
-            <div class="tg-metrics" aria-label="Performance highlights">
-                <div class="tg-metric">
-                    <strong>10x lower cost</strong>
-                    <span>Compared to typical premium API stacks</span>
-                </div>
-                <div class="tg-metric">
-                    <strong>Sub-second responses</strong>
-                    <span>Optimized for fast product UX</span>
-                </div>
-                <div class="tg-metric">
-                    <strong>Privacy-first</strong>
-                    <span>No unnecessary data retention</span>
-                </div>
+            <div class="tg-hero-proof" aria-label="Platform highlights">
+                <span><i class="material-icons">check_circle</i> OpenAI compatible</span>
+                <span><i class="material-icons">check_circle</i> One credit balance</span>
+                <span><i class="material-icons">check_circle</i> Fully open source</span>
             </div>
         </div>
 
-        <div class="tg-demo-card">
-            <div class="tg-demo-tabs" role="tablist" aria-label="Prompt examples">
-                <button class="tg-demo-tab is-active" type="button" data-example="image-analysis">Images</button>
-                <button class="tg-demo-tab" type="button" data-example="review">Review</button>
-                <button class="tg-demo-tab" type="button" data-example="code">Code</button>
-                <button class="tg-demo-tab" type="button" data-example="chat">Chat</button>
+        <div class="tg-routing-console" aria-label="Live model routing example">
+            <div class="tg-console-header"><span><i></i><i></i><i></i></span><strong>Smart route</strong><small>Ready</small></div>
+            <div class="tg-console-request"><span class="tg-code-key">Request</span><br><span class="tg-code-string" id="route-prompt">“Review this authentication code for security issues.”</span></div>
+            <div class="tg-route-trace">
+                <div class="tg-trace-step is-done"><span>01</span><div><strong>Task understood</strong><small>Security · code review · complex</small></div><i class="material-icons">check</i></div>
+                <div class="tg-trace-line"></div>
+                <div class="tg-trace-step is-done"><span>02</span><div><strong>Best fit selected</strong><small>Strong coding and security reasoning</small></div><i class="material-icons">check</i></div>
+                <div class="tg-trace-line"></div>
+                <div class="tg-trace-step is-live"><span>03</span><div><strong>GPT-5.6 Sol</strong><small>OpenAI · fallback ready</small></div><em>Selected</em></div>
             </div>
-
-            <div class="tg-demo-panel" id="demo-panel" aria-live="polite"></div>
-            <a href="/playground" class="tg-inline-link">Try this in Playground</a>
+            <div class="tg-console-footer"><span><i class="material-icons">auto_awesome</i> Automatic model selection</span><span>Fallback on</span></div>
         </div>
     </div>
+    <div class="tg-hero-glow tg-hero-glow--one"></div><div class="tg-hero-glow tg-hero-glow--two"></div>
 </section>
 
-<section class="tg-section" id="tools">
+<section class="tg-provider-strip" aria-label="Supported AI providers">
     <div class="tg-container">
-        <div class="tg-section-title">
-            <h2><span class="tg-gradient-text">Conversion-Focused Tools</span> Ready Out of the Box</h2>
-            <p>
-                Skip boilerplate integrations. Use prebuilt AI workflows to ship features that increase
-                activation, retention, and user satisfaction.
-            </p>
-        </div>
-
-        <div class="tg-tool-grid">
-            <article class="tg-tool-card">
-                <i class="material-icons" aria-hidden="true">public</i>
-                <h3>Domain Name Generator</h3>
-                <p>Create high-quality brand names and domain ideas quickly, then move to launch with less friction.</p>
-            </article>
-
-            <article class="tg-tool-card">
-                <i class="material-icons" aria-hidden="true">draw</i>
-                <h3>AI Text Editor</h3>
-                <p>Write and revise long-form content with autocomplete and rewriting tuned for clarity and speed.</p>
-            </article>
-
-            <article class="tg-tool-card">
-                <i class="material-icons" aria-hidden="true">tune</i>
-                <h3>Prompt Optimizer</h3>
-                <p>Iterate toward dependable outputs by refining prompts and routing to the right model profiles.</p>
-            </article>
-
-            <article class="tg-tool-card">
-                <i class="material-icons" aria-hidden="true">image_search</i>
-                <h3>Image Captioning AI</h3>
-                <p>Extract useful insight from images with fast multimodal analysis suited for real customer workflows.</p>
-            </article>
+        <div class="tg-strip-heading"><span>One endpoint. {{ provider_count }} leading providers.</span><a href="/providers">Explore the network <i class="material-icons">arrow_forward</i></a></div>
+        <div class="tg-provider-logo-row">
+            {% for provider in providers[:10] %}
+            <a href="{{ provider.url }}" title="Explore {{ provider.name }} models"><img src="{{ provider.logo_url }}" alt="{{ provider.name }}"><span>{{ provider.name }}</span></a>
+            {% endfor %}
         </div>
     </div>
 </section>
 
-<section class="tg-section tg-section--white" id="api">
+<section class="tg-section tg-subscription-section" id="subscription">
     <div class="tg-container">
-        <div class="tg-section-title">
-            <h2>One API for <span class="tg-gradient-text">Text, Speech, and Vision</span></h2>
-            <p>
-                Integrate once and power chat, OCR, synthesis, summarization, and code generation from a unified platform.
-            </p>
-        </div>
-
-        <div class="tg-feature-layout">
-            <article class="tg-feature-item">
-                <span class="tg-feature-icon"><i class="material-icons" aria-hidden="true">savings</i></span>
-                <div>
-                    <h4>Predictable Pricing</h4>
-                    <p>Run production workloads with cost control and cleaner migration from existing model providers.</p>
+        <div class="tg-subscription-panel">
+            <div class="tg-subscription-copy">
+                <span class="tg-kicker">Unlimited subscription</span>
+                <h2>Unlimited chat, UI tools, and provider APIs.</h2>
+                <p>One subscription unlocks unlimited use across Text Generator: chat in the UI, create with the playground and built-in tools, or call the full provider network through our OpenAI-compatible API.</p>
+                <div class="tg-cta-row">
+                    <a href="/subscribe" class="tg-btn tg-btn--primary tg-btn--xl">Get unlimited access <i class="material-icons">arrow_forward</i></a>
+                    <a href="/signup" class="tg-btn tg-btn--ghost tg-btn--xl">Start free</a>
                 </div>
-            </article>
-
-            <article class="tg-feature-item">
-                <span class="tg-feature-icon"><i class="material-icons" aria-hidden="true">bolt</i></span>
-                <div>
-                    <h4>Fast Inference</h4>
-                    <p>Low-latency request handling built for UX-sensitive flows and high-throughput backends.</p>
-                </div>
-            </article>
-
-            <article class="tg-feature-item">
-                <span class="tg-feature-icon"><i class="material-icons" aria-hidden="true">code</i></span>
-                <div>
-                    <h4>Developer Friendly</h4>
-                    <p>Use familiar REST endpoints, practical docs, and playgrounds that shorten your build cycle.</p>
-                </div>
-            </article>
-
-            <article class="tg-feature-item">
-                <span class="tg-feature-icon"><i class="material-icons" aria-hidden="true">shield</i></span>
-                <div>
-                    <h4>Privacy by Design</h4>
-                    <p>Process sensitive user inputs with strict privacy posture and no unnecessary storage patterns.</p>
-                </div>
-            </article>
-        </div>
-    </div>
-</section>
-
-<section class="tg-trust-showcase">
-    <div class="tg-container">
-        <div class="tg-trust-header">
-            <p class="tg-trust-label">Trusted by teams building with AI</p>
-            <div class="tg-trust-actions" aria-label="Logo rail controls">
-                <button class="tg-trust-arrow" type="button" data-trust-prev aria-label="Scroll logos left">
-                    <i class="material-icons" aria-hidden="true">west</i>
-                </button>
-                <button class="tg-trust-arrow" type="button" data-trust-next aria-label="Scroll logos right">
-                    <i class="material-icons" aria-hidden="true">east</i>
-                </button>
             </div>
-        </div>
-    </div>
-
-    <div class="tg-trust-scroller" data-trust-scroller aria-label="Trusted organizations" tabindex="0">
-        <div class="tg-trust-grid">
-            <a href="https://codex-infinity.com/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="Codex Infinity">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/codex-infinity-logo.webp" alt="Codex Infinity" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">Codex Infinity</span>
-            </a>
-            <a href="https://evangeler.com/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="Evangeler">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/evangeler-logo.png" alt="Evangeler" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">Evangeler</span>
-            </a>
-            <a href="https://v5games.com/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="V5 Games">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/v5games-logo.webp" alt="V5 Games" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">V5 Games</span>
-            </a>
-            <a href="https://openpaths.io/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="OpenPaths">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/openpaths-logo.webp" alt="OpenPaths" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">OpenPaths</span>
-            </a>
-            <a href="https://netwrck.com/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="Netwrck">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/netwrck-logo-colord256.png" alt="Netwrck" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">Netwrck</span>
-            </a>
-            <a href="https://ebank.nz/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="eBank.nz">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/ebank-logo-removebg-full387.webp" alt="eBank.nz" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">eBank.nz</span>
-            </a>
-            <a href="https://www.fintech-partners.com/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="Fintech Partners">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/fintech-partners-logo.png" alt="Fintech Partners" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">Fintech Partners</span>
-            </a>
-            <a href="https://journeai.com/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="JourneAI">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/journeai-logo.svg" alt="JourneAI" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">JourneAI</span>
-            </a>
-            <a href="https://helix.app.nz/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="Helix">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/askfelix-robot-icon-transp.png" alt="Helix" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">Helix</span>
-            </a>
-            <a href="https://dictatorflow.com/" class="tg-trust-logo" target="_blank" rel="noopener noreferrer" aria-label="DictatorFlow">
-                <span class="tg-trust-logo-mark">
-                    <img src="/static/img/dictatorflow-logo.webp" alt="DictatorFlow" loading="lazy" decoding="async">
-                </span>
-                <span class="tg-trust-name">DictatorFlow</span>
-            </a>
-        </div>
-    </div>
-</section>
-
-<section class="tg-section" style="text-align:center; padding:2rem 0;">
-    <div class="tg-container">
-        <a href="https://indiehunt.io/project/text-generator" target="_blank" rel="noopener">
-            <img src="https://indiehunt.io/badges/indiehunt-badge-light.svg" alt="Featured on IndieHunt" width="265" height="58" loading="lazy" />
-        </a>
-    </div>
-</section>
-
-<section class="tg-section tg-section--white" id="pricing-section">
-    <div class="tg-container">
-        <div class="tg-cta-band" id="pricing">
-            <div>
-                <h3>Ready to Improve Your AI Funnel?</h3>
-                <p>Start free, test quality in your own use case, and scale only when metrics improve.</p>
-            </div>
-            <div class="tg-cta-row">
-                <a href="/signup" class="tg-btn tg-btn--light tg-btn--xl">Create Free Account</a>
-                <a href="/subscribe" class="tg-btn tg-btn--secondary tg-btn--xl">See Pricing</a>
+            <div class="tg-subscription-benefits" aria-label="Unlimited subscription benefits">
+                <article><i class="material-icons">forum</i><div><strong>Unlimited chat and UI use</strong><span>Use chat, the playground, and built-in creation tools without counting credits.</span></div></article>
+                <article><i class="material-icons">hub</i><div><strong>Every API provider</strong><span>Reach the supported provider network from one endpoint with unlimited API access.</span></div></article>
+                <article><i class="material-icons">toll</i><div><strong>Credits are still optional</strong><span>Prefer pay as you go? Buy API credits with no subscription required.</span></div></article>
             </div>
         </div>
     </div>
 </section>
 
-<script>
-(function () {
-    const examples = {
-        'image-analysis': {
-            prompt: 'Which fairy looks the most playful and why?\n1: https://static.text-generator.io/static/img/fairy1.jpeg\n2: https://static.text-generator.io/static/img/fairy2.jpeg\nAnswer:',
-            output: 'The first fairy reads as most playful because the brighter palette and pose feel energetic and friendly.'
-        },
-        review: {
-            prompt: 'Write a restaurant review from these notes:\nName: The Blue Wharf\nLobster excellent, noisy room, polite service.\nReview:',
-            output: 'The lobster was excellent and worth returning for. The room gets noisy, but service stayed attentive and polite.'
-        },
-        code: {
-            prompt: '# Build a simple PyTorch classifier\nimport torch\nimport torch.nn as nn\nimport torch.optim as optim\n',
-            output: 'class Net(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.layers = nn.Sequential(nn.Linear(32, 64), nn.ReLU(), nn.Linear(64, 2))\n'
-        },
-        chat: {
-            prompt: 'User: How do I center a div with flexbox?\nAI:',
-            output: 'Use display: flex; justify-content: center; align-items: center; on the parent container.'
-        }
-    };
+<section class="tg-section tg-section--white tg-auto-section">
+    <div class="tg-container">
+        <div class="tg-catalog-heading">
+            <div><span class="tg-kicker tg-kicker--light">Automatic model selection</span><h2>You describe the work.<br>Auto picks the model.</h2></div>
+            <p>Use one model ID for everyday requests. Auto matches each job with a model suited to its speed, quality, and cost needs.</p>
+        </div>
+        <div class="tg-auto-showcase">
+            {% set primary_model = featured_models[0] %}
+            <a class="tg-auto-primary" href="{{ primary_model.url }}">
+                <span class="tg-auto-primary-top"><span class="tg-auto-icon"><i class="material-icons">auto_awesome</i></span><span class="tg-auto-status"><i></i> Recommended</span></span>
+                <span class="tg-auto-primary-copy"><small>{{ primary_model.id }}</small><strong>One smart default for most requests.</strong><span>{{ primary_model.description }}</span></span>
+                <span class="tg-auto-primary-example"><small>Example route</small><span><b>Complex code review</b><i class="material-icons">arrow_forward</i><b>GPT-5.6 Sol</b></span></span>
+                <span class="tg-auto-primary-link">Explore Auto <i class="material-icons">arrow_forward</i></span>
+            </a>
+            <div class="tg-auto-list">
+                {% for model in featured_models[1:] %}
+                <a class="tg-auto-list-item" href="{{ model.url }}">
+                    <span class="tg-auto-icon"><i class="material-icons">{% if model.auto_profile == 'code' %}code{% elif model.auto_profile == 'vision' %}visibility{% elif model.auto_profile == 'reasoning' %}psychology{% elif model.auto_profile == 'fast' %}bolt{% elif model.auto_profile == 'cheap' %}savings{% else %}route{% endif %}</i></span>
+                    <span><strong>{{ model.name }}</strong><small>{{ model.description }}</small></span>
+                    <i class="material-icons">arrow_forward</i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="tg-auto-benefits"><span><i class="material-icons">check</i>No model comparison</span><span><i class="material-icons">check</i>Provider fallback included</span><span><i class="material-icons">check</i>Exact model choice whenever you need it</span></div>
+    </div>
+</section>
 
-    const panel = document.getElementById('demo-panel');
-    const tabs = document.querySelectorAll('.tg-demo-tab');
-    const trustScroller = document.querySelector('[data-trust-scroller]');
-    const trustPrev = document.querySelector('[data-trust-prev]');
-    const trustNext = document.querySelector('[data-trust-next]');
+<section class="tg-section tg-platform-section">
+    <div class="tg-container tg-platform-grid">
+        <div class="tg-platform-copy"><span class="tg-kicker tg-kicker--light">Built for production</span><h2>Your model layer, under control.</h2><p>Use an exact model when consistency matters. Choose Auto when you want quality, speed, and price balanced for you.</p><a href="/docs" class="tg-text-link">Read the API docs <i class="material-icons">arrow_forward</i></a></div>
+        <div class="tg-capability-grid">
+            <article><i class="material-icons">swap_horiz</i><h3>Built-in fallbacks</h3><p>Keep requests moving when a provider is rate-limited or unavailable.</p></article>
+            <article><i class="material-icons">account_balance_wallet</i><h3>One credit balance</h3><p>Fund once, use every routed model, and keep usage in one account.</p></article>
+            <article><i class="material-icons">key</i><h3>Your keys or ours</h3><p>Use the managed gateway now and retain a clean path to provider keys.</p></article>
+            <article><i class="material-icons">visibility_off</i><h3>Private by design</h3><p>Model selection happens without sending your prompt through another AI call.</p></article>
+        </div>
+    </div>
+</section>
 
-    function renderExample(key) {
-        const example = examples[key];
-        if (!example || !panel) return;
+<section class="tg-section tg-section--white">
+    <div class="tg-container tg-api-showcase">
+        <div class="tg-code-window">
+            <div class="tg-code-tabs"><span class="is-active">Python</span><span>JavaScript</span><em>OpenAI SDK</em></div>
+            <pre><code><span class="tg-code-purple">from</span> openai <span class="tg-code-purple">import</span> OpenAI
 
-        panel.innerHTML = `${example.prompt}<div class="tg-demo-output">${example.output}</div>`;
+client = OpenAI(
+    base_url=<span class="tg-code-green">"https://api.text-generator.io/v1"</span>,
+    api_key=<span class="tg-code-green">"YOUR_API_KEY"</span>,
+)
 
-        tabs.forEach((tab) => {
-            tab.classList.toggle('is-active', tab.dataset.example === key);
-        });
-    }
+response = client.chat.completions.create(
+    model=<span class="tg-code-green">"text-generator/auto"</span>,
+    messages=[{<span class="tg-code-green">"role"</span>: <span class="tg-code-green">"user"</span>,
+               <span class="tg-code-green">"content"</span>: <span class="tg-code-green">"Ship something great"</span>}],
+)</code></pre>
+        </div>
+        <div><span class="tg-kicker tg-kicker--light">A two-line migration</span><h2>Keep the SDK.<br>Change the destination.</h2><p>Point the OpenAI client at Text Generator and unlock the provider network without rewriting your application.</p><ul class="tg-check-list"><li><i class="material-icons">check</i>Chat completions and streaming-compatible responses</li><li><i class="material-icons">check</i>Aliases, Auto profiles, and exact model IDs</li><li><i class="material-icons">check</i>Routing metadata and provider response headers</li></ul><a href="/signup" class="tg-btn tg-btn--primary tg-btn--xl">Create a free API key</a></div>
+    </div>
+</section>
 
-    tabs.forEach((tab) => {
-        tab.addEventListener('click', () => renderExample(tab.dataset.example));
-    });
+<section class="tg-section tg-open-source-section">
+    <div class="tg-container tg-open-source-panel">
+        <div class="tg-oss-mark"><span>{</span><img src="/static/img/text-generator-brain.png" alt=""><span>}</span></div>
+        <div><span class="tg-kicker">Built in the open</span><h2>Open source, from API to router.</h2><p>Inspect the code, run it yourself, or help shape what comes next. The complete platform is available on GitHub.</p></div>
+        <a href="https://github.com/TextGeneratorio/text-generator.io" target="_blank" rel="noopener noreferrer" class="tg-btn tg-btn--light tg-btn--xl">Explore the source <i class="material-icons">north_east</i></a>
+    </div>
+</section>
 
-    function updateTrustControls() {
-        if (!trustScroller || !trustPrev || !trustNext) return;
-
-        const maxScroll = Math.max(trustScroller.scrollWidth - trustScroller.clientWidth - 2, 0);
-        trustPrev.disabled = trustScroller.scrollLeft <= 2;
-        trustNext.disabled = trustScroller.scrollLeft >= maxScroll;
-    }
-
-    function scrollTrust(direction) {
-        if (!trustScroller) return;
-
-        trustScroller.scrollBy({
-            left: Math.round(trustScroller.clientWidth * 0.78) * direction,
-            behavior: 'smooth'
-        });
-    }
-
-    if (trustPrev && trustNext && trustScroller) {
-        trustPrev.addEventListener('click', () => scrollTrust(-1));
-        trustNext.addEventListener('click', () => scrollTrust(1));
-        trustScroller.addEventListener('scroll', updateTrustControls, { passive: true });
-        window.addEventListener('resize', updateTrustControls);
-        window.addEventListener('load', updateTrustControls);
-        updateTrustControls();
-    }
-
-    renderExample('image-analysis');
-})();
-</script>
+<section class="tg-section tg-section--white tg-final-cta-section">
+    <div class="tg-container tg-final-cta">
+        <div><span class="tg-kicker tg-kicker--light">Unlimited or pay as you go</span><h2>Use every surface your way.</h2><p>Subscribe for unlimited chat, UI tools, and provider APIs, or start free and add API credits when you need them.</p></div>
+        <div class="tg-cta-row"><a href="/subscribe" class="tg-btn tg-btn--primary tg-btn--xl">View unlimited plan</a><a href="/signup" class="tg-btn tg-btn--secondary tg-btn--xl">Start free</a></div>
+    </div>
+</section>
