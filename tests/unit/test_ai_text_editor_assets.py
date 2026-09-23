@@ -16,6 +16,15 @@ import main
 
 
 client = TestClient(main.app)
+client.cookies.set("session_secret", "test-session")
+
+
+def test_ai_text_editor_logged_out_shows_landing():
+    response = TestClient(main.app).get("/ai-text-editor")
+
+    assert response.status_code == 200
+    assert "Create a free account" in response.text
+    assert "/static/js/ai-text-editor-init.js" not in response.text
 
 
 def test_ai_text_editor_uses_local_quill_assets():

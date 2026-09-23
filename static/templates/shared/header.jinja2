@@ -1,7 +1,8 @@
+{%- set _tg_session = request.cookies.get("session_secret") if request is defined and request else None -%}
 <header class="mdl-layout__header mdl-layout__header--scroll tg-site-header">
     <div class="mdl-layout__header-row tg-header-row">
         <a href="/" class="tg-brand" title="Text Generator">
-            <img class="tg-brand-icon" src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="40" height="40">
+            <img class="tg-brand-icon" src="/static/img/tg-logo-96.webp" alt="Text Generator Brain" width="40" height="40">
             <span class="mdl-layout-title tg-brand-text">Text Generator</span>
         </a>
 
@@ -16,12 +17,12 @@
             <a class="mdl-navigation__link tg-nav-link" href="/docs">Docs</a>
 
             <span class="tg-header-auth tg-header-auth--logged-out">
-                <a class="mdl-button mdl-js-button tg-btn tg-btn--secondary header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;">Log in</a>
-                <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;">Sign up</a>
+                <a class="mdl-button mdl-js-button tg-btn tg-btn--secondary header-login-signup" href="#" onclick="showLoginModal(); return false;"{% if _tg_session %} style="display: none;"{% endif %}>Log in</a>
+                <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-login-signup" href="#" onclick="showSignupModal(); return false;"{% if _tg_session %} style="display: none;"{% endif %}>Sign up</a>
             </span>
             <span class="tg-header-auth tg-header-auth--logged-in">
-                <a class="tg-header-credit header-account" href="/account" style="display: none;" title="API credit balance"><i class="material-icons">account_balance_wallet</i><span data-credit-balance>$0.00</span></a>
-                <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-account" href="/account" style="display: none;">Account</a>
+                <a class="tg-header-credit header-account" href="/account"{% if not _tg_session %} style="display: none;"{% endif %} title="API credit balance"><i class="material-icons">account_balance_wallet</i><span data-credit-balance>$0.00</span></a>
+                <a class="mdl-button mdl-js-button tg-btn tg-btn--primary header-account" href="/account"{% if not _tg_session %} style="display: none;"{% endif %}>Account</a>
             </span>
         </nav>
     </div>
@@ -30,7 +31,7 @@
 <div class="mdl-layout__drawer tg-drawer">
     <span class="mdl-layout-title">
         <a href="/" class="tg-drawer-brand">
-            <img src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator Brain" width="34" height="34">
+            <img src="/static/img/tg-logo-96.webp" alt="Text Generator Brain" width="34" height="34">
             Text Generator
         </a>
     </span>
@@ -47,11 +48,11 @@
         <a class="mdl-navigation__link" href="/docs"><i class="material-icons">description</i>Docs</a>
 
         <div class="tg-header-drawer-auth tg-header-auth--logged-out">
-            <a class="mdl-navigation__link header-login-signup" href="#" onclick="showLoginModal(); return false;" style="display: none;"><i class="material-icons">login</i>Log in</a>
-            <a class="mdl-navigation__link header-login-signup" href="#" onclick="showSignupModal(); return false;" style="display: none;"><i class="material-icons">person_add</i>Sign up</a>
+            <a class="mdl-navigation__link header-login-signup" href="#" onclick="showLoginModal(); return false;"{% if _tg_session %} style="display: none;"{% endif %}><i class="material-icons">login</i>Log in</a>
+            <a class="mdl-navigation__link header-login-signup" href="#" onclick="showSignupModal(); return false;"{% if _tg_session %} style="display: none;"{% endif %}><i class="material-icons">person_add</i>Sign up</a>
         </div>
         <div class="tg-header-drawer-auth tg-header-auth--logged-in">
-            <a class="mdl-navigation__link header-account" href="/account" style="display: none;"><i class="material-icons">person</i>Account</a>
+            <a class="mdl-navigation__link header-account" href="/account"{% if not _tg_session %} style="display: none;"{% endif %}><i class="material-icons">person</i>Account</a>
         </div>
     </nav>
 </div>
@@ -61,7 +62,7 @@
     <div class="auth-modal-content" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
         <div class="auth-modal-header">
             <div class="auth-logo">
-                <img src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator" width="32" height="32">
+                <img src="/static/img/tg-logo-96.webp" alt="Text Generator" width="32" height="32">
             </div>
             <h3 id="login-modal-title" class="auth-modal-title">Sign in</h3>
             <p class="auth-modal-subtitle">Continue to Text Generator</p>
@@ -102,7 +103,7 @@
     <div class="auth-modal-content" role="dialog" aria-modal="true" aria-labelledby="signup-modal-title">
         <div class="auth-modal-header">
             <div class="auth-logo">
-                <img src="{{ static_url }}/img/android-chrome-192x192.png" alt="Text Generator" width="32" height="32">
+                <img src="/static/img/tg-logo-96.webp" alt="Text Generator" width="32" height="32">
             </div>
             <h3 id="signup-modal-title" class="auth-modal-title">Create your account</h3>
             <p class="auth-modal-subtitle">Start building with Text Generator</p>

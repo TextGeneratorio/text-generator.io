@@ -74,7 +74,7 @@
         </div>
 
         <div class="tab-content active" id="javascript-tab">
-            <pre><code class="language-javascript">const formData = new FormData();
+            <pre tabindex="0"><code class="language-javascript">const formData = new FormData();
 formData.append('image_file', fileInput.files[0]);
 formData.append('fast_mode', true);
 
@@ -94,7 +94,7 @@ fetch('https://api.text-generator.io/api/v1/image-caption', {
         </div>
 
         <div class="tab-content" id="python-tab">
-            <pre><code class="language-python">import requests
+            <pre tabindex="0"><code class="language-python">import requests
 
 url = 'https://api.text-generator.io/api/v1/image-caption'
 headers = {'secret': '<span class="api-secret-value">Loading...</span>'}
@@ -107,7 +107,7 @@ print(f"Caption: {result['caption']}")</code></pre>
         </div>
 
         <div class="tab-content" id="curl-tab">
-            <pre><code class="language-bash">curl -X POST "https://api.text-generator.io/api/v1/image-caption" \
+            <pre tabindex="0"><code class="language-bash">curl -X POST "https://api.text-generator.io/api/v1/image-caption" \
   -H "secret: <span class="api-secret-value">Loading...</span>" \
   -F "image_file=@image.jpg" \
   -F "fast_mode=true"</code></pre>
@@ -115,7 +115,7 @@ print(f"Caption: {result['caption']}")</code></pre>
 
         <div class="example-response">
             <h3>Example Response</h3>
-            <pre><code class="language-json">{
+            <pre tabindex="0"><code class="language-json">{
   "caption": "a red car parked on the street",
   "filename": "example.jpg",
   "fast_mode": true,

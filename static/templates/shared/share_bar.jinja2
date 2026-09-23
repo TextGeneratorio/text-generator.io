@@ -1,10 +1,12 @@
 {%- set _share_path = request.url.path if request is defined and request else '/' -%}
 {%- set _share_url = 'https://text-generator.io' ~ _share_path -%}
 {%- set _share_title = share_title | default(tool_name | default('Text Generator')) -%}
+{%- set _share_tool = tool_slug if (tool_slug is defined and share is not defined) else '' -%}
 <section class="tg-share" aria-label="Share this tool" data-share>
     <div class="tg-share__copy">
         <strong>Found this useful?</strong>
-        <span>Share {{ _share_title }}, or select any result text first to share it.</span>
+        <span>{% if _share_tool %}Share your result as a link with its own preview card, or share the tool.{% else %}Share {{ _share_title }} with a friend.{% endif %}</span>
+        <a class="tg-share__link" data-share-link hidden></a>
     </div>
     <div class="tg-share__actions">
         <button type="button" class="tg-share__btn tg-share__btn--primary" data-share-native>Share</button>
@@ -21,26 +23,63 @@
 .tg-share__btn{min-height:40px;padding:8px 16px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-family:inherit;font-weight:600;font-size:14px;line-height:1.4;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 .tg-share__btn:hover{border-color:#0f172a}
 .tg-share__btn--primary{background:#0f172a;color:#fff;border-color:#0f172a}
+.tg-share__btn:disabled{opacity:.6}
+.tg-share__link{font-size:13px;color:#1c4774!important;word-break:break-all;display:inline!important}
 </style>
 <script>
 (function () {
     var root = document.currentScript.previousElementSibling.previousElementSibling;
-    var url = {{ _share_url | tojson }}, title = {{ _share_title | tojson }};
-    function selected() { var s = String(window.getSelection ? window.getSelection() : '').trim(); return s.length > 500 ? s.slice(0, 497) + '...' : s; }
+    var url = {{ _share_url | tojson }}, title = {{ _share_title | tojson }}, tool = {{ _share_tool | tojson }};
+    var sel = '[data-share-output],#caption-result,#prompt-opt-result,#domain-results-grid,#keyword-results,#builder-prompt-output,#feedback-output,#research-report,.tool-output,.result-output';
+    var lastSel = '', made = {};
+    function selected() { return String(window.getSelection ? window.getSelection() : '').trim(); }
+    document.addEventListener('selectionchange', function () { var s = selected(); if (s && !root.contains(window.getSelection().anchorNode)) lastSel = s; });
+    function findOutput() {
+        if (lastSel) return lastSel;
+        var els = document.querySelectorAll(sel);
+        for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            if (root.contains(el) || el.hidden || !el.offsetParent) continue;
+            var t = (el.innerText || '').trim();
+            if (t.length > 3) return t;
+        }
+        return '';
+    }
+    function findInput() {
+        var f = document.querySelector('main textarea, .tool-container textarea, main input[type=text], main input[type=search]');
+        return f && f.value ? f.value.trim() : '';
+    }
+    var linkEl = root.querySelector('[data-share-link]');
+    function showLink(u) { linkEl.href = u; linkEl.textContent = u; linkEl.hidden = false; }
     function copy(text, btn, label) {
-        var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = label; }, 1600); };
+        var done = function () { btn.textContent = 'Link copied'; setTimeout(function () { btn.textContent = label; }, 1800); };
         if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy:', text); }); } else { window.prompt('Copy:', text); }
     }
-    var copyBtn = root.querySelector('[data-share-copy]');
-    copyBtn.addEventListener('click', function () { copy(url, copyBtn, 'Copy link'); });
-    var nativeBtn = root.querySelector('[data-share-native]');
-    var lastSel = '';
-    document.addEventListener('selectionchange', function () { var s = selected(); if (s) lastSel = s; });
-    nativeBtn.addEventListener('mousedown', function () { lastSel = selected() || lastSel; });
-    nativeBtn.addEventListener('click', function () {
-        var text = lastSel ? '"' + lastSel + '"\n\nMade with ' + title + ' on Text Generator' : title + ' - free AI tool on Text Generator';
-        if (navigator.share) { navigator.share({ title: title, text: text, url: url }).catch(function () {}); }
-        else { copy(text + '\n' + url, nativeBtn, 'Share'); }
-    });
+    function send(u, text, btn, label) {
+        if (navigator.share) {
+            navigator.share({ title: title, text: text, url: u }).catch(function (e) { if (e && e.name !== 'AbortError') copy(u, btn, label); });
+        } else { copy(u, btn, label); }
+    }
+    async function permalink() {
+        var out = findOutput();
+        if (!tool || !out) return null;
+        var key = out.slice(0, 200);
+        if (made[key]) return made[key];
+        var r = await fetch('/api/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tool: tool, output: out, input: findInput() }) });
+        if (!r.ok) return null;
+        var d = await r.json();
+        made[key] = d.url;
+        return d.url;
+    }
+    async function go(btn, label, nativeShare) {
+        btn.disabled = true;
+        var u = url, text = title + ' - free AI tool on Text Generator';
+        try { var p = await permalink(); if (p) { u = p; text = 'Made with ' + title + ' on Text Generator'; showLink(p); } } catch (e) {}
+        btn.disabled = false;
+        if (nativeShare) send(u, text, btn, label); else copy(u, btn, label);
+    }
+    var nativeBtn = root.querySelector('[data-share-native]'), copyBtn = root.querySelector('[data-share-copy]');
+    nativeBtn.addEventListener('click', function () { go(nativeBtn, 'Share', true); });
+    copyBtn.addEventListener('click', function () { go(copyBtn, 'Copy link', false); });
 })();
 </script>

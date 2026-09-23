@@ -18,7 +18,7 @@
     {% block headers %}
     {% endblock %}
     {% include 'templates/shared/seo_head.jinja2' %}
-    <link rel="stylesheet" href="/static/css/a11y-fixes.css?v=2">
+    <link rel="stylesheet" href="/static/css/a11y-fixes.css?v=3">
     <script>
         (function () {
             if ({{ 'true' if (request is defined and request and request.cookies.get('session_secret')) else 'false' }} || !window.fetch) return;
@@ -258,7 +258,7 @@
     </script>
     <script defer src="/static/js/material.min.js"></script>
     <script src="/static/js/checkout-dialog.js?v=5"></script>
-    <script src="/static/js/subscription-modal.js"></script>
+    <script src="/static/js/subscription-modal.js?v=2"></script>
 
     {#    <script src="{{ static_url }}/js/webutils.js"></script>#}
     {#    <script src="{{ static_url }}/js/templates/coins-table.js"></script>#}

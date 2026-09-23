@@ -36,7 +36,7 @@ window.SubscriptionModal = class SubscriptionModal {
                     <div class="subscription-modal-header">
                         <div class="subscription-modal-brand">
                             <div class="subscription-modal-logo">
-                                <img src="/static/img/android-chrome-192x192.png" alt="Text Generator" width="32" height="32">
+                                <img src="/static/img/tg-logo-96.webp" alt="Text Generator" width="32" height="32" loading="lazy" decoding="async">
                             </div>
                             <div>
                                 <p class="subscription-modal-kicker">Text Generator</p>

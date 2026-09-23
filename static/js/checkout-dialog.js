@@ -116,7 +116,7 @@ class CheckoutDialog {
                     <div class="checkout-dialog-header">
                         <div class="checkout-dialog-brand">
                             <div class="checkout-dialog-logo">
-                                <img src="/static/img/android-chrome-192x192.png" alt="Text Generator" width="32" height="32">
+                                <img src="/static/img/tg-logo-96.webp" alt="Text Generator" width="32" height="32" loading="lazy" decoding="async">
                             </div>
                             <div>
                                 <p class="checkout-dialog-kicker">Text Generator</p>

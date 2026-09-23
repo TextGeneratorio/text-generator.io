@@ -2350,6 +2350,22 @@ async def bulk_text_generator(request: Request):
     )
 
 
+from questions.share_results import get_share as _get_share
+from questions.share_results import router as share_router
+
+app.include_router(share_router)
+
+
+@app.get("/s/{share_id}")
+async def shared_result_page(request: Request, share_id: str):
+    share = _get_share(share_id)
+    if not share:
+        raise HTTPException(status_code=404, detail="Shared result not found")
+    base_vars = get_base_template_vars(request)
+    base_vars.update({"share": share})
+    return templates.TemplateResponse("templates/share.jinja2", base_vars)
+
+
 @app.get("/robots.txt", include_in_schema=False)
 async def robots_txt():
     return Response(
