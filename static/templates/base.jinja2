@@ -18,7 +18,8 @@
     {% block headers %}
     {% endblock %}
     {% include 'templates/shared/seo_head.jinja2' %}
-    <link rel="stylesheet" href="/static/css/a11y-fixes.css?v=3">
+    <link rel="preload" href="/static/fonts/sora-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/static/css/a11y-fixes.css?v=4">
     <script>
         (function () {
             if ({{ 'true' if (request is defined and request and request.cookies.get('session_secret')) else 'false' }} || !window.fetch) return;
@@ -36,7 +37,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
 

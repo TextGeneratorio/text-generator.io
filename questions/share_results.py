@@ -64,7 +64,7 @@ def get_share(share_id: str, count_view: bool = True):
     with _lock:
         conn = _db()
         try:
-            row = conn.execute("SELECT id, tool, input, output, created FROM shared_results WHERE id = ?", (share_id,)).fetchone()
+            row = conn.execute("SELECT id, tool, input, output, created, views FROM shared_results WHERE id = ?", (share_id,)).fetchone()
             if row and count_view:
                 conn.execute("UPDATE shared_results SET views = views + 1 WHERE id = ?", (share_id,))
                 conn.commit()
@@ -81,6 +81,7 @@ def get_share(share_id: str, count_view: bool = True):
         "input": row[2] or "",
         "output": row[3],
         "created": row[4],
+        "views": row[5] + (1 if count_view else 0),
     }
 
 

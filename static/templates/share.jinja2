@@ -18,7 +18,7 @@
 
 {% block mainbody %}
 <main class="tg-shared">
-    <p class="tg-shared__eyebrow">Shared result &middot; <a href="/tools/{{ share.tool }}">{{ share.tool_name }}</a></p>
+    <p class="tg-shared__eyebrow">Shared result &middot; <a href="/tools/{{ share.tool }}">{{ share.tool_name }}</a> &middot; {{ share.views }} view{{ '' if share.views == 1 else 's' }}</p>
     <h1>{{ share.tool_name }} result</h1>
     {% if share.input %}
     <section class="tg-shared__block">
@@ -37,6 +37,15 @@
         </div>
         <a class="tg-shared__btn" href="/tools/{{ share.tool }}?ref=share">Try {{ share.tool_name }} free</a>
     </section>
+    <p class="tg-shared__made">Made with <a href="/?ref=share">Text Generator</a>, one OpenAI-compatible API for the best AI models. <a href="/tools">Browse all free tools</a>.</p>
+    <nav class="tg-shared__sibs" aria-label="More from our network">
+        <span>More from our network:</span>
+        <a href="https://netwrck.com/?ref=text-generator" rel="noopener">Netwrck AI characters</a>
+        <a href="https://aiart-generator.art/?ref=text-generator" rel="noopener">AI Art Generator</a>
+        <a href="https://codex-infinity.com/?ref=text-generator" rel="noopener">Codex Infinity</a>
+        <a href="https://openpaths.io/?ref=text-generator" rel="noopener">OpenPaths</a>
+        <a href="https://app.nz/?ref=text-generator" rel="noopener">App.nz</a>
+    </nav>
 </main>
 {% include 'templates/shared/share_bar.jinja2' %}
 <style>
@@ -52,5 +61,8 @@
 .tg-shared__cta div{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 260px}
 .tg-shared__cta span{color:#c5d2e6;font-size:14px}
 .tg-shared__btn{display:inline-flex!important;align-items:center;min-height:48px;padding:0 24px;border-radius:999px;background:#ff9a62;color:#0f172a!important;font-weight:700;text-decoration:none}
+.tg-shared__made{margin:20px 0 8px;color:#334155;font-size:15px}
+.tg-shared__made a,.tg-shared__sibs a{color:#1c4774!important;display:inline!important;font-weight:600}
+.tg-shared__sibs{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;color:#475569}
 </style>
 {% endblock %}
