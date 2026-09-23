@@ -13,7 +13,7 @@
     <meta name="keywords" content="text generation, realistic text generation, text autocomplete, language generator, docs">
     <meta property="og:title" content="{{ title }}">
     <meta property="og:url" content="{{ url }}">
-    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:image" content="https://text-generator.io/static/img/og-card.jpg">
     <meta property="og:description"
           content="{{ description }}">
     <meta property="og:type" content="website">
@@ -23,6 +23,7 @@
 {% endblock %}
 
 {% block mainbody %}
+    <h1 class="tg-page-h1" style="max-width:1100px;margin:28px auto 12px;padding:0 16px;font-size:2rem;line-height:1.2;font-weight:700;color:#0f172a">Text Generator API documentation</h1>
     {% include "/templates/shared/docs.jinja2" %}
 {% endblock %}
 

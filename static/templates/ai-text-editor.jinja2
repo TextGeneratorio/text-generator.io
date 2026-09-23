@@ -1,8 +1,20 @@
 {% extends 'templates/base.jinja2' %}
 
-{% block title %}AI Text Editor | Create Documents with AI-Powered Autocomplete{% endblock %}
+{% set tg_logged_in = request.cookies.get("session_secret") if request is defined and request else None %}
+{% set seo_image = "https://text-generator.io/static/img/og/tools/text-generator-docs.jpg" %}
+{% set seo_app_name = "AI Text Editor" %}
+{% set seo_app_description = "Create and edit documents with AI-powered autocomplete in a WYSIWYG editor." %}
 
-{% block meta_description %}Create and edit documents with AI-powered autocomplete in a beautiful WYSIWYG editor. Write faster and smarter with AI assistance.{% endblock %}
+{% block headers %}
+    <title>AI Text Editor | Write Documents with AI Autocomplete</title>
+    <meta name="description" content="Create and edit documents with AI-powered autocomplete in a clean WYSIWYG editor. Write faster and smarter with AI assistance.">
+    <meta property="og:title" content="AI Text Editor | Write Documents with AI Autocomplete">
+    <meta property="og:description" content="Create and edit documents with AI-powered autocomplete in a clean WYSIWYG editor.">
+    <meta property="og:url" content="https://text-generator.io/ai-text-editor">
+    <meta property="og:image" content="{{ seo_image }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+{% endblock %}
 
 {% block css %}
 <link rel="stylesheet" href="{{ static_url }}/css/text-generator-docs.css">
@@ -110,6 +122,21 @@
 {% endblock %}
 
 {% block mainbody %}
+{% if not tg_logged_in %}
+<section style="max-width:760px;margin:48px auto;padding:32px 24px;text-align:center;box-sizing:border-box;">
+    <h1 style="font-size:2.2rem;line-height:1.15;margin:0 0 14px;color:#0f172a;">AI Text Editor</h1>
+    <p style="font-size:1.1rem;line-height:1.6;color:#334155;margin:0 0 24px;">Write documents with AI autocomplete that continues from your cursor, rewrite selections with one shortcut, and keep your drafts saved in your account.</p>
+    <p style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:0 0 28px;">
+        <a href="/signup?next=%2Fai-text-editor" style="display:inline-flex;align-items:center;min-height:48px;padding:0 26px;border-radius:999px;background:#0f172a;color:#fff !important;font-weight:700;text-decoration:none;">Create a free account</a>
+        <a href="/login?next=%2Fai-text-editor" style="display:inline-flex;align-items:center;min-height:48px;padding:0 26px;border-radius:999px;border:1px solid #cbd5e1;color:#0f172a !important;font-weight:700;text-decoration:none;">Log in</a>
+    </p>
+    <ul style="list-style:none;padding:0;margin:0;display:grid;gap:10px;text-align:left;max-width:520px;margin:0 auto;color:#334155;">
+        <li><strong>Write from cursor</strong> (Ctrl+Space) continues your draft in your own style.</li>
+        <li><strong>Rewrite</strong> (Ctrl+G) improves the selected passage.</li>
+        <li><strong>Autosave and export</strong> keep every document in your library.</li>
+    </ul>
+</section>
+{% else %}
 <div class="tgdocs-container">
   <div class="tgdocs-main">
     <div class="tgdocs-sidebar">
@@ -161,11 +188,14 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block js %}
+{% if tg_logged_in %}
 <script src="/static/libs/quill.min.js"></script>
 <script src="/static/js/text-generator-docs.js"></script>
 <script src="/static/js/text-generator-docs-enhanced.js"></script>
 <script src="/static/js/ai-text-editor-init.js"></script>
+{% endif %}
 {% endblock %}

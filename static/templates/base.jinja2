@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
@@ -17,10 +17,26 @@
 
     {% block headers %}
     {% endblock %}
+    {% include 'templates/shared/seo_head.jinja2' %}
+    <link rel="stylesheet" href="/static/css/a11y-fixes.css?v=2">
+    <script>
+        (function () {
+            if ({{ 'true' if (request is defined and request and request.cookies.get('session_secret')) else 'false' }} || !window.fetch) return;
+            var noSession = true, nativeFetch = window.fetch.bind(window);
+            window.fetch = function (input, init) {
+                var method = ((init && init.method) || 'GET').toUpperCase();
+                if (method !== 'GET') noSession = false;
+                if (noSession && input === '/api/current-user' && !(init && init.headers)) {
+                    return Promise.resolve(new Response('{"detail":"Not authenticated"}', {status: 401, headers: {'Content-Type': 'application/json'}}));
+                }
+                return nativeFetch(input, init);
+            };
+        })();
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
 

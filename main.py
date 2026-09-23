@@ -2350,6 +2350,14 @@ async def bulk_text_generator(request: Request):
     )
 
 
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    return Response(
+        "User-agent: *\nAllow: /\nDisallow: /account\nDisallow: /api/\n\nSitemap: https://text-generator.io/sitemap.xml\n",
+        media_type="text/plain",
+    )
+
+
 @app.get("/sitemap.xml")
 async def sitemap_xml(request: Request, response: Response):
     response.headers["Content-Type"] = "text/xml; charset=utf-8"

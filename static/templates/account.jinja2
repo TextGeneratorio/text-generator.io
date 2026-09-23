@@ -2,8 +2,9 @@
 
 {% block headers %}
 
-    {% set title = 'About Text Generator - Create Text Experiences and bots' -%}
-    {% set description = 'All About Text Generator! How do we generate realistic text!' -%}
+    {% set title = 'Your Account - Text Generator API Key and Credits' -%}
+    {% set description = 'Manage your Text Generator account: copy your API key, make your first API call, and top up credits.' -%}
+    <meta name="robots" content="noindex">
 
     <meta charset="utf-8">
     <title>{{ title }}</title>
@@ -13,7 +14,7 @@
     <meta name="keywords" content="ai bot, text generator, OpenAI, GPT">
     <meta property="og:title" content="{{ title }}">
     <meta property="og:url" content="{{ url }}">
-    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:image" content="https://text-generator.io/static/img/og-card.jpg">
     <meta property="og:description"
           content="{{ description }}">
     <meta property="og:type" content="website">
@@ -108,6 +109,26 @@
 
                 {#                <p>Your referral url: <span class="referral_url_key"></span></p>#}
                 <p>Your API key: <code><span class="api_key"></span></code></p>
+                <div class="tg-quickstart" style="margin:18px 0;padding:16px;border:1px solid #d7dee8;border-radius:10px;background:#f7f9fc;">
+                    <h4 style="margin:0 0 6px;">Make your first API call</h4>
+                    <p style="margin:0 0 10px;color:#475569;">Paste this in a terminal. It already includes your key.</p>
+                    <pre style="margin:0;padding:12px;overflow-x:auto;background:#0f172a;color:#e2e8f0;border-radius:8px;font-size:13px;line-height:1.5;"><code id="tg-quickstart-curl">curl https://api.text-generator.io/v1/chat/completions \
+  -H "Authorization: Bearer <span class="api_key">YOUR_API_KEY</span>" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "text-generator/auto", "messages": [{"role": "user", "content": "Write a haiku about APIs"}]}'</code></pre>
+                    <p style="margin:10px 0 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                        <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" type="button" id="tg-quickstart-copy">Copy curl command</button>
+                        <a class="mdl-button mdl-js-button" href="/playground">Try it in the playground</a>
+                        <a class="mdl-button mdl-js-button" href="/docs">API docs</a>
+                    </p>
+                    <script>
+                        document.getElementById('tg-quickstart-copy').addEventListener('click', function () {
+                            var btn = this, text = document.getElementById('tg-quickstart-curl').textContent;
+                            var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy curl command'; }, 1600); };
+                            if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy:', text); }); } else { window.prompt('Copy:', text); }
+                        });
+                    </script>
+                </div>
                 <p>Your credit balance: <strong><span class="credit_balance"></span></strong></p>
 
                 <h4>Settings</h4>

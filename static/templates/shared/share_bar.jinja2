@@ -1,0 +1,46 @@
+{%- set _share_path = request.url.path if request is defined and request else '/' -%}
+{%- set _share_url = 'https://text-generator.io' ~ _share_path -%}
+{%- set _share_title = share_title | default(tool_name | default('Text Generator')) -%}
+<section class="tg-share" aria-label="Share this tool" data-share>
+    <div class="tg-share__copy">
+        <strong>Found this useful?</strong>
+        <span>Share {{ _share_title }}, or select any result text first to share it.</span>
+    </div>
+    <div class="tg-share__actions">
+        <button type="button" class="tg-share__btn tg-share__btn--primary" data-share-native>Share</button>
+        <button type="button" class="tg-share__btn" data-share-copy>Copy link</button>
+        <a class="tg-share__btn" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?url={{ _share_url | urlencode }}&text={{ (_share_title ~ ' - free AI tool') | urlencode }}">Post on X</a>
+        <a class="tg-share__btn" target="_blank" rel="noopener" href="https://www.linkedin.com/sharing/share-offsite/?url={{ _share_url | urlencode }}">LinkedIn</a>
+    </div>
+</section>
+<style>
+.tg-share{max-width:1100px;margin:32px auto;padding:18px 20px;border:1px solid #d7dee8;border-radius:14px;background:#f7f9fc;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;box-sizing:border-box;width:calc(100% - 32px)}
+.tg-share__copy{display:flex;flex-direction:column;gap:2px;color:#1f2937;font-size:15px;min-width:0}
+.tg-share__copy span{color:#475569;font-size:14px}
+.tg-share__actions{display:flex;flex-wrap:wrap;gap:8px}
+.tg-share__btn{min-height:40px;padding:8px 16px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-family:inherit;font-weight:600;font-size:14px;line-height:1.4;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.tg-share__btn:hover{border-color:#0f172a}
+.tg-share__btn--primary{background:#0f172a;color:#fff;border-color:#0f172a}
+</style>
+<script>
+(function () {
+    var root = document.currentScript.previousElementSibling.previousElementSibling;
+    var url = {{ _share_url | tojson }}, title = {{ _share_title | tojson }};
+    function selected() { var s = String(window.getSelection ? window.getSelection() : '').trim(); return s.length > 500 ? s.slice(0, 497) + '...' : s; }
+    function copy(text, btn, label) {
+        var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = label; }, 1600); };
+        if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy:', text); }); } else { window.prompt('Copy:', text); }
+    }
+    var copyBtn = root.querySelector('[data-share-copy]');
+    copyBtn.addEventListener('click', function () { copy(url, copyBtn, 'Copy link'); });
+    var nativeBtn = root.querySelector('[data-share-native]');
+    var lastSel = '';
+    document.addEventListener('selectionchange', function () { var s = selected(); if (s) lastSel = s; });
+    nativeBtn.addEventListener('mousedown', function () { lastSel = selected() || lastSel; });
+    nativeBtn.addEventListener('click', function () {
+        var text = lastSel ? '"' + lastSel + '"\n\nMade with ' + title + ' on Text Generator' : title + ' - free AI tool on Text Generator';
+        if (navigator.share) { navigator.share({ title: title, text: text, url: url }).catch(function () {}); }
+        else { copy(text + '\n' + url, nativeBtn, 'Share'); }
+    });
+})();
+</script>

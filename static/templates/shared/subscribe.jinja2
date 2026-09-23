@@ -8,13 +8,25 @@ async function checkAuthStatus() {
             window.user = user;
             setupSubscription(user);
         } else {
-            // User not logged in, redirect to login
-            window.location.href = '/login';
+            setupAnonymous();
         }
     } catch (error) {
         console.log('Auth check error:', error);
-        window.location.href = '/login';
+        setupAnonymous();
     }
+}
+
+// Logged-out visitors can browse pricing; checkout buttons send them to sign up first
+function setupAnonymous() {
+    window.user = null;
+    $('.checkout-button').attr('disabled', false);
+    $('#buy-credits-button').attr('disabled', false);
+}
+
+function requireSignupForCheckout() {
+    if (window.user) return false;
+    window.location.href = '/signup?next=%2Fsubscribe';
+    return true;
 }
 
 // Setup subscription UI for authenticated user
@@ -118,11 +130,13 @@ window.addEventListener('load', function() {
     }
 
     function openCheckoutDialog() {
+        if (requireSignupForCheckout()) return;
         const subscriptionType = $('.subscription-toggle').is(':checked') ? 'annual' : 'monthly';
         showCheckoutDialog(subscriptionType);
     }
 
     function openCreditsCheckout() {
+        if (requireSignupForCheckout()) return;
         showCheckoutDialog('credits');
     }
 </script>
