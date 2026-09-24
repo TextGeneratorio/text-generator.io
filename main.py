@@ -254,6 +254,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 import sellerinfo
 
+from questions import omniserve_paywall
+
 app = FastAPI(
     openapi_url="/static/openapi.json",
     docs_url="/swagger-docs",
@@ -263,6 +265,7 @@ app = FastAPI(
     # root_path="https://api.text-generator.io",
     version="1",
 )
+omniserve_paywall.install(app)
 
 # Initialize logger
 logger = get_logger(__name__)

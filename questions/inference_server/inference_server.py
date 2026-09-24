@@ -75,6 +75,8 @@ import stripe
 
 import sellerinfo
 
+from questions import omniserve_paywall
+
 app = FastAPI(
     openapi_url="/openapi.json",
     docs_url="/docs",
@@ -83,6 +85,7 @@ app = FastAPI(
     description="Generate text, control stopping criteria like max_length/max_sentences",
     version="1",
 )
+omniserve_paywall.install(app)
 
 MODEL_CACHE = None
 MULTIMODAL_PROCESSORS = {}
@@ -821,6 +824,7 @@ def _caption_image_via_omniserve(image_bytes: bytes, *, fast_mode: bool) -> str:
             headers={"Content-Type": "application/json"},
             timeout=IMAGE_CAPTION_BACKEND_TIMEOUT,
         )
+        omniserve_paywall.raise_for_upstream(response)
         response.raise_for_status()
         body = response.json()
         data = body.get("data") if isinstance(body, dict) else None
