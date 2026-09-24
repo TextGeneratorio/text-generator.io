@@ -1071,7 +1071,7 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
     };
     var editor;
     var onceOnly = false;
-    window.addEventListener('load', function () {
+    var onPlaygroundLoad = function () {
       if (onceOnly) return;
       onceOnly = true;
 
@@ -1141,4 +1141,10 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             }
         });
 
-    });
+    };
+    // Loaded dynamically; window 'load' may already have fired (e.g. behind Cloudflare Rocket Loader)
+    if (document.readyState === 'complete') {
+        onPlaygroundLoad();
+    } else {
+        window.addEventListener('load', onPlaygroundLoad);
+    }
