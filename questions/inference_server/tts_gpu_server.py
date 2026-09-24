@@ -8,9 +8,11 @@ The worker falls back to its own CPU engines if this sidecar is down or slow.
 Run: CUDA_VISIBLE_DEVICES=0 python -m questions.inference_server.tts_gpu_server
 """
 import asyncio
+import json
 import logging
 import os
 import time
+import urllib.request
 
 os.environ.setdefault("SUPERTONIC_ENABLE_CUDA", "1")
 os.environ.setdefault("IDLE_UNLOAD_SECONDS", "0")
@@ -30,6 +32,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 PORT = int(os.environ.get("TTS_GPU_PORT", "9085"))
 CONCURRENCY = max(1, int(os.environ.get("TTS_GPU_CONCURRENCY", "2")))
 VRAM_CAP_GB = float(os.environ.get("TTS_GPU_VRAM_CAP_GB", "2.5"))
+# Box-wide VRAM broker (omniserve-native :8791). On OOM, queue for headroom
+# there and retry once instead of failing the request.
+BROKER = os.environ.get("TTS_GPU_VRAM_BROKER", "http://127.0.0.1:8791")
+BROKER_MB = int(os.environ.get("TTS_GPU_BROKER_MB", "768"))
+BROKER_WAIT_MS = int(os.environ.get("TTS_GPU_BROKER_WAIT_MS", "8000"))
+_stats = {"oom": 0, "oom_retried_ok": 0, "broker_denied": 0}
 
 app = FastAPI()
 _sem = None
@@ -94,6 +102,47 @@ def _warmup():
             _free_cuda()
 
 
+def _broker(path, body, timeout):
+    req = urllib.request.Request(BROKER + path, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def _synth_after_oom(text, voice, speed, language, steps):
+    """Free our cache, queue at the broker for headroom, retry once."""
+    _free_cuda()
+    lease = None
+    if BROKER:
+        try:
+            lease = _broker("/v1/gpu/lease", {"owner": "tts-gpu", "pid": os.getpid(), "mb": BROKER_MB, "min_mb": BROKER_MB, "tier": "sub", "ttl_s": 60, "wait_ms": BROKER_WAIT_MS}, BROKER_WAIT_MS / 1000 + 5)
+        except Exception as exc:
+            logger.warning("vram broker unreachable: %s", exc)
+        if lease is not None and not lease.get("granted"):
+            _stats["broker_denied"] += 1
+            raise RuntimeError("out of memory (broker denied after %s ms)" % lease.get("waited_ms"))
+    try:
+        out = _synth(text, voice, speed, language, steps)
+        _stats["oom_retried_ok"] += 1
+        return out
+    finally:
+        if lease and lease.get("lease_id"):
+            try:
+                _broker("/v1/gpu/release", {"lease_id": lease["lease_id"]}, 3)
+            except Exception:
+                pass
+
+
+def _synth_guarded(text, voice, speed, language, steps):
+    try:
+        return _synth(text, voice, speed, language, steps)
+    except Exception as exc:
+        if "out of memory" not in str(exc).lower():
+            raise
+        _stats["oom"] += 1
+        logger.warning("synth OOM voice=%s; queueing at vram broker", voice)
+        return _synth_after_oom(text, voice, speed, language, steps)
+
+
 def _free_cuda():
     try:
         _torch().cuda.empty_cache()
@@ -123,7 +172,7 @@ async def health():
     torch = _torch()
     mem = torch.cuda.memory_reserved(0) / 2**30 if torch.cuda.is_available() else 0.0
     ok = any(_ready.values())
-    return JSONResponse({"ok": ok, "ready": _ready, "torch_reserved_gb": round(mem, 3)}, status_code=200 if ok else 503)
+    return JSONResponse({"ok": ok, "ready": _ready, "torch_reserved_gb": round(mem, 3), "vram": _stats}, status_code=200 if ok else 503)
 
 
 @app.post("/synth")
@@ -131,7 +180,7 @@ async def synth(p: SynthParams):
     t = time.time()
     async with _sem:
         try:
-            rate, audio = await asyncio.to_thread(_synth, p.text, p.voice, p.speed, p.language, p.steps)
+            rate, audio = await asyncio.to_thread(_synth_guarded, p.text, p.voice, p.speed, p.language, p.steps)
         except ValueError as exc:
             raise HTTPException(400, str(exc))
         except Exception as exc:
