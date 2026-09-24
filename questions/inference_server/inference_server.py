@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 import asyncio
+import base64 as _base64_mod
 import http.client
+import ipaddress
 import json
 import logging
 import os
 import random
 import socket
+import time
 import urllib.error
 import urllib.request
 from functools import lru_cache
@@ -13,6 +16,7 @@ from io import BytesIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import List, Union
+from urllib.parse import urlparse
 
 import numpy as np
 import youtube_dl
@@ -37,6 +41,7 @@ from starlette.responses import (
 from questions.audio_server.audio_dl import request_get
 from questions.constants import weights_path_tgz
 from questions.db_models_postgres import User, get_db_session_sync
+from questions.download_utils import ModelDownloadUnavailable
 from questions.models import (
     AudioParams,
     AudioParamsOrAudioFile,
@@ -96,8 +101,18 @@ def _resolve_vllm_text_backend_base() -> str:
 
 
 VLLM_TEXT_BACKEND_BASE = _resolve_vllm_text_backend_base()
-VLLM_TEXT_BACKEND_TIMEOUT = float(os.getenv("VLLM_TEXT_BACKEND_TIMEOUT", "180"))
+# A first boot after changing the vLLM compile/KV configuration can spend over
+# three minutes building reusable artifacts. Keep the proxy alive long enough
+# for that one-time path; cached boots and warm requests remain much faster.
+VLLM_TEXT_BACKEND_TIMEOUT = float(os.getenv("VLLM_TEXT_BACKEND_TIMEOUT", "300"))
+# Native gateway restarts can spend close to a minute loading models before
+# the socket is useful. Keep compatibility requests waiting through that
+# managed restart window, while still honoring each endpoint's backend timeout.
+VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS = float(os.getenv("VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", "75"))
+VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL = float(os.getenv("VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL", "0.25"))
 VLLM_AUTOCOMPLETE_READY_TIMEOUT = float(os.getenv("VLLM_AUTOCOMPLETE_READY_TIMEOUT", "0.5"))
+IMAGE_CAPTION_BACKEND_BASE = os.getenv("IMAGE_CAPTION_BACKEND_BASE", "").rstrip("/")
+IMAGE_CAPTION_BACKEND_TIMEOUT = float(os.getenv("IMAGE_CAPTION_BACKEND_TIMEOUT", "120"))
 
 GEMMA_TEXT_IMAGE_MODEL_ID = os.getenv(
     "GEMMA_TEXT_IMAGE_MODEL_ID",
@@ -113,6 +128,11 @@ GEMMA_FRAME_MAX_DIM = max(64, int(os.getenv("GEMMA_FRAME_MAX_DIM", "896")))
 GEMMA_AUDIO_MAX_SECONDS = max(1, int(os.getenv("GEMMA_AUDIO_MAX_SECONDS", "30")))
 GEMMA_AUDIO_SAMPLE_RATE = max(8000, int(os.getenv("GEMMA_AUDIO_SAMPLE_RATE", "16000")))
 GEMMA_AUDIO_SILENCE_TOP_DB = max(10, int(os.getenv("GEMMA_AUDIO_SILENCE_TOP_DB", "32")))
+GEMMA_IMAGE_MAX_BYTES = max(1, int(os.getenv("GEMMA_IMAGE_MAX_BYTES", str(20 * 1024 * 1024))))
+GEMMA_AUDIO_MAX_BYTES = max(1, int(os.getenv("GEMMA_AUDIO_MAX_BYTES", str(32 * 1024 * 1024))))
+GEMMA_VIDEO_MAX_BYTES = max(1, int(os.getenv("GEMMA_VIDEO_MAX_BYTES", str(128 * 1024 * 1024))))
+GEMMA_MEDIA_TMPDIR = os.getenv("GEMMA_MEDIA_TMPDIR", "/dev/shm")
+GEMMA_CPU_DTYPE = (os.getenv("GEMMA_CPU_DTYPE", "float32") or "float32").strip().lower()
 GEMMA_ATTN_IMPLEMENTATION = (os.getenv("GEMMA_ATTN_IMPLEMENTATION", "sdpa") or "").strip() or None
 GEMMA_ENABLE_TORCH_COMPILE = os.getenv("GEMMA_ENABLE_TORCH_COMPILE", "0").lower() in {"1", "true", "yes", "on"}
 GEMMA_TORCH_COMPILE_MODE = os.getenv("GEMMA_TORCH_COMPILE_MODE", "reduce-overhead")
@@ -141,10 +161,37 @@ def _get_torch():
     return torch
 
 
-def _get_multimodal_classes():
-    from transformers import AutoModelForCausalLM, AutoProcessor
+def _is_gpu_capacity_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    capacity_markers = (
+        "cuda out of memory",
+        "cublas_status_alloc_failed",
+        "cudnn_status_alloc_failed",
+        "cuda error: out of memory",
+    )
+    if any(marker in message for marker in capacity_markers):
+        return True
 
-    return AutoModelForCausalLM, AutoProcessor
+    try:
+        torch = _get_torch()
+        return isinstance(exc, torch.cuda.OutOfMemoryError)
+    except Exception:
+        return False
+
+
+def _unload_text_model_cache_after_capacity_error(model_cache) -> None:
+    if model_cache is None or not hasattr(model_cache, "unload_all"):
+        return
+    try:
+        model_cache.unload_all("GPU capacity error")
+    except Exception as cleanup_exc:
+        logger.debug("Could not unload model cache after GPU capacity error: %s", cleanup_exc)
+
+
+def _get_multimodal_classes():
+    from transformers import AutoModelForMultimodalLM, AutoProcessor
+
+    return AutoModelForMultimodalLM, AutoProcessor
 
 
 def _get_compile_config_class():
@@ -224,6 +271,28 @@ async def _run_gpu_bound(func, *args, **kwargs):
         return await asyncio.to_thread(func, *args, **kwargs)
 
 
+def _local_model_cache_needs_vllm_eviction(model_cache) -> bool:
+    if model_cache is None or not hasattr(model_cache, "list_models"):
+        return False
+    try:
+        cached_models = model_cache.list_models()
+    except Exception as exc:
+        logger.debug("Could not list local models before vLLM warmup: %s", exc)
+        return False
+    return bool(cached_models) and _vllm_text_backend_needs_warmup()
+
+
+async def _run_vllm_text_generate(
+    generate_params: GenerateParams,
+    model_cache,
+    secret: Optional[str] = None,
+):
+    if _local_model_cache_needs_vllm_eviction(model_cache):
+        async with _get_inference_sem():
+            await asyncio.to_thread(_free_local_model_cache_for_vllm, model_cache)
+    return await asyncio.to_thread(_proxy_vllm_generate, generate_params, secret)
+
+
 def _is_vllm_text_backend_enabled() -> bool:
     return bool(VLLM_TEXT_BACKEND_BASE)
 
@@ -259,25 +328,101 @@ def _proxy_vllm_json(
 ) -> dict | list:
     import requests
 
-    headers = {"Content-Type": "application/json"}
+    # The public C gateway can relay provider/local chat requests to this
+    # compatibility worker. Mark calls back to the embedded native model so
+    # the gateway handles them locally instead of proxying them here again.
+    headers = {
+        "Content-Type": "application/json",
+        "X-Omniserve-Internal": "local",
+    }
     if secret:
         headers["secret"] = secret
     backend_timeout = VLLM_TEXT_BACKEND_TIMEOUT if timeout is None else timeout
+    retry_deadline = time.monotonic() + min(
+        max(0.0, VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS),
+        max(0.0, backend_timeout),
+    )
+    attempts = 0
     try:
-        response = _get_vllm_session().post(
-            f"{VLLM_TEXT_BACKEND_BASE}{path}",
-            data=json.dumps(body).encode("utf-8"),
-            headers=headers,
-            timeout=backend_timeout,
-        )
-        _raise_for_vllm_response(response, path)
-        return response.json()
+        while True:
+            attempts += 1
+            try:
+                response = _get_vllm_session().post(
+                    f"{VLLM_TEXT_BACKEND_BASE}{path}",
+                    data=json.dumps(body).encode("utf-8"),
+                    headers=headers,
+                    timeout=backend_timeout,
+                )
+            except requests.ConnectionError as exc:
+                sleep_for = min(
+                    max(0.0, VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL),
+                    retry_deadline - time.monotonic(),
+                )
+                if sleep_for <= 0:
+                    raise exc
+                logger.info(
+                    "vLLM text backend connection unavailable for %s; retrying in %.2fs",
+                    path,
+                    sleep_for,
+                )
+                time.sleep(sleep_for)
+                continue
+            sleep_for = _retry_delay_for_transient_vllm_response(response, retry_deadline)
+            if sleep_for is not None:
+                logger.info(
+                    "vLLM text backend not ready for %s; retrying in %.2fs",
+                    path,
+                    sleep_for,
+                )
+                time.sleep(sleep_for)
+                continue
+            if attempts > 1:
+                logger.info("vLLM text backend recovered for %s after %d attempts", path, attempts)
+            _raise_for_vllm_response(response, path)
+            return response.json()
     except requests.Timeout as exc:
         logger.warning("vLLM text backend timed out for %s: %s", path, exc)
         raise HTTPException(status_code=504, detail="Text generation backend timed out") from exc
     except requests.RequestException as exc:
         logger.warning("vLLM text backend unavailable for %s: %s", path, exc)
         raise HTTPException(status_code=503, detail="Text generation backend unavailable") from exc
+
+
+def _retry_delay_for_transient_vllm_response(response, retry_deadline: float) -> Optional[float]:
+    if response.status_code != 503:
+        return None
+    detail = _vllm_response_error_text(response).lower()
+    retryable = (
+        "no llm model loaded" in detail
+        or "model not loaded" in detail
+        or "admission timeout" in detail
+    )
+    if not retryable:
+        return None
+    sleep_for = min(
+        max(0.0, VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL),
+        retry_deadline - time.monotonic(),
+    )
+    return sleep_for if sleep_for > 0 else None
+
+
+def _vllm_response_error_text(response) -> str:
+    parts = [response.text or "", response.reason or ""]
+    try:
+        body = response.json()
+    except (TypeError, ValueError):
+        body = None
+
+    error = body.get("error") if isinstance(body, dict) else None
+    if isinstance(error, dict):
+        for field in ("message", "type", "code"):
+            value = error.get(field)
+            if isinstance(value, str):
+                parts.append(value)
+    elif isinstance(error, str):
+        parts.append(error)
+
+    return " ".join(part for part in parts if part)
 
 
 def _raise_for_vllm_response(response, path: str) -> None:
@@ -288,7 +433,7 @@ def _raise_for_vllm_response(response, path: str) -> None:
             "vLLM text backend returned %s for %s: %s",
             response.status_code,
             path,
-            (response.text or response.reason or "")[:500],
+            _vllm_response_error_text(response)[:500],
         )
         raise HTTPException(status_code=503, detail="Text generation backend unavailable")
     raise HTTPException(status_code=response.status_code, detail=response.text or response.reason)
@@ -386,14 +531,25 @@ def _free_local_model_cache_for_vllm(model_cache) -> None:
 
 
 async def _run_text_generate(generate_params: GenerateParams, model_cache, secret: Optional[str] = None):
-    if _is_vllm_text_backend_enabled():
-        return await _run_gpu_bound(
-            _proxy_vllm_generate_with_cache,
-            generate_params,
-            model_cache,
-            secret,
-        )
-    return await _run_gpu_bound(_fast_inference, generate_params, model_cache)
+    try:
+        if _is_vllm_text_backend_enabled():
+            return await _run_vllm_text_generate(
+                generate_params,
+                model_cache,
+                secret,
+            )
+        return await _run_gpu_bound(_fast_inference, generate_params, model_cache)
+    except ModelDownloadUnavailable as exc:
+        logger.warning("Text generation model is unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail="Text generation model unavailable") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if _is_gpu_capacity_error(exc):
+            logger.warning("Text generation GPU capacity unavailable: %s", exc)
+            _unload_text_model_cache_after_capacity_error(model_cache)
+            raise HTTPException(status_code=503, detail="Text generation backend unavailable") from exc
+        raise
 
 
 def _proxy_vllm_generate_with_cache(
@@ -432,7 +588,11 @@ def _open_vllm_chat_stream(
     _free_local_model_cache_for_vllm(model_cache)
     body = _model_dump_jsonable(chat_params)
     body["messages"] = messages
-    headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        "X-Omniserve-Internal": "local",
+    }
     if secret:
         headers["secret"] = secret
     try:
@@ -637,6 +797,45 @@ def _caption_image_bytes(*args, **kwargs):
     from questions.image_captioning.gitbase_captioner import caption_image_bytes
 
     return caption_image_bytes(*args, **kwargs)
+
+
+def _caption_image_via_omniserve(image_bytes: bytes, *, fast_mode: bool) -> str:
+    """Run Git-base through the shared OmniServe control plane.
+
+    The compatibility worker is intentionally CPU-only, but keeping another
+    model cache here still duplicated weights and bypassed OmniServe's model
+    lifecycle.  The scheduler accepts base64 JSON so the legacy multipart API
+    can retain its public contract while delegating model ownership.
+    """
+    import requests
+
+    payload = {
+        "model": "git-base-caption",
+        "image": _base64_mod.b64encode(image_bytes).decode("ascii"),
+        "max_new_tokens": 10 if fast_mode else 30,
+    }
+    try:
+        response = _get_vllm_session().post(
+            f"{IMAGE_CAPTION_BACKEND_BASE}/v1/images/captions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            timeout=IMAGE_CAPTION_BACKEND_TIMEOUT,
+        )
+        response.raise_for_status()
+        body = response.json()
+        data = body.get("data") if isinstance(body, dict) else None
+        caption = data[0].get("text") if isinstance(data, list) and data else None
+        if not isinstance(caption, str) or not caption.strip():
+            raise ValueError("OmniServe returned an empty image caption")
+        return caption.strip()
+    except requests.Timeout as exc:
+        raise HTTPException(status_code=504, detail="Image caption backend timed out") from exc
+    except requests.RequestException as exc:
+        logger.warning("OmniServe image caption backend unavailable: %s", exc)
+        raise HTTPException(status_code=502, detail="Image caption backend unavailable") from exc
+    except (TypeError, ValueError, KeyError) as exc:
+        logger.warning("OmniServe image caption contract invalid: %s", exc)
+        raise HTTPException(status_code=502, detail="Image caption backend returned an invalid response") from exc
 
 
 @lru_cache(maxsize=1)
@@ -942,7 +1141,7 @@ def _sync_credit_balance_to_cache(secret: Optional[str], balance_cents: int):
         finally:
             db.close()
     except Exception as exc:
-        logger.warning("Failed to sync cached credit balance for secret %s: %s", secret, exc)
+        logger.warning("Failed to sync cached credit balance: %s", exc)
 
 
 def _user_has_subscription_or_credits(secret, minimum_credits: int = 1) -> bool:
@@ -1004,7 +1203,7 @@ def track_stripe_request_usage(secret, quantity: int):
             try:
                 db_user = User.get_by_secret(db, secret)
                 if not db_user:
-                    logger.error(f"user not found for secret: {secret}")
+                    logger.error("user not found for supplied API credential")
                     return
                 db_user.charges_monthly += int(quantity * 10)
                 db.commit()
@@ -1012,7 +1211,7 @@ def track_stripe_request_usage(secret, quantity: int):
             finally:
                 db.close()
         except Exception:
-            logger.error(f"database error for secret: {secret}")
+            logger.error("database error while resolving API credential")
             return
 
     existing_user = existing_user or db_user
@@ -1054,15 +1253,133 @@ def _normalize_content_part(part: dict) -> dict:
         return {"type": "text", "text": part.get("text", "")}
 
     if part_type in {"image", "image_url", "input_image"}:
-        return {"type": "image", "url": part.get("url") or part.get("image_url")}
+        url = _extract_media_url(part, "image_url")
+        if not url:
+            raise HTTPException(status_code=400, detail="Image content part is missing a URL")
+        return {"type": "image", "url": url}
 
     if part_type in {"audio", "input_audio"}:
-        return {"type": "audio", "url": part.get("url") or part.get("audio_url")}
+        url = _extract_media_url(part, "audio_url")
+        input_audio = part.get("input_audio")
+        if not url and isinstance(input_audio, dict):
+            data = input_audio.get("data")
+            audio_format = str(input_audio.get("format") or "wav").lower().lstrip(".")
+            if isinstance(data, str) and data:
+                url = data if data.startswith("data:") else f"data:audio/{audio_format};base64,{data}"
+        if not url and isinstance(part.get("data"), str):
+            data = part["data"]
+            audio_format = str(part.get("format") or "wav").lower().lstrip(".")
+            url = data if data.startswith("data:") else f"data:audio/{audio_format};base64,{data}"
+        if not url:
+            raise HTTPException(status_code=400, detail="Audio content part is missing audio data or a URL")
+        return {"type": "audio", "url": url}
 
     if part_type in {"video", "video_url", "input_video"}:
-        return {"type": "video", "url": part.get("url") or part.get("video_url")}
+        url = _extract_media_url(part, "video_url")
+        if not url:
+            raise HTTPException(status_code=400, detail="Video content part is missing a URL")
+        return {"type": "video", "url": url}
 
     raise HTTPException(status_code=400, detail=f"Unsupported content part type: {part.get('type')}")
+
+
+def _extract_media_url(part: dict, standard_field: str) -> Optional[str]:
+    value = part.get("url") or part.get(standard_field)
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        nested_url = value.get("url")
+        return nested_url if isinstance(nested_url, str) else None
+    return None
+
+
+def _inline_media_limit(media_type: str) -> int:
+    return {
+        "image": GEMMA_IMAGE_MAX_BYTES,
+        "audio": GEMMA_AUDIO_MAX_BYTES,
+        "video": GEMMA_VIDEO_MAX_BYTES,
+    }[media_type]
+
+
+def _media_suffix(mime_type: str) -> str:
+    normalized = mime_type.lower().split(";", 1)[0]
+    return {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+        "audio/mpeg": ".mp3",
+        "audio/mp3": ".mp3",
+        "audio/ogg": ".ogg",
+        "audio/flac": ".flac",
+        "audio/mp4": ".m4a",
+        "video/mp4": ".mp4",
+        "video/webm": ".webm",
+    }.get(normalized, ".bin")
+
+
+def _materialize_inline_media(messages: list[dict]) -> tuple[list[dict], list[str]]:
+    """Write bounded data-URI media to temporary files understood by processors."""
+    materialized = []
+    temp_paths: list[str] = []
+    try:
+        for message in messages:
+            content = message.get("content")
+            if not isinstance(content, list):
+                materialized.append(message)
+                continue
+
+            materialized_parts = []
+            for part in content:
+                copied_part = dict(part)
+                media_type = copied_part.get("type")
+                url = copied_part.get("url")
+                if media_type in {"image", "audio", "video"} and isinstance(url, str) and url.startswith("data:"):
+                    header, separator, encoded = url.partition(",")
+                    if not separator or ";base64" not in header.lower():
+                        raise HTTPException(status_code=400, detail=f"Invalid inline {media_type} data URI")
+                    mime_type = header[5:].split(";", 1)[0]
+                    if not mime_type.lower().startswith(f"{media_type}/"):
+                        raise HTTPException(status_code=400, detail=f"Inline media type does not match {media_type}")
+                    max_bytes = _inline_media_limit(media_type)
+                    if len(encoded) > ((max_bytes + 2) // 3) * 4 + 4:
+                        raise HTTPException(status_code=413, detail=f"Inline {media_type} exceeds the size limit")
+                    try:
+                        payload = _base64_mod.b64decode(encoded, validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise HTTPException(status_code=400, detail=f"Invalid base64 {media_type} data") from exc
+                    if len(payload) > max_bytes:
+                        raise HTTPException(status_code=413, detail=f"Inline {media_type} exceeds the size limit")
+
+                    temp_dir = GEMMA_MEDIA_TMPDIR if os.path.isdir(GEMMA_MEDIA_TMPDIR) else None
+                    with NamedTemporaryFile(
+                        mode="wb",
+                        suffix=_media_suffix(mime_type),
+                        prefix="gemma-media-",
+                        dir=temp_dir,
+                        delete=False,
+                    ) as temp_file:
+                        temp_file.write(payload)
+                        copied_part["url"] = temp_file.name
+                        temp_paths.append(temp_file.name)
+                materialized_parts.append(copied_part)
+            materialized.append({**message, "content": materialized_parts})
+        return materialized, temp_paths
+    except BaseException:
+        _cleanup_inline_media(temp_paths)
+        raise
+
+
+def _cleanup_inline_media(temp_paths: list[str]) -> None:
+    for path in temp_paths:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            logger.warning("Could not remove temporary Gemma media file: %s", exc)
 
 
 def _normalize_chat_messages(messages: list[dict]) -> list[dict]:
@@ -1116,16 +1433,34 @@ def load_multimodal_model(model_id: Optional[str] = None):
     if selected_model_id in MULTIMODAL_MODELS and selected_model_id in MULTIMODAL_PROCESSORS:
         return MULTIMODAL_PROCESSORS[selected_model_id], MULTIMODAL_MODELS[selected_model_id]
 
-    AutoModelForCausalLM, AutoProcessor = _get_multimodal_classes()
+    AutoModelForMultimodalLM, AutoProcessor = _get_multimodal_classes()
     _configure_multimodal_torch_runtime()
+
+    torch = _get_torch()
+    if torch.cuda.is_available():
+        model_load_kwargs = {"dtype": "auto", "device_map": "auto"}
+    else:
+        cpu_dtype = {
+            "float32": torch.float32,
+            "fp32": torch.float32,
+            "bfloat16": torch.bfloat16,
+            "bf16": torch.bfloat16,
+            "float16": torch.float16,
+            "fp16": torch.float16,
+        }.get(GEMMA_CPU_DTYPE)
+        if cpu_dtype is None:
+            raise ValueError(f"Unsupported GEMMA_CPU_DTYPE: {GEMMA_CPU_DTYPE}")
+        model_load_kwargs = {"dtype": cpu_dtype, "device_map": {"": "cpu"}}
+    if GEMMA_ATTN_IMPLEMENTATION:
+        model_load_kwargs["attn_implementation"] = GEMMA_ATTN_IMPLEMENTATION
 
     with log_time("load gemma multimodal model"):
         logger.info("Loading Gemma multimodal model: %s", selected_model_id)
         processor = AutoProcessor.from_pretrained(selected_model_id, trust_remote_code=True)
-        model = AutoModelForCausalLM.from_pretrained(
+        model = AutoModelForMultimodalLM.from_pretrained(
             selected_model_id,
-            dtype="auto",
-            device_map="auto",
+            **model_load_kwargs,
+            low_cpu_mem_usage=True,
             trust_remote_code=True,
         )
         _maybe_set_multimodal_attention_implementation(model)
@@ -1182,33 +1517,47 @@ def _multimodal_chat_inference(
         processor, model = load_multimodal_model(selected_model_id)
 
     normalized_messages = _normalize_chat_messages(messages)
-    inputs = processor.apply_chat_template(
-        normalized_messages,
-        tokenize=True,
-        return_dict=True,
-        return_tensors="pt",
-        add_generation_prompt=True,
-        enable_thinking=enable_thinking,
-    )
+    normalized_messages, temp_paths = _materialize_inline_media(normalized_messages)
+    try:
+        inputs = processor.apply_chat_template(
+            normalized_messages,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+            add_generation_prompt=True,
+            enable_thinking=enable_thinking,
+        )
 
-    model_device = _model_device(model)
-    if hasattr(inputs, "to"):
-        inputs = inputs.to(model_device)
-    elif isinstance(inputs, dict):
-        inputs = {k: v.to(model_device) if hasattr(v, "to") else v for k, v in inputs.items()}
+        model_device = _model_device(model)
+        model_dtype = getattr(model, "dtype", None)
+        torch = _get_torch()
+        if isinstance(inputs, dict):
+            moved_inputs = {}
+            for key, value in inputs.items():
+                if not hasattr(value, "to"):
+                    moved_inputs[key] = value
+                elif model_dtype is not None and torch.is_floating_point(value):
+                    moved_inputs[key] = value.to(model_device, dtype=model_dtype)
+                else:
+                    moved_inputs[key] = value.to(model_device)
+            inputs = moved_inputs
+        elif hasattr(inputs, "to"):
+            inputs = inputs.to(model_device, dtype=model_dtype)
 
-    input_ids = inputs["input_ids"]
-    input_len = input_ids.shape[-1]
+        input_ids = inputs["input_ids"]
+        input_len = input_ids.shape[-1]
 
-    generation_kwargs = _build_multimodal_generation_kwargs(
-        max_tokens=max_tokens,
-        temperature=temperature,
-        top_p=top_p,
-        top_k=top_k,
-    )
+        generation_kwargs = _build_multimodal_generation_kwargs(
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+        )
 
-    with _get_torch().inference_mode():
-        outputs = model.generate(**inputs, **generation_kwargs)
+        with torch.inference_mode():
+            outputs = model.generate(**inputs, **generation_kwargs)
+    finally:
+        _cleanup_inline_media(temp_paths)
 
     if hasattr(outputs, "sequences"):
         sequence = outputs.sequences[0]
@@ -1261,11 +1610,18 @@ def _load_audio_bytes(audio_params: AudioParamsOrAudioFile) -> tuple[bytes, Opti
 
     if audio_params.audio_url:
         with log_time("download audio"):
-            audio_request = request_get(audio_params.audio_url)
-            response = audio_request.result()
+            try:
+                audio_request = request_get(audio_params.audio_url)
+                response = audio_request.result()
+            except Exception as exc:
+                logger.warning("Failed to download audio URL: %s", exc)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to download audio file at {audio_params.audio_url}",
+                ) from exc
             if response.status_code != 200:
                 raise HTTPException(
-                    status_code=500,
+                    status_code=400,
                     detail=f"Failed to download audio file at {audio_params.audio_url}",
                 )
             response.raw.decode_content = True
@@ -1494,12 +1850,71 @@ def _run_media_prompt_with_multimodal_model(
             pass
 
 
+STT_BACKEND = os.getenv("STT_BACKEND", "gemini").lower()
+GEMINI_STT_MODEL = os.getenv("GEMINI_STT_MODEL", "gemini-2.5-flash")
+
+
+class MissingSTTBackendConfig(RuntimeError):
+    pass
+
+
+def _gemini_stt_api_key() -> str:
+    key = (
+        os.getenv("GEMINI_STT_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+        or getattr(sellerinfo, "GEMINI_API_KEY", "")
+    )
+    return "" if key == "toset" else key
+
+
+def _transcribe_audio_with_gemini(audio_bytes: bytes, translate_to_english: bool) -> dict:
+    """Transcribe via the Gemini audio API — no local GPU model (replaces the
+    local Gemma-audio + NeMo/Parakeet path). Benched at ~2s, near-perfect on
+    real speech. Returns {"text": ...}; segment timing is not provided."""
+    import base64
+    import requests
+
+    key = _gemini_stt_api_key()
+    if not key:
+        raise MissingSTTBackendConfig("GEMINI_API_KEY unset")
+    prompt = _transcription_prompt(translate_to_english)
+    body = {"contents": [{"parts": [
+        {"text": prompt},
+        {"inline_data": {"mime_type": "audio/wav",
+                         "data": base64.b64encode(audio_bytes).decode()}},
+    ]}]}
+    url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+           f"{GEMINI_STT_MODEL}:generateContent")
+    # Keep the credential out of URLs so HTTP exceptions and access logs cannot
+    # disclose it. Gemini accepts the API key in this request header.
+    r = requests.post(
+        url,
+        json=body,
+        headers={"x-goog-api-key": key},
+        timeout=float(os.getenv("GEMINI_STT_TIMEOUT", "60")),
+    )
+    r.raise_for_status()
+    data = r.json()
+    text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    return {"text": text, "segments": []}
+
+
 def _transcribe_audio_with_multimodal_model(
     audio_bytes: bytes,
     source_name: Optional[str],
     translate_to_english: bool,
     include_segments: bool,
 ) -> dict:
+    # Remote Gemini path avoids the local GPU model entirely — the tg server is
+    # CPU-pinned (VRAM coexistence with vLLM), so the local audio model can't
+    # run without wedging the worker. Falls back to local only on failure.
+    if STT_BACKEND == "gemini":
+        try:
+            return _transcribe_audio_with_gemini(audio_bytes, translate_to_english)
+        except MissingSTTBackendConfig:
+            raise
+        except Exception as exc:
+            logger.warning("Gemini STT failed, falling back to local model: %s", exc)
     chunks = _split_audio_for_transcription(audio_bytes, source_name)
     if not chunks:
         return {"text": "", "segments": []}
@@ -1665,7 +2080,12 @@ def _extract_asr_text_and_segments(asr_result, include_segments: bool) -> tuple[
 
 def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
     model_cache = _get_model_cache()
-    audio_model = model_cache.add_or_get("audio_model", load_audio_model)
+    # With the Gemini STT backend we never touch a local GPU model. Loading one
+    # on this CPU-pinned server (VRAM is reserved for vLLM) hangs the worker, so
+    # skip it entirely — the Gemini path needs only the audio bytes.
+    audio_model = None
+    if STT_BACKEND != "gemini":
+        audio_model = model_cache.add_or_get("audio_model", load_audio_model)
     audio_bytes, source_name = _load_audio_bytes(audio_params)
 
     include_segments = bool(audio_params.include_segments)
@@ -1679,9 +2099,10 @@ def fast_audio_extract_inference(audio_params: AudioParamsOrAudioFile):
         include_segments=include_segments,
     )
 
-    # Keep the adapter hot in the model cache for benchmark code that still imports load_audio_model().
-    model_cache.add_or_get("audio_model", load_audio_model)
-    if hasattr(audio_model, "transcribe"):
+    if STT_BACKEND != "gemini":
+        # Keep the adapter hot in the model cache for benchmark code that still imports load_audio_model().
+        model_cache.add_or_get("audio_model", load_audio_model)
+    if audio_model is not None and hasattr(audio_model, "transcribe"):
         return result
     return result
 
@@ -1707,6 +2128,66 @@ async def audio_file_extraction(
         include_segments=include_segments,
     )
     return await audio_extract_shared(background_tasks, audio_params, request, response, secret)
+
+
+@app.post("/v1/audio/transcriptions")
+async def openai_audio_transcriptions(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    response: Response,
+    file: UploadFile = File(..., description="Audio file to transcribe"),
+    model: str = Form("whisper-1"),
+    response_format: str = Form("json"),
+    language: Optional[str] = Form(None),
+    translate: bool = Form(False),
+    secret: Union[str, None] = Header(default=None),
+):
+    """OpenAI-compatible speech-to-text (drop-in for the OpenAI transcription
+    client). Fronts the same transcription path as /api/v1/audio-file-extraction.
+    response_format: json (default, {"text": ...}), text, srt, verbose_json."""
+    fmt = (response_format or "json").lower()
+    if not request_authorized(request, secret) and not _user_has_subscription_or_credits(secret, minimum_credits=1):
+        raise HTTPException(status_code=401,
+                            detail="Please subscribe or buy API credits at https://text-generator.io/account")
+    # Fast path: transcribe straight through Gemini on the uploaded bytes,
+    # bypassing the local-GPU transcription machinery (which hangs on this
+    # CPU-pinned server). This is the whole point of dropping Parakeet.
+    if STT_BACKEND == "gemini":
+        import asyncio
+        audio_bytes = await file.read()
+        try:
+            result = await asyncio.to_thread(_transcribe_audio_with_gemini,
+                                             audio_bytes, bool(translate))
+        except MissingSTTBackendConfig as exc:
+            logger.warning("Gemini transcription backend is not configured: %s", exc)
+            raise HTTPException(status_code=424, detail="Transcription backend is not configured")
+        except Exception:
+            logger.exception("Gemini transcription failed")
+            raise HTTPException(status_code=502, detail="Transcription failed")
+        text = result.get("text", "")
+        if fmt in ("text", "srt"):
+            return Response(text, media_type="text/plain")
+        if fmt == "verbose_json":
+            return {"text": text, "segments": [], "language": language or "en"}
+        return {"text": text}
+    audio_params = AudioParamsOrAudioFile(
+        audio_file=file,
+        audio_url=None,
+        translate_to_english=bool(translate),
+        output_filetype="srt" if fmt == "srt" else "txt",
+        include_segments=(fmt == "verbose_json"),
+    )
+    result = await audio_extract_shared(background_tasks, audio_params, request, response, secret)
+    if fmt == "srt":
+        return Response(result if isinstance(result, str) else str(result),
+                        media_type="text/plain")
+    text = result.get("text", "") if isinstance(result, dict) else str(result)
+    if fmt == "text":
+        return Response(text, media_type="text/plain")
+    if fmt == "verbose_json" and isinstance(result, dict):
+        return {"text": text, "segments": result.get("segments", []),
+                "language": language or "en"}
+    return {"text": text}
 
 
 @app.post("/api/v1/audio-extraction")
@@ -1745,6 +2226,11 @@ async def audio_extract_shared(background_tasks, feature_extract_params, request
         logger.info("Starting audio extraction")
         inference_result = fast_audio_extract_inference(feature_extract_params)
         logger.info("Audio extraction completed successfully")
+    except MissingSTTBackendConfig as e:
+        logger.warning("Audio extraction backend is not configured: %s", e)
+        raise HTTPException(status_code=424, detail="Transcription backend is not configured")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in audio extraction: {e}")
         logger.error(f"Error type: {type(e)}")
@@ -1775,6 +2261,28 @@ async def audio_extract_shared(background_tasks, feature_extract_params, request
     return inference_result
 
 
+async def _run_feature_extraction(
+    feature_extract_params: FeatureExtractParams,
+    *,
+    secret: str | None = None,
+):
+    """Use the native CPU embedding lane when OmniServe is configured."""
+    if _is_vllm_text_backend_enabled():
+        return await asyncio.to_thread(
+            _proxy_vllm_json,
+            "/api/v1/feature-extraction",
+            _model_dump_jsonable(feature_extract_params),
+            secret,
+        )
+
+    inference_result = await _run_gpu_bound(
+        _fast_feature_extract_inference,
+        feature_extract_params,
+        _get_model_cache(),
+    )
+    return inference_result[: feature_extract_params.num_features]
+
+
 @app.post("/api/v1/feature-extraction")
 async def feature_extraction(
     feature_extract_params: FeatureExtractParams,
@@ -1782,12 +2290,30 @@ async def feature_extraction(
     request: Request,
     secret: Union[str, None] = Header(default=None),
 ):
-    # global daemon
-    # slow warmup on new servers
-    # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
-    # daemon.join()
-    inference_result = await _run_gpu_bound(_fast_feature_extract_inference, feature_extract_params, _get_model_cache())
-    return inference_result[: feature_extract_params.num_features]
+    return await _run_feature_extraction(feature_extract_params, secret=secret)
+
+
+class OpenAIEmbeddingParams(BaseModel):
+    input: Union[str, List[str]]
+    model: str = "omniserve-modernbert"
+    dimensions: Optional[int] = None
+    encoding_format: Optional[str] = None
+
+
+@app.post("/v1/embeddings")
+async def openai_embeddings(
+    params: OpenAIEmbeddingParams,
+    secret: Union[str, None] = Header(default=None),
+):
+    """OpenAI-compatible access to OmniServe's lightweight embedding model."""
+    if not _is_vllm_text_backend_enabled():
+        raise HTTPException(status_code=503, detail="Embedding backend is not configured")
+    return await asyncio.to_thread(
+        _proxy_vllm_json,
+        "/v1/embeddings",
+        _model_dump_jsonable(params),
+        secret,
+    )
 
 
 @app.post("/api/v1/summarization")
@@ -1871,13 +2397,13 @@ def user_secret_matches(secret):
             try:
                 db_user = User.get_by_secret(db, secret)
                 if not db_user:
-                    logger.error(f"user not found for secret: {secret}")
+                    logger.error("user not found for supplied API credential")
                     return None
                 set_session_for_user(db_user)
             finally:
                 db.close()
         except Exception:
-            logger.error(f"database error for secret: {secret}")
+            logger.error("database error while resolving API credential")
             return None
 
     existing_user = existing_user or db_user
@@ -2285,6 +2811,89 @@ def write_wav(processed_np_speech, rate):
     return bytes.getvalue()
 
 
+def _synthesize_legacy_speech_wav(text: str, voice: str, speed: float, language: str, steps: int):
+    rate, processed_np_speech = tts_synthesize(text, voice, speed, language=language, steps=steps)
+    return write_wav(processed_np_speech, rate)
+
+
+# --- TTS serving: GPU sidecar first, then local CPU engines, then a fast fallback voice.
+# This worker is deliberately CUDA-free; tts_gpu_server.py owns the GPU copies.
+TTS_GPU_URL = os.environ.get("TTS_GPU_URL", "http://127.0.0.1:9085").rstrip("/")
+TTS_GPU_TIMEOUT_BASE = float(os.environ.get("TTS_GPU_TIMEOUT_BASE", "8"))
+TTS_GPU_TIMEOUT_PER_CHAR = float(os.environ.get("TTS_GPU_TIMEOUT_PER_CHAR", "0.01"))
+TTS_GPU_COOLDOWN_SECONDS = float(os.environ.get("TTS_GPU_COOLDOWN_SECONDS", "15"))
+TTS_CONCURRENCY = max(1, int(os.environ.get("TTS_CONCURRENCY", "2")))
+TTS_FALLBACK_VOICE = os.environ.get("TTS_FALLBACK_VOICE", "M1")
+TTS_CPU_FAST_FALLBACK_CHARS = int(os.environ.get("TTS_CPU_FAST_FALLBACK_CHARS", "600"))
+_tts_gpu_down_until = 0.0
+_tts_gpu_session = None
+_tts_sem = None
+
+
+def _tts_gpu_synthesize(text, voice, speed, language, steps):
+    global _tts_gpu_down_until, _tts_gpu_session
+    if not TTS_GPU_URL or time.time() < _tts_gpu_down_until:
+        return None
+    import requests
+
+    if _tts_gpu_session is None:
+        _tts_gpu_session = requests.Session()
+    timeout = TTS_GPU_TIMEOUT_BASE + TTS_GPU_TIMEOUT_PER_CHAR * len(text)
+    try:
+        resp = _tts_gpu_session.post(
+            f"{TTS_GPU_URL}/synth",
+            json={"text": text, "voice": voice, "speed": speed, "language": language, "steps": steps},
+            timeout=(1.0, timeout),
+        )
+    except Exception as exc:
+        _tts_gpu_down_until = time.time() + TTS_GPU_COOLDOWN_SECONDS
+        logger.warning("GPU TTS unavailable (%s); CPU for %.0fs", type(exc).__name__, TTS_GPU_COOLDOWN_SECONDS)
+        return None
+    if resp.status_code == 400:
+        raise ValueError(resp.json().get("detail", "invalid speech request"))
+    if resp.status_code != 200:
+        logger.warning("GPU TTS status %s; falling back to CPU", resp.status_code)
+        return None
+    rate = int(resp.headers.get("X-Sample-Rate", "24000"))
+    return rate, np.frombuffer(resp.content, dtype=np.float32)
+
+
+def tts_synthesize(text, voice, speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
+    """GPU sidecar -> local engine -> fast fallback voice. Raises ValueError only for bad input."""
+    t0 = time.time()
+    result = _tts_gpu_synthesize(text, voice, speed, language, steps)
+    engine = "gpu"
+    if result is None:
+        engine = "cpu"
+        cpu_voice = voice
+        if len(text) > TTS_CPU_FAST_FALLBACK_CHARS and not is_supertonic_voice_request(voice):
+            # CPU Kokoro on a loaded host can exceed caller timeouts on long text; Supertonic is ~2x faster.
+            cpu_voice, engine = TTS_FALLBACK_VOICE, "cpu-fast"
+        try:
+            result = audio_process(text, cpu_voice, speed, language=language, steps=steps)
+        except ValueError:
+            raise
+        except Exception:
+            logger.exception("CPU TTS failed for voice=%s; trying fallback voice %s", voice, TTS_FALLBACK_VOICE)
+            engine = "cpu-fallback"
+            try:
+                result = audio_process(text, TTS_FALLBACK_VOICE, speed, language=language, steps=steps)
+            except Exception:
+                logger.exception("Fallback voice %s failed; trying Kokoro af", TTS_FALLBACK_VOICE)
+                result = audio_process(text, "af", speed, language="en", steps=steps)
+    logger.info("tts engine=%s voice=%s chars=%d took=%.2fs", engine, voice, len(text), time.time() - t0)
+    return result
+
+
+async def _run_tts(func, *args, **kwargs):
+    """TTS has its own gate so it never queues behind multi-minute CPU Gemma work."""
+    global _tts_sem
+    if _tts_sem is None:
+        _tts_sem = asyncio.Semaphore(TTS_CONCURRENCY)
+    async with _tts_sem:
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+
 @app.get("/api/v1/speech/catalog")
 async def speech_catalog():
     return {
@@ -2321,14 +2930,14 @@ async def generate_speech(
     voice = generate_speech_params.voice
     speed = generate_speech_params.speed
     try:
-        rate, processed_np_speech = audio_process(
+        wav = await _run_tts(
+            _synthesize_legacy_speech_wav,
             text,
             voice,
             speed,
             language=generate_speech_params.language,
             steps=generate_speech_params.steps,
         )
-        wav = write_wav(processed_np_speech, rate)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
@@ -2348,6 +2957,177 @@ async def generate_speech(
     # return Response(wav, media_type="audio/wav")
 
 
+# OpenAI-compatible speech synthesis (drop-in for the OpenAI /v1/audio/speech
+# client). Fronts the same supertonic/kokoro `audio_process`. Voice accepts our
+# native voices (M1..F5, af_*) or the OpenAI voice names (mapped to a default).
+_OPENAI_VOICE_MAP = {
+    "alloy": "M1", "echo": "M2", "fable": "M3", "onyx": "M4", "nova": "F1",
+    "shimmer": "F2", "ash": "M5", "sage": "F3", "coral": "F4", "verse": "F5",
+}
+_SPEECH_FORMATS = {
+    "wav": ("audio/wav", "WAV", "PCM_16"),
+    "mp3": ("audio/mpeg", "MP3", "MPEG_LAYER_III"),
+    "aac": ("audio/mpeg", "MP3", "MPEG_LAYER_III"),  # no aac encoder in libsndfile; mp3 is the closest drop-in
+    "flac": ("audio/flac", "FLAC", None),
+    "ogg": ("audio/ogg", "OGG", "VORBIS"),
+    "opus": ("audio/ogg", "OGG", "OPUS"),
+    "pcm": ("audio/L16", None, None),  # raw little-endian int16 at 24kHz, like OpenAI
+}
+_OPUS_RATES = (8000, 12000, 16000, 24000, 48000)
+
+
+class OpenAISpeechParams(BaseModel):
+    model: Optional[str] = "supertonic"
+    input: str
+    voice: Optional[str] = "M1"
+    response_format: Optional[str] = "wav"
+    speed: Optional[float] = 1.0
+    language: Optional[str] = "en"
+    steps: Optional[int] = SUPERTONIC_DEFAULT_STEPS
+
+
+def _resample(audio_np, rate: int, target: int):
+    if rate == target:
+        return audio_np
+    from math import gcd
+
+    from scipy.signal import resample_poly
+
+    g = gcd(rate, target)
+    return resample_poly(audio_np, target // g, rate // g).astype(np.float32)
+
+
+def _encode_audio(audio_np, rate: int, fmt: str):
+    fmt = (fmt or "wav").lower()
+    media, sf_format, subtype = _SPEECH_FORMATS.get(fmt, _SPEECH_FORMATS["wav"])
+    audio_np = np.asarray(audio_np)
+    if audio_np.dtype.kind == "f":
+        audio_np = np.clip(audio_np, -1.0, 1.0).astype(np.float32, copy=False)
+    if sf_format is None:  # raw pcm
+        pcm = _resample(audio_np, rate, 24000) if audio_np.dtype.kind == "f" else audio_np
+        if pcm.dtype != np.int16:
+            pcm = (np.clip(pcm, -1.0, 1.0) * 32767.0).astype(np.int16)
+        return pcm.tobytes(), media
+    if subtype == "OPUS" and rate not in _OPUS_RATES:
+        audio_np, rate = _resample(audio_np, rate, 48000), 48000
+    buf = BytesIO()
+    try:
+        sf.write(buf, audio_np, rate, format=sf_format, subtype=subtype)
+    except Exception:
+        logger.exception("Encoding %s failed; returning wav", fmt)
+        buf = BytesIO()
+        sf.write(buf, audio_np, rate, format="WAV", subtype="PCM_16")
+        media = "audio/wav"
+    return buf.getvalue(), media
+
+
+def _synthesize_openai_speech_response(
+    text: str,
+    voice: str,
+    speed: float,
+    language: str,
+    steps: int,
+    response_format: str,
+):
+    rate, audio_np = tts_synthesize(text, voice, speed, language=language, steps=steps)
+    return _encode_audio(audio_np, rate, response_format)
+
+
+@app.post("/v1/audio/speech")
+async def openai_audio_speech(
+    params: OpenAISpeechParams,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    secret: Union[str, None] = Header(default=None),
+):
+    model = (params.model or "supertonic").strip().lower()
+    text = (params.input or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="input text is required")
+
+    from questions.credits import (
+        appnz_api_key,
+        appnz_tts_upstream_url,
+        estimate_appnz_tts_credits,
+        maybe_autotopup,
+    )
+
+    is_appnz = model in {"appnz-tts", "pocket-tts", "fish-speech"}
+    credits_needed = estimate_appnz_tts_credits(model, text) if is_appnz else 1
+
+    if not request_authorized(request, secret):
+        if not _user_has_subscription_or_credits(secret, minimum_credits=credits_needed):
+            raise HTTPException(
+                status_code=402 if is_appnz else 401,
+                detail="Please subscribe or buy API credits at https://text-generator.io/account",
+            )
+
+    if is_appnz:
+        import requests
+
+        api_key = appnz_api_key()
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        upstream = None
+        try:
+            upstream = await asyncio.to_thread(
+                requests.post,
+                appnz_tts_upstream_url(),
+                headers=headers,
+                json={
+                    "model": model,
+                    "input": text,
+                    "voice": params.voice or "eve",
+                    "language": params.language or "en",
+                    "speed": params.speed or 1.0,
+                    "response_format": params.response_format or "mp3",
+                },
+                # Callers (netwrck) give up at 60s; leave room for the local fallback.
+                timeout=float(os.environ.get("APPNZ_TTS_TIMEOUT", "40")),
+            )
+        except Exception:
+            logger.exception("App.nz TTS proxy failed; using local TTS")
+        if upstream is not None and not upstream.ok:
+            logger.warning("App.nz TTS status %s; using local TTS", upstream.status_code)
+            upstream = None
+    if is_appnz and upstream is not None:
+        if "X-Rapid-API-Key" not in request.headers and not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+            if not _consume_user_credits(secret, credits_needed):
+                raise HTTPException(
+                    status_code=402,
+                    detail="Insufficient credits. Buy API credits at https://text-generator.io/account",
+                )
+            user = _get_user_for_secret(secret)
+            if user and user.stripe_id:
+                background_tasks.add_task(maybe_autotopup, user.stripe_id)
+        media = upstream.headers.get("content-type") or "audio/mpeg"
+        return Response(upstream.content, media_type=media, background=background_tasks)
+
+    voice = params.voice or "M1"
+    voice = _OPENAI_VOICE_MAP.get(voice.lower(), voice)
+    if is_appnz and not (is_supertonic_voice_request(voice) or KOKORO_LEGACY_VOICE_ALIASES.get(voice.lower(), voice) in KOKORO_VOICES):
+        voice = TTS_FALLBACK_VOICE
+    try:
+        data, media = await _run_tts(
+            _synthesize_openai_speech_response,
+            text,
+            voice,
+            params.speed or 1.0,
+            params.language or "en",
+            params.steps or SUPERTONIC_DEFAULT_STEPS,
+            params.response_format or "wav",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        logger.exception("audio/speech failed for voice=%s", voice)
+        raise HTTPException(status_code=500, detail="Speech synthesis failed")
+    if "X-Rapid-API-Key" not in request.headers and not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+        background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
+    return Response(data, media_type=media, background=background_tasks)
+
+
 def gradio_audio_process(text, voice, speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
     """Simplified function that only takes the required parameters"""
     if len(text.strip()) == 0:
@@ -2364,7 +3144,10 @@ def gradio_audio_process(text, voice, speed=1.0, language="en", steps=SUPERTONIC
     # Generate audio using Kokoro
     # generate_full handles inputs longer than the default token limit
     _, generate_full, _ = _get_kokoro_runtime()
-    audio, phonemes = generate_full(model, text, voicepack, lang=voice[0], speed=speed)
+    generated = generate_full(model, text, voicepack, lang=voice[0], speed=speed)
+    if generated is None:
+        raise ValueError("Speech input could not be tokenized for the selected voice.")
+    audio, phonemes = generated
     audio = _optimize_generated_audio(audio, sample_rate=24000)
 
     return (24000, audio)
@@ -2410,7 +3193,10 @@ def audio_process(text, voice="af_nicole", speed=1.0, language="en", steps=SUPER
     # Generate audio using Kokoro
     # generate_full handles inputs longer than the default token limit
     _, generate_full, _ = _get_kokoro_runtime()
-    audio, phonemes = generate_full(model, text, voicepack, lang=voice[0], speed=speed)
+    generated = generate_full(model, text, voicepack, lang=voice[0], speed=speed)
+    if generated is None:
+        raise ValueError("Speech input could not be tokenized for the selected voice.")
+    audio, phonemes = generated
     audio = _optimize_generated_audio(audio, sample_rate=24000)
 
     # we could do this but use speed instead
@@ -2432,6 +3218,56 @@ class ImageCaptionParams(BaseModel):
     image_url: Optional[str] = None
     fast_mode: bool = True
     custom_prompt: Optional[str] = None  # For future use if needed
+
+
+def _validate_public_image_url(image_url: str) -> str:
+    url = image_url.strip()
+    try:
+        parsed = urlparse(url)
+        host = parsed.hostname
+        port = parsed.port
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid image URL") from exc
+
+    if parsed.scheme.lower() not in {"http", "https"}:
+        raise HTTPException(status_code=400, detail="Image URL must use http or https")
+    if not host:
+        raise HTTPException(status_code=400, detail="Image URL must include a host")
+
+    try:
+        host = host.rstrip(".").encode("idna").decode("ascii")
+    except UnicodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid image URL host") from exc
+
+    if not host:
+        raise HTTPException(status_code=400, detail="Image URL must include a host")
+
+    resolved_addresses = set()
+    try:
+        resolved_addresses.add(str(ipaddress.ip_address(host)))
+    except ValueError:
+        try:
+            infos = socket.getaddrinfo(
+                host,
+                port or (443 if parsed.scheme.lower() == "https" else 80),
+                type=socket.SOCK_STREAM,
+            )
+        except socket.gaierror as exc:
+            raise HTTPException(status_code=400, detail="Image URL host could not be resolved") from exc
+        resolved_addresses.update(info[4][0] for info in infos)
+
+    if not resolved_addresses:
+        raise HTTPException(status_code=400, detail="Image URL host could not be resolved")
+
+    for address in resolved_addresses:
+        try:
+            ip = ipaddress.ip_address(address)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Image URL host resolved to an invalid address") from exc
+        if not ip.is_global:
+            raise HTTPException(status_code=400, detail="Image URL host must resolve to a public address")
+
+    return url
 
 
 class VideoQuestionParams(BaseModel):
@@ -2491,6 +3327,7 @@ async def image_caption(
             # Handle image URL
             import httpx
 
+            image_url = _validate_public_image_url(image_url)
             logger.info(f"Downloading image from URL: {image_url}")
 
             # Download image from URL asynchronously
@@ -2514,6 +3351,11 @@ async def image_caption(
                     image_bytes = response.content
                     filename = image_url.split('/')[-1] or 'image_from_url'
 
+            except httpx.InvalidURL as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid image URL: {str(e)}"
+                )
             except httpx.HTTPError as e:
                 raise HTTPException(
                     status_code=400,
@@ -2530,7 +3372,19 @@ async def image_caption(
 
         prompt = custom_prompt or "Describe this image in a concise, useful caption."
         with log_time("image captioning"):
-            caption = _caption_image_bytes(image_bytes, prompt=prompt, fast_mode=fast_mode)
+            if IMAGE_CAPTION_BACKEND_BASE:
+                caption = await asyncio.to_thread(
+                    _caption_image_via_omniserve,
+                    image_bytes,
+                    fast_mode=fast_mode,
+                )
+            else:
+                caption = await asyncio.to_thread(
+                    _caption_image_bytes,
+                    image_bytes,
+                    prompt=prompt,
+                    fast_mode=fast_mode,
+                )
 
         logger.info(f"Generated caption: {caption}")
 
@@ -2626,10 +3480,6 @@ async def video_question(
     except Exception as e:
         logger.error(f"Error in video question endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"Video understanding failed: {str(e)}")
-
-
-
-import base64 as _base64_mod
 
 @app.post('/api/v1/multimodal-generate')
 async def multimodal_generate(
@@ -3045,12 +3895,43 @@ def _get_autocomplete_sem():
     return _autocomplete_sem
 
 
+_vllm_warm_kick_at = 0.0
+_VLLM_WARM_KICK_INTERVAL_S = 60.0
+
+
+def _kick_vllm_warmup() -> None:
+    """Fire-and-forget backend boot so autocomplete self-heals after idle
+    unload instead of returning backend_unavailable until a generate arrives.
+    Throttled: at most one kick per interval."""
+    import threading
+    import time
+
+    global _vllm_warm_kick_at
+    now = time.time()
+    if now - _vllm_warm_kick_at < _VLLM_WARM_KICK_INTERVAL_S:
+        return
+    _vllm_warm_kick_at = now
+
+    def _kick():
+        try:
+            request = urllib.request.Request(
+                f"{VLLM_TEXT_BACKEND_BASE}/backend/ensure", data=b"", method="POST")
+            with urllib.request.urlopen(request, timeout=10) as response:
+                response.read()
+            logger.info("vLLM warmup kick sent")
+        except Exception as exc:
+            logger.warning("vLLM warmup kick failed: %s", exc)
+
+    threading.Thread(target=_kick, daemon=True, name="vllm-warm-kick").start()
+
+
 async def _run_autocomplete_inference(generate_params: AutocompleteParams, model_cache):
     import asyncio
 
     if _is_vllm_text_backend_enabled():
         if not await asyncio.to_thread(_vllm_text_backend_ready):
-            logger.warning("vLLM autocomplete backend is not ready")
+            logger.warning("vLLM autocomplete backend is not ready; kicking warmup")
+            _kick_vllm_warmup()
             return _empty_autocomplete_response(generate_params, "backend_unavailable")
         try:
             return await asyncio.wait_for(
@@ -3334,7 +4215,9 @@ async def chat_completions_route(
 
     if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
         if has_media_content:
-            if not _user_has_subscription_or_credits(secret, minimum_credits=1):
+            if not request_authorized(request, secret) and not _user_has_subscription_or_credits(
+                secret, minimum_credits=1
+            ):
                 raise HTTPException(
                     status_code=401,
                     detail="Please subscribe or buy API credits at https://text-generator.io/account before sending media",
@@ -3350,7 +4233,7 @@ async def chat_completions_route(
         and "X-Rapid-API-Key" not in request.headers
         and "x-rapid-api-key" not in request.headers
         and not API_KEY
-        and secret != sellerinfo.TEXT_GENERATOR_SECRET
+        and secret not in {sellerinfo.TEXT_GENERATOR_SECRET, NETWRCK_PARTNER_SECRET}
     )
 
     # Models in the public provider catalogue are routed before the local vLLM
