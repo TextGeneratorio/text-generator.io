@@ -2343,6 +2343,30 @@ async def feature_extraction(
     return JSONResponse({"generated_text": text})
 
 
+def _textgen_subscriber(secret):
+    if not _get_user_for_secret(secret):
+        return None
+    return _user_has_subscription_or_credits(secret)
+
+
+_RELAY_HEADERS = ("x-forwarded-for", "x-real-ip", "cf-connecting-ip", "cf-ray", "forwarded", "via")
+
+
+@app.get("/internal/omniserve/verify")
+async def omniserve_verify_subscriber(request: Request):
+    from .subscriber_verify import verify_credential, verify_secret_ok
+
+    client = request.client.host if request.client else ""
+    if (client not in {"127.0.0.1", "::1"} or any(h in request.headers for h in _RELAY_HEADERS)
+            or not verify_secret_ok(request.headers.get("x-verify-secret"))):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    result = await asyncio.to_thread(
+        verify_credential, request.headers.get("x-subscriber-credential"), _textgen_subscriber)
+    status = result.get("status", 503)
+    return JSONResponse({"ok": status == 200, "tier": result.get("tier"), "source": result.get("source")},
+                        status_code=status)
+
+
 @app.get("/liveness_check")
 async def liveness_check(request: Request, deep: int = 0):
     try:
@@ -2417,6 +2441,10 @@ def user_secret_matches(secret):
 def request_authorized(request: Request, secret):
     if secret and secret == NETWRCK_PARTNER_SECRET:
         return True
+    from .subscriber_verify import service_key_tier, verify_credential
+
+    if service_key_tier(secret):
+        return True
     if API_KEY:
         if secret == API_KEY:
             return True
@@ -2426,7 +2454,12 @@ def request_authorized(request: Request, secret):
     # todo fix vuln
     if "X-Rapid-API-Key" in request.headers or "x-rapid-api-key" in request.headers:
         return True
-    return user_secret_matches(secret)
+    user = user_secret_matches(secret)
+    if user:
+        return user
+    # netwrck/ebank and cutedsl subscribers reach these workers through the
+    # omniserve-native gate, which already required a paid account.
+    return bool(secret) and verify_credential(secret).get("status") == 200
 
 
 def image_caption_secret_authorized(request: Request, secret):
