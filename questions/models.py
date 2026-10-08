@@ -299,6 +299,9 @@ class CreateCheckoutRequest(BaseModel):
     referral: Optional[str] = ""
     quantity: Optional[int] = 1
     return_url: Optional[str] = ""
+    surface: Optional[str] = ""
+    th_client_id: Optional[str] = ""
+    th_session_id: Optional[str] = ""
 
 
 def create_generate_params(

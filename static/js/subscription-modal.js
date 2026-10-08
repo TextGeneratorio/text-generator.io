@@ -404,6 +404,7 @@ window.SubscriptionModal = class SubscriptionModal {
             this.modal.classList.add('show');
             this.isOpen = true;
             document.body.style.overflow = 'hidden';
+            window.th?.('track', 'paywall_open', { surface: 'subscription_modal' });
         }
     }
 
@@ -438,7 +439,7 @@ if (typeof window.subscriptionModal === 'undefined') {
     initSubscriptionModal();
 
     // Helper function for easy access
-    window.requireSubscription = async function(action = 'access this feature') {
+    window.requireSubscription = window.requireSubscription || async function(action = 'access this feature') {
         if (!window.subscriptionModal) {
             console.warn('SubscriptionModal not initialized yet');
             return false;
@@ -447,7 +448,7 @@ if (typeof window.subscriptionModal === 'undefined') {
     };
 
     // Helper function to check if user is subscribed
-    window.isUserSubscribed = async function() {
+    window.isUserSubscribed = window.isUserSubscribed || async function() {
         if (!window.subscriptionModal) {
             console.warn('SubscriptionModal not initialized yet');
             return false;

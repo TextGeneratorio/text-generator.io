@@ -18,6 +18,7 @@
     {% block headers %}
     {% endblock %}
     {% include 'templates/shared/seo_head.jinja2' %}
+    {% include 'templates/shared/th_analytics.jinja2' %}
     <link rel="preload" href="/static/fonts/sora-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/static/css/a11y-fixes.css?v=4">
     <script>
@@ -37,14 +38,11 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
 
     <link rel="stylesheet" href="{{ static_url }}/css/article.css">
     <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
     <link rel="stylesheet" href="/static/css/site-redesign.css?v=11">
 
 
@@ -115,6 +113,7 @@
 	                if (response.ok) {
 	                    const userData = await response.json();
 	                    setHeaderAuthState(true, userData);
+	                    if (userData && userData.id) window.th?.('identify', String(userData.id));
 	                } else {
 	                    setHeaderAuthState(false, null);
 	                }
@@ -258,8 +257,8 @@
 
     </script>
     <script defer src="/static/js/material.min.js"></script>
-    <script src="/static/js/checkout-dialog.js?v=5"></script>
-    <script src="/static/js/subscription-modal.js?v=2"></script>
+    <script defer src="/static/js/checkout-dialog.js?v=8"></script>
+    <script defer src="/static/js/subscription-modal.js?v=3"></script>
 
     {#    <script src="{{ static_url }}/js/webutils.js"></script>#}
     {#    <script src="{{ static_url }}/js/templates/coins-table.js"></script>#}
@@ -292,5 +291,8 @@
 
 </div>
 <script src="/static/js/highlight-compat.js?v=1"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
+<link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
+<link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
 </body>
 </html>

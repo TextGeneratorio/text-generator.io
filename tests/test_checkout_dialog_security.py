@@ -102,6 +102,6 @@ def test_checkout_dialog_does_not_initialize_live_stripe_on_http_origin():
 def test_base_template_uses_versioned_site_local_checkout_dialog():
     template = Path("static/templates/base.jinja2").read_text(encoding="utf-8")
 
-    assert '<script src="/static/js/checkout-dialog.js?v=5"></script>' in template
+    assert '<script defer src="/static/js/checkout-dialog.js?v=8"></script>' in template
     assert '<script src="{{ static_url }}/js/checkout-dialog.js"></script>' not in template
     assert '<script src="https://js.stripe.com/v3/"></script>' not in template

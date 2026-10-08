@@ -191,7 +191,15 @@ class CheckoutDialog {
 
         const user = await this.getCurrentUser();
         if (!user) {
-            this.showError('Please log in to subscribe');
+            const next = encodeURIComponent(getCheckoutReturnUrl());
+            const checkoutContainer = document.getElementById('checkout-container');
+            checkoutContainer.innerHTML = `
+                <div class="checkout-error">
+                    <p>Create a free account to subscribe</p>
+                    <a href="/signup?next=${next}" class="checkout-btn" onclick="window.th?.('track', 'paywall_signup_clicked', { surface: '${checkoutSurface()}' })">Sign up</a>
+                    <a href="/login?next=${next}">Log in</a>
+                </div>
+            `;
             return;
         }
 
@@ -213,7 +221,10 @@ class CheckoutDialog {
                     subscription_type: this.subscriptionType,
                     return_url: this.returnUrl,
                     referral: '',
-                    quantity: this.quantity
+                    quantity: this.quantity,
+                    surface: checkoutSurface(),
+                    th_client_id: thStorageValue('th_cid'),
+                    th_session_id: thStorageValue('th_sid')
                 })
             });
 
@@ -222,6 +233,7 @@ class CheckoutDialog {
             }
 
             const { clientSecret } = await response.json();
+            window.th?.('track', 'begin_checkout', { plan: this.subscriptionType, quantity: this.quantity, surface: checkoutSurface() });
             
             // Clear previous checkout if it exists
             if (this.embeddedCheckout) {
@@ -260,6 +272,7 @@ class CheckoutDialog {
             this.modal.classList.add('show');
             this.isOpen = true;
             document.body.style.overflow = 'hidden';
+            window.th?.('track', 'paywall_open', { surface: checkoutSurface(), plan: this.subscriptionType });
             
             // Load checkout when modal is shown
             await this.loadCheckout();
@@ -284,6 +297,19 @@ class CheckoutDialog {
 
 // Create global instance when DOM is ready
 let checkoutDialog;
+
+function checkoutSurface() {
+    const path = (window.location.pathname || '/').replace(/^\/+|\/+$/g, '');
+    return path ? path.replace(/[^a-z0-9]+/gi, '_').toLowerCase() : 'home';
+}
+
+function thStorageValue(key) {
+    try {
+        return localStorage.getItem(key) || '';
+    } catch (error) {
+        return '';
+    }
+}
 
 function getCheckoutReturnUrl() {
     const currentPath = `${window.location.pathname || '/'}${window.location.search || ''}${window.location.hash || ''}`;

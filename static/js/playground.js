@@ -1022,6 +1022,11 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         var primaryTooltip = options.primaryTooltip;
         var primaryClick = options.primaryClick || "if (window.showCheckoutDialog) { showCheckoutDialog('monthly'); } else if (window.subscriptionModal) { window.subscriptionModal.show(); }";
         var secondaryHtml = options.secondaryHtml || '';
+        renderPlaygroundAccessMessage.tracked = renderPlaygroundAccessMessage.tracked || {};
+        if (!renderPlaygroundAccessMessage.tracked[title]) {
+            renderPlaygroundAccessMessage.tracked[title] = true;
+            window.th?.('track', 'paywall_open', { surface: 'playground', gate: title });
+        }
 
         $('#response-results').html(`
             <div style="text-align: center; padding: 20px; color: #666;">

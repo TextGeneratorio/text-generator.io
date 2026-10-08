@@ -123,6 +123,7 @@ from questions.payments.payments import (
     get_subscription_item_id_for_user_email_async,
     validate_stripe_customer,
 )
+from questions import th_analytics
 from questions.utils import get_env_var, random_string
 
 
@@ -1275,9 +1276,17 @@ async def create_checkout_session_embedded(
         # Fallback for non-PostgreSQL setup
         raise HTTPException(status_code=501, detail="Checkout not available without PostgreSQL")
 
-    metadata = None
-    if referral:
-        metadata = {"referral": referral}
+    metadata = {
+        key: value[:80]
+        for key, value in {
+            "plan": subscription_type or "monthly",
+            "surface": checkoutRequest.surface or "",
+            "th_cid": checkoutRequest.th_client_id or "",
+            "th_sid": checkoutRequest.th_session_id or "",
+            "referral": referral or "",
+        }.items()
+        if value
+    }
 
     checkout_mode = "subscription"
     return_path = normalize_return_path(checkoutRequest.return_url, "/playground")
@@ -1370,7 +1379,41 @@ async def webhook_received(request: Request, db: Session = Depends(get_db)):
                 except Exception as exc:
                     logger.warning("Failed to sync purchased credits into local cache for %s: %s", stripe_id, exc)
 
+    if event_type == "checkout.session.completed" and data_object.get("status") == "complete":
+        _track_checkout_purchase(db, data_object)
+
     return JSONResponse({"status": "success"})
+
+
+def _track_checkout_purchase(db: Session, session: Dict[str, Any]) -> None:
+    try:
+        metadata = session.get("metadata", {}) or {}
+        stripe_id = str(session.get("customer") or "")
+        user_id = None
+        if USE_POSTGRES and stripe_id:
+            from questions.db_models_postgres import User as UserPG
+
+            db_user = db.query(UserPG).filter(UserPG.stripe_id == stripe_id).first()
+            if db_user:
+                user_id = str(db_user.id)
+        session_id = str(session.get("id") or "")
+        plan = metadata.get("plan") or metadata.get("purchase_type") or session.get("mode") or "unknown"
+        th_analytics.send_event_background(
+            "purchase",
+            event_id=session_id,
+            client_id=metadata.get("th_cid") or user_id or stripe_id or session_id,
+            user_id=user_id,
+            session_id=metadata.get("th_sid") or None,
+            props={
+                "plan": plan,
+                "revenue": round((session.get("amount_total") or 0) / 100, 2),
+                "currency": str(session.get("currency") or "usd").upper(),
+                "transaction_id": session_id,
+                "surface": metadata.get("surface") or "",
+            },
+        )
+    except Exception as exc:
+        logger.warning("Failed to track purchase for checkout %s: %s", session.get("id"), exc)
 
 
 @app.get("/questions-game")

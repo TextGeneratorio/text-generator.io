@@ -387,6 +387,7 @@
         }
         
         setLoading(true);
+        window.th?.('track', 'sign_in_started', { method: 'email', surface: 'login_page' });
         
         try {
             const response = await fetch('/api/login', {
@@ -399,6 +400,8 @@
             if (response.ok) {
                 // Success - set session and redirect
                 document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
+                if (result.id) window.th?.('identify', String(result.id));
+                window.th?.('track', 'sign_in_completed', { method: 'email' });
                 window.location.href = '/playground';
             } else {
                 let errorMessage = 'Invalid email or password';

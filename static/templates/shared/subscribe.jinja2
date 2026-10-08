@@ -25,6 +25,7 @@ function setupAnonymous() {
 
 function requireSignupForCheckout() {
     if (window.user) return false;
+    window.th?.('track', 'paywall_signup_clicked', { surface: 'pricing_page' });
     window.location.href = '/signup?next=%2Fsubscribe';
     return true;
 }
@@ -98,6 +99,7 @@ window.addEventListener('load', function() {
     
     // Check auth status and setup subscription
     checkAuthStatus();
+    window.th?.('track', 'paywall_open', { surface: 'pricing_page' });
 
     $(document).ready(function () {
         setupQuantityForm();

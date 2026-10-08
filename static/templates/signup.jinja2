@@ -437,6 +437,7 @@
         }
         
         setLoading(true);
+        window.th?.('track', 'sign_up_started', { method: 'email', surface: 'signup_page' });
         
         try {
             const response = await fetch('/api/signup', {
@@ -452,6 +453,8 @@
             if (response.ok) {
                 // Success - set session and redirect to playground
                 document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
+                if (result.id) window.th?.('identify', String(result.id));
+                window.th?.('track', 'sign_up_completed', { method: 'email', surface: 'signup_page' });
                 window.location.href = '/playground';
             } else {
                 let errorMessage = 'Account creation failed';
