@@ -8,22 +8,24 @@
     <meta name="description"
           content="{{ description }}">
 
-    <link rel="canonical" href="https://text-generator.io{{ request.url.path }}">
     <meta property="article:published_time" content="2026-10-22">
-    <meta name="twitter:card" content="summary_large_image">
     <meta name="keywords" content="{{ keywords }}">
     <meta property="og:title" content="{{ title }}">
-    <meta property="og:url" content="{{ url }}">
+    <meta property="og:url" content="https://text-generator.io{{ request.url.path }}">
     <meta property="og:image" content="https://text-generator.io/static/img/og-card.jpg">
     <meta property="og:description"
           content="{{ description }}">
     <meta property="og:type" content="article">
     <meta property="og:site_name" content="Text Generator">
     <meta property="fb:admins" content="337972272904903">
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"BlogPosting","headline":{{ title | tojson }},"description":{{ description | tojson }},"mainEntityOfPage":"https://text-generator.io{{ request.url.path }}","image":"https://text-generator.io/static/img/og-card.jpg","datePublished":"2026-10-22","dateModified":"2026-10-22","author":{"@type":"Organization","name":"Text Generator"},"publisher":{"@id":"https://text-generator.io/#org"}}
+    </script>
 
 {% endblock %}
 
 {% block mainbody %}
+    <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">{{ title }}</h1>
     {% include blogtemplate %}
 {% endblock %}
 
