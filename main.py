@@ -1847,7 +1847,7 @@ Important instructions:
             {
                 "generated_text": prompt + generated_text,
                 "finished_reason": "length",
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-5-5",
             }
         ]
 
@@ -1891,7 +1891,7 @@ async def generate_large_text(
             )
 
         # Use model from request or default
-        model_name = generate_params.model or "claude-sonnet-4-20250514"
+        model_name = generate_params.model or "claude-sonnet-5-5"
 
         # Use system message from request if provided, otherwise use default
         if generate_params.system_message:

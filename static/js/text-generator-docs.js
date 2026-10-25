@@ -2232,7 +2232,7 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
           temperature: 0.8,
           repetition_penalty: 1.17,
           seed: 0,
-          model: "claude-sonnet-4-20250514"
+          model: "claude-sonnet-5-5"
         })
       });
       
