@@ -28,7 +28,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       TYPING_TIMEOUT_MS: 2000,
       
       // Claude API settings
-      CLAUDE_MODEL: "claude-sonnet-4-20250514",
+      CLAUDE_MODEL: "claude-sonnet-5-5",
       CLAUDE_MAX_TOKENS: 5999,
       CLAUDE_TEMPERATURE: 0.8,
       

@@ -75,3 +75,5 @@ llmtraining/
 *min.js
 *min.js.map
 !static/libs/quill.min.js
+wer_results.json
+visual_bench/

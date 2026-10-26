@@ -8,6 +8,8 @@ import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from urllib.error import HTTPError, URLError
+from urllib.request import Request as UrlRequest, urlopen
 from urllib.parse import quote_plus, urlencode
 
 def _reload_stale_anyio_modules() -> None:
@@ -33,7 +35,7 @@ from fastapi import Depends, File, Form, Header, HTTPException, Request, UploadF
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.datastructures import URL
@@ -179,6 +181,71 @@ config = {}
 config["webapp2_extras.sessions"] = dict(secret_key="93986c9cdd240540f70efaea56a9e3f2")
 
 templates = Jinja2Templates(directory=".")
+
+OPENPATHS_API_BASE = os.environ.get("OPENPATHS_API_BASE", "https://openpaths.io/v1")
+OPENPATHS_API_KEY = os.environ.get("OPENPATHS_API_KEY", "")
+OPENPATHS_ROUTER_MODELS = [
+    model.strip()
+    for model in os.environ.get("OPENPATHS_ROUTER_MODELS", "openai-chat-latest,anthropic-opus-latest").split(",")
+    if model.strip()
+]
+
+
+class MarketingWorkflowRequest(BaseModel):
+    workflow: str
+    target_url: Optional[str] = ""
+    competitor_urls: List[str] = Field(default_factory=list)
+    business_context: Optional[str] = ""
+
+
+def call_openpaths_chat(model: str, messages: List[Dict[str, str]], temperature: float = 0.2) -> str:
+    """
+    Call OpenPaths' OpenAI-compatible endpoint (https://openpaths.io/v1/chat/completions).
+    """
+    if not OPENPATHS_API_KEY:
+        raise HTTPException(status_code=503, detail="OPENPATHS_API_KEY is not configured on the server.")
+
+    endpoint = f"{OPENPATHS_API_BASE.rstrip('/')}/chat/completions"
+    payload = json.dumps(
+        {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+    ).encode("utf-8")
+
+    req = UrlRequest(
+        endpoint,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {OPENPATHS_API_KEY}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(req, timeout=40) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="ignore")
+        logger.error(f"OpenPaths HTTP error ({e.code}): {error_body}")
+        raise HTTPException(status_code=502, detail="OpenPaths request failed.")
+    except URLError as e:
+        logger.error(f"OpenPaths network error: {e}")
+        raise HTTPException(status_code=502, detail="Could not reach OpenPaths API.")
+    except Exception as e:
+        logger.error(f"OpenPaths unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Unexpected OpenPaths error.")
+
+    content = (
+        body.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content", "")
+    )
+    if not content:
+        raise HTTPException(status_code=502, detail="OpenPaths returned an empty response.")
+    return content
 
 
 def is_crawler_user_agent(user_agent: str) -> bool:
@@ -986,7 +1053,8 @@ async def tool_page(request: Request, tool_name: str, db: Session = Depends(get_
             "tool_keywords": tool_info.get("keywords", ""),
             "tool_url": f"/tools/{tool_name}",
             "tool_image": tool_info.get("image", ""),
-            "tooltemplate": f"templates/tools/{tool_name}.jinja2",
+            "tooltemplate": tool_info.get("template", f"templates/tools/{tool_name}.jinja2"),
+            "tool_workflow_key": tool_info.get("workflow_key", tool_name),
             "subscription_required": subscription_required
             and subscription_status
             and subscription_status.get("subscription_required", False)
@@ -1066,6 +1134,62 @@ async def keyword_explorer_run(request: Request, payload: KeywordExplorerRequest
         raise HTTPException(status_code=500, detail="Keyword Explorer encountered an error.")
 
     return JSONResponse(result)
+
+
+@app.post("/api/tools/marketing-workflow")
+async def run_marketing_workflow(payload: MarketingWorkflowRequest):
+    workflow_instructions = {
+        "competitor-teardown": (
+            "You are a conversion strategist. Produce: positioning summary, competitor strengths/weaknesses, "
+            "messaging gaps, and a prioritized 7-day action plan."
+        ),
+        "seo-content-gap-finder": (
+            "You are an SEO strategist. Produce: topic clusters, content gaps vs competitors, "
+            "a prioritized publishing roadmap, and suggested briefs."
+        ),
+        "deep-researcher": (
+            "You are a senior research analyst. Produce: key findings, assumptions, risks, "
+            "counterarguments, and next-step experiments."
+        ),
+        "keyword-glossary-explorer": (
+            "You are a search growth strategist. Produce: keyword clusters, search intent buckets, "
+            "glossary page ideas, and internal link opportunities."
+        ),
+    }
+
+    workflow_key = payload.workflow.strip().lower()
+    if workflow_key not in workflow_instructions:
+        raise HTTPException(status_code=400, detail="Unsupported workflow.")
+
+    user_prompt = (
+        f"Workflow: {workflow_key}\n\n"
+        f"Target URL: {payload.target_url or 'N/A'}\n"
+        f"Competitors: {', '.join(payload.competitor_urls) if payload.competitor_urls else 'N/A'}\n\n"
+        f"Context:\n{payload.business_context or 'N/A'}\n\n"
+        "Return markdown with clear headings and bullet points."
+    )
+
+    analyses = []
+    for model in OPENPATHS_ROUTER_MODELS:
+        model_output = call_openpaths_chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": workflow_instructions[workflow_key]},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
+        analyses.append({"model": model, "content": model_output})
+
+    combined_markdown = "\n\n".join(
+        [f"## {analysis['model']}\n\n{analysis['content']}" for analysis in analyses]
+    )
+    return JSONResponse(
+        {
+            "workflow": workflow_key,
+            "analyses": analyses,
+            "combined_markdown": combined_markdown,
+        }
+    )
 
 
 @app.get("/subscribe")
@@ -1149,7 +1273,7 @@ async def create_checkout_session(
 
     # Define line_item with type hint (basic structure)
     # For metered subscriptions, quantity should not be specified
-    success_url = YOUR_DOMAIN + "/playground"
+    success_url = YOUR_DOMAIN + "/playground?sub=1&plan=monthly"
     checkout_mode = "subscription"
     metadata = None
 
@@ -1158,12 +1282,13 @@ async def create_checkout_session(
             "price": ANNUAL_SUBSCRIPTION_PRICE_ID,
             "quantity": 1,
         }
+        success_url = YOUR_DOMAIN + "/playground?sub=1&plan=annual"
     elif type == "self-hosted":
         line_item: Dict[str, Any] = {
             "price": SELF_HOSTED_PRICE_ID,
             "quantity": quantity,  # Only self-hosted subscriptions use quantity
         }
-        success_url = YOUR_DOMAIN + "/account"
+        success_url = YOUR_DOMAIN + "/account?sub=1&plan=self-hosted"
     elif type == "credits":
         line_item = {
             "price": CREDIT_PACK_PRICE_ID,
@@ -1193,7 +1318,7 @@ async def create_checkout_session(
             mode=checkout_mode,
             metadata=metadata,
             success_url=success_url,
-            cancel_url=YOUR_DOMAIN + "/",
+            cancel_url=YOUR_DOMAIN + "/subscribe",
         )
         checkout_session_url = checkout_session.url  # type: ignore
     except Exception as e:
@@ -1203,7 +1328,7 @@ async def create_checkout_session(
             if type == "self-hosted":
                 line_item_nzd["price"] = SELF_HOSTED_NZD_PRICE_ID
                 line_item_nzd["quantity"] = quantity  # Only self-hosted uses quantity
-                success_url = YOUR_DOMAIN + "/account"
+                success_url = YOUR_DOMAIN + "/account?sub=1&plan=self-hosted"
 
             try:
                 # Type hint removed for line_items list to satisfy linter
@@ -1214,7 +1339,7 @@ async def create_checkout_session(
                     mode=checkout_mode,
                     metadata=metadata,
                     success_url=success_url,
-                    cancel_url=YOUR_DOMAIN + "/",
+                    cancel_url=YOUR_DOMAIN + "/subscribe",
                 )
                 checkout_session_url = checkout_session_nzd.url  # type: ignore
             except Exception as ex:
@@ -2549,7 +2674,7 @@ Important instructions:
             {
                 "generated_text": prompt + generated_text,
                 "finished_reason": "length",
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-5-5",
             }
         ]
 
@@ -2593,7 +2718,7 @@ async def generate_large_text(
             )
 
         # Use model from request or default
-        model_name = generate_params.model or "claude-sonnet-4-20250514"
+        model_name = generate_params.model or "claude-sonnet-5-5"
 
         # Use system message from request if provided, otherwise use default
         if generate_params.system_message:

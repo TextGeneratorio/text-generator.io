@@ -455,7 +455,8 @@
                 document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
                 if (result.id) window.th?.('identify', String(result.id));
                 window.th?.('track', 'sign_up_completed', { method: 'email', surface: 'signup_page' });
-                window.location.href = '/playground';
+                const next = new URLSearchParams(window.location.search).get('next');
+                window.location.href = (next && next.startsWith('/') && !next.startsWith('//')) ? next : '/playground';
             } else {
                 let errorMessage = 'Account creation failed';
                 if (response.status === 409) {
