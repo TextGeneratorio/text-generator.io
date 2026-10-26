@@ -48,6 +48,26 @@
     var secret = '';
     var multimodalAttachments = [];
     var multimodalUploadInFlight = false;
+    function hasSelect2() {
+        return typeof $ !== 'undefined' && !!($.fn && $.fn.select2);
+    }
+    function initializeSelect2(selector, options) {
+        if (hasSelect2()) {
+            $(selector).select2(options);
+        }
+    }
+    function getStopSequenceValues() {
+        if (hasSelect2()) {
+            return $('#select-stop-sequences').select2('data').map(function (value) {
+                return value.text;
+            });
+        }
+        var selectedValues = $('#select-stop-sequences').val();
+        if (!selectedValues) {
+            return [];
+        }
+        return Array.isArray(selectedValues) ? selectedValues : [selectedValues];
+    }
     function parseQueryParams(search) {
         var params = {};
         var query = search || '';
@@ -332,7 +352,7 @@
             return '<option value="' + key + '">' + key + '</option>';
         });
         $('#preset').html(presetOptions);
-        $('#preset').select2({
+        initializeSelect2('#preset', {
             data: preset_names
         });
         // on change
@@ -343,9 +363,20 @@
     });
 
     var generationSettings = {};
+    var pendingEditorText = null;
 
     var setTextUI = function (value) {
-        editor.setValue(value);
+        value = value || '';
+        if (editor && typeof editor.setValue === 'function') {
+            editor.setValue(value);
+        } else {
+            pendingEditorText = value || '';
+            return;
+        }
+        var textArea = document.getElementById('playground-text');
+        if (textArea) {
+            textArea.value = value;
+        }
     }
     var setTextData = function (value) {
         generationSettings['text'] = value
@@ -376,11 +407,7 @@
         setUrl(generationSettings)
     }
     var setStopSequences = function (value) {
-        // split lines
-        values = $('#select-stop-sequences').select2('data');
-        values = values.map(function (value) {
-            return value.text;
-        });
+        var values = getStopSequenceValues();
         generationSettings['stop_sequences'] = values
         setUrl(generationSettings)
     }
@@ -611,9 +638,11 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
   --compressed`);
         hljs.highlightAll();
         // Add line number wrapping to all code snippets
-        document.querySelectorAll('dialog pre code').forEach(wrapLinesForLineNumbers);
-        var dialog = document.querySelector('dialog');
-        dialog.close();
+        document.querySelectorAll('#code-example-dialog pre code').forEach(wrapLinesForLineNumbers);
+        var dialog = document.getElementById('code-example-dialog');
+        if (dialog.open) {
+            dialog.close();
+        }
         dialog.showModal();
         // Reset copy button
         var copyBtn = dialog.querySelector('.code-copy-btn');
@@ -638,13 +667,18 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
     }
 
     function setupDialog() {
-        var dialog = document.querySelector('dialog');
+        var dialog = document.getElementById('code-example-dialog');
         if (!dialog.showModal) {
             return
             //todo polyfill>?
         }
         dialog.querySelector('.close').addEventListener('click', function () {
             dialog.close();
+        });
+        dialog.addEventListener('click', function (event) {
+            if (event.target === dialog) {
+                dialog.close();
+            }
         });
         // default to Review Classification
         setupFromUrl();
@@ -876,8 +910,25 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
 
     function showError(error, status) {
         var dataString = JSON.stringify(error, null, 2);
-        $('#response-results').html(`<div style="color: indianred">${status}</div><pre><code class="language-json">${dataString}</code></pre>`);
+        $('#response-results').html(`<div style="color: indianred">${escapeHtml(String(status))}</div><pre><code class="language-json">${escapeHtml(dataString)}</code></pre>`);
         hljs.highlightAll();
+    }
+
+    function responseError(response) {
+        return response.text().then(function (body) {
+            var detail = body || response.statusText || 'Request failed';
+            try {
+                var parsed = JSON.parse(body);
+                detail = parsed.detail || (parsed.error && parsed.error.message) || parsed.error || detail;
+            } catch (ignore) {
+                // Plain-text upstream errors are already useful as-is.
+            }
+            var error = new Error(String(detail));
+            error.status = response.status;
+            error.statusText = response.statusText;
+            error.payload = body;
+            throw error;
+        });
     }
 
     function setupSubmitForm() {
@@ -894,17 +945,21 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 return false;
             }
             
+            if (!editor || typeof editor.getValue !== 'function') {
+                showError({error: 'Editor is still loading. Please try again in a moment.'}, 'Playground is still loading');
+                return false;
+            }
             var text = editor.getValue();
             setTextData(text);
 
             $('#loading-progress').show();
 
-            $('#playground-play').attr('disabled');
+            $('#playground-play').prop('disabled', true);
             var requestPromise;
             if (hasMultimodalAttachments()) {
                 requestPromise = submitMultimodalPlaygroundRequest();
             } else {
-                requestPromise = fetch('https://api.text-generator.io/api/v1/generate', {
+                requestPromise = fetch('/api/v1/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -915,10 +970,7 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                     if (response.ok) {
                         return response.json();
                     }
-                    return response.text().then(function (textError) {
-                        showError({ error: textError }, response.status + ' - ' + response.statusText);
-                        return [];
-                    });
+                    return responseError(response);
                 });
             }
 
@@ -950,7 +1002,10 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 }
             }).catch(function (error) {
                 console.log(error);
-                showError(error, 500)
+                showError(
+                    { error: error.message || String(error) },
+                    error.status ? (error.status + ' - ' + error.statusText) : 500
+                )
                 $('#loading-progress').hide();
                 updatePlaygroundAccessState();
 
@@ -967,7 +1022,7 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             }
         })
 
-        $('#select-stop-sequences').select2({
+        initializeSelect2('#select-stop-sequences', {
             tags: true,
 
             placeholder: 'Multiple stop sequences allowed'
@@ -1116,6 +1171,11 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 lineWrapping: true
             });
             
+            if (pendingEditorText !== null) {
+              editor.setValue(pendingEditorText);
+              pendingEditorText = null;
+            }
+
             editor.setSize("100%", null);
             editor.on('change', function(editorInstance) {
                 var value = editorInstance.getValue();

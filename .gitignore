@@ -67,7 +67,14 @@ monitors/*.log
 monitoring/logs/
 monitoring/runtime/
 visualbench/
-monitoring
+monitoring/*
+!monitoring/AGENTS.md
+!monitoring/README.md
+!monitoring/monitor_500s.py
+!monitoring/service_probe.py
+!monitoring/systemd/
+monitoring/systemd/*
+!monitoring/systemd/text-generator-500-monitor.service
 
 # local training workbench (not committed)
 llmtraining/

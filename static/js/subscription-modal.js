@@ -31,7 +31,7 @@ window.SubscriptionModal = class SubscriptionModal {
         const modalHTML = `
             <div id="subscription-modal" class="subscription-modal" style="display: none;">
                 <div class="subscription-modal-content">
-                    <button class="subscription-modal-close" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">×</button>
+                    <button type="button" class="subscription-modal-close" aria-label="Close subscription dialog" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">×</button>
                     
                     <div class="subscription-modal-header">
                         <div class="subscription-modal-brand">
@@ -138,8 +138,8 @@ window.SubscriptionModal = class SubscriptionModal {
                     font-size: 24px;
                     cursor: pointer;
                     color: #666;
-                    width: 32px;
-                    height: 32px;
+                    width: 40px;
+                    height: 40px;
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
@@ -150,6 +150,11 @@ window.SubscriptionModal = class SubscriptionModal {
                 .subscription-modal-close:hover {
                     background: rgba(245, 158, 11, 0.14);
                     color: #333;
+                }
+
+                .subscription-modal-close:focus-visible {
+                    outline: 3px solid rgba(234, 88, 12, 0.3);
+                    outline-offset: 1px;
                 }
 
                 .subscription-modal-header {
@@ -315,8 +320,16 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 @media (max-width: 600px) {
                     .subscription-modal-content {
-                        margin: 20px;
-                        width: calc(100% - 40px);
+                        width: calc(100% - 16px);
+                        max-height: calc(100dvh - 16px);
+                        margin: 0;
+                    }
+
+                    .subscription-modal-close {
+                        top: 8px;
+                        right: 8px;
+                        width: 44px;
+                        height: 44px;
                     }
                     
                     .subscription-modal-header,

@@ -148,6 +148,11 @@
     background: #fde8d8;
 }
 
+.subscription-modal-close:focus-visible {
+    outline: 3px solid rgba(234, 88, 12, 0.3);
+    outline-offset: 1px;
+}
+
 /* Animation */
 .subscription-modal.show {
     animation: fadeIn 0.3s ease-out;
@@ -170,8 +175,17 @@
 /* Responsive design */
 @media (max-width: 600px) {
     .subscription-modal-content {
-        margin: 20px;
+        width: calc(100% - 16px);
         max-width: none;
+        max-height: calc(100dvh - 16px);
+        margin: 0;
+    }
+
+    .subscription-modal-close {
+        top: 8px;
+        right: 8px;
+        width: 44px;
+        height: 44px;
     }
     
     .subscription-modal-header,

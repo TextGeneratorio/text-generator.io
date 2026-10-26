@@ -1,0 +1,47 @@
+<link rel="stylesheet"
+      href="/static/libs/styles/default.css">
+<script src="/static/libs/highlight.pack.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > Five-Minute Training Runs
+            </div>
+            <h3>Five-Minute Training Runs: How the Roleplay Model Trains Now</h3>
+
+            <p>Our roleplay model — a QLoRA fine-tune of Gemma 4 E4B on a licensed, filtered roleplay corpus — is trained, merged, and serving in production at <b>264 tokens/second</b> single-stream, using fp8 weights, fp8 KV cache, and MTP-2 speculative decoding on one RTX 5090. That's 2x the bf16 baseline with identical output quality (speculative decoding is lossless).</p>
+
+            <p>Getting there also taught us how <i>not</i> to train. An uncapped benchmark sweep crashed the serving GPU twice in one day. So training has moved off the serving machine entirely, and every future run follows one rule: <b>no run may exceed five minutes.</b></p>
+
+            <h4>Chained micro-runs instead of long jobs</h4>
+            <p>A five-minute cap works because runs are resumable. Each micro-run loads the latest checkpoint from a persistent network volume on the rented GPU, trains until the wall clock says stop, saves, and exits. An epoch is a chain of cheap slices:</p>
+            <pre><code>python runpod_launch.py --job qlora --volume-id VOL \
+  --base-model google/gemma-4-E4B-it \
+  --dataset /workspace/data/train.jsonl
+# run again -> resumes exactly where the last slice stopped</code></pre>
+            <p>Every slice is a transaction: resume, train, checkpoint, die. A crash costs at most five minutes of compute, and there is never a long-running job to babysit.</p>
+
+            <h4>Three layers of credit safety</h4>
+            <ul>
+                <li><b>In-process cap</b> — the trainer stops itself at the wall-clock limit and saves.</li>
+                <li><b>Pod TTL</b> — every rented pod carries its kill-time; the launcher terminates it even when polling fails.</li>
+                <li><b>The reaper</b> — a cron-safe sweep terminates any tagged training pod past its TTL, so a crashed launcher can never leak a running GPU.</li>
+            </ul>
+            <p>On top sits a budget ledger: a daily GPU-minute cap charged <i>before</i> pod creation. When the day's budget is spent the launcher refuses to start. Raising the cap is a deliberate config edit, not a default.</p>
+
+            <h4>Autoresearch under speedrun rules</h4>
+            <p>Identically time-boxed runs make validation loss a fair, compute-matched metric: whichever config learns more in five minutes is simply better — the nanoGPT-speedrun rule of optimizing learning per wall-clock second, not per step.</p>
+            <p>Our autoresearch loop leans on that. Each iteration mutates one axis of the best-known config (learning rate, warmup, weight decay, batch, width, depth, dropout, schedule), trains a small single-file GPT under the cap, logs to an experiment journal, and accepts the mutation only if val loss improves. Even the CPU smoke test finds real wins — two 20-second iterations improved char-level val loss from 2.60 to 2.47 by raising the learning rate. A full 8-iteration session on a community-cloud RTX 4090 costs roughly two cents.</p>
+
+            <h4>What this means for the roleplay model</h4>
+            <p>v2 is live. The v3 push — preference optimization for style, an adapted speculative drafter for even faster serving, longer multi-turn context — will run entirely as capped, budgeted micro-runs on rented GPUs, while the 5090 does the one thing it should: serve fast.</p>
+
+            <p>Try the model in the <a href="/playground">playground</a>, or hit the API with your <a href="/account">API key</a>.</p>
+        </div>
+    </div>
+</main>

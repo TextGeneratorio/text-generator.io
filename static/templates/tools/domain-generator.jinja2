@@ -1,65 +1,123 @@
-<div class="demo-ribbon"></div>
-<main class="demo-main mdl-layout mdl-layout__content">
-    <div class="demo-container mdl-grid">
-        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
-        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+<link rel="stylesheet" href="/static/css/domain-generator.css?v=1">
 
-            <div class="demo-crumbs mdl-color-text--grey-500">
-                <a href="/" title="Text Generator">Text Generator</a> > <a href="/tools" title="Tools">Tools</a> > Domain Name Generator
+<main class="domain-search-page">
+    <div class="domain-search-wrap">
+        <nav class="domain-crumbs" aria-label="Breadcrumb">
+            <a href="/">Text Generator</a><span>/</span><a href="/tools">Tools</a><span>/</span><span>Domain search</span>
+        </nav>
+
+        {% if subscription_required %}
+        <section class="domain-access-card">
+            <span class="material-icons" aria-hidden="true">travel_explore</span>
+            <p class="domain-eyebrow">AI domain explorer</p>
+            <h1>Turn one naming idea into a whole search trail.</h1>
+            <p>{{ subscription_message }}</p>
+            <div class="domain-access-actions">
+                <a class="domain-button domain-button--primary" href="/subscribe">Unlock domain search</a>
+                <a class="domain-button domain-button--secondary" href="/login?next=%2Ftools%2Fdomain-generator">Log in</a>
             </div>
-            <h3>Domain Name Generator</h3>
-            <p>Generate creative domain names and check their availability instantly.</p>
-
-            {% if subscription_required %}
-            <div class="subscription-required-message" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 20px; margin: 20px 0; text-align: center;">
-                <h4 style="color: #856404; margin-top: 0;">Premium Tool - Subscription Required</h4>
-                <p style="color: #856404; margin-bottom: 20px;">{{ subscription_message }}</p>
-                <div style="margin-bottom: 15px;">
-                    <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect" 
-                       href="/subscribe" style="margin-right: 10px;">
-                        Subscribe Now
-                    </a>
-                    <a class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect" 
-                       href="/login">
-                        Login
-                    </a>
+        </section>
+        {% else %}
+        <section class="domain-search-hero">
+            <div class="domain-search-intro">
+                <p class="domain-eyebrow"><span></span> Domain search</p>
+                <h1>Find the name.<br><em>Follow the thread.</em></h1>
+                <p class="domain-search-lead">Generate a first batch, save the strongest ideas, then explore sharper variations without losing your work.</p>
+                <div class="domain-search-proof" aria-label="Search features">
+                    <span><i class="material-icons" aria-hidden="true">verified</i> Availability checked</span>
+                    <span><i class="material-icons" aria-hidden="true">account_tree</i> Explore variations</span>
+                    <span><i class="material-icons" aria-hidden="true">bookmark</i> Save favorites</span>
                 </div>
-                <p style="color: #6c757d; font-size: 0.9em; margin-bottom: 0;">
-                    Get unlimited access to our premium domain generation tools and more!
-                </p>
             </div>
-            {% else %}
-            <div class="iframe-container" style="position: relative; overflow: hidden; padding-top: 56.25%;">
-                <iframe src="https://domains.netwrck.com" 
-                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;" 
-                        allowfullscreen>
-                </iframe>
+
+            <form id="domain-search-form" class="domain-search-form" data-endpoint="/api/tools/domain-generator/search">
+                <label for="domain-brief">What are you naming?</label>
+                <textarea id="domain-brief" name="description" rows="5" maxlength="3000" required>{{ domain_default_prompt }}</textarea>
+
+                <div class="domain-form-row">
+                    <div class="domain-field">
+                        <label for="domain-ideas">Starting ideas <span>one per line</span></label>
+                        <textarea id="domain-ideas" name="current_ideas" rows="3">{{ domain_default_ideas }}</textarea>
+                    </div>
+                    <div class="domain-field domain-field--compact">
+                        <label for="domain-batch-size">Names per search</label>
+                        <select id="domain-batch-size" name="batch_size">
+                            <option value="12">12 · quick</option>
+                            <option value="18" selected>18 · balanced</option>
+                            <option value="24">24 · wide</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="domain-search-submit" class="domain-button domain-button--primary domain-search-submit" type="submit">
+                    <span class="material-icons" aria-hidden="true">auto_awesome</span>
+                    <span>Explore domains</span>
+                    <i class="material-icons" aria-hidden="true">arrow_forward</i>
+                </button>
+                <p class="domain-form-note">We check likely availability. Confirm with a registrar before you buy.</p>
+            </form>
+        </section>
+
+        <section id="domain-workspace" class="domain-workspace" aria-live="polite">
+            <div class="domain-results-panel">
+                <header class="domain-results-header">
+                    <div>
+                        <p class="domain-eyebrow">Results</p>
+                        <h2 id="domain-results-title">Your next domain is a branch away.</h2>
+                    </div>
+                    <div id="domain-wave-badge" class="domain-wave-badge" hidden>Round <span>1</span></div>
+                </header>
+
+                <div id="domain-empty-state" class="domain-empty-state">
+                    <div class="domain-orbit" aria-hidden="true"><span></span><i></i><b></b></div>
+                    <h3>Try the example brief</h3>
+                    <p>We’ll check your starting ideas, create new directions, and keep everything together.</p>
+                    <button class="domain-text-button" type="button" data-start-search>Run the example search <span aria-hidden="true">→</span></button>
+                </div>
+
+                <div id="domain-results-content" hidden>
+                    <div class="domain-toolbar">
+                        <div class="domain-filter-group" role="group" aria-label="Filter domains">
+                            <button class="is-active" type="button" data-filter="all">All <span id="domain-count-all">0</span></button>
+                            <button type="button" data-filter="available">Available <span id="domain-count-available">0</span></button>
+                            <button type="button" data-filter="shortlisted">Shortlist <span id="domain-count-shortlisted">0</span></button>
+                        </div>
+                        <button id="domain-copy-available" class="domain-icon-button" type="button" title="Copy available domains">
+                            <span class="material-icons" aria-hidden="true">content_copy</span><span>Copy available</span>
+                        </button>
+                    </div>
+                    <div id="domain-loading" class="domain-loading" hidden>
+                        <span></span><span></span><span></span>
+                        <p>Finding names and checking availability…</p>
+                    </div>
+                    <div id="domain-error" class="domain-error" role="alert" hidden></div>
+                    <div id="domain-results-grid" class="domain-results-grid"></div>
+                    <div id="domain-no-filter-results" class="domain-no-filter-results" hidden>No domains match this filter yet.</div>
+                    <button id="domain-explore-more" class="domain-button domain-button--more" type="button" hidden>
+                        <span class="material-icons" aria-hidden="true">add_circle</span>
+                        Find more names
+                    </button>
+                </div>
             </div>
-            {% endif %}
 
-            <h5>About this tool</h5>
-            <p>Our Domain Name Generator helps you brainstorm and find available domain names for your next project. Simply enter your keywords, and the tool will suggest creative domain names and check their availability in real-time.</p>
-
-            <h5>How to use</h5>
-            <ol>
-                <li>Enter keywords related to your project or business in the input field.</li>
-                <li>Click the "Generate" button to see a list of domain suggestions.</li>
-                <li>Browse through the suggestions and check their availability.</li>
-                <li>Click on a domain name you like to proceed with registration.</li>
-            </ol>
-
-            <p>Need help generating creative content for your new domain? Try our <a href="/playground">Text Generator Playground</a> to create unique and engaging website copy!</p>
-
-            <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect hero-signup"
-               href="/signup">
-                Sign up for Text Generator
-            </a>
-        </div>
+            <aside class="domain-shortlist-panel">
+                <header>
+                    <span class="material-icons" aria-hidden="true">bookmark</span>
+                    <div><p class="domain-eyebrow">Your picks</p><h2>Your shortlist</h2></div>
+                </header>
+                <div id="domain-shortlist-empty" class="domain-shortlist-empty">
+                    <p>Save promising names as you explore. They’ll stay here between visits.</p>
+                </div>
+                <ol id="domain-shortlist"></ol>
+                <button id="domain-download-shortlist" class="domain-button domain-button--secondary" type="button" disabled>
+                    <span class="material-icons" aria-hidden="true">download</span> Export shortlist
+                </button>
+            </aside>
+        </section>
+        {% endif %}
     </div>
 </main>
+
 {% if not subscription_required %}
-<script>
-    // Domain generator tool is now accessible - subscription verification handled server-side
-    console.log('Domain Name Generator tool loaded successfully');
-</script>
+<script src="/static/js/domain-generator.js?v=2" defer></script>
 {% endif %}

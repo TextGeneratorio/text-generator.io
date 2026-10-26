@@ -53,7 +53,6 @@ window.addEventListener('load', function() {
     checkAuthStatus();
 });
 </script>
-<script src="https://checkout.stripe.com/checkout.js"></script>
 <script defer>
     function setupQuantityForm() {
         jQuery('<div class="quantity-nav"><div class="quantity-button quantity-up">+</div><div class="quantity-button quantity-down">-</div></div>').insertAfter('.quantity input');
@@ -94,7 +93,9 @@ window.addEventListener('load', function() {
     $('#buy').remove();
     // Close Checkout on page navigation:
     window.addEventListener('popstate', function () {
-        handler.close();
+        if (window.handler && typeof window.handler.close === 'function') {
+            window.handler.close();
+        }
     });
     
     // Check auth status and setup subscription

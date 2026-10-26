@@ -56,3 +56,12 @@ def test_ai_text_editor_exposes_markdown_table_controls():
     assert "convertDelimitedTextToMarkdownTable" in editor_js
     assert "buildBlankMarkdownTable" in editor_js
     assert "insertMarkdownTable" in editor_js
+
+
+def test_ai_text_editor_uses_unload_safe_autosave_transport():
+    with open("static/js/text-generator-docs.js", encoding="utf-8") as js_file:
+        editor_js = js_file.read()
+
+    assert "autosaveCurrentDocument({ keepalive: true })" in editor_js
+    assert "navigator.sendBeacon('/api/docs/autosave'" in editor_js
+    assert "autosaveRequest.keepalive = true" in editor_js

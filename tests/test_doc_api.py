@@ -2,9 +2,11 @@ import json
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from questions.db_models_postgres import Document, User
 from routes.documents import autosave_document_route as autosave_document
+from routes.documents import document_events_route as document_events
 from routes.documents import get_document_route as get_document
 from routes.documents import list_documents_route as list_documents
 from routes.documents import save_document_route as save_document
@@ -55,11 +57,27 @@ async def test_list_documents_route(db_session, test_user, test_document):
 
 
 @pytest.mark.asyncio
+async def test_document_events_route_returns_503_when_auth_db_unavailable(db_session):
+    request = MockRequest(cookies={"session_secret": "test_secret_key"})
+
+    with patch(
+        "routes.documents.get_current_user",
+        side_effect=OperationalError("SELECT 1", {}, Exception("database system is shutting down")),
+    ):
+        response = await document_events(request, db_session)
+
+    assert response.status_code == 503
+    data = json.loads(response.body)
+    assert data["error"] == "Authentication temporarily unavailable"
+
+
+@pytest.mark.asyncio
 async def test_get_document_route(db_session, test_user, test_document):
     """Test getting a specific document."""
     # Test successful request
     request = MockRequest(query_params={"id": str(test_document.id)})
-    response = await get_document(request, db_session)
+    with patch("routes.documents.get_current_user", return_value=test_user):
+        response = await get_document(request, db_session)
 
     assert response.status_code == 200
     data = json.loads(response.body)

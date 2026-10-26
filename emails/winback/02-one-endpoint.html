@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0f0f14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f0f14;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#18181f;border-radius:12px;overflow:hidden;border:1px solid #2a2a35;">
+<tr><td style="background:linear-gradient(135deg,#0284c7,#38bdf8);padding:32px 40px;text-align:center;">
+  <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Day 7 · Models</p>
+  <h1 style="margin:8px 0 0;color:#fff;font-size:24px;font-weight:700;">One endpoint, every model</h1>
+</td></tr>
+<tr><td style="padding:40px;">
+  <p style="color:#e2e2e8;font-size:16px;line-height:1.7;margin:0 0 20px;">Hi {{.Name}},</p>
+  <p style="color:#c4c4cc;font-size:15px;line-height:1.7;margin:0 0 16px;">The <code style="background:#1a1a24;padding:2px 6px;border-radius:4px;color:#7dd3fc;">/v1/chat/completions</code> route sends to the model you name, or to <code style="background:#1a1a24;padding:2px 6px;border-radius:4px;color:#7dd3fc;">text-generator/auto</code>, which picks a model for quality, speed and cost.</p>
+  <ul style="color:#c4c4cc;font-size:15px;line-height:1.8;margin:0 0 16px;padding-left:20px;">
+    <li>Catalogue across providers including Claude Sonnet, GPT-5.6 Luna, Grok, DeepSeek and Kimi K3.</li>
+    <li>Automatic fallback chains if a provider is down, so one outage does not become your outage.</li>
+    <li>Streaming, tool use and vision work through the same OpenAI-style request.</li>
+  </ul>
+  <p style="color:#c4c4cc;font-size:15px;line-height:1.7;margin:0 0 16px;">Browse the catalogue and prices, then switch one line in your client.</p>
+
+  <table cellpadding="0" cellspacing="0" style="margin:28px 0 8px;"><tr><td style="background:#0284c7;border-radius:8px;">
+    <a href="https://text-generator.io/models" style="display:inline-block;padding:14px 28px;color:#fff;font-size:15px;font-weight:600;text-decoration:none;">See the models</a>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:20px 40px 32px;border-top:1px solid #2a2a35;">
+  <p style="margin:0;color:#8b8b96;font-size:12px;line-height:1.6;">You are receiving this because you cancelled your Text Generator subscription ({{.Email}}). <a href="{{.UnsubscribeURL}}" style="color:#7dd3fc;">Unsubscribe</a></p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

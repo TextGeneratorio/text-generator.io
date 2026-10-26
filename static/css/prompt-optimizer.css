@@ -1,0 +1,87 @@
+.prompt-opt-page {
+  --po-ink: #17211b;
+  --po-muted: #647168;
+  --po-line: #dce5de;
+  --po-green: #176b4d;
+  --po-green-dark: #0d5138;
+  --po-wash: #f2f7f3;
+  min-height: calc(100vh - 64px);
+  padding: 34px 20px 72px;
+  color: var(--po-ink);
+  background: linear-gradient(180deg, #f7faf7 0, #fff 34%);
+}
+
+.prompt-opt-wrap { max-width: 1160px; margin: 0 auto; }
+.prompt-opt-crumbs { display: flex; gap: 9px; align-items: center; margin-bottom: 42px; color: #7a877e; font-size: 13px; }
+.prompt-opt-crumbs a { color: inherit; text-decoration: none; }
+.prompt-opt-crumbs a:hover { color: var(--po-green); }
+.prompt-opt-kicker { margin: 0 0 9px; color: var(--po-green); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+
+.prompt-opt-hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 60px; align-items: end; margin-bottom: 38px; }
+.prompt-opt-hero h1, .prompt-opt-access h1 { margin: 0; font-family: Sora, sans-serif; font-size: clamp(40px, 5.5vw, 68px); line-height: 1.02; letter-spacing: -.055em; }
+.prompt-opt-hero h1 em { color: var(--po-green); font-style: normal; }
+.prompt-opt-hero > p { max-width: 520px; margin: 0 0 6px; color: var(--po-muted); font-size: 17px; line-height: 1.7; }
+
+.prompt-opt-layout { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(330px, .88fr); gap: 22px; align-items: start; }
+.prompt-opt-form, .prompt-opt-result, .prompt-opt-empty, .prompt-opt-access { border: 1px solid var(--po-line); border-radius: 22px; background: #fff; box-shadow: 0 18px 55px rgba(28, 61, 41, .07); }
+.prompt-opt-form { grid-row: span 2; padding: 26px; }
+.prompt-opt-field + .prompt-opt-field { margin-top: 22px; }
+.prompt-opt-label-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 9px; }
+.prompt-opt-label-row label { font-size: 14px; font-weight: 800; }
+.prompt-opt-label-row span { color: #879188; font-size: 12px; }
+.prompt-opt-field textarea { box-sizing: border-box; width: 100%; resize: vertical; border: 1px solid #cfd9d1; border-radius: 12px; padding: 14px 15px; color: var(--po-ink); background: #fbfcfb; font: 14px/1.6 Sora, sans-serif; transition: border-color .2s, box-shadow .2s, background .2s; }
+.prompt-opt-field textarea:focus { outline: none; border-color: var(--po-green); background: #fff; box-shadow: 0 0 0 4px rgba(23, 107, 77, .1); }
+.prompt-opt-field--main textarea { font-size: 15px; }
+
+.prompt-opt-button { display: inline-flex; justify-content: center; align-items: center; gap: 9px; min-height: 46px; border: 0; border-radius: 11px; padding: 0 20px; font: 700 14px Sora, sans-serif; text-decoration: none; cursor: pointer; transition: transform .18s, background .18s, opacity .18s; }
+.prompt-opt-button:hover { transform: translateY(-1px); }
+.prompt-opt-button--primary { color: #fff; background: var(--po-green); }
+.prompt-opt-button--primary:hover { background: var(--po-green-dark); }
+.prompt-opt-button--secondary { color: var(--po-green-dark); background: #eaf2ec; }
+.prompt-opt-submit { width: 100%; margin-top: 25px; }
+.prompt-opt-submit:disabled { opacity: .68; cursor: wait; transform: none; }
+.prompt-opt-status { min-height: 20px; margin: 11px 0 -5px; color: var(--po-muted); text-align: center; font-size: 13px; }
+.prompt-opt-status.is-error { color: #a33838; }
+
+.prompt-opt-empty { padding: 34px; background: var(--po-wash); }
+.prompt-opt-empty > .material-icons { color: var(--po-green); font-size: 36px; }
+.prompt-opt-empty h2 { margin: 16px 0 10px; font: 700 25px/1.25 Sora, sans-serif; letter-spacing: -.025em; }
+.prompt-opt-empty p { margin: 0; color: var(--po-muted); line-height: 1.65; }
+.prompt-opt-empty ul { display: grid; gap: 12px; margin: 26px 0 0; padding: 0; list-style: none; }
+.prompt-opt-empty li { display: flex; align-items: center; gap: 11px; font-weight: 650; }
+.prompt-opt-empty li span { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; color: var(--po-green); background: #fff; font-size: 12px; }
+
+.prompt-opt-result { padding: 27px; }
+.prompt-opt-result-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.prompt-opt-result h2 { margin: 0; font: 700 25px Sora, sans-serif; }
+.prompt-opt-copy { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--po-line); border-radius: 9px; padding: 8px 11px; color: var(--po-green-dark); background: #fff; font-weight: 700; cursor: pointer; }
+.prompt-opt-copy .material-icons { font-size: 17px; }
+.prompt-opt-final { margin-top: 20px; border-radius: 13px; padding: 19px; white-space: pre-wrap; color: #24332a; background: var(--po-wash); font: 13px/1.7 'IBM Plex Mono', monospace; }
+.prompt-opt-details { margin-top: 20px; border-top: 1px solid var(--po-line); padding-top: 16px; }
+.prompt-opt-details summary { color: var(--po-green-dark); font-weight: 800; cursor: pointer; }
+.prompt-opt-details ol { display: grid; gap: 12px; margin: 15px 0 0; padding: 0; list-style: none; }
+.prompt-opt-details li { border-left: 3px solid #bdd5c5; padding: 3px 0 3px 12px; }
+.prompt-opt-details li div { display: flex; justify-content: space-between; gap: 12px; }
+.prompt-opt-details li span { color: var(--po-green); font-weight: 800; }
+.prompt-opt-details li p { margin: 5px 0 0; color: var(--po-muted); font-size: 13px; line-height: 1.5; }
+
+.prompt-opt-access { max-width: 760px; margin: 56px auto; padding: 50px; text-align: center; }
+.prompt-opt-access > .material-icons { color: var(--po-green); font-size: 44px; }
+.prompt-opt-access h1 { margin-top: 10px; font-size: clamp(35px, 5vw, 54px); }
+.prompt-opt-access > p:not(.prompt-opt-kicker) { max-width: 540px; margin: 20px auto; color: var(--po-muted); font-size: 16px; line-height: 1.6; }
+.prompt-opt-access-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+
+@media (max-width: 820px) {
+  .prompt-opt-page { padding: 24px 14px 54px; }
+  .prompt-opt-crumbs { margin-bottom: 30px; }
+  .prompt-opt-hero, .prompt-opt-layout { grid-template-columns: 1fr; gap: 18px; }
+  .prompt-opt-hero { gap: 20px; }
+  .prompt-opt-form { grid-row: auto; padding: 20px; }
+  .prompt-opt-access { padding: 34px 22px; }
+}
+
+@media (max-width: 520px) {
+  .prompt-opt-label-row { display: block; }
+  .prompt-opt-label-row span { display: block; margin-top: 3px; }
+  .prompt-opt-hero h1 { font-size: 42px; }
+}

@@ -355,8 +355,8 @@ class TestEmbeddedCheckoutReturnUrls:
         assert "/playground?" in kwargs["return_url"]
         assert "evil.com" not in kwargs["return_url"]
 
-    def test_credits_return_url_ignores_custom_return_url(self):
-        """Credits always go to /account?credits=success regardless of return_url."""
+    def test_credits_return_url_honors_custom_return_url(self):
+        """Credits return to the requesting page when a safe return_url is provided."""
         mock_user = _mock_user()
         mock_session = _mock_session()
 
@@ -366,11 +366,13 @@ class TestEmbeddedCheckoutReturnUrls:
         ):
             client.post(
                 "/create-checkout-session-embedded",
-                json={"subscription_type": "credits", "quantity": 100, "return_url": "/playground"},
+                json={"subscription_type": "credits", "quantity": 100, "return_url": "/text-to-speech"},
             )
 
         kwargs = mock_create.call_args.kwargs
-        assert "/account?credits=success" in kwargs["return_url"]
+        assert "/text-to-speech?" in kwargs["return_url"]
+        assert "credits=success" in kwargs["return_url"]
+        assert kwargs.get("payment_intent_data") == {"setup_future_usage": "off_session"}
 
 
 class TestSubscribePageRendering:
@@ -410,6 +412,8 @@ class TestSubscribePageRendering:
     def test_subscribe_page_has_checkout_dialog_js(self):
         response = client.get("/subscribe")
         assert "showCheckoutDialog" in response.text
+        assert "https://checkout.stripe.com/checkout.js" not in response.text
+        assert "if (window.handler && typeof window.handler.close === 'function')" in response.text
 
     def test_subscribe_page_has_credits_checkout_function(self):
         response = client.get("/subscribe")

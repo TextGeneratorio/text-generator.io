@@ -65,13 +65,6 @@
         }
     }
 
-    function guessedSourceMapUrl(scriptUrl) {
-        if (/\.min\.js(?:\?|#|$)/.test(scriptUrl)) {
-            return scriptUrl.replace(/\.min\.js(\?|#|$)/, ".min.js.map$1");
-        }
-        return null;
-    }
-
     function collectSourceMapHints() {
         if (sourceMapHintsPromise) {
             return sourceMapHintsPromise;
@@ -88,10 +81,7 @@
 
         sourceMapHintsPromise = Promise.all(scripts.map(function (src) {
             if (!sameOrigin(src)) {
-                return Promise.resolve({
-                    scriptUrl: src,
-                    sourceMapUrl: guessedSourceMapUrl(src)
-                });
+                return Promise.resolve(null);
             }
 
             return nativeFetch(src, { credentials: "same-origin" })
@@ -107,14 +97,11 @@
                     }
                     return {
                         scriptUrl: src,
-                        sourceMapUrl: sourceMapUrlFromScriptText(src, text.slice(-8000)) || guessedSourceMapUrl(src)
+                        sourceMapUrl: sourceMapUrlFromScriptText(src, text.slice(-8000))
                     };
                 })
                 .catch(function () {
-                    return {
-                        scriptUrl: src,
-                        sourceMapUrl: guessedSourceMapUrl(src)
-                    };
+                    return null;
                 });
         })).then(function (items) {
             return items.filter(function (item) { return item && item.sourceMapUrl; });

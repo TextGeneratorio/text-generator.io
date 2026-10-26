@@ -28,7 +28,7 @@ response = client.chat.completions.create(
 )</code></pre></div>
             </div>
             <aside class="tg-model-specs">
-                <h3>Model details</h3><dl><div><dt>Provider</dt><dd><a href="{{ model.provider_url }}">{{ model.provider_name }}</a></dd></div><div><dt>Context</dt><dd>{{ model.context_window }}</dd></div><div><dt>Input / 1M</dt><dd>${{ '%.2f'|format(model.input_price) }}</dd></div><div><dt>Output / 1M</dt><dd>${{ '%.2f'|format(model.output_price) }}</dd></div></dl>
+                <h3>Model details</h3><dl><div><dt>Provider</dt><dd><a href="{{ model.provider_url }}">{{ model.provider_name }}</a></dd></div><div><dt>Context</dt><dd>{{ model.context_window }}</dd></div><div><dt>Input / 1M</dt><dd>${{ '%.3g'|format(model.input_price) }}</dd></div><div><dt>Output / 1M</dt><dd>${{ '%.3g'|format(model.output_price) }}</dd></div></dl>
                 <div class="tg-tag-row">{% for tag in model.tags %}<small>{{ tag }}</small>{% endfor %}</div>
             </aside>
         </div>

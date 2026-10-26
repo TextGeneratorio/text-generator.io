@@ -134,20 +134,18 @@
       
       // Mark as initialized
       initialized = true;
-      
-      // Initialize the editor
-      textEditor.init().then(() => {
+
+      // The constructor already started init(); just wait for it. Calling
+      // init() again used to load and create documents a second time.
+      (textEditor.initPromise || Promise.resolve()).then(() => {
         console.log('AI Text Editor initialized successfully');
-        
+
         // Set up additional event handlers
         setupEventHandlers();
-        
+
         // Set up keyboard shortcuts dialog if it exists
         setupKeyboardShortcutsDialog();
-        
-        // Load saved document if exists
-        loadSavedDocument();
-        
+
       }).catch(error => {
         console.error('Failed to initialize AI Text Editor:', error);
         showErrorMessage('Failed to initialize the editor. Please refresh the page.');
@@ -197,33 +195,6 @@
           dialog.style.display = 'none';
         }
       });
-    }
-  }
-  
-  /**
-   * Load saved document from localStorage or server
-   */
-  function loadSavedDocument() {
-    if (!textEditor) return;
-    
-    // Check for document ID in URL params
-    const urlParams = new URLSearchParams(window.location.search);
-    const docId = urlParams.get('doc');
-    
-    if (docId) {
-      // Load specific document
-      if (textEditor.loadDocument) {
-        textEditor.loadDocument(docId);
-      }
-    } else {
-      // Check for last edited document in localStorage
-      const lastDocId = localStorage.getItem('lastEditedDocument');
-      if (lastDocId && textEditor.loadDocument) {
-        textEditor.loadDocument(lastDocId);
-      } else if (textEditor.createNewDocument) {
-        // Create new document
-        textEditor.createNewDocument();
-      }
     }
   }
   

@@ -59,7 +59,7 @@
                     </div>
                     
                     <div class="auth-footer">
-                        <p>Don't have an account? <a href="/signup" class="auth-link">Create account</a></p>
+                        <p>Don't have an account? <a href="/signup" class="auth-link" data-auth-switch>Create account</a></p>
                     </div>
                 </div>
             </div>
@@ -325,6 +325,12 @@
     </style>
     
     <script>
+    const authReturnUrl = window.getSafeAuthReturnUrl('/playground');
+    const authSwitchLink = document.querySelector('[data-auth-switch]');
+    if (authSwitchLink) {
+        authSwitchLink.href = `/signup?next=${encodeURIComponent(authReturnUrl)}`;
+    }
+
     // Email validation
     function isValidEmail(email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -402,8 +408,7 @@
                 document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
                 if (result.id) window.th?.('identify', String(result.id));
                 window.th?.('track', 'sign_in_completed', { method: 'email' });
-                const next = new URLSearchParams(window.location.search).get('next');
-                window.location.href = (next && next.startsWith('/') && !next.startsWith('//')) ? next : '/playground';
+                window.location.href = authReturnUrl;
             } else {
                 let errorMessage = 'Invalid email or password';
                 if (response.status === 429) {

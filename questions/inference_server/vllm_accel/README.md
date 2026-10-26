@@ -76,6 +76,31 @@ IDLE_UNLOAD_SECONDS=600 \
   uvicorn questions.inference_server.vllm_parity_adapter:app --port 8300
 ```
 
+## TensorRT-LLM backend
+
+The parity adapter also works with TensorRT-LLM because its PyTorch backend
+exposes the same OpenAI completion and chat routes. Use the separate launcher
+at `../trtllm_accel/serve_generic.sh` with the isolated TRT-LLM environment:
+
+```bash
+VLLM_BASE=http://127.0.0.1:8200 VLLM_MODEL=gemma4-meromero-v2-31b \
+VLLM_BACKEND_CMD='MODEL=/nvme0n1-disk/models/omniserve-native/gemma4-meromero-v2-31b \
+  ./questions/inference_server/trtllm_accel/serve_generic.sh' \
+VLLM_BACKEND_CWD=/nvme0n1-disk/code/text-generator.io \
+VLLM_BACKEND_PORT=8200 VLLM_SLEEP_MODE=0 \
+  uvicorn questions.inference_server.vllm_parity_adapter:app --port 8300
+```
+
+`TP_SIZE`, `MAX_SEQ_LEN`, `MAX_BATCH_SIZE`, `MAX_NUM_TOKENS`, and
+`KV_CACHE_FREE_GPU_MEMORY_FRACTION` are optional launcher settings. Keep
+`VLLM_SLEEP_MODE=0`:
+the manager's sleep endpoints are vLLM-specific, while TensorRT-LLM is fully
+stopped and restarted at the deep-idle boundary.
+
+The isolated environment also needs the host MPI runtime (`libopenmpi-dev`);
+the launcher adds pip-installed CUDA 13 library directories to
+`LD_LIBRARY_PATH` before invoking TensorRT-LLM.
+
 ## Notes / gotchas
 
 - The vLLM venv + weights live outside the repo (machine-specific, large).

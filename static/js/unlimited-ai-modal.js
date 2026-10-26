@@ -35,7 +35,7 @@ window.UnlimitedAIModal = class UnlimitedAIModal {
         const modalHTML = `
             <div id="unlimited-ai-modal" class="unlimited-ai-modal" style="display: none;">
                 <div class="unlimited-ai-modal-content">
-                    <button class="unlimited-ai-modal-close" onclick="if(window.unlimitedAIModal) unlimitedAIModal.close()">×</button>
+                    <button type="button" class="unlimited-ai-modal-close" aria-label="Close unlimited AI dialog" onclick="if(window.unlimitedAIModal) unlimitedAIModal.close()">×</button>
                     
                     <div class="unlimited-ai-modal-header">
                         <h2 class="unlimited-ai-modal-title">Unlimited AI Text Editing & Speech Generation</h2>
@@ -134,8 +134,8 @@ window.UnlimitedAIModal = class UnlimitedAIModal {
                     font-size: 24px;
                     cursor: pointer;
                     color: #666;
-                    width: 32px;
-                    height: 32px;
+                    width: 40px;
+                    height: 40px;
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
@@ -146,6 +146,11 @@ window.UnlimitedAIModal = class UnlimitedAIModal {
                 .unlimited-ai-modal-close:hover {
                     background: rgba(255, 182, 193, 0.2);
                     color: #333;
+                }
+
+                .unlimited-ai-modal-close:focus-visible {
+                    outline: 3px solid rgba(255, 99, 71, 0.25);
+                    outline-offset: 1px;
                 }
 
                 .unlimited-ai-modal-header {
@@ -280,8 +285,16 @@ window.UnlimitedAIModal = class UnlimitedAIModal {
 
                 @media (max-width: 600px) {
                     .unlimited-ai-modal-content {
-                        margin: 20px;
-                        width: calc(100% - 40px);
+                        width: calc(100% - 16px);
+                        max-height: calc(100dvh - 16px);
+                        margin: 0;
+                    }
+
+                    .unlimited-ai-modal-close {
+                        top: 8px;
+                        right: 8px;
+                        width: 44px;
+                        height: 44px;
                     }
                     
                     .unlimited-ai-modal-header,

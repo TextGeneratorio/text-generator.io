@@ -28,13 +28,14 @@ from pathlib import Path
 # Configure logging
 LOG_DIR = Path("/nvme0n1-disk/code/text-generator.io/monitoring/logs")
 LOG_DIR.mkdir(exist_ok=True)
-CODEX_LOCAL = os.environ.get("CODEX_LOCAL", "/home/administrator/code/codex/codex-rs/target/release/codex")
+_SHIM = Path.home() / ".local/monitor-bin/codex"  # local codex -> stock -> deepseek-flash -> muse
+CODEX_LOCAL = os.environ.get("CODEX_LOCAL", str(_SHIM) if _SHIM.is_file() else "/home/administrator/code/codex/codex-rs/target/release/codex")
 CODEX_CMD = [
     CODEX_LOCAL,
     "exec",
     "--yolo3",
     "-m",
-    "gpt-5.5",
+    "gpt-6.1-sol",
     "--config",
     "model_reasoning_effort=medium",
 ]
@@ -115,10 +116,10 @@ Failed steps:
 {error_context}
 
 Steps to investigate:
-1. Check supervisor logs: sudo supervisorctl tail -500 text-generator-site
+1. Check logs: tail -200 mainserver.log and /var/log/supervisor/text-generator-site*.log
 2. Look for errors in main.py auth endpoints (/api/signup, /api/login, /api/logout, /api/current-user, /api/get-user/stripe-usage, /api/delete-account)
 3. Fix any issues found
-4. Restart the service: sudo supervisorctl restart text-generator-site
+4. Restart the service: sudo -n systemctl restart text-generator-site.service
 
 After fixing, the next monitor run will verify the fix.
 """

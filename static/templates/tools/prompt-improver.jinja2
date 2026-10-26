@@ -1,0 +1,15 @@
+<link rel="stylesheet" href="/static/css/prompt-optimizer.css?v=1">
+<main class="prompt-opt-page"><div class="prompt-opt-wrap">
+<nav class="prompt-opt-crumbs" aria-label="Breadcrumb"><a href="/">Text Generator</a><span>/</span><a href="/tools/">Tools</a><span>/</span><span>Prompt improver</span></nav>
+<header class="prompt-opt-hero"><div><p class="prompt-opt-kicker">Free agent prompt builder</p><h1>Less chatter.<br><em>More verified work.</em></h1></div><p>Choose concise, implementation, tests, end-to-end QA, or deployment readiness. Browser-local recipes preserve your task. No AI call, account, or upload.</p></header>
+<form id="prompt-improver-form" class="prompt-opt-form">
+<div class="prompt-opt-field"><label for="improver-input">Your prompt</label><textarea id="improver-input" rows="6" maxlength="12000" required>Add password reset to the app.</textarea></div>
+<div class="prompt-opt-field"><label for="improver-mode">Mode</label><select id="improver-mode" style="width:100%;padding:12px;border:1px solid #bbc5d1;border-radius:12px;background:#fff;color:#172033"></select><p id="improver-description"></p></div>
+<div class="prompt-opt-field"><label for="improver-extra">Additional requirements (optional)</label><textarea id="improver-extra" rows="3" maxlength="4000" placeholder="For example: verify on mobile, no production deployment."></textarea></div>
+<button type="submit" class="prompt-opt-button prompt-opt-button--primary">Improve prompt</button>
+<p>Concise mode guides the agent's work; it does not guarantee token reduction. Review the prompt before using it.</p>
+</form>
+<section id="improver-result" class="prompt-opt-result" hidden><div class="prompt-opt-field"><label for="improver-output">Improved prompt</label><textarea id="improver-output" rows="14" style="width:100%;padding:16px;box-sizing:border-box"></textarea></div><button id="improver-copy" type="button" class="prompt-opt-button prompt-opt-button--secondary">Copy prompt</button></section>
+<p id="improver-status" role="status" aria-live="polite"></p>
+</div></main>
+<script type="module" src="/static/js/prompt-improver.js?v=1"></script>

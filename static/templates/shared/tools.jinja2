@@ -39,6 +39,9 @@
 {% endfor %}
 
 {% set tool_ui = {
+    "/tools/text-to-image": {"icon": "auto_awesome", "label": "Images", "accent": "#2563eb", "accent_soft": "rgba(37, 99, 235, 0.14)"},
+    "/text-to-speech": {"icon": "graphic_eq", "label": "Speech", "accent": "#7c3aed", "accent_soft": "rgba(124, 58, 237, 0.14)"},
+    "/providers/appnz": {"icon": "dns", "label": "First party", "accent": "#059669", "accent_soft": "rgba(5, 150, 105, 0.14)"},
     "/tools/deep-researcher": {"icon": "manage_search", "label": "Research", "accent": "#c2410c", "accent_soft": "rgba(194, 65, 12, 0.14)"},
     "/tools/competitor-teardown": {"icon": "radar", "label": "Strategy", "accent": "#ea580c", "accent_soft": "rgba(234, 88, 12, 0.14)"},
     "/tools/seo-content-gap": {"icon": "travel_explore", "label": "SEO", "accent": "#f97316", "accent_soft": "rgba(249, 115, 22, 0.14)"},
@@ -441,11 +444,10 @@
                 </div>
                 <h1>Find the right AI workflow.</h1>
                 <p class="tg-tools-lead">
-                    Prebuilt tools for domains, prompts, SEO, offers, document editing, and image understanding —
+                    Search research, create images, speech, video and 3D, call first-party GPU APIs, or jump into focused workflows for SEO, prompts, and writing —
                     search and jump straight in.
                 </p>
                 <div class="tg-tools-actions">
-                    <a class="tg-tools-btn tg-tools-btn--primary" href="/signup">Try Our Tools</a>
                     <a class="tg-tools-btn tg-tools-btn--ghost" href="/playground">Open Playground</a>
                 </div>
             </section>
@@ -456,7 +458,7 @@
                     <input
                         id="tools-search"
                         type="search"
-                        placeholder="Search domains, prompts, SEO, images..."
+                        placeholder="Search papers, images, video, audio, 3D, SEO..."
                         autocomplete="off"
                         spellcheck="false">
                     <button type="button" class="tg-tools-search-clear" id="tools-search-clear" hidden>Clear</button>
@@ -470,25 +472,30 @@
                 <div class="tg-tools-grid" id="tools-grid">
                     {% for tool in ns.all_tools %}
                         {% set ui = tool_ui.get(tool.url, default_ui) %}
+                        {% set ui_icon = tool.get('icon', ui.icon) %}
+                        {% set ui_label = tool.get('label', ui.label) %}
+                        {% set ui_accent = tool.get('accent', ui.accent) %}
+                        {% set ui_accent_soft = tool.get('accent_soft', ui.accent_soft) %}
+                        {% set is_external = tool.url[:4] == 'http' %}
                         <article
                             class="tg-tools-card"
                             data-tool-card
-                            data-search-text="{{ (tool.name ~ ' ' ~ tool.description ~ ' ' ~ ui.label)|lower }}"
-                            style="--tool-accent: {{ ui.accent }}; --tool-accent-soft: {{ ui.accent_soft }};">
+                            data-search-text="{{ (tool.name ~ ' ' ~ tool.description ~ ' ' ~ tool.get('keywords', '') ~ ' ' ~ ui_label)|lower }}"
+                            style="--tool-accent: {{ ui_accent }}; --tool-accent-soft: {{ ui_accent_soft }};">
                             <div class="tg-tools-card-top">
                                 <span class="tg-tools-icon">
-                                    <i class="material-icons" aria-hidden="true">{{ ui.icon }}</i>
+                                    <i class="material-icons" aria-hidden="true">{{ ui_icon }}</i>
                                 </span>
-                                <span class="tg-tools-chip">{{ ui.label }}</span>
+                                <span class="tg-tools-chip">{{ ui_label }}</span>
                             </div>
                             <h3>{{ tool.name }}</h3>
                             <p>{{ tool.description }}</p>
                             <div class="tg-tools-card-footer">
-                                <a href="{{ tool.url }}">
-                                    Open tool
-                                    <i class="material-icons" aria-hidden="true">arrow_forward</i>
+                                <a href="{{ tool.url }}"{% if is_external %} target="_blank" rel="noopener noreferrer"{% endif %}>
+                                    {% if is_external %}Open on App.nz{% else %}Open tool{% endif %}
+                                    <i class="material-icons" aria-hidden="true">{% if is_external %}open_in_new{% else %}arrow_forward{% endif %}</i>
                                 </a>
-                                <span class="tg-tools-card-note">{{ ui.label }}</span>
+                                <span class="tg-tools-card-note">{% if is_external %}First party{% else %}{{ ui_label }}{% endif %}</span>
                             </div>
                         </article>
                     {% endfor %}

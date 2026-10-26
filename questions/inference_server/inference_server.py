@@ -55,7 +55,7 @@ from questions.models import (
     map_to_generate_params,
     map_to_openai_response,
 )
-from questions.provider_catalog import openai_model_list, usage_cost_cents
+from questions.provider_catalog import openai_model_list
 from questions.provider_router import ProviderRoutingError, get_provider_router
 from questions.utils import log_time
 from sellerinfo import session_secret
@@ -92,6 +92,10 @@ MULTIMODAL_PROCESSORS = {}
 MULTIMODAL_MODELS = {}
 INFERENCE_CONCURRENCY = max(1, int(os.getenv("INFERENCE_CONCURRENCY", "1")))
 _inference_sem = None
+# Chat proxied to the omniserve-native batched LLM does no local GPU work; the gateway
+# admits it (32 sequences + overflow), so it gets its own bound instead of the GPU gate.
+VLLM_PROXY_CONCURRENCY = max(1, int(os.getenv("VLLM_PROXY_CONCURRENCY", "64")))
+_vllm_proxy_sem = None
 DEEP_LIVENESS_MIN_FREE_VRAM_GB = float(os.getenv("DEEP_LIVENESS_MIN_FREE_VRAM_GB", "8.0"))
 
 
@@ -262,6 +266,19 @@ def _get_inference_sem():
     return _inference_sem
 
 
+def _get_vllm_proxy_sem():
+    global _vllm_proxy_sem
+    if _vllm_proxy_sem is None:
+        _vllm_proxy_sem = asyncio.Semaphore(VLLM_PROXY_CONCURRENCY)
+    return _vllm_proxy_sem
+
+
+async def _evict_local_models_for_vllm(model_cache):
+    if _local_model_cache_needs_vllm_eviction(model_cache):
+        async with _get_inference_sem():
+            await asyncio.to_thread(_free_local_model_cache_for_vllm, model_cache)
+
+
 async def _run_gpu_bound(func, *args, **kwargs):
     """Run blocking model work in a worker thread while keeping FastAPI responsive.
 
@@ -316,7 +333,7 @@ def _get_vllm_session():
         from requests.adapters import HTTPAdapter
 
         session = requests.Session()
-        adapter = HTTPAdapter(pool_connections=4, pool_maxsize=16, pool_block=True)
+        adapter = HTTPAdapter(pool_connections=4, pool_maxsize=VLLM_PROXY_CONCURRENCY, pool_block=True)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         _vllm_session = session
@@ -588,7 +605,6 @@ def _open_vllm_chat_stream(
 ):
     import requests
 
-    _free_local_model_cache_for_vllm(model_cache)
     body = _model_dump_jsonable(chat_params)
     body["messages"] = messages
     headers = {
@@ -631,7 +647,8 @@ async def _proxy_vllm_chat_streaming_response(
 ):
     from starlette.responses import StreamingResponse
 
-    sem = _get_inference_sem()
+    await _evict_local_models_for_vllm(model_cache)
+    sem = _get_vllm_proxy_sem()
     await sem.acquire()
     try:
         response = await asyncio.to_thread(
@@ -858,6 +875,17 @@ def _get_device():
 
 # Preload models on startup for faster first requests (disabled by default for safety)
 PRELOAD_MODELS = os.environ.get("PRELOAD_MODELS", "0") == "1"
+
+
+@app.on_event("startup")
+async def size_thread_pool():
+    """Each proxied chat stream parks a worker thread per pending chunk; the default
+    pool (min(32, cpus + 4)) would cap concurrent streams below the proxy bound."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(max_workers=VLLM_PROXY_CONCURRENCY + 32, thread_name_prefix="tg-io")
+    )
 
 
 @app.on_event("startup")
@@ -1179,6 +1207,62 @@ def _consume_user_credits(secret, quantity: int) -> bool:
     new_balance = _set_stripe_credit_balance_cents(user.stripe_id, current_balance - quantity)
     _sync_credit_balance_to_cache(secret, new_balance)
     return True
+
+
+def _message_chars(messages) -> int:
+    total = 0
+    for m in messages or []:
+        c = m.get("content") if isinstance(m, dict) else None
+        if isinstance(c, str):
+            total += len(c)
+        elif isinstance(c, list):
+            total += sum(len(str(part.get("text", ""))) for part in c if isinstance(part, dict))
+    return total
+
+
+def _bill_chat_tokens(secret, model_id, usage=None, messages=None, output_text="", completion_tokens=None, overflowed=False):
+    from ..subscription_utils import check_user_subscription
+    from ..token_billing import bill_usage
+    from ..token_pricing import estimate_tokens, usage_tokens
+
+    user = _get_user_for_secret(secret)
+    if not user or not user.stripe_id:
+        return False
+    p, c = usage_tokens(usage)
+    if not p:
+        p = estimate_tokens("x" * _message_chars(messages))
+    if completion_tokens is not None:
+        c = completion_tokens
+    elif not c:
+        c = estimate_tokens(output_text)
+    db = get_db_session_sync()
+    try:
+        bill_usage(
+            db,
+            user,
+            model_id,
+            None,
+            subscribed=check_user_subscription(user),
+            overflowed=overflowed,
+            prompt_tokens=p,
+            completion_tokens=c,
+        )
+        maybe_autotopup_safe(user.stripe_id)
+    except Exception:
+        logger.exception("token billing failed for model %s", model_id)
+        return False
+    finally:
+        db.close()
+    return True
+
+
+def maybe_autotopup_safe(stripe_id):
+    try:
+        from ..credits import maybe_autotopup
+
+        maybe_autotopup(stripe_id)
+    except Exception as exc:
+        logger.warning("autotopup failed: %s", exc)
 
 
 def track_stripe_request_usage(secret, quantity: int):
@@ -2344,9 +2428,16 @@ async def feature_extraction(
 
 
 def _textgen_subscriber(secret):
-    if not _get_user_for_secret(secret):
+    user = _get_user_for_secret(secret)
+    if not user:
         return None
-    return _user_has_subscription_or_credits(secret)
+    from ..subscription_utils import check_user_subscription
+
+    if check_user_subscription(user):
+        return "sub"
+    if _get_stripe_credit_balance_cents(user.stripe_id) >= 1:
+        return "paid"
+    return False
 
 
 _RELAY_HEADERS = ("x-forwarded-for", "x-real-ip", "cf-connecting-ip", "cf-ray", "forwarded", "via")
@@ -4289,12 +4380,12 @@ async def chat_completions_route(
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
         if should_meter_chat_credit:
-            _consume_user_credits(
+            _bill_chat_tokens(
                 secret,
-                usage_cost_cents(
-                    routed_result.selected_model,
-                    routed_result.data.get("usage"),
-                ),
+                routed_result.selected_model,
+                usage=routed_result.data.get("usage"),
+                messages=messages,
+                output_text=((routed_result.data.get("choices") or [{}])[0].get("message") or {}).get("content") or "",
             )
 
         if chat_params.stream:
@@ -4340,29 +4431,45 @@ async def chat_completions_route(
         model_cache = _get_model_cache()
         if chat_params.stream:
             if should_meter_chat_credit:
-                _consume_user_credits(secret, 1)
+                _bill_chat_tokens(
+                    secret,
+                    chat_params.model,
+                    messages=messages,
+                    completion_tokens=min(int(chat_params.max_tokens or 512), 512) // 2,
+                )
             return await _proxy_vllm_chat_streaming_response(
                 chat_params,
                 messages,
                 model_cache,
                 secret,
             )
-        response = await _run_gpu_bound(
-            _proxy_vllm_chat_completion_with_cache,
-            chat_params,
-            messages,
-            model_cache,
-            secret,
-        )
+        await _evict_local_models_for_vllm(model_cache)
+        async with _get_vllm_proxy_sem():
+            response = await asyncio.to_thread(_proxy_vllm_chat_completion, chat_params, messages, secret)
         if should_meter_chat_credit:
-            _consume_user_credits(secret, 1)
+            _bill_chat_tokens(
+                secret,
+                chat_params.model,
+                usage=response.get("usage") if isinstance(response, dict) else None,
+                messages=messages,
+                output_text=(
+                    ((response.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+                    if isinstance(response, dict)
+                    else ""
+                ),
+            )
         return response
 
     if chat_params.stream:
         if has_media_content:
             raise HTTPException(status_code=400, detail="Streaming is not supported yet for multimodal chat requests")
         if should_meter_chat_credit:
-            _consume_user_credits(secret, 1)
+            _bill_chat_tokens(
+                secret,
+                chat_params.model,
+                messages=messages,
+                completion_tokens=min(int(chat_params.max_tokens or 512), 512) // 2,
+            )
         # Streaming SSE response
         async def event_generator():
             chat_id = "chatcmpl-" + str(random.randint(100000, 999999))
@@ -4425,7 +4532,9 @@ async def chat_completions_route(
         )
         if request and "X-Rapid-API-Key" not in request.headers and "x-rapid-api-key" not in request.headers:
             if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-                _consume_user_credits(secret, 1)
+                _bill_chat_tokens(
+                    secret, chat_params.model, messages=messages, output_text=result.get("generated_text") or ""
+                )
     else:
         result = await _run_gpu_bound(
             _chat_inference,
@@ -4440,7 +4549,9 @@ async def chat_completions_route(
             repetition_penalty=chat_params.repetition_penalty,
         )
         if should_meter_chat_credit:
-            _consume_user_credits(secret, 1)
+            _bill_chat_tokens(
+                secret, chat_params.model, messages=messages, output_text=result.get("generated_text") or ""
+            )
 
     return map_to_chat_completion_response(
         generated_text=result["generated_text"],

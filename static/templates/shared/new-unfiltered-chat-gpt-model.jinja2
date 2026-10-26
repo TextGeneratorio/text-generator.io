@@ -95,19 +95,25 @@ output:
                 Sign up
             </a>
             <script>
-                $(document).ready(function () {
-                    hljs.highlightAll();
-                    // remove all double ++ characters
-                    $('.hljs-addition').each(function () {
-                        $(this).html($(this).html().replace(/\+\+/g, ''));
-                    });
-                    window.setTimeout(function () {
-                          hljs.highlightAll();
-                        $('.hljs-addition').each(function () {
-                            $(this).html($(this).html().replace(/\+\+/g, ''));
+                (function () {
+                    function stripDoublePlus() {
+                        document.querySelectorAll('.hljs-addition').forEach(function (element) {
+                            element.innerHTML = element.innerHTML.replace(/\+\+/g, '');
                         });
-                    }, 3000);
-                });
+                    }
+
+                    function highlightAndClean() {
+                        if (window.hljs && typeof window.hljs.highlightAll === 'function') {
+                            window.hljs.highlightAll();
+                        }
+                        stripDoublePlus();
+                    }
+
+                    document.addEventListener('DOMContentLoaded', function () {
+                        highlightAndClean();
+                        window.setTimeout(highlightAndClean, 3000);
+                    });
+                })();
             </script>
 
         </div>

@@ -79,6 +79,12 @@ pip install -r questions/inference_server/requirements.txt
 PYTHONPATH=$(pwd) python questions/inference_server/main.py
 ```
 
+### Managed Gemma/vLLM GPU handoff
+
+The parity adapter (`vllm_parity_adapter.py`, normally port 8300) lazily starts the vLLM worker and exposes the legacy `/api/v1/generate` contract. During cold boot or wake it acquires the image server's bounded `/admin/hold`, waits for `/admin/unload` to report `"loaded": []`, and releases the hold only after vLLM is ready. Active text requests pin vLLM, so `/backend/sleep` returns HTTP 409 instead of interrupting generation. Relevant settings are `IMAGE_SERVER_UNLOAD_URL`, `IMAGE_SERVER_HOLD_URL`, `IMAGE_SERVER_RELEASE_URL`, `COEXISTING_CLEAR_TIMEOUT`, `IDLE_UNLOAD_SECONDS`, `DEEP_IDLE_SECONDS`, and `VLLM_TEXT_BACKEND_TIMEOUT` (300 seconds by default so a one-time compile can finish).
+
+`questions/inference_server/vllm_accel/serve_roleplay_prod.sh` is the tuned RTX 5090 Gemma launch: FP8 weights/KV, MTP-2 speculative decoding, async scheduling, prefix caching, CUDA graphs, and an explicit 768 MiB KV cache. Do not launch a second copy manually; inspect `/backend_status` through the managed adapter.
+
 gunicorn style
 ```bash
 gunicorn questions.inference_server.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:9909

@@ -28,16 +28,16 @@ Run (in the vLLM venv):
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import math
 import os
+import random
 import re
+import time
 import urllib.request
 from typing import List, Optional
-
-import random
-import time
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
@@ -74,9 +74,23 @@ def _ensure_backend(model: Optional[str] = None) -> str:
         raise HTTPException(status_code=503, detail="Text generation backend unavailable") from exc
 
 
-def _touch(model: Optional[str] = None) -> None:
-    if REGISTRY is not None:
-        REGISTRY.touch(model)
+@contextlib.contextmanager
+def _backend_request(model: Optional[str] = None):
+    """Keep the selected backend resident until this inference completes."""
+    if REGISTRY is None:
+        yield model or VLLM_MODEL
+        return
+    stack = contextlib.ExitStack()
+    try:
+        served = stack.enter_context(REGISTRY.request(model))
+    except RuntimeError as exc:
+        stack.close()
+        logger.warning("managed vLLM backend unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail="Text generation backend unavailable") from exc
+    try:
+        yield served
+    finally:
+        stack.close()
 
 
 def _rand_id(n: int = 10) -> str:
@@ -149,6 +163,25 @@ def _truncate_by_max_sentences(text: str, max_sentences: Optional[int]):
         return text, False
     cutoff = endings[max_sentences - 1].end()
     return text[:cutoff].rstrip(), True
+
+
+def _join_continuation(prompt: str, continuation: str, *, raw_completion: bool) -> str:
+    """Join prompt and continuation without destroying tokenizer boundaries.
+
+    Raw completion whitespace is authoritative: a lowercase fragment may be a
+    genuine subword completion (``n`` + ``ame``). The narrow uppercase fallback
+    repairs an unmistakably lost natural-language boundary (``looking`` + ``I``).
+    Chat completions are separate turns, so adjacent words always need a space.
+    """
+    if not prompt or not continuation:
+        return prompt + continuation
+    last, first = prompt[-1], continuation[0]
+    if last.isspace() or first.isspace():
+        return prompt + continuation
+    if first in r'.,!?;:)}]\'"-…' or last in '\n\r([{\'"':
+        return prompt + continuation
+    needs_space = not raw_completion or (last.isalnum() and first.isascii() and first.isupper())
+    return prompt + (" " if needs_space else "") + continuation
 
 
 # --------------------------------------------------------------------------
@@ -226,13 +259,12 @@ def _strip_think_spans(tokens: List[str], probs: List[float]):
     return out_t, out_p
 
 
-# Token healing: autocomplete must continue the *literal* token stream, not start
-# a fresh chat turn (which drops the boundary space -> "lookingfor" and emits
-# meta-commentary). We walk back the last partial word, regenerate from the head,
-# and accept the result only if it reproduces the typed tail — letting the model
-# re-tokenize the boundary ("goin" -> "going", "Franc" -> "France") while keeping
-# the user's exact input. Falls back to literal continuation if healing diverges.
-HEAL = os.environ.get("AUTOCOMPLETE_TOKEN_HEALING", "1") == "1"
+# Literal raw completion already preserves word boundaries and is the legacy API
+# contract. Token healing can be enabled experimentally for partial-token prompts,
+# but it must not be the default: walking back a complete final word such as
+# "looking" can turn the continuation into an in-word suffix such as "s".
+HEAL = os.environ.get("AUTOCOMPLETE_TOKEN_HEALING", "0") == "1"
+EARLY_CUTOFF = os.environ.get("AUTOCOMPLETE_EARLY_CUTOFF", "1") == "1"
 
 
 def _split_heal_tail(text: str) -> tuple[str, str]:
@@ -375,9 +407,48 @@ def _generate_batch(p: GenerateParams, model: str | None = None, n: int = 1) -> 
         return _generate_chat_batch(p, max_tokens, temperature, sampling, model=model, n=n)
 
     # Autocomplete / continuation: raw literal continuation + token healing.
+    # With a min_probability cutoff the expected kept length is short, so
+    # generate in growing chunks and stop as soon as the cumulative argmax
+    # probability falls below the threshold instead of paying for max_length
+    # tokens up front (autocomplete: 32 -> typically 8 generated).
+    if EARLY_CUTOFF and n == 1 and p.min_probability and p.min_probability > 0 and max_tokens > 8:
+        toks, probs, fin = _generate_chunked_raw(p, max_tokens, sampling, model=model)
+        return [_postprocess_raw(p, max_tokens, toks, probs, fin)]
     samples = _continue_with_healing(p.text, max_tokens, sampling, model=model, n=n)
     return [_postprocess_raw(p, max_tokens, toks, probs, fin)
             for toks, probs, fin in samples]
+
+
+def _generate_chunked_raw(p: GenerateParams, max_tokens: int, sampling: dict,
+                          model: str | None = None) -> tuple[List[str], List[float], "str | None"]:
+    """Chunked continuation that stops early once the min_probability budget is
+    spent. First chunk goes through token healing; later chunks continue from
+    an exact token boundary so they use plain completion calls. Returns the
+    same (tokens, probs, finish_reason) shape as _continue_with_healing, and
+    _postprocess_raw re-applies the exact truncation for parity."""
+    chunk = 8
+    toks, probs, fin = _continue_with_healing(p.text, min(chunk, max_tokens),
+                                              sampling, model=model, n=1)[0]
+    total = None
+    for pr in probs:
+        total = pr if total is None else total * pr
+    while (len(toks) < max_tokens
+           and fin not in ("stop",)
+           and (total is None or total >= p.min_probability)):
+        remaining = max_tokens - len(toks)
+        chunk = min(chunk * 2, remaining)
+        nxt = _complete_raw(p.text + "".join(toks), chunk, sampling,
+                            extra=({"logit_bias": b} if (b := _think_bias(model)) else None),
+                            model=model, n=1)[0]
+        if not nxt["tokens"]:
+            fin = nxt["finish_reason"] or fin
+            break
+        toks += nxt["tokens"]
+        probs += nxt["probs"]
+        fin = nxt["finish_reason"]
+        for pr in nxt["probs"]:
+            total = pr if total is None else total * pr
+    return toks, probs, fin
 
 
 def _generate_one(p: GenerateParams, model: str | None = None) -> dict:
@@ -401,6 +472,12 @@ def _postprocess_raw(p: GenerateParams, max_tokens: int, new_tokens: List[str],
         if triggered:
             response_text = "".join(new_tokens[:keep])
             stop_reason = "min_probability"
+
+    # Boundary repair is part of the continuation itself so stop-sequence and
+    # sentence matching see the same bytes that the caller receives.
+    response_text = _join_continuation(
+        p.text, response_text, raw_completion=True,
+    )[len(p.text) :]
 
     # 3) stop_sequences (exclusive); reason becomes the matched sequence
     response_text, matched = _truncate_by_stop_sequences(response_text, p.stop_sequences)
@@ -466,6 +543,9 @@ def _generate_chat_batch(p: GenerateParams, max_tokens: int, temperature: float,
             if triggered:
                 response_text = "".join(resp_tokens[:keep])
                 stop_reason = "min_probability"
+        response_text = _join_continuation(
+            p.text, response_text, raw_completion=False,
+        )[len(p.text) :]
         response_text, matched = _truncate_by_stop_sequences(response_text, p.stop_sequences)
         if matched is not None and stop_reason == "stop":
             stop_reason = matched
@@ -485,11 +565,9 @@ def _generate_chat_batch(p: GenerateParams, max_tokens: int, temperature: float,
 def generate(params: GenerateParams, secret: Optional[str] = Header(default=None)):
     if not params.text or not params.text.strip():
         raise HTTPException(status_code=400, detail="Please enter some text")
-    served = _ensure_backend(params.model)
-    n = max(1, params.number_of_results or 1)
-    out = _generate_batch(params, model=served, n=n)
-    _touch(served)
-    return out
+    with _backend_request(params.model) as served:
+        n = max(1, params.number_of_results or 1)
+        return _generate_batch(params, model=served, n=n)
 
 
 # --------------------------------------------------------------------------
@@ -529,60 +607,58 @@ class ChatCompletionParams(BaseModel):
 
 @app.post("/v1/completions")
 def completions(params: OpenaiParams):
-    served = _ensure_backend(params.model)
-    gp = GenerateParams(
-        text=params.prompt or "", max_length=params.max_tokens or 100,
-        temperature=params.temperature, top_p=params.top_p, top_k=params.top_k,
-        stop_sequences=params.stop or [], seed=params.seed,
-        repetition_penalty=params.repetition_penalty,
-    )
-    res = _generate_one(gp, model=served)
-    _touch(served)
-    text = res["generated_text"]
-    if not params.echo and text.startswith(gp.text):
-        text = text[len(gp.text):]
-    return {
-        "id": "cmpl-" + _rand_id(), "object": "text_completion",
-        "created": int(time.time()), "model": served or SERVED_NAME,
-        "choices": [{"text": text, "index": 0, "logprobs": None,
-                     "finish_reason": res["stop_reason"]}],
-        "usage": {"prompt_tokens": 0, "completion_tokens": 1, "total_tokens": 1},
-    }
+    with _backend_request(params.model) as served:
+        gp = GenerateParams(
+            text=params.prompt or "", max_length=params.max_tokens or 100,
+            temperature=params.temperature, top_p=params.top_p, top_k=params.top_k,
+            stop_sequences=params.stop or [], seed=params.seed,
+            repetition_penalty=params.repetition_penalty,
+        )
+        res = _generate_one(gp, model=served)
+        text = res["generated_text"]
+        if not params.echo and text.startswith(gp.text):
+            text = text[len(gp.text):]
+        return {
+            "id": "cmpl-" + _rand_id(), "object": "text_completion",
+            "created": int(time.time()), "model": served or SERVED_NAME,
+            "choices": [{"text": text, "index": 0, "logprobs": None,
+                         "finish_reason": res["stop_reason"]}],
+            "usage": {"prompt_tokens": 0, "completion_tokens": 1, "total_tokens": 1},
+        }
 
 
 @app.post("/v1/chat/completions")
 def chat_completions(params: ChatCompletionParams):
-    served = _ensure_backend(params.model)
-    # forward chat messages straight to the vLLM chat backend
-    extra = {"top_k": params.top_k if params.top_k is not None else 40,
-             "chat_template_kwargs": {"enable_thinking": bool(params.enable_thinking)}}
-    if params.repetition_penalty and params.repetition_penalty > 1.0:
-        extra["repetition_penalty"] = params.repetition_penalty
-    body = {
-        "model": served,
-        "messages": [m.dict() for m in params.messages],
-        "max_tokens": params.max_tokens or 512,
-        "temperature": params.temperature if (params.temperature and params.temperature > 0) else 1.0,
-        "top_p": params.top_p if params.top_p is not None else 0.9,
-        **({"stop": params.stop} if params.stop else {}),
-        **({"seed": params.seed} if params.seed else {}),
-        **extra,
-    }
-    out = _post("/v1/chat/completions", body)
-    _touch(served)
-    choice = out["choices"][0]
-    full = choice["message"]["content"] or ""
-    thinking, response = _split_thinking(full)
-    message = {"role": "assistant", "content": response}
-    if thinking:
-        message["reasoning_content"] = thinking
-    return {
-        "id": "chatcmpl-" + _rand_id(), "object": "chat.completion",
-        "created": int(time.time()), "model": served or SERVED_NAME,
-        "choices": [{"index": 0, "message": message,
-                     "finish_reason": choice.get("finish_reason") or "stop"}],
-        "usage": out.get("usage", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}),
-    }
+    with _backend_request(params.model) as served:
+        # forward chat messages straight to the vLLM chat backend
+        extra = {"top_k": params.top_k if params.top_k is not None else 40,
+                 "chat_template_kwargs": {"enable_thinking": bool(params.enable_thinking)}}
+        if params.repetition_penalty and params.repetition_penalty > 1.0:
+            extra["repetition_penalty"] = params.repetition_penalty
+        body = {
+            "model": served,
+            "messages": [m.dict() for m in params.messages],
+            "max_tokens": params.max_tokens or 512,
+            "temperature": params.temperature if (params.temperature and params.temperature > 0) else 1.0,
+            "top_p": params.top_p if params.top_p is not None else 0.9,
+            **({"stop": params.stop} if params.stop else {}),
+            **({"seed": params.seed} if params.seed else {}),
+            **extra,
+        }
+        out = _post("/v1/chat/completions", body)
+        choice = out["choices"][0]
+        full = choice["message"]["content"] or ""
+        thinking, response = _split_thinking(full)
+        message = {"role": "assistant", "content": response}
+        if thinking:
+            message["reasoning_content"] = thinking
+        return {
+            "id": "chatcmpl-" + _rand_id(), "object": "chat.completion",
+            "created": int(time.time()), "model": served or SERVED_NAME,
+            "choices": [{"index": 0, "message": message,
+                         "finish_reason": choice.get("finish_reason") or "stop"}],
+            "usage": out.get("usage", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}),
+        }
 
 
 @app.get("/liveness_check")
@@ -627,7 +703,8 @@ def backend_sleep():
     """Ops/testing: force the idle sleep tier now (vLLM sleep level 1)."""
     if REGISTRY is None:
         raise HTTPException(status_code=400, detail="unmanaged mode")
-    REGISTRY.sleep_all()
+    if not REGISTRY.sleep_all():
+        raise HTTPException(status_code=409, detail="backend has active inference requests")
     return REGISTRY.status()
 
 

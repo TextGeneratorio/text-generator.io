@@ -33,7 +33,7 @@ from transformers import (
 from questions import link_enricher
 from questions.bert_embed import get_bert_embeddings_fast
 from questions.constants import weights_path_tg, weights_path_tgc, weights_path_tgz
-from questions.download_utils import download_model
+from questions.download_utils import ModelDownloadUnavailable, download_model
 from questions.fixtures import get_stop_reason, set_stop_reason
 from questions.models import FeatureExtractParams, GenerateParams
 from questions.perplexity import get_perplexity
@@ -90,6 +90,10 @@ weights_to_name_key = {
     weights_path_tg: "tg_text_model",
 }
 name_key_to_weights = {v: k for k, v in weights_to_name_key.items()}
+
+PUBLIC_MODEL_FALLBACKS = {
+    "models/SmolLM3-3B": "HuggingFaceTB/SmolLM3-3B",
+}
 
 # if is_tpu_available():
 #     import torch_xla.core.xla_model as xm
@@ -220,6 +224,42 @@ def _truncate_response_by_max_sentences(response_text: str, max_sentences: Optio
 #     weights_path = "models/tg-1b3/"
 
 
+def _has_model_config(weights_path: str) -> bool:
+    return (Path(weights_path) / "config.json").exists()
+
+
+def _public_model_fallback(weights_path: str) -> Optional[str]:
+    return PUBLIC_MODEL_FALLBACKS.get(weights_path.rstrip("/"))
+
+
+def _resolve_model_weights_path(weights_path: str) -> str:
+    absolute_weights_path = str(Path("/") / weights_path)
+    if _has_model_config(absolute_weights_path):
+        return absolute_weights_path
+
+    if _has_model_config(weights_path):
+        return weights_path
+
+    fallback = _public_model_fallback(weights_path)
+    if fallback:
+        logger.info(
+            "Model artifact %s is not present locally; using public fallback %s",
+            weights_path,
+            fallback,
+        )
+        return fallback
+
+    try:
+        download_model(weights_path, weights_path)
+    except ModelDownloadUnavailable:
+        raise
+
+    if _has_model_config(weights_path):
+        return weights_path
+
+    return weights_path
+
+
 def load_model(weights_path):
     # download gpt neo model and load it into memory
     # download from gs://20-questions/gpt-neo-model.tar.gz
@@ -228,14 +268,7 @@ def load_model(weights_path):
     # extract to disk
     # tar -xvf gpt-neo-model.tar.gz
     # load model
-    if (Path("/" + weights_path) / "config.json").exists():
-        weights_path = str(Path("/") / weights_path)
-
-    # if (Path("/models")).exists(): # prefer to save in ramdisk
-    #     weights_path = "/" + weights_path
-
-    if not (Path(weights_path) / "config.json").exists():
-        download_model(weights_path, weights_path)
+    weights_path = _resolve_model_weights_path(weights_path)
 
     logger.info(f"loading model from {weights_path}")
 
@@ -740,7 +773,7 @@ def fast_inference(generate_params: GenerateParams, model_cache=None):
                     if model_cache.most_recent_name:
                         best_weights_path = name_key_to_weights.get(model_cache.most_recent_name, weights_path_tgz)
                     else:
-                        best_weights_path = weights_path_tg
+                        best_weights_path = weights_path_tgz
                 if generate_params.model == "instruct":
                     # instruct is always tgz model
                     best_weights_path = weights_path_tgz

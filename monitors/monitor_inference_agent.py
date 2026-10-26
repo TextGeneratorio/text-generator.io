@@ -27,18 +27,19 @@ LOG_DIR = REPO_ROOT / "monitors"
 LOG_FILE = LOG_DIR / "monitor_inference_agent.log"
 CODEX_LOG_FILE = LOG_DIR / "codex_inference_fix.log"
 LOCK_FILE = Path("/tmp/text-generator-monitor-inference-agent.lock")
-CODEX_LOCAL = os.environ.get("CODEX_LOCAL", "/usr/local/bin/codex")
+_SHIM = Path.home() / ".local/monitor-bin/codex"  # local codex -> stock -> deepseek-flash -> muse
+CODEX_LOCAL = os.environ.get("CODEX_LOCAL", str(_SHIM) if _SHIM.is_file() else "/usr/local/bin/codex")
 CODEX_CMD = [
     CODEX_LOCAL,
     "exec",
     "--dangerously-bypass-approvals-and-sandbox",
     "-m",
-    "gpt-5.6-sol",
+    "gpt-6-sol",
     "--config",
-    "model_reasoning_effort=medium",
+    "model_reasoning_effort=high",
 ]
 
-URL_LOCAL = "http://localhost:9080/liveness_check"
+URL_LOCAL = "http://localhost:9083/liveness_check"
 # NOTE: deep checks (?deep=1) force a real generation, which cold-booted the
 # idle-unloaded vLLM backend every ~3h and "failed" whenever the boot exceeded
 # the probe timeout. The shallow endpoint already reports healthy-when-idle,
@@ -75,10 +76,11 @@ def check_endpoint(url: str, timeout: int = 30) -> tuple[bool, str]:
                 data = {}
             status_ok = resp.status < 400
             inference_ok = data.get("inference") == "ok"
-            if status_ok and inference_ok:
-                return True, f"status={resp.status} inference=ok"
-            else:
-                return False, f"status={resp.status} body={body[:200]}"
+            native_ok = data.get("status") == "ok"
+            if status_ok and (inference_ok or native_ok):
+                health_key = "inference=ok" if inference_ok else "status=ok"
+                return True, f"status={resp.status} {health_key}"
+            return False, f"status={resp.status} body={body[:200]}"
     except (HTTPError, URLError, ValueError, TimeoutError, OSError) as e:
         return False, f"error: {e}"
 
@@ -117,14 +119,14 @@ Diagnose why the inference server is not responding, fix it, and verify the fix.
 
 ## Architecture
 - Inference server: systemd service `text-generator-inference.service`
-  - Port: 9080
+  - Port: 9083
   - Command: gunicorn + uvicorn running `questions.inference_server.inference_server:app`
   - Working directory: /nvme0n1-disk/code/text-generator.io
   - Venv: /nvme0n1-disk/code/text-generator.io/.venv
   - Logs: /var/log/supervisor/text-generator-inference.log and -error.log
   - Environment: PRELOAD_MODELS=0, KEEP_ALL_ON_GPU=0, MAX_CACHED_MODELS=3, MIN_FREE_VRAM_GB=4.0
 
-- Cloudflared tunnel (exposes port 9080 to api.text-generator.io):
+- Cloudflared tunnel (exposes omniserve-native port 8791 to api.text-generator.io):
   - Managed by supervisor: `cloudflared-inference`
   - Tunnel ID: 32d28856-afad-4204-b241-7de8950b2c58
   - Config: /etc/supervisor/conf.d/cloudflared.conf
@@ -137,18 +139,19 @@ Diagnose why the inference server is not responding, fix it, and verify the fix.
 2. Python exception on startup - check error log for tracebacks
 3. Gunicorn worker timeout - the worker crashed and didn't respawn
 4. Cloudflared tunnel down - external URL fails but localhost works
-5. Port conflict - something else grabbed port 9080
+5. Port conflict - something else grabbed port 9083
 6. Dependency issue - a package import fails after update
 
 ## How to fix
 1. Read the logs to identify the root cause
 2. If the service is stopped/failed: `sudo systemctl restart text-generator-inference.service`
 3. If cloudflared is down: `sudo supervisorctl restart cloudflared-inference`
-4. If GPU OOM: check `nvidia-smi`, kill orphan GPU processes if needed, then restart service
+4. If GPU OOM: check `nvidia-smi`, identify orphan GPU processes, then coordinate before terminating anything
 5. If a code bug: fix the code, then restart the service
 6. After any fix, wait 15-30 seconds for startup, then verify:
-   - `curl -s http://localhost:9080/liveness_check` should return {{"inference":"ok"}}
-   - `curl -s https://api.text-generator.io/liveness_check` should return {{"inference":"ok"}}
+   - `curl -s http://localhost:9083/liveness_check` should return {{"inference":"ok"}}
+   - `curl -s https://api.text-generator.io/liveness_check` should return a healthy JSON body
+   - `python monitoring/service_probe.py --profile all` should pass the compatibility and production contracts
 7. If the first fix didn't work, read the NEW logs and try again
 
 IMPORTANT: Always verify the fix worked before finishing. Run the curl checks above.
