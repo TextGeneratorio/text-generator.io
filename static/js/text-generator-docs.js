@@ -202,6 +202,13 @@ if (typeof globalThis !== 'undefined') {
 }
 
 class TextGeneratorDocs {
+  // Auto-title the document after this much idle time following an edit
+  static get AUTO_TITLE_IDLE_MS() { return 6000; }
+  // ...but only once there is enough written to name
+  static get AUTO_TITLE_MIN_CHARS() { return 120; }
+  // Autosave debounce - short enough that other open pages stay live
+  static get AUTOSAVE_DEBOUNCE_MS() { return 2500; }
+
   constructor(options) {
     this.options = options || {};
     
@@ -241,6 +248,10 @@ class TextGeneratorDocs {
     this.currentDocData = null;
     this.documents = [];
     this.debounceTimeout = null;
+    // Unique per tab so live-sync events from this tab can be ignored locally
+    this.clientId = 'tab_' + Math.random().toString(36).slice(2) + '_' + Date.now();
+    this.isApplyingRemoteChange = false;
+    this.autoTitlePending = false;
     this.isGenerating = false;
     this.suggestionText = '';
     this.suggestionActive = false;
@@ -258,8 +269,9 @@ class TextGeneratorDocs {
     // Completion cache - initialize LRU cache
     this.completionCache = this.loadCompletionCache();
     this.maxCacheSize = 1000;
-    
-    this.init();
+
+    // Defer to a microtask so subclass constructors finish before init runs
+    this.initPromise = Promise.resolve().then(() => this.init());
   }
   
   // Load the completion cache from localStorage
@@ -337,6 +349,10 @@ class TextGeneratorDocs {
   }
   
   async init() {
+    // Guard against double initialization (constructor + explicit init() call)
+    if (this._initStarted) return this.initPromise;
+    this._initStarted = true;
+
     // Only initialize the editor if the container exists
     if (this.editorContainer) {
       // Initialize the editor
@@ -355,9 +371,187 @@ class TextGeneratorDocs {
     // Check subscription status and enforce premium restrictions
     await this.checkSubscriptionStatus();
     
+    // Live updates across every open page of the editor
+    this.initLiveSync();
+
     // Load documents if authenticated
     if ((isAuthenticated || this.userId) && this.documentsList) {
-      this.loadDocuments();
+      await this.loadDocuments();
+    }
+  }
+
+  //------------------------------------------------------
+  // Live sync (multi-tab / multi-device)
+  //------------------------------------------------------
+
+  initLiveSync() {
+    // Same-browser tabs: instant, no server round trip
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        this.syncChannel = new BroadcastChannel('tgdocs-live');
+        this.syncChannel.onmessage = (event) => this.handleRemoteUpdate(event.data);
+      }
+    } catch (e) {
+      console.warn('BroadcastChannel unavailable, falling back to SSE only:', e);
+    }
+
+    // Other browsers/devices: server-sent events
+    this.connectDocumentEvents();
+
+    // Flush pending work when the tab is hidden or closed
+    const flush = () => {
+      if (this.currentDocId && this.hasUnsavedChanges) {
+        this.autosaveCurrentDocument({ keepalive: true });
+      }
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flush();
+    });
+  }
+
+  connectDocumentEvents() {
+    if (typeof EventSource === 'undefined') return;
+    try {
+      if (this.eventSource) {
+        this.eventSource.close();
+      }
+      this.eventSource = new EventSource('/api/docs/events');
+      this.eventSource.onmessage = (event) => {
+        try {
+          this.handleRemoteUpdate(JSON.parse(event.data));
+        } catch (e) {
+          console.warn('Bad live-sync payload:', e);
+        }
+      };
+      this.eventSource.onerror = () => {
+        // Reconnect with a bounded backoff
+        if (this.eventSource) {
+          this.eventSource.close();
+          this.eventSource = null;
+        }
+        this.sseBackoff = Math.min((this.sseBackoff || 2000) * 2, 60000);
+        clearTimeout(this.sseReconnectTimer);
+        this.sseReconnectTimer = setTimeout(() => this.connectDocumentEvents(), this.sseBackoff);
+      };
+      this.eventSource.onopen = () => {
+        this.sseBackoff = 2000;
+      };
+    } catch (e) {
+      console.warn('Could not open live document stream:', e);
+    }
+  }
+
+  /**
+   * Broadcast a document change so other open pages update live
+   */
+  broadcastDocumentUpdate(documentData) {
+    if (!this.syncChannel || !documentData || !documentData.id) return;
+    try {
+      this.syncChannel.postMessage({
+        type: 'doc-update',
+        client_id: this.clientId,
+        document: {
+          id: documentData.id,
+          title: documentData.title,
+          content: documentData.content,
+          updated_at: documentData.updatedAt || new Date().toISOString()
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to broadcast document update:', e);
+    }
+  }
+
+  /**
+   * Apply an update that came from another tab/device
+   */
+  handleRemoteUpdate(payload) {
+    if (!payload || payload.client_id === this.clientId) return;
+
+    if (payload.type === 'doc-delete') {
+      this.documents = this.documents.filter(d => d.id !== payload.id);
+      if (this.documentsList) this.renderDocumentsList();
+      return;
+    }
+
+    const doc = payload.document;
+    if (!doc || !doc.id) return;
+
+    // Keep the sidebar list fresh
+    const idx = this.documents.findIndex(d => d.id === doc.id);
+    if (idx >= 0) {
+      this.documents[idx] = { ...this.documents[idx], ...doc, updatedAt: doc.updated_at };
+    } else {
+      this.documents.unshift({ ...doc, updatedAt: doc.updated_at });
+    }
+
+    if (doc.id !== this.currentDocId) {
+      if (this.documentsList) this.renderDocumentsList();
+      return;
+    }
+
+    // Don't clobber what the user is typing right now in this tab
+    if (this.hasUnsavedChanges && Date.now() - (this.lastLocalEditAt || 0) < 3000) {
+      return;
+    }
+
+    this.applyRemoteContent(doc);
+    if (this.documentsList) this.renderDocumentsList();
+  }
+
+  applyRemoteContent(doc) {
+    if (!this.editor) return;
+    try {
+      if (doc.title !== undefined && this.docTitleInput && this.docTitleInput.value !== doc.title) {
+        this.docTitleInput.value = doc.title || '';
+      }
+      if (!doc.content) return;
+
+      const incoming = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content;
+      const current = JSON.stringify(this.editor.getContents());
+      if (current === JSON.stringify(incoming)) return;
+
+      // Preserve the caret across the remote update
+      const selection = this.editor.getSelection();
+      this.isApplyingRemoteChange = true;
+      this.editor.setContents(incoming, 'silent');
+      if (selection) {
+        const max = this.editor.getLength() - 1;
+        this.editor.setSelection(Math.min(selection.index, max), selection.length || 0, 'silent');
+      }
+      this.updateSaveStatus('Updated from another tab');
+    } catch (e) {
+      console.warn('Could not apply remote document content:', e);
+    } finally {
+      this.isApplyingRemoteChange = false;
+    }
+  }
+
+  //------------------------------------------------------
+  // Last-opened document tracking
+  //------------------------------------------------------
+
+  lastDocStorageKey() {
+    return `tgdocs-last-doc-${this.userId || 'anon'}`;
+  }
+
+  rememberLastDocument(docId) {
+    if (!docId) return;
+    try {
+      localStorage.setItem(this.lastDocStorageKey(), docId);
+      // Legacy key kept in sync for older code paths
+      localStorage.setItem('lastEditedDocument', docId);
+    } catch (e) {
+      console.warn('Could not persist last document id:', e);
+    }
+  }
+
+  getLastDocumentId() {
+    try {
+      return localStorage.getItem(this.lastDocStorageKey()) || localStorage.getItem('lastEditedDocument');
+    } catch (e) {
+      return null;
     }
   }
   
@@ -718,7 +912,14 @@ class TextGeneratorDocs {
     }
     
     if (source !== 'user') return;
-    
+    if (this.isApplyingRemoteChange) return;
+
+    this.hasUnsavedChanges = true;
+    this.lastLocalEditAt = Date.now();
+
+    // AI naming once enough has been written
+    this.scheduleAutoTitle();
+
     // AUTOCOMPLETE HANDLING
     // Clear any existing autocomplete debounce
     clearTimeout(this.debounceTimeout);
@@ -738,11 +939,11 @@ class TextGeneratorDocs {
     
     // Show saving indicator
     this.updateSaveStatus('Saving');
-    
-    // Debounce autosave (1 minute)
+
+    // Debounce autosave - fast so other open pages see the change live
     this.autosaveTimeout = setTimeout(() => {
       this.autosaveCurrentDocument();
-    }, 60000);
+    }, TextGeneratorDocs.AUTOSAVE_DEBOUNCE_MS);
   }
   
   updateSaveStatus(message) {
@@ -1186,11 +1387,33 @@ class TextGeneratorDocs {
         this.loadDocumentsFromLocalStorage();
       }
       
+      // Newest first so "most recent" is a meaningful fallback
+      this.documents.sort((a, b) => {
+        const at = new Date(a.updatedAt || a.updated_at || a.createdAt || 0).getTime();
+        const bt = new Date(b.updatedAt || b.updated_at || b.createdAt || 0).getTime();
+        return bt - at;
+      });
+
       this.renderDocumentsList();
-      
-      // If there are documents, load the first one
-      if (this.documents.length > 0) {
-        this.loadDocument(this.documents[0].id);
+
+      // Which document to reopen: ?doc= wins, then the remembered one,
+      // then the most recently updated.
+      const urlDocId = new URLSearchParams(window.location.search).get('doc');
+      const rememberedId = this.getLastDocumentId();
+
+      // Clean up the backlog of blank "Untitled Document" rows from older
+      // builds first, so the pick below can't land on a doc being deleted.
+      await this.pruneEmptyDocuments(urlDocId || rememberedId);
+
+      const exists = (id) => id && this.documents.some(d => d.id === id);
+
+      let targetId = null;
+      if (exists(urlDocId)) targetId = urlDocId;
+      else if (exists(rememberedId)) targetId = rememberedId;
+      else if (this.documents.length > 0) targetId = this.documents[0].id;
+
+      if (targetId) {
+        await this.loadDocument(targetId);
       } else {
         this.createNewDocument();
       }
@@ -1200,6 +1423,55 @@ class TextGeneratorDocs {
       this.documents = [];
       this.renderDocumentsList();
       this.createNewDocument();
+    }
+  }
+
+  /**
+   * Ask the server to drop untitled+empty documents left over from older builds
+   */
+  async pruneEmptyDocuments(keepId = null) {
+    const keep = keepId || this.currentDocId || null;
+    const blank = this.documents.filter(d =>
+      d.id !== keep && (!d.title || d.title === 'Untitled Document') && this.isBlankContent(d.content)
+    );
+    if (blank.length === 0) return;
+
+    try {
+      const response = await fetch('/api/docs/prune-empty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keep })
+      });
+      if (!response.ok) return;
+      const result = await response.json();
+      const removed = new Set(result.ids || []);
+      if (removed.size === 0) return;
+      this.documents = this.documents.filter(d => !removed.has(d.id));
+      this.renderDocumentsList();
+      console.log(`Removed ${removed.size} empty untitled documents`);
+    } catch (e) {
+      console.log('Could not prune empty documents:', e);
+    }
+  }
+
+  /**
+   * True when a stored Quill delta contains no actual text
+   */
+  isBlankContent(content) {
+    if (!content) return true;
+    try {
+      const delta = typeof content === 'string' ? JSON.parse(content) : content;
+      const ops = Array.isArray(delta) ? delta : (delta.ops || []);
+      // An embed (image, video, ...) counts as real content
+      if (ops.some(op => op && op.insert !== undefined && typeof op.insert !== 'string')) {
+        return false;
+      }
+      const text = ops
+        .map(op => (op && typeof op.insert === 'string' ? op.insert : ''))
+        .join('');
+      return text.trim().length === 0;
+    } catch (e) {
+      return String(content).trim().length === 0;
     }
   }
   
@@ -1221,6 +1493,8 @@ class TextGeneratorDocs {
   }
   
   renderDocumentsList() {
+    if (!this.documentsList) return;
+
     // Clear list
     this.documentsList.innerHTML = '';
     
@@ -1238,7 +1512,7 @@ class TextGeneratorDocs {
       
       const date = document.createElement('div');
       date.className = 'tgdocs-document-date';
-      date.textContent = this.formatDate(doc.updatedAt);
+      date.textContent = this.formatDate(doc.updatedAt || doc.updated_at || doc.createdAt);
       
       // Create wrapper for document info
       const docInfo = document.createElement('div');
@@ -1316,13 +1590,19 @@ class TextGeneratorDocs {
           const docData = await response.json();
           this.currentDocId = docId;
           this.currentDocData = docData;
-          
+          this.hasUnsavedChanges = false;
+          this.rememberLastDocument(docId);
+
           // Update title
           this.docTitleInput.value = docData.title || '';
-          
+
           // Update editor content
-          this.editor.setContents(JSON.parse(docData.content));
-          
+          if (docData.content) {
+            this.editor.setContents(JSON.parse(docData.content), 'silent');
+          } else {
+            this.editor.setContents([{ insert: '\n' }], 'silent');
+          }
+
           // Update active document in list
           this.renderDocumentsList();
           return;
@@ -1336,13 +1616,19 @@ class TextGeneratorDocs {
       if (doc) {
         this.currentDocId = docId;
         this.currentDocData = doc;
-        
+        this.hasUnsavedChanges = false;
+        this.rememberLastDocument(docId);
+
         // Update title
         this.docTitleInput.value = doc.title || '';
-        
+
         // Update editor content
-        this.editor.setContents(JSON.parse(doc.content));
-        
+        if (doc.content) {
+          this.editor.setContents(JSON.parse(doc.content), 'silent');
+        } else {
+          this.editor.setContents([{ insert: '\n' }], 'silent');
+        }
+
         // Update active document in list
         this.renderDocumentsList();
       } else {
@@ -1359,23 +1645,31 @@ class TextGeneratorDocs {
       this.showLoginPrompt();
       return;
     }
-    
+
     // Get raw content for saving
     const content = JSON.stringify(this.editor.getContents());
     const title = this.docTitleInput.value || 'Untitled Document';
-    
+
+    // Never persist an untitled, empty document - that is what created the
+    // pile of "Untitled Document" entries on every page load.
+    if (!this.currentDocId && this.isBlankContent(content) && title === 'Untitled Document') {
+      this.updateSaveStatus('');
+      return;
+    }
+
     const documentData = {
       title,
-      content
+      content,
+      client_id: this.clientId
     };
-    
+
     if (this.currentDocId) {
       documentData.id = this.currentDocId;
     } else {
       // Generate a new ID if this is a new document
       documentData.id = 'doc_' + Date.now();
     }
-    
+
     try {
       // Try to save to API first
       let apiSaveSuccessful = false;
@@ -1391,39 +1685,47 @@ class TextGeneratorDocs {
         
         if (response.ok) {
           const result = await response.json();
+          if (result.skipped === 'empty') {
+            // Server agreed there was nothing worth storing
+            this.updateSaveStatus('');
+            return;
+          }
           apiSaveSuccessful = true;
-          
+
           // Update current document ID if it was a new document
           if (!this.currentDocId) {
             this.currentDocId = result.id || documentData.id;
             documentData.id = this.currentDocId;
           }
+          documentData.updatedAt = result.updated_at || new Date().toISOString();
         }
       } catch (error) {
         console.log("API error when saving, using localStorage:", error);
       }
-      
+
       // If API save failed, save to localStorage
       if (!apiSaveSuccessful) {
         this.saveDocumentToLocalStorage(documentData);
       }
-      
+
       // Update documents array and persist
       if (apiSaveSuccessful) {
         const idx = this.documents.findIndex(d => d.id === documentData.id);
-        if (idx >= 0) this.documents[idx] = documentData;
-        else this.documents.push(documentData);
+        if (idx >= 0) this.documents[idx] = { ...this.documents[idx], ...documentData };
+        else this.documents.unshift(documentData);
         localStorage.setItem(`tgdocs-documents-${this.userId}`, JSON.stringify(this.documents));
       }
-      
+
       // Show success message
       this.updateSaveStatus('Saved');
-      
+
       // Update current document ID
       this.currentDocId = documentData.id;
-      
+      this.hasUnsavedChanges = false;
+      this.rememberLastDocument(this.currentDocId);
+      this.broadcastDocumentUpdate(documentData);
+
       // Refresh documents list
-      this.loadDocumentsFromLocalStorage();
       this.renderDocumentsList();
     } catch (error) {
       console.error('Error saving document:', error);
@@ -1458,7 +1760,7 @@ class TextGeneratorDocs {
     }
   }
   
-  async autosaveCurrentDocument() {
+  async autosaveCurrentDocument(options = {}) {
     try {
       // Check if editor and required elements exist
       if (!this.editor || !this.docTitleInput) {
@@ -1473,65 +1775,108 @@ class TextGeneratorDocs {
       // Get raw content for autosaving
       const content = JSON.stringify(this.editor.getContents());
       const title = this.docTitleInput.value || 'Untitled Document';
-      
+
+      // Don't create a row for an untitled, empty document
+      if (!this.currentDocId && this.isBlankContent(content) && title === 'Untitled Document') {
+        this.updateSaveStatus('');
+        return;
+      }
+
       const documentData = {
         title,
-        content
+        content,
+        client_id: this.clientId
       };
-      
+
       if (this.currentDocId) {
         documentData.id = this.currentDocId;
       } else {
         // Generate a new ID if this is a new document
         documentData.id = 'doc_' + Date.now();
       }
-      
+
       // Try to autosave to API first
       let apiSaveSuccessful = false;
+      const useUnloadTransport = Boolean(options.keepalive);
+      const requestBody = JSON.stringify(documentData);
       
       try {
-        // First try the autosave endpoint
-        let response = await fetch('/api/docs/autosave', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(documentData)
-        });
-        
-        // If autosave endpoint fails, try the regular save endpoint
-        if (!response.ok) {
-          response = await fetch('/api/docs/save', {
+        if (useUnloadTransport && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          const blob = new Blob([requestBody], { type: 'application/json' });
+          if (navigator.sendBeacon('/api/docs/autosave', blob)) {
+            apiSaveSuccessful = true;
+            documentData.updatedAt = new Date().toISOString();
+            try {
+              this.saveDocumentToLocalStorage(documentData);
+            } catch (backupError) {
+              console.warn('Could not keep local autosave backup:', backupError);
+            }
+          }
+        }
+
+        if (!apiSaveSuccessful) {
+          const autosaveRequest = {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(documentData)
-          });
-        }
-        
-        if (response.ok) {
-          const result = await response.json();
-          apiSaveSuccessful = true;
+            body: requestBody
+          };
+          if (useUnloadTransport) {
+            autosaveRequest.keepalive = true;
+          }
+
+          // First try the autosave endpoint
+          let response = await fetch('/api/docs/autosave', autosaveRequest);
           
-          // Update current document ID if it was a new document
-          if (!this.currentDocId) {
-            this.currentDocId = result.id || documentData.id;
-            documentData.id = this.currentDocId;
+          // If autosave endpoint fails, try the regular save endpoint
+          if (!response.ok && !useUnloadTransport) {
+            response = await fetch('/api/docs/save', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: requestBody
+            });
+          }
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.skipped === 'empty') {
+              this.updateSaveStatus('');
+              return;
+            }
+            apiSaveSuccessful = true;
+
+            // Update current document ID if it was a new document
+            if (!this.currentDocId) {
+              this.currentDocId = result.id || documentData.id;
+              documentData.id = this.currentDocId;
+            }
+            documentData.updatedAt = result.updated_at || new Date().toISOString();
           }
         }
       } catch (error) {
         console.log("API error when autosaving, using localStorage:", error);
       }
-      
+
       // If API save failed, save to localStorage
       if (!apiSaveSuccessful) {
         this.saveDocumentToLocalStorage(documentData);
       }
-      
+
       // Update current document ID
       this.currentDocId = documentData.id;
-      
+      this.hasUnsavedChanges = false;
+      this.rememberLastDocument(this.currentDocId);
+
+      // Keep the sidebar and every other open page in sync
+      const idx = this.documents.findIndex(d => d.id === documentData.id);
+      if (idx >= 0) this.documents[idx] = { ...this.documents[idx], ...documentData };
+      else this.documents.unshift(documentData);
+      if (this.documentsList) this.renderDocumentsList();
+      this.broadcastDocumentUpdate(documentData);
+
       // Show success message
       this.updateSaveStatus('Saved');
     } catch (e) {
@@ -1544,18 +1889,178 @@ class TextGeneratorDocs {
     // Clear current document ID and data
     this.currentDocId = null;
     this.currentDocData = null;
-    
-    // Clear title
-    this.docTitleInput.value = 'Untitled Document';
-    
+    this.hasUnsavedChanges = false;
+    this.autoTitleDone = false;
+    clearTimeout(this.autoTitleTimeout);
+
+    // Leave the title blank so the AI can name it once there's something to name
+    this.docTitleInput.value = '';
+    this.docTitleInput.placeholder = 'Untitled Document';
+
     // Clear editor content
-    this.editor.setContents([{ insert: '\n' }]);
-    
+    this.editor.setContents([{ insert: '\n' }], 'silent');
+
     // Update active document in list
     this.renderDocumentsList();
-    
-    // Save the new document immediately to get an ID
-    this.saveCurrentDocument();
+
+    // Deliberately NOT saved here - the document is persisted on the first
+    // real edit, so opening the editor no longer creates a blank row.
+    this.updateSaveStatus('');
+  }
+
+  //------------------------------------------------------
+  // Automatic AI titling
+  //------------------------------------------------------
+
+  /**
+   * True when the title is still the placeholder and can be replaced
+   */
+  titleIsAuto() {
+    const title = (this.docTitleInput && this.docTitleInput.value || '').trim();
+    return title === '' || title === 'Untitled Document';
+  }
+
+  /**
+   * Schedule an AI-generated title once the user has written enough.
+   * Called from the editor change handlers.
+   */
+  scheduleAutoTitle() {
+    if (this.autoTitleDone || this.userEditedTitle) return;
+    if (!this.titleIsAuto()) return;
+
+    clearTimeout(this.autoTitleTimeout);
+    this.autoTitleTimeout = setTimeout(() => {
+      this.generateDocumentTitle();
+    }, TextGeneratorDocs.AUTO_TITLE_IDLE_MS);
+  }
+
+  /**
+   * Name the document with the text-generator model based on what was written
+   */
+  async generateDocumentTitle(force = false) {
+    if (!this.editor || !this.docTitleInput) return;
+    if (this.autoTitlePending) return;
+    if (!force && (this.autoTitleDone || this.userEditedTitle || !this.titleIsAuto())) return;
+
+    const text = this.editor.getText().trim();
+    if (text.length < TextGeneratorDocs.AUTO_TITLE_MIN_CHARS) return;
+
+    this.autoTitlePending = true;
+    try {
+      // Without AI access, name it from the opening line rather than
+      // burning a request that will be rejected
+      if (this.aiDisabled) {
+        const fallback = this.fallbackTitle(text);
+        if (fallback) {
+          this.docTitleInput.value = fallback;
+          this.autoTitleDone = true;
+          await this.autosaveCurrentDocument();
+        }
+        return;
+      }
+
+      const excerpt = text.slice(0, 1200);
+      const title = await this.fetchGeneratedTitle(excerpt);
+      const cleaned = this.cleanGeneratedTitle(title) || this.fallbackTitle(text);
+
+      if (cleaned && (force || this.titleIsAuto())) {
+        this.docTitleInput.value = cleaned;
+        this.autoTitleDone = true;
+        this.showMessage(`Named "${cleaned}"`);
+        await this.autosaveCurrentDocument();
+      }
+    } catch (e) {
+      console.log('Auto title generation failed, using fallback:', e);
+      const fallback = this.fallbackTitle(this.editor.getText().trim());
+      if (fallback && this.titleIsAuto()) {
+        this.docTitleInput.value = fallback;
+        this.autoTitleDone = true;
+        await this.autosaveCurrentDocument();
+      }
+    } finally {
+      this.autoTitlePending = false;
+    }
+  }
+
+  /**
+   * Ask the text-generator model for a short document title
+   */
+  async fetchGeneratedTitle(excerpt) {
+    const prompt =
+      'Write a short, specific title (3 to 8 words) for the document below. ' +
+      'Reply with the title only, no quotes and no explanation.\n\n' +
+      'Document:\n' + excerpt + '\n\nTitle:';
+
+    const response = await fetch('/api/v1/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'secret': this.secret
+      },
+      body: JSON.stringify({
+        text: prompt,
+        number_of_results: 1,
+        max_length: 24,
+        max_sentences: 1,
+        min_probability: 0,
+        stop_sequences: ['\n'],
+        top_p: 0.9,
+        top_k: 40,
+        temperature: 0.5,
+        repetition_penalty: 1.1,
+        seed: 0,
+        enable_thinking: false
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Title generation failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('Empty title response');
+    }
+
+    const generated = data[0].generated_text || '';
+    // The API echoes the prompt back, so take only the continuation
+    return generated.startsWith(prompt) ? generated.slice(prompt.length) : generated;
+  }
+
+  /**
+   * Normalize a model-generated title into something usable as a filename
+   */
+  cleanGeneratedTitle(raw) {
+    if (!raw) return '';
+    let title = String(raw).split('\n').map(l => l.trim()).find(l => l.length > 0) || '';
+    title = title.replace(/^["'`*#\s]+|["'`*\s]+$/g, '');
+    title = title.replace(/^(title|document title)\s*[:\-]\s*/i, '');
+    title = title.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    title = title.replace(/[.,;:]+$/, '');
+    if (title.length > 70) {
+      title = title.slice(0, 70).replace(/\s+\S*$/, '').trim();
+    }
+    // Reject degenerate output
+    if (title.length < 3 || /^untitled/i.test(title)) return '';
+    return title;
+  }
+
+  /**
+   * Deterministic title from the first line of text, used when the model fails
+   */
+  fallbackTitle(text) {
+    if (!text) return '';
+    const firstLine = text.split('\n').map(l => l.trim()).find(l => l.length > 0) || '';
+    const words = firstLine.split(/\s+/).filter(Boolean).slice(0, 8);
+
+    // Don't leave the title dangling on a joining word
+    const trailing = /^(the|a|an|and|or|but|of|to|in|on|for|with|that|which|is|was|at|by|from)$/i;
+    while (words.length > 1 && trailing.test(words[words.length - 1])) {
+      words.pop();
+    }
+
+    const title = words.join(' ').replace(/[.,;:]+$/, '').trim();
+    return title.length >= 3 ? title : '';
   }
   
   exportCurrentDocument() {
@@ -1606,10 +2111,17 @@ class TextGeneratorDocs {
   handleTitleChange() {
     // Clear any existing debounce for title changes
     clearTimeout(this.titleChangeDebounceTimer);
-    
+
+    // A title the user typed themselves wins over AI naming
+    if (!this.titleIsAuto()) {
+      this.userEditedTitle = true;
+      this.autoTitleDone = true;
+      clearTimeout(this.autoTitleTimeout);
+    }
+
     // Show saving indicator
     this.updateSaveStatus('Saving');
-    
+
     // Debounce title changes (1 second)
     this.titleChangeDebounceTimer = setTimeout(() => {
       this.autosaveCurrentDocument();
@@ -1773,10 +2285,20 @@ class TextGeneratorDocs {
     
     // Update localStorage
     localStorage.setItem(`tgdocs-documents-${this.userId}`, JSON.stringify(this.documents));
-    
-    // If it was the current doc, create a new one
+
+    // If it was the current doc, open the next most recent one instead of
+    // spawning a blank untitled document
     if (isCurrentDoc) {
-      this.createNewDocument();
+      try {
+        localStorage.removeItem(this.lastDocStorageKey());
+        localStorage.removeItem('lastEditedDocument');
+      } catch (e) { /* ignore */ }
+
+      if (this.documents.length > 0) {
+        this.loadDocument(this.documents[0].id);
+      } else {
+        this.createNewDocument();
+      }
     }
     
     // Create undo toast
@@ -2451,7 +2973,7 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
           temperature: 0.8,
           repetition_penalty: 1.17,
           seed: 0,
-          model: "claude-sonnet-4-20250514"
+          model: "gpt-5.6-luna"
         })
       });
       

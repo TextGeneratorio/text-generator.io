@@ -355,8 +355,29 @@ class ProviderRouter:
         body = dict(payload)
         body["model"] = model.provider_model_id
         body["stream"] = False
-        for field in ("system_message", "system_prompt", "top_k", "enable_thinking", "routing_strategy", "task_tier"):
+        enable_thinking = body.get("enable_thinking")
+        thinking = body.pop("thinking", None)
+        reasoning_effort = body.pop("reasoning_effort", None)
+        for field in (
+            "system_message",
+            "system_prompt",
+            "top_k",
+            "repetition_penalty",
+            "enable_thinking",
+            "routing_strategy",
+            "task_tier",
+        ):
             body.pop(field, None)
+        if (
+            provider.slug == "deepseek"
+            and model.provider_model_id.startswith("deepseek-v4")
+        ):
+            if thinking is not None:
+                body["thinking"] = thinking
+            elif enable_thinking is not None:
+                body["thinking"] = {"type": "enabled" if enable_thinking else "disabled"}
+            if reasoning_effort is not None:
+                body["reasoning_effort"] = reasoning_effort
         if _is_reasoning_model(model.provider_model_id):
             if body.get("max_tokens") and not body.get("max_completion_tokens"):
                 body["max_completion_tokens"] = body.pop("max_tokens")

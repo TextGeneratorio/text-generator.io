@@ -66,8 +66,22 @@ def test_frontend_error_log_rejects_large_payload(monkeypatch):
     assert response.status_code == 413
 
 
-def test_frontend_error_log_drops_when_log_file_unavailable(tmp_path, monkeypatch):
+def test_frontend_error_log_rejects_invalid_json(monkeypatch):
+    monkeypatch.setattr(main, "MAX_FRONTEND_ERROR_LOG_BYTES", 1024)
+
+    response = client.post(
+        "/api/frontend-error",
+        content=b"not-json",
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid frontend log payload"}
+
+
+def test_frontend_error_log_drops_when_log_file_unavailable(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(main, "FRONTEND_ERROR_LOG_FILE", tmp_path)
+    caplog.set_level("WARNING")
 
     response = client.post(
         "/api/frontend-error",
@@ -76,6 +90,8 @@ def test_frontend_error_log_drops_when_log_file_unavailable(tmp_path, monkeypatc
 
     assert response.status_code == 202
     assert response.json() == {"status": "dropped", "reason": "log_unavailable"}
+    assert any("Dropping frontend error log" in record.message for record in caplog.records)
+    assert all(record.exc_info is None for record in caplog.records)
 
 
 def test_frontend_error_log_ignores_client_disconnect():

@@ -33,6 +33,17 @@ def test_add_or_get_loads_and_touches(cache):
     assert cache._last_access_time > 0
 
 
+def test_slow_load_resets_idle_clock_after_model_is_ready(monkeypatch):
+    monkeypatch.setattr(mc, "IDLE_UNLOAD_SECONDS", 0)
+    times = iter([10.0, 400.0])
+    monkeypatch.setattr(mc.time, "monotonic", lambda: next(times))
+    cache = mc.ModelCache()
+
+    cache.add_or_get("slow", lambda: "loaded")
+
+    assert cache._last_access_time == 400.0
+
+
 def test_cache_hit_returns_same_object(cache):
     cache.add_or_get("m1", lambda: "model_1")
     result = cache.add_or_get("m1", lambda: "should_not_be_called")

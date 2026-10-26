@@ -1,5 +1,5 @@
 from time import time
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from fastapi import UploadFile
 from pydantic import BaseModel, root_validator
@@ -220,7 +220,17 @@ class ChatContentPart(BaseModel):
     type: str
     text: Optional[str] = None
     url: Optional[str] = None
+    detail: Optional[str] = None
+    file_id: Optional[str] = None
+    file_data: Optional[str] = None
+    filename: Optional[str] = None
     mime_type: Optional[str] = None
+    image_url: Optional[Union[str, dict[str, Any]]] = None
+    audio_url: Optional[Union[str, dict[str, Any]]] = None
+    video_url: Optional[Union[str, dict[str, Any]]] = None
+    input_audio: Optional[dict[str, Any]] = None
+    data: Optional[str] = None
+    format: Optional[str] = None
 
 
 class ChatMessage(BaseModel):
@@ -241,6 +251,8 @@ class ChatCompletionParams(BaseModel):
     repetition_penalty: Optional[float] = 1.0
     stream: bool = False
     enable_thinking: Optional[bool] = True
+    thinking: Optional[dict[str, str]] = None
+    reasoning_effort: Optional[str] = None
     n: int = 1
 
 

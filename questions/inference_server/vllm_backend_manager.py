@@ -31,9 +31,14 @@ works for Gemma, Qwen, SmolLM, etc.:
   DEEP_IDLE_SECONDS  default 10800 (full process stop tier; 0 disables)
   VLLM_SLEEP_MODE    default 1 (sleep at idle tier; 0 = stop at idle tier)
   BACKEND_STARTUP_TIMEOUT  default 240 (seconds to wait for readiness)
+  IMAGE_SERVER_UNLOAD_URL  image worker VRAM release endpoint
+  IMAGE_SERVER_HOLD_URL    pauses new image model loads during vLLM boot/wake
+  IMAGE_SERVER_RELEASE_URL releases the bounded image admission hold
+  COEXISTING_CLEAR_TIMEOUT default 30 (wait for active image inference to finish)
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -64,6 +69,11 @@ class BackendManager:
         deep_idle_seconds: int = 10800,
         sleep_mode: bool = True,
         failure_cooldown_seconds: int = 60,
+        coexisting_unload_url: str | None = None,
+        coexisting_hold_url: str | None = None,
+        coexisting_release_url: str | None = None,
+        coexisting_clear_timeout: float = 30,
+        coexisting_clear_poll: float = 0.5,
     ):
         self.cmd = cmd
         self.expect_model = expect_model
@@ -75,6 +85,29 @@ class BackendManager:
         self.deep_idle_seconds = deep_idle_seconds
         self.sleep_mode = sleep_mode
         self.failure_cooldown_seconds = failure_cooldown_seconds
+        self.coexisting_unload_url = (
+            os.environ.get("IMAGE_SERVER_UNLOAD_URL", "http://127.0.0.1:8100/admin/unload")
+            if coexisting_unload_url is None
+            else coexisting_unload_url
+        )
+        control_base = (
+            self.coexisting_unload_url.rsplit("/", 1)[0]
+            if self.coexisting_unload_url and "/" in self.coexisting_unload_url
+            else ""
+        )
+        self.coexisting_hold_url = (
+            os.environ.get("IMAGE_SERVER_HOLD_URL", f"{control_base}/hold" if control_base else "")
+            if coexisting_hold_url is None
+            else coexisting_hold_url
+        )
+        self.coexisting_release_url = (
+            os.environ.get("IMAGE_SERVER_RELEASE_URL", f"{control_base}/release" if control_base else "")
+            if coexisting_release_url is None
+            else coexisting_release_url
+        )
+        self.coexisting_clear_timeout = max(0.0, coexisting_clear_timeout)
+        self.coexisting_clear_poll = max(0.05, coexisting_clear_poll)
+        self._coexisting_hold_active = False
         self.startup_timeout = startup_timeout
         self.cwd = cwd
         self.env = env
@@ -84,6 +117,8 @@ class BackendManager:
         self.proc: subprocess.Popen | None = None
         self.sleeping = False
         self._lock = threading.Lock()
+        self._activity_lock = threading.Lock()
+        self._active_requests = 0
         self._last_access = time.time()
         self._starting = False  # guards the idle thread from reaping a booting backend
         self._last_startup_failure_at = 0.0
@@ -135,6 +170,22 @@ class BackendManager:
     def touch(self) -> None:
         self._last_access = time.time()
 
+    def begin_request(self) -> None:
+        with self._activity_lock:
+            self._active_requests += 1
+            self.touch()
+
+    def end_request(self) -> None:
+        with self._activity_lock:
+            if self._active_requests <= 0:
+                raise RuntimeError("unbalanced vLLM request accounting")
+            self._active_requests -= 1
+            self.touch()
+
+    def active_requests(self) -> int:
+        with self._activity_lock:
+            return self._active_requests
+
     def _alive(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
 
@@ -156,6 +207,9 @@ class BackendManager:
     def sleep(self) -> bool:
         """Tier-1 idle: offload weights to pinned CPU RAM, drop KV, free VRAM."""
         with self._lock:
+            if self.active_requests():
+                logger.info("Deferring vLLM sleep: %d active request(s)", self.active_requests())
+                return False
             if not self._alive() or self.sleeping:
                 return self.sleeping
             t0 = time.time()
@@ -167,17 +221,109 @@ class BackendManager:
             self._stop_locked()
             return False
 
+    def _clear_coexisting_vram(self) -> bool:
+        """Best-effort: drop the cutedsl image server's elastic 12-16GB before
+        wake/boot. Wake needs the model's full VRAM back at once; if zimage
+        reloaded while we slept, /wake_up OOMs and forces a ~2min cold boot
+        (observed 2026-07-18). The image server lazy-reloads afterwards.
+
+        The image server returns HTTP 200 even when an active generation keeps
+        a model pinned. Treat a non-empty ``loaded`` list as contention and
+        retry for a bounded interval instead of launching into a certain OOM.
+        An unreachable optional coordinator remains best-effort so deployments
+        without the image service can still start normally.
+        """
+        if not self.coexisting_unload_url:
+            return True
+
+        deadline = time.monotonic() + self.coexisting_clear_timeout
+        while True:
+            try:
+                req = urllib.request.Request(
+                    self.coexisting_unload_url,
+                    data=b"",
+                    method="POST",
+                )
+                request_timeout = max(1.0, min(10.0, self.coexisting_clear_timeout or 10.0))
+                with urllib.request.urlopen(req, timeout=request_timeout) as resp:
+                    payload = resp.read()
+                state = json.loads(payload or b"{}")
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("coexisting VRAM clear skipped: %s", exc)
+                return True
+
+            if not isinstance(state, dict):
+                logger.debug("coexisting VRAM clear returned a non-object response")
+                return True
+            loaded = state.get("loaded")
+            if not loaded:
+                return True
+            if time.monotonic() >= deadline:
+                logger.warning(
+                    "coexisting GPU models stayed busy after %.1fs: %s",
+                    self.coexisting_clear_timeout,
+                    loaded,
+                )
+                return False
+            time.sleep(self.coexisting_clear_poll)
+
+    def _hold_coexisting_vram(self) -> bool:
+        """Pause new image model loads for the entire vLLM wake/boot window.
+
+        Older image workers do not expose this endpoint; a 404/unreachable
+        response intentionally falls back to the repeated unload handshake.
+        """
+        if not self.coexisting_hold_url:
+            return False
+        separator = "&" if "?" in self.coexisting_hold_url else "?"
+        hold_seconds = max(60, self.startup_timeout + 60)
+        url = f"{self.coexisting_hold_url}{separator}seconds={hold_seconds}"
+        try:
+            req = urllib.request.Request(url, data=b"", method="POST")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if not 200 <= resp.status < 300:
+                    return False
+                resp.read()
+            self._coexisting_hold_active = True
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("coexisting admission hold unavailable: %s", exc)
+            return False
+
+    def _release_coexisting_vram(self) -> None:
+        if not self._coexisting_hold_active:
+            return
+        self._coexisting_hold_active = False
+        if not self.coexisting_release_url:
+            return
+        try:
+            req = urllib.request.Request(self.coexisting_release_url, data=b"", method="POST")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                resp.read()
+        except Exception as exc:  # noqa: BLE001
+            # Holds expire server-side, so a failed release cannot wedge image
+            # service indefinitely.
+            logger.warning("coexisting admission hold release failed: %s", exc)
+
     def _try_wake(self) -> bool:
         t0 = time.time()
-        if not self._post_ctl("/wake_up"):
-            return False
-        if self._is_sleeping():
-            return False
-        self.sleeping = False
-        ok = self._ready()
-        if ok:
-            logger.info("Backend woke from sleep in %.1fs", time.time() - t0)
-        return ok
+        self._hold_coexisting_vram()
+        try:
+            if not self._clear_coexisting_vram():
+                message = "coexisting GPU workload did not release VRAM before backend wake"
+                self._record_startup_failure(message)
+                raise RuntimeError(message)
+            if not self._post_ctl("/wake_up"):
+                return False
+            if self._is_sleeping():
+                return False
+            self.sleeping = False
+            ok = self._ready()
+            if ok:
+                logger.info("Backend woke from sleep in %.1fs", time.time() - t0)
+            return ok
+        finally:
+            self._release_coexisting_vram()
 
     def ensure_up(self) -> None:
         """Block until the backend is ready, launching or waking it if necessary."""
@@ -185,8 +331,11 @@ class BackendManager:
         if self.sleeping and self._alive():
             with self._lock:
                 if self.sleeping and self._alive():
+                    self._raise_if_startup_failure_cooldown_active()
                     if self._try_wake():
                         self.touch()
+                        self._last_startup_failure_at = 0.0
+                        self._last_startup_failure = ""
                         return
                     logger.warning("Wake failed; killing backend for a cold boot")
                     self._stop_locked()
@@ -203,6 +352,7 @@ class BackendManager:
             if not self.cmd:
                 raise RuntimeError("backend not running and VLLM_BACKEND_CMD unset")
             self._starting = True
+            hold_attempted = False
             try:
                 if self.proc is None or self.proc.poll() is not None:
                     # a not-ready listener on our port with no live managed proc
@@ -210,6 +360,12 @@ class BackendManager:
                     # new launch dies on bind and its VRAM leaks
                     if self._listening():
                         self._kill_port_orphans()
+                    self._hold_coexisting_vram()
+                    hold_attempted = True
+                    if not self._clear_coexisting_vram():
+                        message = "coexisting GPU workload did not release VRAM before backend startup"
+                        self._record_startup_failure(message)
+                        raise RuntimeError(message)
                     logger.info("Launching vLLM backend: %s", self.cmd)
                     # start_new_session => own process group; we kill the group on stop
                     self.proc = subprocess.Popen(
@@ -235,6 +391,8 @@ class BackendManager:
                 self._record_startup_failure(message)
                 raise RuntimeError(message)
             finally:
+                if hold_attempted:
+                    self._release_coexisting_vram()
                 self._starting = False
 
     def _kill_port_orphans(self) -> None:
@@ -258,9 +416,13 @@ class BackendManager:
             time.sleep(1)
         logger.warning("Port %s still occupied after orphan kill", self.port)
 
-    def stop(self) -> None:
+    def stop(self) -> bool:
         with self._lock:
+            if self.active_requests():
+                logger.info("Deferring vLLM stop: %d active request(s)", self.active_requests())
+                return False
             self._stop_locked()
+            return True
 
     def _stop_locked(self) -> None:
             self.sleeping = False
@@ -317,16 +479,26 @@ class BackendManager:
 
     def status(self) -> dict:
         running = self.proc is not None and self.proc.poll() is None
+        retry_after = 0.0
+        if self.failure_cooldown_seconds and self._last_startup_failure_at:
+            retry_after = max(
+                0.0,
+                self.failure_cooldown_seconds - (time.time() - self._last_startup_failure_at),
+            )
         return {
             "managed": bool(self.cmd),
             "running": running,
             "ready": self._ready() and not self.sleeping,
             "sleeping": self.sleeping,
+            "starting": self._starting,
             "idle_seconds": self.idle_seconds,
             "deep_idle_seconds": self.deep_idle_seconds,
             "sleep_mode": self.sleep_mode,
             "failure_cooldown_seconds": self.failure_cooldown_seconds,
             "seconds_since_last_access": round(time.time() - self._last_access, 1),
+            "active_requests": self.active_requests(),
+            "last_startup_failure": self._last_startup_failure or None,
+            "startup_retry_after_seconds": round(retry_after, 1),
             "pid": self.proc.pid if running else None,
         }
 
@@ -345,6 +517,13 @@ def from_env() -> "BackendManager | None":
         sleep_mode=os.environ.get("VLLM_SLEEP_MODE", "1") == "1",
         failure_cooldown_seconds=int(os.environ.get("BACKEND_FAILURE_COOLDOWN", "60")),
         startup_timeout=int(os.environ.get("BACKEND_STARTUP_TIMEOUT", "240")),
+        coexisting_unload_url=os.environ.get(
+            "IMAGE_SERVER_UNLOAD_URL", "http://127.0.0.1:8100/admin/unload"
+        ),
+        coexisting_hold_url=os.environ.get("IMAGE_SERVER_HOLD_URL") or None,
+        coexisting_release_url=os.environ.get("IMAGE_SERVER_RELEASE_URL") or None,
+        coexisting_clear_timeout=float(os.environ.get("COEXISTING_CLEAR_TIMEOUT", "30")),
+        coexisting_clear_poll=float(os.environ.get("COEXISTING_CLEAR_POLL", "0.5")),
         cwd=os.environ.get("VLLM_BACKEND_CWD") or None,
         env={**os.environ},
         expect_model=os.environ.get("VLLM_MODEL") or None,
@@ -390,10 +569,40 @@ class BackendRegistry:
             for other_name, other in self.managers.items():
                 if other_name != name:
                     if other.proc is not None and other.proc.poll() is None:
+                        if other.active_requests():
+                            raise RuntimeError(
+                                f"backend {other_name} is serving {other.active_requests()} active request(s)"
+                            )
                         logger.info("Swapping backend %s -> %s", other_name, name)
                         other.stop()
             self.managers[name].ensure_up()
         return name
+
+    @contextlib.contextmanager
+    def request(self, name: "str | None" = None):
+        """Atomically ensure and pin a backend for an inference request."""
+        name = self.resolve(name)
+        with self._swap_lock:
+            remaining = self.hold_until - time.time()
+            if remaining > 0:
+                raise RuntimeError(
+                    f"backend held for maintenance ({remaining:.0f}s remaining)")
+            for other_name, other in self.managers.items():
+                if other_name == name or other.proc is None or other.proc.poll() is not None:
+                    continue
+                if other.active_requests():
+                    raise RuntimeError(
+                        f"backend {other_name} is serving {other.active_requests()} active request(s)"
+                    )
+                logger.info("Swapping backend %s -> %s", other_name, name)
+                other.stop()
+            manager = self.managers[name]
+            manager.ensure_up()
+            manager.begin_request()
+        try:
+            yield name
+        finally:
+            manager.end_request()
 
     def touch(self, name: "str | None" = None) -> None:
         self.managers[self.resolve(name)].touch()
@@ -412,11 +621,14 @@ class BackendRegistry:
         for m in self.managers.values():
             m.stop()
 
-    def sleep_all(self) -> None:
+    def sleep_all(self) -> bool:
         """Ops/testing: force the idle sleep tier now on any live backend."""
-        for m in self.managers.values():
-            if m.proc is not None and m.proc.poll() is None:
-                m.sleep()
+        with self._swap_lock:
+            live = [m for m in self.managers.values()
+                    if m.proc is not None and m.proc.poll() is None]
+            if any(m.active_requests() for m in live):
+                return False
+            return all(m.sleep() for m in live)
 
 
 def registry_from_env() -> "BackendRegistry | None":
@@ -452,6 +664,29 @@ def registry_from_env() -> "BackendRegistry | None":
                 )),
                 startup_timeout=int(m.get("startup_timeout",
                                           os.environ.get("BACKEND_STARTUP_TIMEOUT", "240"))),
+                coexisting_unload_url=m.get(
+                    "coexisting_unload_url",
+                    os.environ.get(
+                        "IMAGE_SERVER_UNLOAD_URL",
+                        "http://127.0.0.1:8100/admin/unload",
+                    ),
+                ),
+                coexisting_hold_url=m.get(
+                    "coexisting_hold_url",
+                    os.environ.get("IMAGE_SERVER_HOLD_URL") or None,
+                ),
+                coexisting_release_url=m.get(
+                    "coexisting_release_url",
+                    os.environ.get("IMAGE_SERVER_RELEASE_URL") or None,
+                ),
+                coexisting_clear_timeout=float(m.get(
+                    "coexisting_clear_timeout",
+                    os.environ.get("COEXISTING_CLEAR_TIMEOUT", "30"),
+                )),
+                coexisting_clear_poll=float(m.get(
+                    "coexisting_clear_poll",
+                    os.environ.get("COEXISTING_CLEAR_POLL", "0.5"),
+                )),
                 cwd=m.get("cwd") or os.environ.get("VLLM_BACKEND_CWD") or None,
                 env={**os.environ},
                 expect_model=name,

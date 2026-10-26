@@ -274,6 +274,11 @@ class ModelCache:
                     if not self._evict_lru_model(model_name):
                         break
 
+            # A cold model load can take longer than the idle timeout. Count
+            # idleness from the moment the model becomes usable, not from the
+            # beginning of checkpoint I/O, or the checker will immediately
+            # evict an expensive model as soon as the loader releases the lock.
+            self._touch()
             return self.cache[model_name]
 
     def get(self, model_name: str) -> Callable:

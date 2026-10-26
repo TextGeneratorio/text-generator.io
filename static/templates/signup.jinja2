@@ -61,7 +61,7 @@
                     </div>
                     
                     <div class="auth-footer">
-                        <p>Already have an account? <a href="/login" class="auth-link">Sign in</a></p>
+                        <p>Already have an account? <a href="/login" class="auth-link" data-auth-switch>Sign in</a></p>
                     </div>
                     
                     <div class="auth-security">
@@ -342,6 +342,12 @@
     </style>
     
     <script>
+    const authReturnUrl = window.getSafeAuthReturnUrl('/playground');
+    const authSwitchLink = document.querySelector('[data-auth-switch]');
+    if (authSwitchLink) {
+        authSwitchLink.href = `/login?next=${encodeURIComponent(authReturnUrl)}`;
+    }
+
     // Check for error in URL query params and display it
     document.addEventListener('DOMContentLoaded', function() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -353,7 +359,9 @@
                 errorDiv.style.display = 'block';
             }
             // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+            urlParams.delete('error');
+            const remainingQuery = urlParams.toString();
+            window.history.replaceState({}, document.title, `${window.location.pathname}${remainingQuery ? `?${remainingQuery}` : ''}`);
         }
     });
 
@@ -451,11 +459,11 @@
             const result = await response.json();
             
             if (response.ok) {
-                // Success - set session and redirect to playground
+                // Success - return to the page that started authentication.
                 document.cookie = `session_secret=${result.secret}; path=/; max-age=315360000`;
                 if (result.id) window.th?.('identify', String(result.id));
                 window.th?.('track', 'sign_up_completed', { method: 'email', surface: 'signup_page' });
-                window.location.href = '/playground';
+                window.location.href = authReturnUrl;
             } else {
                 let errorMessage = 'Account creation failed';
                 if (response.status === 409) {

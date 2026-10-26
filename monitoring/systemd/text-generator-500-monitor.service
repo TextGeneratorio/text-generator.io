@@ -1,0 +1,19 @@
+[Unit]
+Description=Text Generator 500 and Frontend Error Monitor
+After=network-online.target text-generator-site.service omniserve-native.service text-generator-inference.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=administrator
+WorkingDirectory=/nvme0n1-disk/code/text-generator.io
+Environment=PATH=/nvme0n1-disk/code/text-generator.io/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/home/administrator
+Environment=TEXTGEN_MONITORING_RUNTIME_DIR=/nvme0n1-disk/code/text-generator.io/monitoring/runtime
+EnvironmentFile=-/etc/netwrck-image-caption.env
+ExecStart=/nvme0n1-disk/code/text-generator.io/.venv/bin/python /nvme0n1-disk/code/text-generator.io/monitoring/monitor_500s.py --daemon --interval 900 --auto-fix --synthetic-probe
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target

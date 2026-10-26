@@ -358,6 +358,29 @@ var presets = {
 
 var preset_names = Object.keys(presets);
 
+function hasSelect2() {
+    return typeof $ !== 'undefined' && !!($.fn && $.fn.select2);
+}
+
+function initializeSelect2(selector, options) {
+    if (hasSelect2()) {
+        $(selector).select2(options);
+    }
+}
+
+function getStopSequenceValues() {
+    if (hasSelect2()) {
+        return $('#select-stop-sequences').select2('data').map(function (value) {
+            return value.text;
+        });
+    }
+    var selectedValues = $('#select-stop-sequences').val();
+    if (!selectedValues) {
+        return [];
+    }
+    return Array.isArray(selectedValues) ? selectedValues : [selectedValues];
+}
+
 function setPreset(preset) {
     setTextUI(preset.text);
     setTextData(preset.text);
@@ -382,7 +405,7 @@ $(document).ready(function () {
         return '<option value="' + key + '">' + key + '</option>';
     });
     $('#preset').html(presetOptions);
-    $('#preset').select2({
+    initializeSelect2('#preset', {
         data: preset_names
     });
     // on change
@@ -426,10 +449,7 @@ var setMinProbability = function (value) {
 }
 var setStopSequences = function (value) {
     // split lines
-    values = $('#select-stop-sequences').select2('data');
-    values = values.map(function (value) {
-        return value.text;
-    });
+    var values = getStopSequenceValues();
     generationSettings['stop_sequences'] = values
     setUrl(generationSettings)
 }
@@ -637,12 +657,12 @@ function setupSubmitForm() {
         }
     })
 
-    $('#select-stop-sequences').select2({
+    initializeSelect2('#select-stop-sequences', {
         tags: true,
 
         placeholder: 'Multiple stop sequences allowed'
     })
-    $('#select-model').select2({
+    initializeSelect2('#select-model', {
         // tags: true,
         multiple: false,
         placeholder: 'Best'

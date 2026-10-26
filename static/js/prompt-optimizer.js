@@ -1,94 +1,89 @@
-document.addEventListener('DOMContentLoaded', async function () {
-  const btn = document.getElementById('optimize-btn');
-  if (!btn) return;
-  
-  // Function to get the secret key
-  function getSecretKey() {
-    // First check if there's a secret in the cookie
-    const match = document.cookie.match(new RegExp('(^| )secret=([^;]+)'));
-    if (match) return match[2];
-    
-    // Then check local storage
-    const storedSecret = localStorage.getItem('textGeneratorSecret');
-    if (storedSecret) return storedSecret;
-    
-    // Use default API key if none found
-    return 'YIvld9Ih72n0BgfrW81mSEqm08Pm0nO2';
+(() => {
+  'use strict';
+
+  const form = document.getElementById('prompt-opt-form');
+  if (!form) return;
+
+  const button = document.getElementById('optimize-btn');
+  const buttonLabel = button.querySelector('[data-button-label]');
+  const status = document.getElementById('prompt-opt-status');
+  const resultPanel = document.getElementById('prompt-opt-result');
+  const emptyPanel = document.getElementById('prompt-opt-empty');
+  const finalPrompt = document.getElementById('final-prompt');
+  const history = document.getElementById('prompt-opt-history');
+  const copyButton = document.getElementById('copy-final-prompt');
+
+  function setLoading(loading) {
+    button.disabled = loading;
+    button.classList.toggle('is-loading', loading);
+    buttonLabel.textContent = loading ? 'Improving your prompt…' : 'Improve my prompt';
+    if (loading) status.textContent = 'Comparing a few stronger versions…';
   }
-  
-  // Check subscription status on page load
-  const isSubscribed = await isUserSubscribed();
-  
-  if (!isSubscribed) {
-    // User is not subscribed, disable the tool
-    btn.disabled = true;
-    btn.textContent = 'Premium Feature - Subscribe to Access';
-    btn.addEventListener('click', function() {
-      if (window.subscriptionModal) { window.subscriptionModal.show(); }
+
+  function displayScore(value) {
+    const number = Number(value || 0);
+    const normalized = number > 0 && number <= 1 ? number * 100 : number;
+    return Math.max(0, Math.min(100, Math.round(normalized)));
+  }
+
+  function renderHistory(evaluations) {
+    history.replaceChildren();
+    (evaluations || []).forEach((evaluation, index) => {
+      const item = document.createElement('li');
+      const heading = document.createElement('div');
+      const label = document.createElement('strong');
+      const score = document.createElement('span');
+      const feedback = document.createElement('p');
+      label.textContent = index === 0 ? 'Starting prompt' : `Revision ${index}`;
+      score.textContent = `${displayScore(evaluation.score)}/100`;
+      feedback.textContent = evaluation.feedback || 'No additional feedback.';
+      heading.append(label, score);
+      item.append(heading, feedback);
+      history.appendChild(item);
     });
-    return;
   }
-  
-  btn.addEventListener('click', async function () {
-    const initial = document.getElementById('initial-prompt').value;
-    const evolve = document.getElementById('evolve-prompt').value;
-    const judge = document.getElementById('judge-prompt').value;
-    
-    // Disable button and show loading state
-    btn.disabled = true;
-    btn.textContent = 'Optimizing...';
-    
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    setLoading(true);
+    status.classList.remove('is-error');
+
     try {
-      const resp = await fetch('/api/v1/optimize-prompt', {
+      const response = await fetch('/api/v1/optimize-prompt', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'secret': getSecretKey()
-        },
-        body: JSON.stringify({ prompt: initial, evolve_prompt: evolve, judge_prompt: judge })
+        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          prompt: document.getElementById('initial-prompt').value.trim(),
+          evolve_prompt: document.getElementById('evolve-prompt').value.trim(),
+          judge_prompt: document.getElementById('judge-prompt').value.trim(),
+          iterations: 2
+        })
       });
-      
-      if (!resp.ok) {
-        const errorText = await resp.text();
-        throw new Error(`HTTP ${resp.status}: ${errorText}`);
-      }
-      
-      const data = await resp.json();
-      
-      // Check if response has expected structure
-      if (!data.final_prompt) {
-        throw new Error('Invalid response: missing final_prompt');
-      }
-      
-      document.getElementById('final-prompt').innerText = data.final_prompt;
-      const tbody = document.getElementById('results-body');
-      tbody.innerHTML = '';
-      
-      // Check if evaluations exist and is an array
-      if (data.evaluations && Array.isArray(data.evaluations)) {
-        data.evaluations.forEach(ev => {
-          const row = document.createElement('tr');
-          const p = document.createElement('td');
-          p.textContent = ev.prompt || '';
-          row.appendChild(p);
-          const j = document.createElement('td');
-          j.textContent = ev.feedback || '';
-          row.appendChild(j);
-          const s = document.createElement('td');
-          s.textContent = ev.score || '';
-          row.appendChild(s);
-          tbody.appendChild(row);
-        });
-      }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || 'We could not improve this prompt. Please try again.');
+      if (!payload.final_prompt) throw new Error('The improved prompt came back empty. Please try again.');
+
+      finalPrompt.textContent = payload.final_prompt;
+      renderHistory(payload.evaluations);
+      emptyPanel.hidden = true;
+      resultPanel.hidden = false;
+      status.textContent = 'Your improved prompt is ready.';
+      resultPanel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
     } catch (error) {
-      console.error('Error optimizing prompt:', error);
-      document.getElementById('final-prompt').innerText = `Error: ${error.message}`;
-      const tbody = document.getElementById('results-body');
-      tbody.innerHTML = '<tr><td colspan="3">Failed to optimize prompt. Please try again.</td></tr>';
+      status.textContent = error.message || 'We could not improve this prompt. Please try again.';
+      status.classList.add('is-error');
     } finally {
-      // Re-enable button
-      btn.disabled = false;
-      btn.textContent = 'Optimize';
+      setLoading(false);
     }
   });
-});
+
+  copyButton.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(finalPrompt.textContent || '');
+    copyButton.innerHTML = '<span class="material-icons" aria-hidden="true">check</span> Copied';
+    window.setTimeout(() => {
+      copyButton.innerHTML = '<span class="material-icons" aria-hidden="true">content_copy</span> Copy';
+    }, 1400);
+  });
+})();

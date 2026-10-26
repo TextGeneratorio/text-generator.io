@@ -111,7 +111,7 @@ class CheckoutDialog {
         const modalHTML = `
             <div id="checkout-dialog" class="checkout-dialog" style="display: none;">
                 <div class="checkout-dialog-content">
-                    <button class="checkout-dialog-close" onclick="window.checkoutDialog && window.checkoutDialog.close()">×</button>
+                    <button type="button" class="checkout-dialog-close" aria-label="Close checkout dialog" onclick="window.checkoutDialog && window.checkoutDialog.close()">×</button>
                     
                     <div class="checkout-dialog-header">
                         <div class="checkout-dialog-brand">
@@ -335,7 +335,7 @@ function initCheckoutDialog() {
 initCheckoutDialog();
 
 // Helper function for easy access
-async function showCheckoutDialog(subscriptionType = 'monthly') {
+async function showCheckoutDialog(subscriptionType = 'monthly', quantity = null) {
     if (!checkoutDialog) {
         console.warn('CheckoutDialog not initialized yet, waiting...');
         // Wait for initialization
@@ -353,12 +353,17 @@ async function showCheckoutDialog(subscriptionType = 'monthly') {
     checkoutDialog.returnUrl = getCheckoutReturnUrl();
     checkoutDialog.quantity = 1;
     if (subscriptionType === 'credits') {
-        const requestedQuantity = window.prompt('How many 1 cent credits do you want to buy?', '100');
-        if (requestedQuantity === null) {
-            return;
+        if (quantity != null && quantity !== '') {
+            const parsedQuantity = parseInt(quantity, 10);
+            checkoutDialog.quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 100;
+        } else {
+            const requestedQuantity = window.prompt('How many 1 cent credits do you want to buy?', '100');
+            if (requestedQuantity === null) {
+                return;
+            }
+            const parsedQuantity = parseInt(requestedQuantity, 10);
+            checkoutDialog.quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 100;
         }
-        const parsedQuantity = parseInt(requestedQuantity, 10);
-        checkoutDialog.quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 100;
     }
     // Update radio button selection
     const radioBtn = document.querySelector(`input[name="pricing"][value="${subscriptionType}"]`);

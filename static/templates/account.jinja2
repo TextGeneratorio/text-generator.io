@@ -61,12 +61,21 @@
                         var api_key = data['secret'];
                         $('.api_key').html(api_key);
                         var creditBalanceCents = data['credit_balance_cents'] || 0;
-                        $('.credit_balance').html(`$${(creditBalanceCents / 100).toFixed(2)} (${creditBalanceCents} credits)`);
+                        $('.credit_balance').html(`$${(creditBalanceCents / 100).toFixed(2)} (${creditBalanceCents} credits @ $0.01)`);
 
                         {#var referral_url_key = data['referral_url_key'];#}
                         {#$('.referral_url_key').html('https://bitbank.nz?r=' + referral_url_key)#}
                         $('#manage-subscriptions-link').html(`<a href="/portal" target="_blank" class="mdl-button mdl-js-button">Manage Subscriptions</a>`)
                         $('#buy-credits-link').html(`<button class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent" onclick="if(window.showCheckoutDialog){ showCheckoutDialog('credits'); }">Buy API Credits</button>`)
+                        fetch('/api/credits/balance').then(function (r) { return r.ok ? r.json() : null; }).then(function (credits) {
+                            if (!credits || !credits.autotopup) return;
+                            var a = credits.autotopup;
+                            $('#autotopup-enabled').prop('checked', !!a.enabled);
+                            $('#autotopup-threshold').val(a.threshold || 100);
+                            $('#autotopup-amount').val(a.amount || 500);
+                            $('#autotopup-card').text(a.hasCard ? 'Card on file' : 'Buy credits once to save a card');
+                            $('#autotopup-panel').show();
+                        });
                         // No usage tracking anymore - we don't do metering
 
                         $('#self-hosting').html("<h4>Download Self Hosted Server</h4> <h5>Direct Docker Image Download</h5><p> <a href='https://storage.googleapis.com/questions-346919/text-generator.tar'>Docker Container .tar Download</a></p>" +
@@ -134,6 +143,38 @@
                 <h4>Settings</h4>
                 <p id="manage-subscriptions-link"></p>
                 <p id="buy-credits-link"></p>
+                <div id="autotopup-panel" style="display:none;margin:16px 0;padding:14px;border:1px solid #e5e7eb;border-radius:8px;">
+                    <h5 style="margin:0 0 8px;">Auto-topup</h5>
+                    <p style="margin:0 0 10px;color:#666;font-size:0.9rem;">When balance dips below the threshold, charge your saved card for more $0.01 credits.</p>
+                    <p id="autotopup-card" style="margin:0 0 10px;font-size:0.85rem;"></p>
+                    <label style="display:block;margin-bottom:8px;"><input type="checkbox" id="autotopup-enabled"> Enable auto-topup</label>
+                    <label style="display:inline-block;margin-right:12px;">Threshold <input id="autotopup-threshold" type="number" min="0" step="1" value="100" style="width:90px;"></label>
+                    <label style="display:inline-block;margin-right:12px;">Amount <input id="autotopup-amount" type="number" min="100" step="1" value="500" style="width:90px;"></label>
+                    <button class="mdl-button mdl-js-button mdl-button--raised" id="autotopup-save" type="button">Save</button>
+                    <p id="autotopup-status" style="margin:8px 0 0;font-size:0.85rem;"></p>
+                </div>
+                <script>
+                    document.getElementById('autotopup-save').addEventListener('click', async function () {
+                        var status = document.getElementById('autotopup-status');
+                        status.textContent = 'Saving…';
+                        try {
+                            var response = await fetch('/api/credits/autotopup', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    enabled: document.getElementById('autotopup-enabled').checked,
+                                    threshold: Number(document.getElementById('autotopup-threshold').value || 0),
+                                    amount: Number(document.getElementById('autotopup-amount').value || 0)
+                                })
+                            });
+                            var data = await response.json().catch(function () { return {}; });
+                            if (!response.ok) throw new Error(data.detail || 'Could not save auto-topup');
+                            status.textContent = data.autotopup && data.autotopup.enabled ? 'Auto-topup enabled.' : 'Auto-topup paused.';
+                        } catch (error) {
+                            status.textContent = error.message;
+                        }
+                    });
+                </script>
                 <h4>Self Hosting</h4>
                 <div id="self-hosting"></div>
 
@@ -159,6 +200,127 @@
         </div>
 
     </main>
+
+
+    <div id="cancel-section" style="display:none;margin:24px auto;max-width:720px;text-align:center;">
+        <button id="cancel-open" class="mdl-button mdl-js-button">Cancel subscription</button>
+    </div>
+    <dialog id="cancel-modal" style="max-width:480px;width:92%;border:0;border-radius:12px;padding:24px;">
+        <div id="cancel-offer-phase" style="display:none;">
+            <h3 style="margin-top:0;" id="cancel-offer-title"></h3>
+            <p id="cancel-offer-body"></p>
+            <p id="cancel-offer-error" style="color:#b91c1c;display:none;"></p>
+            <button id="cancel-offer-accept" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent"></button>
+            <button id="cancel-offer-decline" class="mdl-button mdl-js-button">No thanks, continue</button>
+        </div>
+        <div id="cancel-survey-phase" style="display:none;">
+            <h3 style="margin-top:0;">Why are you leaving?</h3>
+            <select id="cancel-reason" style="width:100%;padding:10px;margin-bottom:12px;">
+                <option value="">Select a reason</option>
+                <option value="too_expensive">Too expensive</option>
+                <option value="not_using">Not using it enough</option>
+                <option value="missing_features">Missing features</option>
+                <option value="quality">Output quality</option>
+                <option value="switched_provider">Switched to another provider</option>
+                <option value="technical_issues">Technical issues</option>
+                <option value="temporary">Only needed it temporarily</option>
+                <option value="other">Other</option>
+            </select>
+            <textarea id="cancel-details" maxlength="2000" placeholder="Anything we should know?" style="width:100%;min-height:80px;padding:10px;"></textarea>
+            <p id="cancel-error" style="color:#b91c1c;display:none;"></p>
+            <button id="cancel-confirm" class="mdl-button mdl-js-button mdl-button--raised" disabled>Cancel at end of billing period</button>
+            <button class="mdl-button mdl-js-button cancel-close">Keep my subscription</button>
+        </div>
+        <div id="cancel-done-phase" style="display:none;">
+            <h3 style="margin-top:0;" id="cancel-done-title"></h3>
+            <p id="cancel-done-body"></p>
+            <button class="mdl-button mdl-js-button cancel-close">Close</button>
+        </div>
+    </dialog>
+    <script>
+    (function () {
+        var modal = document.getElementById('cancel-modal');
+        var offer = null, offerShown = null;
+        function show(id) {
+            ['cancel-offer-phase', 'cancel-survey-phase', 'cancel-done-phase'].forEach(function (p) {
+                document.getElementById(p).style.display = p === id ? 'block' : 'none';
+            });
+        }
+        function post(url, body) {
+            return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); });
+        }
+        function done(title, body) {
+            document.getElementById('cancel-done-title').textContent = title;
+            document.getElementById('cancel-done-body').textContent = body;
+            show('cancel-done-phase');
+        }
+        function survey() { show('cancel-survey-phase'); }
+        fetch('/api/cancel/offer').then(function (r) { return r.ok ? r.json() : null; }).then(function (o) {
+            if (!o || o.reason === 'no_active_subscription' || o.reason === 'already_canceling') return;
+            offer = o;
+            document.getElementById('cancel-section').style.display = 'block';
+        }).catch(function () {});
+        document.getElementById('cancel-open').addEventListener('click', function () {
+            var accept = document.getElementById('cancel-offer-accept');
+            if (offer && offer.offer === 'coupon') {
+                offerShown = 'coupon';
+                document.getElementById('cancel-offer-title').textContent = 'Stay for 50% off';
+                document.getElementById('cancel-offer-body').textContent = 'Keep your subscription at half price for the next 3 months. One time offer.';
+                accept.textContent = 'Apply 50% off';
+                show('cancel-offer-phase');
+            } else if (offer && offer.offer === 'downgrade') {
+                offerShown = 'downgrade';
+                document.getElementById('cancel-offer-title').textContent = 'Switch to Lite instead';
+                document.getElementById('cancel-offer-body').textContent = 'Based on your API usage, Lite ($' + (offer.lite_price_cents / 100).toFixed(0) + '/month) fits better. Usage beyond its allowance draws from your prepaid credits.';
+                accept.textContent = 'Switch to Lite';
+                show('cancel-offer-phase');
+            } else {
+                survey();
+            }
+            modal.showModal();
+        });
+        document.getElementById('cancel-offer-accept').addEventListener('click', function () {
+            var url = offerShown === 'downgrade' ? '/api/downgrade-plan' : '/api/apply-retention-coupon';
+            post(url).then(function (res) {
+                if (res.ok) {
+                    done('Done', offerShown === 'downgrade' ? 'You are now on Lite.' : '50% off applied for 3 months.');
+                    document.getElementById('cancel-section').style.display = 'none';
+                } else {
+                    var err = document.getElementById('cancel-offer-error');
+                    err.textContent = 'Could not apply the offer. You can continue to cancel below.';
+                    err.style.display = 'block';
+                }
+            });
+        });
+        document.getElementById('cancel-offer-decline').addEventListener('click', survey);
+        document.getElementById('cancel-reason').addEventListener('change', function () {
+            document.getElementById('cancel-confirm').disabled = !this.value;
+        });
+        document.getElementById('cancel-confirm').addEventListener('click', function () {
+            var btn = this;
+            btn.disabled = true;
+            post('/api/cancel-subscription', {
+                reason: document.getElementById('cancel-reason').value,
+                details: document.getElementById('cancel-details').value,
+                offer_shown: offerShown
+            }).then(function (res) {
+                if (res.ok) {
+                    done('Subscription cancelled', 'You keep access until the end of your billing period. Your API key and any prepaid credits are unaffected.');
+                    document.getElementById('cancel-section').style.display = 'none';
+                } else {
+                    var err = document.getElementById('cancel-error');
+                    err.textContent = 'Could not cancel. Please try again or contact support.';
+                    err.style.display = 'block';
+                    btn.disabled = false;
+                }
+            });
+        });
+        Array.prototype.forEach.call(document.querySelectorAll('.cancel-close'), function (b) {
+            b.addEventListener('click', function () { modal.close(); });
+        });
+    })();
+    </script>
 
 {% endblock %}
 

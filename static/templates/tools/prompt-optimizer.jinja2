@@ -1,85 +1,95 @@
+{% set default_prompt = 'Create a launch campaign for a new sparkling water brand.' %}
+{% set default_evolve = 'Make it specific, actionable, and clear about the audience, tone, and deliverables.' %}
+{% set default_judge = 'The prompt should produce useful, original campaign ideas with concrete deliverables and a consistent brand voice.' %}
 
-{% set default_prompt = 'make an artistic painting of shapes' %}
-{% set default_evolve = 'make this clearer and describing a nicer more complete visual description' %}
-{% set default_judge = 'how well does this do at aesthetics, describing a nice looking scene but also being faithful' %}
+<link rel="stylesheet" href="/static/css/prompt-optimizer.css?v=1">
 
-<div class="demo-ribbon"></div>
-<main class="demo-main mdl-layout mdl-layout__content">
-    <div class="demo-container mdl-grid">
-        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
-        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
-            <div class="demo-crumbs mdl-color-text--grey-500">
-                <a href="/" title="Text Generator">Text Generator</a> > <a href="/tools" title="Tools">Tools</a> > Prompt Optimizer
+<main class="prompt-opt-page">
+    <div class="prompt-opt-wrap">
+        <nav class="prompt-opt-crumbs" aria-label="Breadcrumb">
+            <a href="/">Text Generator</a><span>/</span><a href="/tools">Tools</a><span>/</span><span>Prompt optimizer</span>
+        </nav>
+
+        {% if subscription_required %}
+        <section class="prompt-opt-access">
+            <span class="material-icons" aria-hidden="true">auto_fix_high</span>
+            <p class="prompt-opt-kicker">Prompt optimizer</p>
+            <h1>Turn a rough idea into a prompt you can use.</h1>
+            <p>{{ subscription_message }}</p>
+            <div class="prompt-opt-access-actions">
+                <a class="prompt-opt-button prompt-opt-button--primary" href="/subscribe">Unlock prompt optimizer</a>
+                <a class="prompt-opt-button prompt-opt-button--secondary" href="/login?next=%2Ftools%2Fprompt-optimizer">Log in</a>
             </div>
-            <h3>Prompt Optimizer</h3>
-            <p>Improve your prompts using Claude. Provide an initial prompt, a judge prompt to evaluate, and an evolution instruction.</p>
+        </section>
+        {% else %}
+        <header class="prompt-opt-hero">
             <div>
-                <label for="initial-prompt">Initial Prompt</label>
-                <textarea id="initial-prompt" rows="3" style="width:100%;">{{ default_prompt }}</textarea>
+                <p class="prompt-opt-kicker">Prompt optimizer</p>
+                <h1>Start rough.<br><em>Finish ready.</em></h1>
             </div>
-            <div>
-                <label for="evolve-prompt">Evolution Prompt</label>
-                <textarea id="evolve-prompt" rows="3" style="width:100%;">{{ default_evolve }}</textarea>
-            </div>
-            <div>
-                <label for="judge-prompt">Judge Prompt</label>
-                <textarea id="judge-prompt" rows="3" style="width:100%;">{{ default_judge }}</textarea>
-            </div>
-            <button id="optimize-btn" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" style="margin-top: 10px;">Optimize</button>
-            <h5>Final Prompt</h5>
-            <pre id="final-prompt"></pre>
-            <h5>Evaluation History</h5>
-            <table class="mdl-data-table mdl-js-data-table" id="results-table" style="width:100%;">
-                <thead>
-                    <tr><th>Prompt</th><th>Feedback</th><th>Score</th></tr>
-                </thead>
-                <tbody id="results-body"></tbody>
-            </table>
+            <p>Describe what you want, what should improve, and what a great result looks like. We’ll sharpen the prompt and show the changes.</p>
+        </header>
+
+        <div class="prompt-opt-layout">
+            <form id="prompt-opt-form" class="prompt-opt-form">
+                <div class="prompt-opt-field prompt-opt-field--main">
+                    <div class="prompt-opt-label-row">
+                        <label for="initial-prompt">Your prompt</label>
+                        <span>What do you want the AI to do?</span>
+                    </div>
+                    <textarea id="initial-prompt" rows="7" maxlength="12000" required>{{ default_prompt }}</textarea>
+                </div>
+
+                <div class="prompt-opt-field">
+                    <div class="prompt-opt-label-row">
+                        <label for="evolve-prompt">What should improve?</label>
+                        <span>Focus the rewrite</span>
+                    </div>
+                    <textarea id="evolve-prompt" rows="4" maxlength="4000" required>{{ default_evolve }}</textarea>
+                </div>
+
+                <div class="prompt-opt-field">
+                    <div class="prompt-opt-label-row">
+                        <label for="judge-prompt">What does “good” look like?</label>
+                        <span>Set the goal</span>
+                    </div>
+                    <textarea id="judge-prompt" rows="4" maxlength="4000" required>{{ default_judge }}</textarea>
+                </div>
+
+                <button id="optimize-btn" class="prompt-opt-button prompt-opt-button--primary prompt-opt-submit" type="submit">
+                    <span class="material-icons" aria-hidden="true">auto_fix_high</span>
+                    <span data-button-label>Improve my prompt</span>
+                </button>
+                <p id="prompt-opt-status" class="prompt-opt-status" role="status" aria-live="polite"></p>
+            </form>
+
+            <section id="prompt-opt-result" class="prompt-opt-result" hidden aria-live="polite">
+                <div class="prompt-opt-result-head">
+                    <div><p class="prompt-opt-kicker">Improved prompt</p><h2>Ready to copy</h2></div>
+                    <button id="copy-final-prompt" class="prompt-opt-copy" type="button"><span class="material-icons" aria-hidden="true">content_copy</span> Copy</button>
+                </div>
+                <div id="final-prompt" class="prompt-opt-final"></div>
+                <details class="prompt-opt-details">
+                    <summary>See how it improved</summary>
+                    <ol id="prompt-opt-history"></ol>
+                </details>
+            </section>
+
+            <aside id="prompt-opt-empty" class="prompt-opt-empty">
+                <span class="material-icons" aria-hidden="true">tips_and_updates</span>
+                <h2>A stronger prompt is a few details away.</h2>
+                <p>Your original intent stays intact. The optimizer adds clarity, useful constraints, and a better definition of success.</p>
+                <ul>
+                    <li><span>1</span> Add the task</li>
+                    <li><span>2</span> Guide the rewrite</li>
+                    <li><span>3</span> Define success</li>
+                </ul>
+            </aside>
         </div>
+        {% endif %}
     </div>
 </main>
 
-<!-- Subscription Modal -->
-<div id="subscription-modal" class="subscription-modal" style="display: none;">
-  <div class="subscription-modal-content">
-    <div class="subscription-modal-header">
-      <h2>Upgrade to Premium</h2>
-      <button class="subscription-modal-close" id="subscription-modal-close">&times;</button>
-    </div>
-    <div class="subscription-modal-body">
-      <p>Access the Prompt Optimizer and all premium features with a subscription.</p>
-      <div class="subscription-plans">
-        <div class="plan-card">
-          <h3>Premium</h3>
-          <div class="plan-price">$9.99<span>/month</span></div>
-          <ul class="plan-features">
-            <li>✓ Prompt Optimizer</li>
-            <li>✓ AI Text Editor</li>
-            <li>✓ Advanced Playground</li>
-            <li>✓ All Premium Tools</li>
-          </ul>
-          <button class="plan-button" onclick="window.location.href='/subscribe'">Subscribe Now</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
-<script src="{{ static_url }}/js/subscription-modal.js"></script>
-<script>
-// Subscription utility functions
-async function isUserSubscribed() {
-  try {
-    const response = await fetch('/api/subscription-status', {
-      credentials: 'include'
-    });
-    const data = await response.json();
-    return data.is_subscribed || false;
-  } catch (error) {
-    console.error('Error checking subscription status:', error);
-    return false;
-  }
-}
-</script>
-<script src="{{ static_url }}/js/prompt-optimizer.js" defer></script>
+{% if not subscription_required %}
+<script src="/static/js/prompt-optimizer.js?v=2" defer></script>
+{% endif %}

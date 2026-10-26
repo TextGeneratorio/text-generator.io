@@ -40,8 +40,9 @@
                 <a class="tg-provider-card" href="{{ provider.url }}">
                     <span class="tg-provider-logo"><img src="{{ provider.logo_url }}" alt="{{ provider.name }} logo"></span>
                     <span class="tg-provider-card-copy">
-                        <span class="tg-provider-title"><strong>{{ provider.name }}</strong><small>{{ provider.model_count }} models</small></span>
+                        <span class="tg-provider-title"><strong>{{ provider.name }}</strong>{% if provider.first_party %}<small class="tg-provider-first-party">First party</small>{% else %}<small>{{ provider.model_count }} models</small>{% endif %}</span>
                         <span>{{ provider.description }}</span>
+                        {% if provider.capabilities %}<span class="tg-provider-capabilities">{{ provider.capabilities[:4]|join(' · ') }}</span>{% endif %}
                     </span>
                     <i class="material-icons" aria-hidden="true">north_east</i>
                 </a>

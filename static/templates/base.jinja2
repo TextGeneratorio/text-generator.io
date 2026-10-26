@@ -38,12 +38,13 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
+    <link rel="preload" href="/static/fonts/material-icons-subset.woff2?v=2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/static/css/material-icons-local.css?v=2">
+    <link rel="stylesheet" href="/static/css/material.cyan-pink.min.css?v=1"/>
 
-    <link rel="stylesheet" href="{{ static_url }}/css/article.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
-    <link rel="stylesheet" href="/static/css/site-redesign.css?v=11">
+    <link rel="stylesheet" href="/static/css/article.css?v=1">
+    <link rel="stylesheet" href="/static/css/tables.css?v=1">
+    <link rel="stylesheet" href="/static/css/site-redesign.css?v=14">
 
 
     {% block css %}
@@ -59,7 +60,41 @@
       window.STRIPE_PUBLISHABLE_KEY = 'pk_live_51KjJGaDtz2XsjQRO1wdSdz8zS4bXzXq0tJ2m7lzJLdFpGhOdmGzX8fWwO9hm3vHdVVbfQc0XLJlT8l6KZGHJdUdl00zLUOHnMy';
     </script>
 
-    <script src="/static/js/frontend-error-logger.js?v=3"></script>
+    <script>
+        (function () {
+            function relativeIndex(index, length) {
+                var number = Number(index) || 0;
+                var integer = number < 0 ? Math.ceil(number) : Math.floor(number);
+                return integer >= 0 ? integer : length + integer;
+            }
+
+            function at(index) {
+                if (this === null || this === undefined) {
+                    throw new TypeError('Array.prototype.at called on null or undefined');
+                }
+                var length = this.length >>> 0;
+                var position = relativeIndex(index, length);
+                return position < 0 || position >= length ? undefined : this[position];
+            }
+
+            if (!Array.prototype.at) {
+                Object.defineProperty(Array.prototype, 'at', {
+                    value: at,
+                    configurable: true,
+                    writable: true
+                });
+            }
+            if (!String.prototype.at) {
+                Object.defineProperty(String.prototype, 'at', {
+                    value: at,
+                    configurable: true,
+                    writable: true
+                });
+            }
+        })();
+    </script>
+
+    <script src="/static/js/frontend-error-logger.js?v=4"></script>
 
     <script src="/static/libs/jquery-3.2.1.min.js"></script>
 
@@ -67,6 +102,25 @@
         // User authentication - new system
         window.has_purchased = false;
         window.skip_auth_hydration = {{ 'true' if skip_auth_hydration else 'false' }};
+
+        window.getSafeAuthReturnUrl = function (fallback) {
+            const defaultUrl = fallback === undefined ? '/playground' : fallback;
+            const candidate = new URLSearchParams(window.location.search).get('next');
+            if (!candidate || !candidate.startsWith('/') || candidate.startsWith('//')) {
+                return defaultUrl;
+            }
+
+            try {
+                const parsed = new URL(candidate, window.location.origin);
+                const authPages = ['/login', '/signup', '/forgot-password', '/reset-password'];
+                if (parsed.origin !== window.location.origin || authPages.includes(parsed.pathname)) {
+                    return defaultUrl;
+                }
+                return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+            } catch (error) {
+                return defaultUrl;
+            }
+        };
         
 	        // Check authentication status on page load for interactive browsers.
 	        if (!window.skip_auth_hydration) {
@@ -114,6 +168,10 @@
 	                    const userData = await response.json();
 	                    setHeaderAuthState(true, userData);
 	                    if (userData && userData.id) window.th?.('identify', String(userData.id));
+
+	                    if (['/login', '/signup'].includes(window.location.pathname)) {
+	                        window.location.replace(window.getSafeAuthReturnUrl('/playground'));
+	                    }
 	                } else {
 	                    setHeaderAuthState(false, null);
 	                }
@@ -256,9 +314,64 @@
 
 
     </script>
-    <script defer src="/static/js/material.min.js"></script>
+    <script defer src="/static/js/material.min.js?v=2"></script>
     <script defer src="/static/js/checkout-dialog.js?v=8"></script>
     <script defer src="/static/js/subscription-modal.js?v=3"></script>
+    <script>
+        (function () {
+            function noop() {}
+
+            function createHighlightFallback() {
+                return {
+                    highlightAll: noop,
+                    highlightBlock: noop,
+                    highlightElement: noop
+                };
+            }
+
+            function patchHighlightJs(hljs) {
+                if (!hljs) {
+                    return hljs;
+                }
+                if (typeof hljs.highlightElement !== 'function' && typeof hljs.highlightBlock === 'function') {
+                    hljs.highlightElement = function (block) {
+                        hljs.highlightBlock(block);
+                    };
+                }
+                if (typeof hljs.highlightAll !== 'function') {
+                    hljs.highlightAll = function () {
+                        var blocks = document.querySelectorAll('pre code');
+                        for (var i = 0; i < blocks.length; i += 1) {
+                            if (typeof hljs.highlightElement === 'function') {
+                                hljs.highlightElement(blocks[i]);
+                            }
+                        }
+                    };
+                }
+                return hljs;
+            }
+
+            window.__tgPatchHighlightJs = patchHighlightJs;
+            if (window.hljs) {
+                patchHighlightJs(window.hljs);
+                return;
+            }
+            var currentHljs = createHighlightFallback();
+            try {
+                Object.defineProperty(window, 'hljs', {
+                    configurable: true,
+                    get: function () {
+                        return currentHljs;
+                    },
+                    set: function (value) {
+                        currentHljs = patchHighlightJs(value);
+                    }
+                });
+            } catch (error) {
+                window.hljs = currentHljs;
+            }
+        })();
+    </script>
 
     {#    <script src="{{ static_url }}/js/webutils.js"></script>#}
     {#    <script src="{{ static_url }}/js/templates/coins-table.js"></script>#}
@@ -290,9 +403,13 @@
     </main>
 
 </div>
-<script src="/static/js/highlight-compat.js?v=1"></script>
+<script>
+    if (window.__tgPatchHighlightJs) {
+        window.__tgPatchHighlightJs(window.hljs);
+    }
+</script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
-<link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
-<link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
+<link rel="stylesheet" href="/static/css/checkout-dialog.css">
+<link rel="stylesheet" href="/static/css/subscription-modal.css">
 </body>
 </html>

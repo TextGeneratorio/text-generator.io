@@ -22,7 +22,7 @@ async def generate_with_claude(prompt, prefill="", retries=3):
     logger.info(f"Claude in: {prompt}")
     if prefill:
         messages.append({"role": "assistant", "content": prefill})
-    data = {"messages": messages, "max_tokens": 2024, "model": "claude-sonnet-4-20250514"}
+    data = {"messages": messages, "max_tokens": 2024, "model": "claude-sonnet-4-5-20250929"}
 
     async with aiohttp.ClientSession() as session:
         for attempt in range(retries):

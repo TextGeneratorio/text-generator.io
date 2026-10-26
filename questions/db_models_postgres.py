@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, text
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.sql import func
@@ -137,6 +137,18 @@ class User(Base):
             "created": self.created.isoformat() if self.created else None,
             "updated": self.updated.isoformat() if self.updated else None,
         }
+
+
+class StripeCreditEvent(Base):
+    """Durable idempotency boundary for Stripe credit webhooks."""
+
+    __tablename__ = "stripe_credit_events"
+
+    event_id = Column(String, primary_key=True)
+    checkout_session_id = Column(String, nullable=False, unique=True)
+    stripe_id = Column(String, nullable=False)
+    credits_cents = Column(Integer, nullable=False)
+    created = Column(DateTime, default=func.now(), nullable=False)
 
 
 class Document(Base):
@@ -514,6 +526,86 @@ class BatchJob(Base):
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "estimated_cost_usd": self.estimated_cost_usd,
         }
+
+
+class TokenUsage(Base):
+    """Per-request token API ledger (cost basis vs charge, in millionths of a cent)."""
+
+    __tablename__ = "token_usage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stripe_id = Column(String, nullable=False, index=True)
+    user_id = Column(String, nullable=True)
+    model = Column(String, nullable=False)
+    lane = Column(String, nullable=False)
+    tier = Column(String, nullable=False)
+    prompt_tokens = Column(Integer, nullable=False, default=0)
+    completion_tokens = Column(Integer, nullable=False, default=0)
+    cost_micro = Column(Integer, nullable=False, default=0)
+    charge_micro = Column(Integer, nullable=False, default=0)
+    billed_micro = Column(Integer, nullable=False, default=0)
+    created = Column(DateTime, default=func.now(), nullable=False, index=True)
+
+
+class TokenAccrual(Base):
+    """Sub-cent carry so per-token charges never round up per call."""
+
+    __tablename__ = "token_accruals"
+
+    stripe_id = Column(String, primary_key=True)
+    micro = Column(Integer, nullable=False, default=0)
+
+
+class RetentionOffer(Base):
+    """One row per (customer, kind); the unique key is the once-per-customer guard."""
+
+    __tablename__ = "retention_offers"
+    __table_args__ = (UniqueConstraint("stripe_id", "kind", name="uq_retention_offer_customer_kind"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stripe_id = Column(String, nullable=False, index=True)
+    user_id = Column(String, nullable=True)
+    kind = Column(String, nullable=False)
+    created = Column(DateTime, default=func.now(), nullable=False)
+
+
+class CancellationSurvey(Base):
+    __tablename__ = "cancellation_surveys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=True, index=True)
+    email = Column(String, nullable=False)
+    stripe_id = Column(String, nullable=False, index=True)
+    subscription_id = Column(String, nullable=True)
+    reason = Column(String, nullable=False)
+    details = Column(Text, nullable=True)
+    offer_shown = Column(String, nullable=True)
+    cancel_at = Column(DateTime, nullable=True)
+    created = Column(DateTime, default=func.now(), nullable=False)
+    winback_sent = Column(Integer, nullable=False, default=0)
+    winback_last_sent_at = Column(DateTime, nullable=True)
+    winback_stopped = Column(Boolean, nullable=False, default=False)
+    source = Column(String, nullable=False, default="app", server_default="app")
+    __table_args__ = (UniqueConstraint("subscription_id", name="uq_cancellation_survey_subscription"),)
+
+
+class EmailOptout(Base):
+    __tablename__ = "email_optouts"
+
+    email = Column(String, primary_key=True)
+    created = Column(DateTime, default=func.now(), nullable=False)
+
+
+class WinbackSend(Base):
+    __tablename__ = "winback_sends"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, nullable=False)
+    step = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="sending")
+    claimed_at = Column(DateTime, nullable=False)
+    sent_at = Column(DateTime, nullable=True)
+    __table_args__ = (UniqueConstraint("email", "step", name="uq_winback_send_email_step"),)
 
 
 # Create tables

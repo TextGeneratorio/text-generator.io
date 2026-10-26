@@ -42,18 +42,20 @@ def test_current_user_401_when_not_authenticated(client):
 
 
 def test_speech_to_text_contains_transcribe_buttons(client):
-    """Test that transcribe buttons are present."""
+    """Test that URL and file transcription inputs are present."""
     response = client.get("/speech-to-text")
     assert response.status_code == 200
-    assert "Transcribe URL" in response.text
-    assert "Transcribe File" in response.text
+    assert 'id="audioUrl"' in response.text
+    assert 'id="audioFile"' in response.text
+    assert 'id="transcribeBtn"' in response.text
 
 
 def test_speech_to_text_contains_record_functionality(client):
     """Test that audio recording UI elements are present."""
     response = client.get("/speech-to-text")
     assert response.status_code == 200
-    assert "Record Audio" in response.text
+    assert 'id="recordBtn"' in response.text
+    assert 'id="stopBtn"' in response.text
 
 
 def test_speech_to_text_python_example(client):

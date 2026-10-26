@@ -1,0 +1,13 @@
+{
+  "campaign": "winback_post_cancel",
+  "description": "5-email win-back chain over 30 days, counted from the day the cancelled subscription actually ends",
+  "enabled_env": "TEXTGEN_WINBACK_ENABLED",
+  "base_url": "https://text-generator.io",
+  "emails": [
+    {"id": 1, "delay_days": 2, "subject": "Your API key still works - pay per token, no plan", "template": "winback/01-pay-per-token.html"},
+    {"id": 2, "delay_days": 7, "subject": "One endpoint, every model", "template": "winback/02-one-endpoint.html"},
+    {"id": 3, "delay_days": 14, "subject": "Deep Researcher, AI Editor and Prompt Optimizer", "template": "winback/03-tools.html"},
+    {"id": 4, "delay_days": 21, "subject": "Speech, vision and embeddings in the same account", "template": "winback/04-voice-vision.html"},
+    {"id": 5, "delay_days": 30, "subject": "Should we keep your seat warm?", "template": "winback/05-last-note.html"}
+  ]
+}

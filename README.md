@@ -446,3 +446,7 @@ Run the test script to verify all servers can access the same PostgreSQL databas
 ```shell
 python test_database_sharing.py
 ```
+
+## Prompt improver
+
+`/tools/prompt-improver` is a free browser-local agent prompt builder with token-concise, thorough implementation, tests/verification, end-to-end QA, and deployment-readiness modes. It preserves the original task and optional constraints, uses no model or account, and supports editable output and clipboard copying. Concise mode is an instruction recipe, not measured token compression. Deployment instructions require explicit authorization and live verification. Shared recipes are kept identical across app.nz and Text Generator.

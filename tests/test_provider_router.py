@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from questions.provider_catalog import openai_model_list, resolve_model, usage_cost_cents
+from questions.models import ChatCompletionParams
 from questions.provider_router import ProviderRouter
 
 
@@ -38,6 +39,40 @@ def test_usage_cost_is_model_priced_and_rounded_to_whole_cents():
     assert usage_cost_cents("gpt-4o-mini", {"prompt_tokens": 1, "completion_tokens": 1}) == 1
     assert usage_cost_cents("gpt-4o-mini", {"prompt_tokens": 1_000_000, "completion_tokens": 0}) == 15
     assert usage_cost_cents("claude-sonnet-latest", {"input_tokens": 10_000, "output_tokens": 1_000}) == 5
+    assert usage_cost_cents(
+        "deepseek-v4-flash-vision-exp",
+        {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000},
+    ) == 176
+
+
+def test_deepseek_v4_flash_vision_exp_is_direct_and_v4_flash_priced():
+    model = resolve_model("deepseek-v4-flash-vision-exp")
+
+    assert model is not None
+    assert model.provider == "deepseek"
+    assert model.provider_model_id == "deepseek-v4-flash-vision-exp"
+    assert "vision" in model.tags
+    assert model.fallback_models == ()
+
+
+def test_chat_request_model_preserves_deepseek_vision_and_files_parts():
+    params = ChatCompletionParams(
+        model="deepseek-v4-flash-vision-exp",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe these."},
+                {"type": "image_url", "image_url": {"url": "https://example.com/cat.png", "detail": "low"}},
+                {"type": "file", "file_id": "file-api-test"},
+            ],
+        }],
+    )
+
+    parts = params.messages[0].content
+    assert isinstance(parts, list)
+    assert parts[1].image_url["url"] == "https://example.com/cat.png"
+    assert parts[1].image_url["detail"] == "low"
+    assert parts[2].file_id == "file-api-test"
 
 
 def test_router_sends_openai_compatible_request(monkeypatch):
@@ -55,14 +90,51 @@ def test_router_sends_openai_compatible_request(monkeypatch):
         "messages": [{"role": "user", "content": "hi"}],
         "max_tokens": 50,
         "temperature": 0.5,
+        "top_k": 40,
+        "repetition_penalty": 1.0,
     })
 
     url, request = session.calls[0]
     assert url == "https://api.openai.com/v1/chat/completions"
     assert request["headers"]["Authorization"] == "Bearer test-openai"
     assert request["json"]["model"] == "gpt-4o-mini"
+    assert "top_k" not in request["json"]
+    assert "repetition_penalty" not in request["json"]
     assert result.selected_model == "gpt-4o-mini"
     assert result.data["provider"] == "openai"
+
+
+def test_router_forwards_deepseek_vision_content_directly(monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek")
+    session = RecordingSession([FakeResponse(data={
+        "id": "chatcmpl-vision",
+        "choices": [{"message": {"role": "assistant", "content": "a cat"}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 500, "completion_tokens": 3, "total_tokens": 503},
+    })])
+    router = ProviderRouter(session=session)
+    messages = [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Describe this image."},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,ZmFrZQ==", "detail": "high"}},
+            {"type": "file", "file_id": "file-api-test"},
+        ],
+    }]
+
+    result = router.chat_completion({
+        "model": "deepseek-v4-flash-vision-exp",
+        "messages": messages,
+        "max_tokens": 100,
+        "enable_thinking": False,
+    })
+
+    url, request = session.calls[0]
+    assert url == "https://api.deepseek.com/chat/completions"
+    assert request["headers"]["Authorization"] == "Bearer test-deepseek"
+    assert request["json"]["model"] == "deepseek-v4-flash-vision-exp"
+    assert request["json"]["messages"] == messages
+    assert request["json"]["thinking"] == {"type": "disabled"}
+    assert result.provider == "deepseek"
 
 
 def test_reasoning_models_use_max_completion_tokens(monkeypatch):

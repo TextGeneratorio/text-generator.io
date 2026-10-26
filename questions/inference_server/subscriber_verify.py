@@ -114,7 +114,7 @@ def verify_credential(credential: Optional[str], textgen_check: Optional[Callabl
             logger.warning("subscriber verify %s failed: %s", source, type(exc).__name__)
             continue
         if ok:
-            result = {"status": 200, "tier": "sub", "source": source}
+            result = {"status": 200, "tier": ok if ok in ("paid", "sub") else "sub", "source": source}
             break
         if ok is False:
             found_unsubscribed = True

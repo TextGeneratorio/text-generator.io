@@ -9,18 +9,35 @@
             <div class="tg-breadcrumbs"><a href="/providers">Providers</a><i class="material-icons">chevron_right</i><span>{{ provider.name }}</span></div>
             <div class="tg-detail-title">
                 <span class="tg-detail-logo"><img src="{{ provider.logo_url }}" alt="{{ provider.name }} logo"></span>
-                <div><span class="tg-kicker">Model provider</span><h1>{{ provider.name }}</h1><p>{{ provider.description }}</p></div>
+                <div><span class="tg-kicker">{% if provider.first_party %}First-party provider{% else %}Model provider{% endif %}</span><h1>{{ provider.name }}</h1><p>{{ provider.description }}</p>{% if provider.capabilities %}<div class="tg-detail-capabilities">{% for capability in provider.capabilities %}<span>{{ capability }}</span>{% endfor %}</div>{% endif %}</div>
             </div>
             <div class="tg-detail-actions"><a class="tg-btn tg-btn--primary" href="/playground">Try in Playground</a><a class="tg-btn tg-btn--ghost" href="{{ provider.website }}" target="_blank" rel="noopener noreferrer">Provider website</a></div>
         </div>
     </section>
+    {% if provider.services %}
+    <section class="tg-section tg-provider-services-section">
+        <div class="tg-container">
+            <div class="tg-catalog-heading"><div><span class="tg-kicker tg-kicker--light">Callable services</span><h2>First-party APIs you can ship with.</h2></div><p>Use these from Text Generator tools or call the OpenAI-compatible and Cog endpoints directly. Compute-backed Cogs meter only while work is running.</p></div>
+            <div class="tg-service-grid">
+                {% for service in provider.services %}
+                <article class="tg-service-card">
+                    <div><span class="tg-service-method">{{ service.method }}</span><code>{{ service.endpoint }}</code></div>
+                    <h3>{{ service.name }}</h3>
+                    <p>{{ service.description }}</p>
+                    <footer><span><strong>{{ service.price }}</strong> {{ service.billing_unit }}</span><a href="{{ service.url }}">Use service <i class="material-icons">arrow_forward</i></a></footer>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
     <section class="tg-section tg-section--white tg-catalog-content">
         <div class="tg-container">
             <div class="tg-catalog-heading"><div><span class="tg-kicker tg-kicker--light">Available through one endpoint</span><h2>{{ provider_models|length }} {{ provider.name }} models</h2></div><a href="/docs">API documentation →</a></div>
             {% if provider_models %}
             <div class="tg-model-grid">
                 {% for model in provider_models %}
-                <a class="tg-model-card" href="{{ model.url }}"><span class="tg-model-top"><span>{{ provider.name }}</span><i class="material-icons">north_east</i></span><strong>{{ model.name }}</strong><code>{{ model.id }}</code><p>{{ model.description }}</p><span class="tg-model-meta"><span>{{ model.context_window }} context</span><span>${{ '%.2f'|format(model.input_price) }} / ${{ '%.2f'|format(model.output_price) }}</span></span><span class="tg-tag-row">{% for tag in model.tags[:4] %}<small>{{ tag }}</small>{% endfor %}</span></a>
+                <a class="tg-model-card" href="{{ model.url }}"><span class="tg-model-top"><span>{{ provider.name }}</span><i class="material-icons">north_east</i></span><strong>{{ model.name }}</strong><code>{{ model.id }}</code><p>{{ model.description }}</p><span class="tg-model-meta"><span>{{ model.context_window }} context</span><span>${{ '%.3g'|format(model.input_price) }} / ${{ '%.3g'|format(model.output_price) }}</span></span><span class="tg-tag-row">{% for tag in model.tags[:4] %}<small>{{ tag }}</small>{% endfor %}</span></a>
                 {% endfor %}
             </div>
             {% else %}<div class="tg-empty-state">Models for this provider are being prepared for the public catalogue.</div>{% endif %}

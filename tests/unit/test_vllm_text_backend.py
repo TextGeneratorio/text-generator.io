@@ -1,5 +1,5 @@
-import json
 import asyncio
+import json
 import threading
 from http.client import RemoteDisconnected
 from urllib.error import URLError
@@ -9,7 +9,7 @@ import requests
 from fastapi import HTTPException
 
 from questions.inference_server import inference_server
-from questions.models import ChatCompletionParams, ChatMessage, GenerateParams
+from questions.models import ChatCompletionParams, ChatMessage, FeatureExtractParams, GenerateParams
 
 
 class FakeUrlopenResponse:
@@ -64,6 +64,25 @@ class FakeRequestsSession:
         return self.response
 
 
+class FakeRequestsSequenceSession:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.calls = []
+
+    def post(self, url, data=None, headers=None, timeout=None, stream=False):
+        self.calls.append({
+            "url": url,
+            "body": json.loads(data.decode("utf-8")),
+            "headers": headers or {},
+            "timeout": timeout,
+            "stream": stream,
+        })
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+
 def test_vllm_proxy_is_opt_in_and_explicit_empty_disables_adapter_alias(monkeypatch):
     monkeypatch.delenv("VLLM_TEXT_BACKEND_BASE", raising=False)
     monkeypatch.delenv("VLLM_ADAPTER_BASE", raising=False)
@@ -74,6 +93,50 @@ def test_vllm_proxy_is_opt_in_and_explicit_empty_disables_adapter_alias(monkeypa
 
     monkeypatch.setenv("VLLM_TEXT_BACKEND_BASE", "")
     assert inference_server._resolve_vllm_text_backend_base() == ""
+
+
+def test_vllm_adapter_uses_literal_continuation_when_healing_is_disabled(monkeypatch):
+    from questions.inference_server import vllm_parity_adapter as adapter
+
+    calls = []
+
+    def complete(prompt, max_tokens, sampling, extra=None, model=None, n=1):
+        calls.append({"prompt": prompt, "extra": extra, "n": n})
+        return [{"text": " for something", "tokens": [" for", " something"],
+                 "probs": [0.9, 0.8], "finish_reason": "stop"}]
+
+    monkeypatch.setattr(adapter, "HEAL", False)
+    monkeypatch.setattr(adapter, "_complete_raw", complete)
+
+    result = adapter._continue_with_healing(
+        "Hi i'm bored so looking", 8, {"temperature": 0.7}, n=1,
+    )
+
+    assert calls == [{"prompt": "Hi i'm bored so looking", "extra": {}, "n": 1}]
+    assert result == [([" for", " something"], [0.9, 0.8], "stop")]
+
+
+def test_vllm_adapter_repairs_uppercase_boundary_without_breaking_subwords():
+    from questions.inference_server import vllm_parity_adapter as adapter
+
+    base = adapter.GenerateParams(text="Hi i'm bored so looking", min_probability=0)
+    repaired = adapter._postprocess_raw(base, 8, ["I"], [0.9], "stop")
+    assert repaired["generated_text"] == "Hi i'm bored so looking I"
+
+    partial = adapter.GenerateParams(text="Hi my n", min_probability=0)
+    completed = adapter._postprocess_raw(partial, 8, ["ame", " is John"], [0.9, 0.8], "stop")
+    assert completed["generated_text"] == "Hi my name is John"
+
+    normal = adapter.GenerateParams(text="Maybe we", min_probability=0)
+    spaced = adapter._postprocess_raw(normal, 8, [" could", " chat"], [0.9, 0.8], "stop")
+    assert spaced["generated_text"] == "Maybe we could chat"
+
+    stopped = adapter.GenerateParams(
+        text="Hi i'm bored so looking", min_probability=0, stop_sequences=[" I"],
+    )
+    matched = adapter._postprocess_raw(stopped, 8, ["I", " was"], [0.9, 0.8], "stop")
+    assert matched["generated_text"] == "Hi i'm bored so looking"
+    assert matched["stop_reason"] == " I"
 
 
 @pytest.mark.asyncio
@@ -120,9 +183,186 @@ async def test_text_generate_uses_vllm_adapter_without_local_cache(monkeypatch):
     assert result[0]["generated_text"] == "hello world"
     assert fake_session.calls[0]["url"] == "http://127.0.0.1:8300/api/v1/generate"
     assert fake_session.calls[0]["headers"]["secret"] == "secret-key"
+    assert fake_session.calls[0]["headers"]["X-Omniserve-Internal"] == "local"
     assert fake_session.calls[0]["body"]["text"] == "hello"
     assert fake_session.calls[0]["body"]["max_length"] == 5
     assert fake_session.calls[0]["timeout"] >= 180
+
+
+@pytest.mark.asyncio
+async def test_text_generate_vllm_proxy_does_not_wait_for_local_inference_gate(monkeypatch):
+    fake_session = FakeRequestsSession(
+        FakeRequestsResponse([{"generated_text": "hello world", "stop_reason": "stop"}])
+    )
+
+    class EmptyCache:
+        def list_models(self):
+            return []
+
+    sem = asyncio.Semaphore(1)
+    await sem.acquire()
+    monkeypatch.setattr(inference_server, "_inference_sem", sem)
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+
+    try:
+        result = await asyncio.wait_for(
+            inference_server._run_text_generate(
+                GenerateParams(text="hello", max_length=5, min_probability=0),
+                model_cache=EmptyCache(),
+            ),
+            timeout=0.1,
+        )
+    finally:
+        sem.release()
+
+    assert result[0]["generated_text"] == "hello world"
+    assert fake_session.calls[0]["url"] == "http://127.0.0.1:8791/api/v1/generate"
+
+
+def test_vllm_proxy_retries_transient_connection_failure(monkeypatch):
+    fake_session = FakeRequestsSequenceSession([
+        requests.ConnectionError("connection refused"),
+        FakeRequestsResponse([{"generated_text": "hello world", "stop_reason": "stop"}]),
+    ])
+    sleeps = []
+
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", 1.0)
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL", 0.01)
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+    monkeypatch.setattr(inference_server.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = inference_server._proxy_vllm_generate(
+        GenerateParams(text="hello", max_length=5, min_probability=0)
+    )
+
+    assert result[0]["generated_text"] == "hello world"
+    assert len(fake_session.calls) == 2
+    assert sleeps == [pytest.approx(0.01)]
+
+
+def test_vllm_proxy_waits_through_native_restart_window(monkeypatch):
+    fake_session = FakeRequestsSequenceSession([
+        requests.ConnectionError("connection refused"),
+        requests.ConnectionError("connection refused"),
+        requests.ConnectionError("connection refused"),
+        requests.ConnectionError("connection refused"),
+        FakeRequestsResponse([{"generated_text": "hello world", "stop_reason": "stop"}]),
+    ])
+    now = [100.0]
+    sleeps = []
+
+    def fake_sleep(seconds):
+        sleeps.append(seconds)
+        now[0] += seconds
+
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", 75.0)
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL", 15.0)
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+    monkeypatch.setattr(inference_server.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(inference_server.time, "sleep", fake_sleep)
+
+    result = inference_server._proxy_vllm_generate(
+        GenerateParams(text="hello", max_length=5, min_probability=0)
+    )
+
+    assert result[0]["generated_text"] == "hello world"
+    assert len(fake_session.calls) == 5
+    assert sleeps == [pytest.approx(15.0)] * 4
+
+
+def test_vllm_proxy_retries_native_model_not_loaded_503(monkeypatch):
+    fake_session = FakeRequestsSequenceSession([
+        FakeRequestsResponse(
+            status_code=503,
+            text='{"error":{"message":"no LLM model loaded or configured upstream"}}',
+        ),
+        FakeRequestsResponse([{"generated_text": "hello world", "stop_reason": "stop"}]),
+    ])
+    sleeps = []
+
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", 1.0)
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL", 0.01)
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+    monkeypatch.setattr(inference_server.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = inference_server._proxy_vllm_generate(
+        GenerateParams(text="hello", max_length=5, min_probability=0)
+    )
+
+    assert result[0]["generated_text"] == "hello world"
+    assert len(fake_session.calls) == 2
+    assert sleeps == [pytest.approx(0.01)]
+
+
+def test_vllm_proxy_retries_native_admission_timeout_503(monkeypatch):
+    fake_session = FakeRequestsSequenceSession([
+        FakeRequestsResponse(
+            status_code=503,
+            text='{"error":{"message":"admission timeout; retry","type":"invalid_request_error"}}',
+        ),
+        FakeRequestsResponse([{"generated_text": "hello world", "stop_reason": "stop"}]),
+    ])
+    sleeps = []
+
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", 1.0)
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL", 0.01)
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+    monkeypatch.setattr(inference_server.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = inference_server._proxy_vllm_generate(
+        GenerateParams(text="hello", max_length=5, min_probability=0)
+    )
+
+    assert result[0]["generated_text"] == "hello world"
+    assert len(fake_session.calls) == 2
+    assert sleeps == [pytest.approx(0.01)]
+
+
+def test_vllm_proxy_retries_native_admission_timeout_json_body(monkeypatch):
+    fake_session = FakeRequestsSequenceSession([
+        FakeRequestsResponse(
+            payload={"error": {"message": "admission timeout; retry", "type": "invalid_request_error"}},
+            status_code=503,
+        ),
+        FakeRequestsResponse([{"generated_text": "hello world", "stop_reason": "stop"}]),
+    ])
+    sleeps = []
+
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", 1.0)
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_INTERVAL", 0.01)
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+    monkeypatch.setattr(inference_server.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = inference_server._proxy_vllm_generate(
+        GenerateParams(text="hello", max_length=5, min_probability=0)
+    )
+
+    assert result[0]["generated_text"] == "hello world"
+    assert len(fake_session.calls) == 2
+    assert sleeps == [pytest.approx(0.01)]
+
+
+def test_vllm_proxy_preserves_503_when_connection_retry_window_elapsed(monkeypatch):
+    fake_session = FakeRequestsSession(exc=requests.ConnectionError("connection refused"))
+
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", 0.0)
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+
+    with pytest.raises(HTTPException) as exc_info:
+        inference_server._proxy_vllm_generate(
+            GenerateParams(text="hello", max_length=5, min_probability=0)
+        )
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Text generation backend unavailable"
+    assert len(fake_session.calls) == 1
 
 
 @pytest.mark.asyncio
@@ -193,6 +433,7 @@ def test_chat_completion_proxy_preserves_normalized_messages(monkeypatch):
         {"role": "user", "content": "hello"},
     ]
     assert fake_session.calls[0]["body"]["max_tokens"] == 12
+    assert fake_session.calls[0]["headers"]["X-Omniserve-Internal"] == "local"
 
 
 @pytest.mark.asyncio
@@ -315,6 +556,7 @@ def test_vllm_proxy_maps_transport_errors_to_http_exception(
     fake_session = FakeRequestsSession(exc=backend_exc)
 
     monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8300")
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_CONNECT_RETRY_SECONDS", 0.0)
     monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -337,6 +579,53 @@ def test_vllm_proxy_maps_backend_500_to_unavailable(monkeypatch):
 
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "Text generation backend unavailable"
+
+
+@pytest.mark.asyncio
+async def test_feature_extraction_uses_native_backend_without_loading_local_model(monkeypatch):
+    fake_session = FakeRequestsSession(FakeRequestsResponse([0.25, -0.5, 0.75]))
+
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+    monkeypatch.setattr(
+        inference_server,
+        "_get_model_cache",
+        lambda: (_ for _ in ()).throw(AssertionError("local model cache must not load")),
+    )
+
+    result = await inference_server._run_feature_extraction(
+        FeatureExtractParams(text="hello", num_features=3),
+        secret="secret-key",
+    )
+
+    assert result == [0.25, -0.5, 0.75]
+    assert fake_session.calls[0]["url"] == "http://127.0.0.1:8791/api/v1/feature-extraction"
+    assert fake_session.calls[0]["body"] == {"text": "hello", "num_features": 3}
+    assert fake_session.calls[0]["headers"]["secret"] == "secret-key"
+    assert fake_session.calls[0]["headers"]["X-Omniserve-Internal"] == "local"
+
+
+@pytest.mark.asyncio
+async def test_openai_embeddings_proxies_native_contract(monkeypatch):
+    payload = {
+        "object": "list",
+        "data": [{"object": "embedding", "index": 0, "embedding": [0.25, -0.5]}],
+        "model": "omniserve-modernbert",
+        "usage": {"prompt_tokens": 1, "total_tokens": 1},
+    }
+    fake_session = FakeRequestsSession(FakeRequestsResponse(payload))
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "_get_vllm_session", lambda: fake_session)
+
+    result = await inference_server.openai_embeddings(
+        inference_server.OpenAIEmbeddingParams(input="hello", dimensions=2),
+        secret="secret-key",
+    )
+
+    assert result == payload
+    assert fake_session.calls[0]["url"] == "http://127.0.0.1:8791/v1/embeddings"
+    assert fake_session.calls[0]["body"]["input"] == "hello"
+    assert fake_session.calls[0]["body"]["dimensions"] == 2
 
 
 def test_vllm_readiness_handles_managed_model_status(monkeypatch):
@@ -602,3 +891,37 @@ async def test_vllm_autocomplete_not_ready_returns_empty_completion(monkeypatch)
         "stop_reason": "backend_unavailable",
         "thinking_content": None,
     }]
+
+
+@pytest.mark.asyncio
+async def test_proxied_chat_does_not_wait_for_local_inference_gate(monkeypatch):
+    chunks = [b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n', b"data: [DONE]\n\n"]
+
+    class EmptyCache:
+        def list_models(self):
+            return []
+
+    def proxy(chat_params, messages, secret=None):
+        return {"choices": [{"message": {"content": "ok"}}]}
+
+    sem = asyncio.Semaphore(1)
+    await sem.acquire()
+    monkeypatch.setattr(inference_server, "_inference_sem", sem)
+    monkeypatch.setattr(inference_server, "_vllm_proxy_sem", None)
+    monkeypatch.setattr(inference_server, "VLLM_TEXT_BACKEND_BASE", "http://127.0.0.1:8791")
+    monkeypatch.setattr(inference_server, "_get_model_cache", lambda: EmptyCache())
+    monkeypatch.setattr(inference_server, "_get_vllm_session",
+                        lambda: FakeRequestsSession(FakeRequestsResponse(chunks=chunks)))
+    monkeypatch.setattr(inference_server, "_proxy_vllm_chat_completion", proxy)
+
+    try:
+        streamed = await asyncio.wait_for(inference_server.chat_completions_route(ChatCompletionParams(
+            messages=[ChatMessage(role="user", content="hello")], stream=True)), timeout=0.5)
+        body = b"".join([chunk async for chunk in streamed.body_iterator])
+        result = await asyncio.wait_for(inference_server.chat_completions_route(ChatCompletionParams(
+            messages=[ChatMessage(role="user", content="hello")], stream=False)), timeout=0.5)
+    finally:
+        sem.release()
+
+    assert body == b"".join(chunks)
+    assert result["choices"][0]["message"]["content"] == "ok"

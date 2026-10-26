@@ -27,7 +27,7 @@
                     <span class="tg-model-top"><span class="tg-provider-logo tg-provider-logo--small"><img src="{{ model.logo_url }}" alt=""></span><span>{% if model.auto_profile %}Auto route{% else %}{{ model.provider_name }}{% endif %}</span><i class="material-icons">north_east</i></span>
                     <strong>{{ model.name }}</strong><code>{{ model.id }}</code>
                     <p>{{ model.description }}</p>
-                    <span class="tg-model-meta"><span>{{ model.context_window }} context</span><span>${{ '%.2f'|format(model.input_price) }} / ${{ '%.2f'|format(model.output_price) }}</span></span>
+                    <span class="tg-model-meta"><span>{{ model.context_window }} context</span><span>${{ '%.3g'|format(model.input_price) }} / ${{ '%.3g'|format(model.output_price) }}</span></span>
                     <span class="tg-tag-row">{% for tag in model.tags[:4] %}<small>{{ tag }}</small>{% endfor %}</span>
                 </a>
                 {% endfor %}

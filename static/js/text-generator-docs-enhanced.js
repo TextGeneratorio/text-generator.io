@@ -28,10 +28,13 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       TYPING_TIMEOUT_MS: 2000,
       
       // Claude API settings
-      CLAUDE_MODEL: "claude-sonnet-4-20250514",
+      DEFAULT_MODEL: "gpt-5.6-luna",
       CLAUDE_MAX_TOKENS: 5999,
       CLAUDE_TEMPERATURE: 0.8,
       
+      // Persistence / live sync
+      AUTOSAVE_INTERVAL: 2500,
+
       // UI settings
       WIDE_MODE_STORAGE_KEY: 'tgdocs-wide-mode',
       CLAUDE_TOGGLE_STORAGE_KEY: 'tgdocs-use-claude'
@@ -74,6 +77,11 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
    * @override
    */
   async init() {
+    // The base constructor already kicks off init(); a second explicit call
+    // must not re-run it (that used to load/create documents twice)
+    if (this._enhancedInitStarted) return this.initPromise;
+    this._enhancedInitStarted = true;
+
     try {
       // Call parent init method FIRST - this should find elements via options passed during instantiation
       await super.init();
@@ -241,6 +249,14 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     this.editor.on('text-change', (delta, oldDelta, source) => {
         // If change isn't from the user, ignore
         if (source !== 'user') return;
+        // Content pushed in from another tab must not re-trigger a save loop
+        if (this.isApplyingRemoteChange) return;
+
+        this.hasUnsavedChanges = true;
+        this.lastLocalEditAt = Date.now();
+
+        // Let the text-generator model name the document once there's enough text
+        this.scheduleAutoTitle();
 
         let shouldHideSuggestion = true;
         let incrementCounter = true;
@@ -290,12 +306,13 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         }, EnhancedTextGeneratorDocs.CONFIG.TYPING_DEBOUNCE);
         }
         
-        // --- Debounce for Autosave --- 
+        // --- Debounce for Autosave ---
+        // Short enough that every other open page updates while you type
         clearTimeout(this.autosaveTimeout);
         this.updateSaveStatus('Saving...');
         this.autosaveTimeout = setTimeout(() => {
           this.autosaveCurrentDocument();
-        }, EnhancedTextGeneratorDocs.CONFIG.AUTOSAVE_INTERVAL || 60000); // Add default
+        }, EnhancedTextGeneratorDocs.CONFIG.AUTOSAVE_INTERVAL);
     });
   }
   
@@ -903,7 +920,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
             temperature: EnhancedTextGeneratorDocs.CONFIG.CLAUDE_TEMPERATURE,
             repetition_penalty: 1.17,
             seed: 0,
-            model: EnhancedTextGeneratorDocs.CONFIG.CLAUDE_MODEL
+            model: EnhancedTextGeneratorDocs.CONFIG.DEFAULT_MODEL
           })
         });
         
@@ -1605,7 +1622,7 @@ And finally also output the full text again if its used, as we are doing a full 
           temperature: 0.6, // Lower temperature for more controlled editing
           repetition_penalty: 1.1,
           seed: 0,
-          model: EnhancedTextGeneratorDocs.CONFIG.CLAUDE_MODEL, // Use the configured Claude model
+          model: EnhancedTextGeneratorDocs.CONFIG.DEFAULT_MODEL, // Use the configured default model
           system_message: system_message // Pass the system message
         })
       });
@@ -1719,7 +1736,7 @@ KEY RULES:
           temperature: 0.75, // Balanced temperature for continuation
           repetition_penalty: 1.1,
           seed: 0,
-          model: EnhancedTextGeneratorDocs.CONFIG.CLAUDE_MODEL, // Use the configured Claude model
+          model: EnhancedTextGeneratorDocs.CONFIG.DEFAULT_MODEL, // Use the configured default model
           system_message: system_message 
         })
       });

@@ -106,8 +106,13 @@
 <section class="tg-section tg-section--white">
     <div class="tg-container tg-api-showcase">
         <div class="tg-code-window">
-            <div class="tg-code-tabs"><span class="is-active">Python</span><span>JavaScript</span><em>OpenAI SDK</em></div>
-            <pre><code><span class="tg-code-purple">from</span> openai <span class="tg-code-purple">import</span> OpenAI
+            <div class="tg-code-tabs" role="tablist" aria-label="API example language">
+                <button class="is-active" type="button" role="tab" aria-selected="true" aria-controls="homepage-code-python" data-code-tab="python">Python</button>
+                <button type="button" role="tab" aria-selected="false" aria-controls="homepage-code-javascript" data-code-tab="javascript" tabindex="-1">JavaScript</button>
+                <button type="button" role="tab" aria-selected="false" aria-controls="homepage-code-curl" data-code-tab="curl" tabindex="-1">cURL</button>
+                <em>OpenAI SDK</em>
+            </div>
+            <pre tabindex="0" id="homepage-code-python" role="tabpanel" data-code-panel="python"><code><span class="tg-code-purple">from</span> openai <span class="tg-code-purple">import</span> OpenAI
 
 client = OpenAI(
     base_url=<span class="tg-code-green">"https://api.text-generator.io/v1"</span>,
@@ -119,6 +124,26 @@ response = client.chat.completions.create(
     messages=[{<span class="tg-code-green">"role"</span>: <span class="tg-code-green">"user"</span>,
                <span class="tg-code-green">"content"</span>: <span class="tg-code-green">"Ship something great"</span>}],
 )</code></pre>
+            <pre tabindex="0" id="homepage-code-javascript" role="tabpanel" data-code-panel="javascript" hidden><code><span class="tg-code-purple">import</span> OpenAI <span class="tg-code-purple">from</span> <span class="tg-code-green">"openai"</span>;
+
+<span class="tg-code-purple">const</span> client = <span class="tg-code-purple">new</span> OpenAI({
+  baseURL: <span class="tg-code-green">"https://api.text-generator.io/v1"</span>,
+  apiKey: <span class="tg-code-green">"YOUR_API_KEY"</span>,
+});
+
+<span class="tg-code-purple">const</span> response = <span class="tg-code-purple">await</span> client.chat.completions.create({
+  model: <span class="tg-code-green">"text-generator/auto"</span>,
+  messages: [{ role: <span class="tg-code-green">"user"</span>, content: <span class="tg-code-green">"Ship something great"</span> }],
+});</code></pre>
+            <pre tabindex="0" id="homepage-code-curl" role="tabpanel" data-code-panel="curl" hidden><code>curl https://api.text-generator.io/v1/chat/completions \
+  -H <span class="tg-code-green">"Authorization: Bearer YOUR_API_KEY"</span> \
+  -H <span class="tg-code-green">"Content-Type: application/json"</span> \
+  -d <span class="tg-code-green">'{
+    "model": "text-generator/auto",
+    "messages": [
+      {"role": "user", "content": "Ship something great"}
+    ]
+  }'</span></code></pre>
         </div>
         <div><span class="tg-kicker tg-kicker--light">A two-line migration</span><h2>Keep the SDK.<br>Change the destination.</h2><p>Point the OpenAI client at Text Generator and unlock the provider network without rewriting your application.</p><ul class="tg-check-list"><li><i class="material-icons">check</i>Chat completions and streaming-compatible responses</li><li><i class="material-icons">check</i>Aliases, Auto profiles, and exact model IDs</li><li><i class="material-icons">check</i>Routing metadata and provider response headers</li></ul><a href="/signup" class="tg-btn tg-btn--primary tg-btn--xl">Create a free API key</a></div>
     </div>

@@ -290,7 +290,7 @@ Respond with ONLY a JSON object:
 {{"score": <0-10 float>, "feedback": "<brief explanation>"}}"""
 
             response = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="gpt-5.6-luna",
                 max_tokens=200,
                 messages=[{"role": "user", "content": prompt}]
             )
