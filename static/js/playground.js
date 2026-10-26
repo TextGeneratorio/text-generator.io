@@ -46,6 +46,54 @@
     }
 
     var secret = '';
+    var multimodalAttachments = [];
+    var multimodalUploadInFlight = false;
+    function hasSelect2() {
+        return typeof $ !== 'undefined' && !!($.fn && $.fn.select2);
+    }
+    function initializeSelect2(selector, options) {
+        if (hasSelect2()) {
+            $(selector).select2(options);
+        }
+    }
+    function getStopSequenceValues() {
+        if (hasSelect2()) {
+            return $('#select-stop-sequences').select2('data').map(function (value) {
+                return value.text;
+            });
+        }
+        var selectedValues = $('#select-stop-sequences').val();
+        if (!selectedValues) {
+            return [];
+        }
+        return Array.isArray(selectedValues) ? selectedValues : [selectedValues];
+    }
+    function parseQueryParams(search) {
+        var params = {};
+        var query = search || '';
+        if (query.charAt(0) === '?') {
+            query = query.slice(1);
+        }
+        if (!query) {
+            return params;
+        }
+        query.split('&').forEach(function (part) {
+            if (!part) {
+                return;
+            }
+            var separatorIndex = part.indexOf('=');
+            var key = separatorIndex === -1 ? part : part.slice(0, separatorIndex);
+            var value = separatorIndex === -1 ? '' : part.slice(separatorIndex + 1);
+            try {
+                key = decodeURIComponent(key.replace(/\+/g, ' '));
+                value = decodeURIComponent(value.replace(/\+/g, ' '));
+            } catch (error) {
+                return;
+            }
+            params[key] = value;
+        });
+        return params;
+    }
     var setUrl = function () {
         // set the url to generate settings so users can share and come back to the same place
 
@@ -71,7 +119,7 @@
 
     }
     var setupFromUrl = function () {
-        const params = Object.fromEntries(new URLSearchParams(location.search));
+        var params = parseQueryParams(location.search);
         if (!params.text) {
             return;
         }
@@ -87,6 +135,22 @@
           }
           return num
         }
+        function boolDefault(value, defaultValueIfInvalid) {
+            if (typeof value === 'undefined' || value === null || value === '') {
+                return defaultValueIfInvalid;
+            }
+            if (typeof value === 'boolean') {
+                return value;
+            }
+            var normalized = String(value).toLowerCase();
+            if (normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on') {
+                return true;
+            }
+            if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === 'off') {
+                return false;
+            }
+            return defaultValueIfInvalid;
+        }
         generationSettings = {
             "text": params.text,
             "number_of_results": nanDefault(parseInt(params.number_of_results), presets['Example use cases'].number_of_results),
@@ -99,8 +163,9 @@
             "temperature": nanDefault(parseFloat(params.temperature), presets['Example use cases'].temperature),
             "repetition_penalty": nanDefault(parseFloat(params.repetition_penalty), presets['Example use cases'].repetition_penalty),
             "seed": nanDefault(parseInt(params.seed), presets['Example use cases'].seed),
-            "model": params.model || 'best',
-            "enable_thinking": params.enable_thinking === 'true',
+            "model": params.model || presets['Example use cases'].model,
+            "enable_thinking": boolDefault(params.enable_thinking, presets['Example use cases'].enable_thinking),
+            "system_message": params.system_message || presets['Example use cases'].system_message,
         }
         setPreset(generationSettings);
     }
@@ -116,7 +181,10 @@
             "top_k": 40,
             "temperature": 0.7,
             "repetition_penalty": 1.17,
-            "seed": 0
+            "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": ""
         },
         "Elves vs Goblins": {
             "text": "The battle between the elves and goblins has begun,",
@@ -182,6 +250,41 @@
             "temperature": 0.9,
             "repetition_penalty": 1.17,
             "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": "You are an autocomplete engine for Python code. Continue exactly from the cursor with valid Python code only. No explanations or markdown.",
+        },
+        "Python Function Generation": {
+            "text": "def can_balance(a):\n    \"\"\"return if a can be split into two arrays with equal sum\"\"\"\n    ",
+            "number_of_results": 1,
+            "max_length": 220,
+            "max_sentences": 0,
+            "min_probability": 0.0,
+            "stop_sequences": [],
+            "top_p": 0.45,
+            "top_k": 40,
+            "temperature": 0.2,
+            "repetition_penalty": 1.08,
+            "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": "You are an expert Python engineer. Continue the user's code directly. Output code only, with no explanation and no markdown fences.",
+        },
+        "PyTorch Module Generation": {
+            "text": "import torch\nimport torch.nn as nn\n\nclass TinyTextGenerator(nn.Module):\n    def __init__(self, vocab_size: int, d_model: int = 256):\n        super().__init__()\n        self.embed = nn.Embedding(vocab_size, d_model)\n        self.lm_head = nn.Linear(d_model, vocab_size)\n\n    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:\n        x = self.embed(input_ids)\n",
+            "number_of_results": 1,
+            "max_length": 260,
+            "max_sentences": 0,
+            "min_probability": 0.0,
+            "stop_sequences": [],
+            "top_p": 0.5,
+            "top_k": 40,
+            "temperature": 0.25,
+            "repetition_penalty": 1.08,
+            "seed": 0,
+            "model": "best",
+            "enable_thinking": false,
+            "system_message": "You are an expert PyTorch engineer. Continue the code with valid, runnable PyTorch 2.x Python code only. No prose and no markdown.",
         },
         "Review Classification": {
             "text": "What a really awesome game, would play again\n review star rating: ",
@@ -254,6 +357,8 @@
         $('#slider-temperature').val(preset.temperature);
         $('#slider-repetition-penalty').val(preset.repetition_penalty);
         $('#slider-seed').val(preset.seed);
+        $('#system-message').val(preset.system_message || "");
+        $('#enable-thinking').prop('checked', !!preset.enable_thinking);
         setGenerationSettingsUI(preset);
     }
 
@@ -262,7 +367,7 @@
             return '<option value="' + key + '">' + key + '</option>';
         });
         $('#preset').html(presetOptions);
-        $('#preset').select2({
+        initializeSelect2('#preset', {
             data: preset_names
         });
         // on change
@@ -273,9 +378,20 @@
     });
 
     var generationSettings = {};
+    var pendingEditorText = null;
 
     var setTextUI = function (value) {
-        editor.setValue(value);
+        value = value || '';
+        if (editor && typeof editor.setValue === 'function') {
+            editor.setValue(value);
+        } else {
+            pendingEditorText = value || '';
+            return;
+        }
+        var textArea = document.getElementById('playground-text');
+        if (textArea) {
+            textArea.value = value;
+        }
     }
     var setTextData = function (value) {
         generationSettings['text'] = value
@@ -306,11 +422,7 @@
         setUrl(generationSettings)
     }
     var setStopSequences = function (value) {
-        // split lines
-        values = $('#select-stop-sequences').select2('data');
-        values = values.map(function (value) {
-            return value.text;
-        });
+        var values = getStopSequenceValues();
         generationSettings['stop_sequences'] = values
         setUrl(generationSettings)
     }
@@ -345,25 +457,111 @@
         setUrl(generationSettings)
     }
     var setModel = function (value) {
-        value = $('#select-model').val();
+        if (typeof value !== 'undefined' && value !== null) {
+            $('#select-model').val(value);
+        }
+        value = $('#select-model').val() || 'best';
         $('#model-tooltip').html(`Model: ${value}`);
         generationSettings['model'] = value
         setUrl(generationSettings)
     }
     var setEnableThinking = function (value) {
+        value = !!value;
+        $('#enable-thinking').prop('checked', value);
         generationSettings['enable_thinking'] = value;
         setUrl(generationSettings);
+    }
+    var setSystemMessage = function (value) {
+        value = value || '';
+        $('#system-message').val(value);
+        generationSettings['system_message'] = value;
+        setUrl(generationSettings);
+    }
+    if (typeof window !== 'undefined') {
+        window.setSystemMessage = setSystemMessage;
+    }
+
+    function wrapLinesForLineNumbers(codeEl) {
+        // After highlight.js processes, wrap each line in a span for CSS line numbers
+        var html = codeEl.innerHTML;
+        var lines = html.split('\n');
+        codeEl.innerHTML = lines.map(function(line) {
+            return '<span class="hljs-line">' + (line || ' ') + '</span>';
+        }).join('');
+    }
+
+    function copyCodeSnippet(preEl) {
+        // Find the visible code element in the dialog
+        var dialog = preEl.closest('dialog');
+        var codes = dialog.querySelectorAll('.mdl-dialog__content pre code');
+        var visibleCode = null;
+        for (var i = 0; i < codes.length; i++) {
+            if (codes[i].offsetParent !== null) {
+                visibleCode = codes[i];
+                break;
+            }
+        }
+        var btn = preEl.querySelector('.code-copy-btn');
+        if (visibleCode && btn) {
+            navigator.clipboard.writeText(visibleCode.textContent).then(function() {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(function() {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
     }
 
     var showCode = function () {
 
         var generationSettingsFormatted = JSON.stringify(generationSettings, null, 4);
         var generationSettingsCurlFormatted = JSON.stringify(generationSettings, null, 0);
+        var toPythonLiteral = function (value, indentLevel) {
+            indentLevel = indentLevel || 0;
+            var indent = ' '.repeat(indentLevel * 4);
+            var nextIndent = ' '.repeat((indentLevel + 1) * 4);
+
+            if (value === null || typeof value === 'undefined') {
+                return 'None';
+            }
+            if (typeof value === 'boolean') {
+                return value ? 'True' : 'False';
+            }
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? String(value) : 'None';
+            }
+            if (typeof value === 'string') {
+                return JSON.stringify(value);
+            }
+            if (Array.isArray(value)) {
+                if (value.length === 0) {
+                    return '[]';
+                }
+                return '[\n' + value.map(function (item) {
+                    return nextIndent + toPythonLiteral(item, indentLevel + 1);
+                }).join(',\n') + '\n' + indent + ']';
+            }
+            if (typeof value === 'object') {
+                var entries = Object.entries(value);
+                if (entries.length === 0) {
+                    return '{}';
+                }
+                return '{\n' + entries.map(function (entry) {
+                    var key = entry[0];
+                    var item = entry[1];
+                    return nextIndent + JSON.stringify(key) + ': ' + toPythonLiteral(item, indentLevel + 1);
+                }).join(',\n') + '\n' + indent + '}';
+            }
+            return JSON.stringify(value);
+        };
+        var generationSettingsPythonFormatted = toPythonLiteral(generationSettings, 0);
         $('#code-snippet-py').html(`import requests
 
 headers = {"secret": "${secret}"}
 
-data = ${generationSettingsFormatted}
+data = ${generationSettingsPythonFormatted}
 
 response = requests.post(
    "https://api.text-generator.io/api/v1/generate",
@@ -454,9 +652,16 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
   --data-raw '{"num_features":768,"text": ${JSON.stringify(generationSettings.text, null, 0) || "\"Test text here\""} \\
   --compressed`);
         hljs.highlightAll();
-        var dialog = document.querySelector('dialog');
-        dialog.close();
+        // Add line number wrapping to all code snippets
+        document.querySelectorAll('#code-example-dialog pre code').forEach(wrapLinesForLineNumbers);
+        var dialog = document.getElementById('code-example-dialog');
+        if (dialog.open) {
+            dialog.close();
+        }
         dialog.showModal();
+        // Reset copy button
+        var copyBtn = dialog.querySelector('.code-copy-btn');
+        if (copyBtn) { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }
         return false;
     }
 
@@ -472,10 +677,12 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         setRepetitionPenalty(review['repetition_penalty']);
         setSeed(review['seed']);
         setModel(review['model'] || 'best');
+        setEnableThinking(typeof review['enable_thinking'] === 'boolean' ? review['enable_thinking'] : false);
+        setSystemMessage(review['system_message'] || '');
     }
 
     function setupDialog() {
-        var dialog = document.querySelector('dialog');
+        var dialog = document.getElementById('code-example-dialog');
         if (!dialog.showModal) {
             return
             //todo polyfill>?
@@ -483,11 +690,218 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         dialog.querySelector('.close').addEventListener('click', function () {
             dialog.close();
         });
+        dialog.addEventListener('click', function (event) {
+            if (event.target === dialog) {
+                dialog.close();
+            }
+        });
         // default to Review Classification
         setupFromUrl();
     }
 
+    function normalizePlaygroundResponse(data) {
+        if (Array.isArray(data)) {
+            return data;
+        }
+        if (data && data.choices && data.choices[0] && data.choices[0].message) {
+            return [{
+                generated_text: data.choices[0].message.content || '',
+                thinking_content: data.choices[0].message.reasoning_content || null,
+                stop_reason: data.choices[0].finish_reason || 'stop'
+            }];
+        }
+        return [];
+    }
+
+    function hasMultimodalAttachments() {
+        return Array.isArray(multimodalAttachments) && multimodalAttachments.length > 0;
+    }
+
+    function userHasPlaygroundAccess() {
+        if (!window.currentUser) {
+            return false;
+        }
+        if (window.currentUser.is_subscribed) {
+            return true;
+        }
+        if (hasMultimodalAttachments() && (window.currentUser.credit_balance_cents || 0) > 0) {
+            return true;
+        }
+        return false;
+    }
+
+    function updatePlaygroundAccessState() {
+        if (userHasPlaygroundAccess()) {
+            $('#playground-play').removeAttr('disabled');
+            return;
+        }
+        $('#playground-play').attr('disabled', true);
+        if (window.currentUser) {
+            if (hasMultimodalAttachments()) {
+                renderPlaygroundAccessMessage({
+                    title: 'Credits Required',
+                    message: 'Media understanding uses API credits unless you have an active subscription.',
+                    primaryLabel: 'Buy Credits',
+                    primaryTooltip: 'Purchase one-time API credits for image, audio, and video understanding.',
+                    primaryClick: "if (window.showCheckoutDialog) { showCheckoutDialog('credits'); }"
+                });
+            } else {
+                renderPlaygroundAccessMessage({
+                    title: 'Subscription Required',
+                    message: 'You are signed in, but this playground needs an active subscription.',
+                    primaryLabel: 'Subscribe Now',
+                    primaryTooltip: 'Open the branded subscription dialog to unlock playground access.',
+                    primaryClick: "if (window.subscriptionModal) { window.subscriptionModal.requireSubscription('use the playground'); } else if (window.showCheckoutDialog) { showCheckoutDialog('monthly'); }"
+                });
+                if (window.subscriptionModal && !window.subscriptionModal.isOpen) {
+                    window.subscriptionModal.requireSubscription('use the playground');
+                }
+            }
+        } else {
+            renderPlaygroundAccessMessage({
+                title: 'Sign In Required',
+                message: 'Please sign in to use the playground.',
+                primaryLabel: 'Sign In',
+                primaryTooltip: 'Open the login modal and stay on this page after authentication.',
+                primaryClick: "if (window.showLoginModal) { showLoginModal(); } else { window.location.href='/login'; }",
+                secondaryHtml: '<a href="/signup" onclick="if (window.showSignupModal) { showSignupModal(); return false; }" style="display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #f59e0b, #fbbf24); color: white; text-decoration: none; border-radius: 4px; margin: 5px; border: none; cursor: pointer; transition: all 0.2s ease;">Create account</a>'
+            });
+        }
+    }
+
+    function mapFileToAttachmentType(file) {
+        if (!file || !file.type) {
+            return null;
+        }
+        if (file.type.indexOf('image/') === 0) {
+            return 'image';
+        }
+        if (file.type.indexOf('video/') === 0) {
+            return 'video';
+        }
+        if (file.type.indexOf('audio/') === 0) {
+            return 'audio';
+        }
+        return null;
+    }
+
+    function renderAttachmentList() {
+        var attachmentList = $('#playground-media-list');
+        if (!hasMultimodalAttachments()) {
+            attachmentList.html('');
+            updatePlaygroundAccessState();
+            return;
+        }
+        var html = multimodalAttachments.map(function (attachment, index) {
+            return '<div style="display:flex; justify-content:space-between; align-items:center; margin:6px 0; padding:8px 10px; background:#fff; border:1px solid #ece9df; border-radius:8px;">'
+                + '<span>' + escapeHtml(attachment.name) + ' <strong style="text-transform:uppercase;">' + escapeHtml(attachment.type) + '</strong></span>'
+                + '<button type="button" data-attachment-index="' + index + '" class="mdl-button mdl-js-button remove-media-attachment">Remove</button>'
+                + '</div>';
+        }).join('');
+        attachmentList.html(html);
+        updatePlaygroundAccessState();
+    }
+
+    async function getSignedUploadUrl(file) {
+        var params = new URLSearchParams({
+            contentType: file.type || 'application/octet-stream',
+            fileName: file.name || 'upload.bin'
+        });
+        var response = await fetch('/file-upload-get-signed-url-cloudflare?' + params.toString());
+        if (!response.ok) {
+            throw new Error('Failed to get upload URL');
+        }
+        return response.json();
+    }
+
+    async function uploadAttachmentFile(file) {
+        var attachmentType = mapFileToAttachmentType(file);
+        if (!attachmentType) {
+            throw new Error('Unsupported media type: ' + (file.type || 'unknown'));
+        }
+        var uploadData = await getSignedUploadUrl(file);
+        var uploadResponse = await fetch(uploadData.url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+        });
+        if (!uploadResponse.ok) {
+            throw new Error('Upload failed for ' + file.name);
+        }
+        return {
+            type: attachmentType,
+            name: file.name,
+            url: 'https://' + uploadData.bucket_name + '/' + uploadData.object_path,
+            mime_type: file.type || 'application/octet-stream'
+        };
+    }
+
+    async function addAttachmentFiles(fileList) {
+        if (!fileList || !fileList.length) {
+            return;
+        }
+        multimodalUploadInFlight = true;
+        $('#loading-progress').show();
+        try {
+            for (var i = 0; i < fileList.length; i++) {
+                var uploadedAttachment = await uploadAttachmentFile(fileList[i]);
+                multimodalAttachments.push(uploadedAttachment);
+            }
+            renderAttachmentList();
+        } finally {
+            multimodalUploadInFlight = false;
+            $('#loading-progress').hide();
+        }
+    }
+
+    async function submitMultimodalPlaygroundRequest() {
+        var inferenceBase = (window.fixtures && window.fixtures.inference_server_url) || 'https://api.text-generator.io';
+        var text = editor.getValue();
+        var content = [];
+        if (text) {
+            content.push({ type: 'text', text: text });
+        }
+        multimodalAttachments.forEach(function (attachment) {
+            content.push({
+                type: attachment.type,
+                url: attachment.url,
+                mime_type: attachment.mime_type
+            });
+        });
+
+        var messages = [];
+        if (generationSettings.system_message) {
+            messages.push({ role: 'system', content: generationSettings.system_message });
+        }
+        messages.push({ role: 'user', content: content });
+
+        var response = await fetch(inferenceBase + '/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + secret
+            },
+            body: JSON.stringify({
+                model: 'google/gemma-4-26B-A4B-it',
+                messages: messages,
+                max_tokens: generationSettings.max_length || 512,
+                temperature: generationSettings.temperature,
+                top_p: generationSettings.top_p,
+                top_k: generationSettings.top_k,
+                enable_thinking: generationSettings.enable_thinking
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Multimodal request failed with status ' + response.status);
+        }
+        return response.json();
+    }
+
     function showResult(data) {
+        data = normalizePlaygroundResponse(data);
         var dataString = JSON.stringify(data, null, 2);
         var htmlEscapedData = escapeHtml(dataString);
         $('#response-results').html(`<pre id="generated-results-code"><code class="language-json">${htmlEscapedData}</code></pre>`);
@@ -511,8 +925,25 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
 
     function showError(error, status) {
         var dataString = JSON.stringify(error, null, 2);
-        $('#response-results').html(`<div style="color: indianred">${status}</div><pre><code class="language-json">${dataString}</code></pre>`);
+        $('#response-results').html(`<div style="color: indianred">${escapeHtml(String(status))}</div><pre><code class="language-json">${escapeHtml(dataString)}</code></pre>`);
         hljs.highlightAll();
+    }
+
+    function responseError(response) {
+        return response.text().then(function (body) {
+            var detail = body || response.statusText || 'Request failed';
+            try {
+                var parsed = JSON.parse(body);
+                detail = parsed.detail || (parsed.error && parsed.error.message) || parsed.error || detail;
+            } catch (ignore) {
+                // Plain-text upstream errors are already useful as-is.
+            }
+            var error = new Error(String(detail));
+            error.status = response.status;
+            error.statusText = response.statusText;
+            error.payload = body;
+            throw error;
+        });
     }
 
     function setupSubmitForm() {
@@ -520,18 +951,15 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
         form.on('submit', function (event) {
             event.preventDefault();
             
-            // Check subscription before submitting
-            if (!window.currentUser || !window.currentUser.is_subscribed) {
-                if (window.subscriptionModal) {
-                    window.subscriptionModal.requireSubscription('use the playground');
-                } else {
-                    console.warn('SubscriptionModal not available');
-                }
+            if (multimodalUploadInFlight) {
+                return false;
+            }
+
+            if (!userHasPlaygroundAccess()) {
+                updatePlaygroundAccessState();
                 return false;
             }
             
-            // The editor is initialized asynchronously; pressing Enter before
-            // CodeMirror is ready must not throw and break the form handler.
             if (!editor || typeof editor.getValue !== 'function') {
                 showError({error: 'Editor is still loading. Please try again in a moment.'}, 'Playground is still loading');
                 return false;
@@ -541,48 +969,47 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
 
             $('#loading-progress').show();
 
-            $('#playground-play').attr('disabled', true);
-            fetch('https://api.text-generator.io/api/v1/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'secret': secret
-                },
-                body: JSON.stringify(generationSettings)
-            }).then(function (response) {
+            $('#playground-play').prop('disabled', true);
+            var requestPromise;
+            if (hasMultimodalAttachments()) {
+                requestPromise = submitMultimodalPlaygroundRequest();
+            } else {
+                requestPromise = fetch('/api/v1/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'secret': secret
+                    },
+                    body: JSON.stringify(generationSettings)
+                }).then(function (response) {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    return responseError(response);
+                });
+            }
+
+            Promise.resolve(requestPromise).then(function (data) {
                 $('#loading-progress').hide();
-
-                $('#playground-play').removeAttr('disabled');
-
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    showError(response.text(), response.status + ' - ' + response.statusText);
-                }
-            }).then(function (data) {
-                if (!data) {
-                    return;
-                }
+                updatePlaygroundAccessState();
                 showResult(data)
                 // if editor hasn't changed write results to codemirror
                 if (editor.getValue() === text) {
-                    if (data[0] && data[0]['generated_text']) {
-                        // highlight the new text with markRange
+                    var normalizedData = normalizePlaygroundResponse(data);
+                    if (normalizedData[0] && normalizedData[0]['generated_text']) {
+                        var generatedText = normalizedData[0]['generated_text'];
+                        // Legacy API returns full text; newer paths may return completion-only.
+                        var nextValue = generatedText.startsWith(text) ? generatedText : (text + generatedText);
+
                         var scrollinfo = editor.getScrollInfo();
-                        var from = { line: 0, ch: 0 };
-                        from.line = editor.lineCount() - 1;
-                        from.ch = editor.getLine(from.line).length;
+                        var fromIndex = text.length;
+                        editor.setValue(nextValue);
 
-                        editor.setValue(data[0]['generated_text']);
-
-                        var to = { line: 0, ch: 0 };
-                        var newText = data[0]['generated_text'];
-                        var newLines = newText.split('\n');
-                        var newLineCount = newLines.length;
-                        var newLineLength = newLines[newLineCount - 1].length;
-                        to.line = newLineCount - 1;
-                        to.ch = newLineLength;
-                        editor.markText(from, to, { className: 'highlight' });
+                        var from = editor.posFromIndex(Math.min(fromIndex, nextValue.length));
+                        var to = editor.posFromIndex(nextValue.length);
+                        if (from.line !== to.line || from.ch !== to.ch) {
+                            editor.markText(from, to, { className: 'highlight' });
+                        }
 
                         // scroll to the same position
                         editor.scrollTo(scrollinfo.left, scrollinfo.top);
@@ -590,8 +1017,12 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 }
             }).catch(function (error) {
                 console.log(error);
-                showError(error, 500)
+                showError(
+                    { error: error.message || String(error) },
+                    error.status ? (error.status + ' - ' + error.statusText) : 500
+                )
                 $('#loading-progress').hide();
+                updatePlaygroundAccessState();
 
             })
             return false;
@@ -606,13 +1037,89 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             }
         })
 
-        $('#select-stop-sequences').select2({
+        initializeSelect2('#select-stop-sequences', {
             tags: true,
 
             placeholder: 'Multiple stop sequences allowed'
         });
 
+        $('#playground-media').on('change', function (event) {
+            addAttachmentFiles(event.target.files).catch(function (error) {
+                console.error(error);
+                showError({ error: error.message || error }, 500);
+            }).finally(function () {
+                event.target.value = '';
+            });
+        });
 
+        $('#playground-media-list').on('click', '.remove-media-attachment', function () {
+            var index = parseInt($(this).attr('data-attachment-index'), 10);
+            multimodalAttachments.splice(index, 1);
+            renderAttachmentList();
+        });
+
+        var dropzone = document.getElementById('playground-media-dropzone');
+        if (dropzone) {
+            ['dragenter', 'dragover'].forEach(function (eventName) {
+                dropzone.addEventListener(eventName, function (event) {
+                    event.preventDefault();
+                    dropzone.style.borderColor = '#f17d34';
+                    dropzone.style.background = '#fff3e8';
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (eventName) {
+                dropzone.addEventListener(eventName, function (event) {
+                    event.preventDefault();
+                    dropzone.style.borderColor = '#b7b7c9';
+                    dropzone.style.background = '#faf8f5';
+                });
+            });
+            dropzone.addEventListener('drop', function (event) {
+                addAttachmentFiles(event.dataTransfer.files).catch(function (error) {
+                    console.error(error);
+                    showError({ error: error.message || error }, 500);
+                });
+            });
+        }
+
+
+    }
+
+    function renderPlaygroundAccessMessage(options) {
+        var title = options.title;
+        var message = options.message;
+        var primaryLabel = options.primaryLabel;
+        var primaryTooltip = options.primaryTooltip;
+        var primaryClick = options.primaryClick || "if (window.showCheckoutDialog) { showCheckoutDialog('monthly'); } else if (window.subscriptionModal) { window.subscriptionModal.show(); }";
+        var secondaryHtml = options.secondaryHtml || '';
+        renderPlaygroundAccessMessage.tracked = renderPlaygroundAccessMessage.tracked || {};
+        if (!renderPlaygroundAccessMessage.tracked[title]) {
+            renderPlaygroundAccessMessage.tracked[title] = true;
+            window.th?.('track', 'paywall_open', { surface: 'playground', gate: title });
+        }
+
+        $('#response-results').html(`
+            <div style="text-align: center; padding: 20px; color: #666;">
+                <h3>${title}</h3>
+                <p>${message}</p>
+                ${secondaryHtml}
+                <button id="playground-subscribe-button"
+                        type="button"
+                        class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect"
+                        onclick="${primaryClick}"
+                        style="padding: 10px 20px; background: linear-gradient(90deg, #ea580c, #f59e0b); color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; transition: all 0.2s ease;"
+                        onmouseover="this.style.background='linear-gradient(90deg, #c2410c, #d97706)'; this.style.boxShadow='0 4px 15px rgba(234, 88, 12, 0.28)'"
+                        onmouseout="this.style.background='linear-gradient(90deg, #ea580c, #f59e0b)'; this.style.boxShadow='none'">${primaryLabel}</button>
+                <div id="playground-subscribe-tooltip"
+                     class="playground-tooltip mdl-tooltip mdl-tooltip--large"
+                     for="playground-subscribe-button"
+                     style="white-space: pre">${primaryTooltip}</div>
+            </div>
+        `);
+
+        if (typeof componentHandler !== 'undefined') {
+            componentHandler.upgradeAllRegistered();
+        }
     }
 
     $(document).ready(setupSubmitForm);
@@ -629,38 +1136,17 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             .then(user => {
                 secret = user.secret;
                 window.currentUser = user;
-                // enable submit form only if user is subscribed
-                if (user.is_subscribed) {
-                    $('#playground-play').removeAttr('disabled');
-                } else {
-                    $('#playground-play').attr('disabled', true);
-                    // Show subscription message
-                    $('#response-results').html(`
-                        <div style="text-align: center; padding: 20px; color: #666;">
-                            <h3>Premium Feature</h3>
-                            <p>The playground requires an active subscription to use.</p>
-                            <button onclick="window.subscriptionModal && window.subscriptionModal.show()" style="padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.background='linear-gradient(90deg, #c48d24, #c23e67)'; this.style.boxShadow='0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15)'" onmouseout="this.style.background='linear-gradient(90deg, #d79f2a, #d34675)'; this.style.boxShadow='none'">Subscribe Now</button>
-                        </div>
-                    `);
-                }
+                updatePlaygroundAccessState();
             })
             .catch(error => {
                 // User is signed out - show upsell instead of redirecting
                 console.log('User not authenticated:', error);
-                $('#playground-play').attr('disabled', true);
-                $('#response-results').html(`
-                    <div style="text-align: center; padding: 20px; color: #666;">
-                        <h3>Sign In Required</h3>
-                        <p>Please sign in to use the playground.</p>
-                        <a href="/login" style="display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; text-decoration: none; border-radius: 4px; margin: 5px; border: none; cursor: pointer; transition: all 0.2s ease;">Sign In</a>
-                        <button onclick="window.subscriptionModal && window.subscriptionModal.show()" style="padding: 10px 20px; background: linear-gradient(90deg, #d79f2a, #d34675); color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; transition: all 0.2s ease;" onmouseover="this.style.background='linear-gradient(90deg, #c48d24, #c23e67)'; this.style.boxShadow='0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15)'" onmouseout="this.style.background='linear-gradient(90deg, #d79f2a, #d34675)'; this.style.boxShadow='none'">Get Premium Access</button>
-                    </div>
-                `);
+                updatePlaygroundAccessState();
             });
     };
     var editor;
     var onceOnly = false;
-    window.addEventListener('load', function () {
+    var onPlaygroundLoad = function () {
       if (onceOnly) return;
       onceOnly = true;
 
@@ -700,6 +1186,11 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 lineWrapping: true
             });
             
+            if (pendingEditorText !== null) {
+              editor.setValue(pendingEditorText);
+              pendingEditorText = null;
+            }
+
             editor.setSize("100%", null);
             editor.on('change', function(editorInstance) {
                 var value = editorInstance.getValue();
@@ -730,4 +1221,10 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
             }
         });
 
-    });
+    };
+    // Loaded dynamically; window 'load' may already have fired (e.g. behind Cloudflare Rocket Loader)
+    if (document.readyState === 'complete') {
+        onPlaygroundLoad();
+    } else {
+        window.addEventListener('load', onPlaygroundLoad);
+    }

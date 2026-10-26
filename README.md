@@ -7,7 +7,7 @@ Text Generator is a system for;
 * Serving AI APIs via swapping in AI Networks.
 * Using data enrichment (OCR, crawling, image analysis to make prompt engineering easier)
 * Generating speech and text.
-* Understanding text and speech (speech to text with NVIDIA Parakeet).
+* Understanding text and speech (speech to text with Gemma multimodal models).
 
 Text generator can be used via API or self hosted.
 
@@ -154,7 +154,7 @@ Generate embeddings from the command line with:
 python scripts/embed_cli.py "Hello world"
 ```
 
-Parakeet ASR models will be loaded on demand and placed in the huggingface cache.
+Gemma multimodal models for transcription are loaded on demand and placed in the Hugging Face cache.
 
 
 #### Run
@@ -232,7 +232,7 @@ curl -X POST "http://localhost:9080/api/v1/audio-extraction" \
 
 #### run audio server only
 
-Just the Parakeet speech to text part.
+Just the Gemma-backed speech to text part.
 This isn't required as the inference server automatically balances these requests
 ```shell
 PYTHONPATH=$(pwd):$(pwd)/OFA GOOGLE_APPLICATION_CREDENTIALS=secrets/google-credentials.json gunicorn -k uvicorn.workers.UvicornWorker -b :9080 audio_server.audio_server:app --timeout 180000 --workers 1
@@ -447,3 +447,6 @@ Run the test script to verify all servers can access the same PostgreSQL databas
 python test_database_sharing.py
 ```
 
+## Prompt improver
+
+`/tools/prompt-improver` is a free browser-local agent prompt builder with token-concise, thorough implementation, tests/verification, end-to-end QA, and deployment-readiness modes. It preserves the original task and optional constraints, uses no model or account, and supports editable output and clipboard copying. Concise mode is an instruction recipe, not measured token compression. Deployment instructions require explicit authorization and live verification. Shared recipes are kept identical across app.nz and Text Generator.

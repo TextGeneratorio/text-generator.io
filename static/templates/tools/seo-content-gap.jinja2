@@ -1,0 +1,68 @@
+{% set builder_title = "SEO Content Gap Finder" %}
+{% set builder_kicker = "SEO Planning" %}
+{% set builder_intro = "Build a structured SEO brief from your site, competitor pages, and the topics you care about. The output is aimed at turning rough market context into publishable content priorities." %}
+{% set builder_prompt_opening = "Act like an SEO strategist creating a content gap brief. Review the site context, competitor context, and business goal. Focus on missing pages, topic clusters, search intent, and practical next steps instead of generic SEO advice." %}
+{% set builder_system_message = "You are an experienced SEO strategist for B2B and online businesses. Prioritize search intent, content structure, and execution order. Recommend specific pages and clusters. Avoid keyword stuffing and vague checklists." %}
+{% set builder_note = "Use this when you want a fast first-pass content roadmap before writing briefs, pages, or internal-linking plans." %}
+{% set builder_fields = [
+    {
+        "id": "site-url",
+        "label": "Your site or page set",
+        "prompt_label": "Site",
+        "type": "textarea",
+        "rows": 4,
+        "value": "https://example.com\nCurrent content: homepage, pricing, bookkeeping services, FAQ, blog with 8 posts.",
+        "placeholder": "Paste your site URL and any current content notes",
+        "help": "If the site is small, include the main pages or current content inventory."
+    },
+    {
+        "id": "competitor-urls",
+        "label": "Competitor pages or domains",
+        "prompt_label": "Competitors",
+        "type": "textarea",
+        "rows": 5,
+        "value": "https://competitor-one.com/resources\nhttps://competitor-two.com/blog\nhttps://competitor-three.com/contractor-bookkeeping",
+        "placeholder": "Paste the domains or the strongest competing pages",
+        "help": "Use the most relevant pages, not every page on the site."
+    },
+    {
+        "id": "topics",
+        "label": "Core topics or offers",
+        "prompt_label": "Core topics",
+        "type": "textarea",
+        "rows": 4,
+        "value": "construction bookkeeping\njob costing\ncash flow forecasting\ncontractor tax prep",
+        "placeholder": "One topic per line",
+        "help": "These help the model map gaps to commercial priorities."
+    },
+    {
+        "id": "audience",
+        "label": "Audience and market",
+        "prompt_label": "Audience",
+        "type": "text",
+        "value": "US contractors and specialty trade businesses",
+        "placeholder": "Who the content should attract",
+        "help": "Add geography or verticals if local SEO matters."
+    },
+    {
+        "id": "goal",
+        "label": "Primary SEO goal",
+        "prompt_label": "SEO goal",
+        "type": "text",
+        "value": "Find the next 10 pages that could drive qualified pipeline over the next quarter",
+        "placeholder": "Traffic, leads, topical authority, local pages, etc.",
+        "help": "The clearer the goal, the better the prioritization."
+    }
+] %}
+{% set builder_deliverables = [
+    "A quick read on where the site is thin versus the competitor set",
+    "Topic clusters or content pillars worth owning",
+    "Specific pages to create, grouped by priority",
+    "Recommended search intent and page type for each priority page",
+    "Internal-linking opportunities between current and proposed pages",
+    "A 30-day execution order with the highest-leverage quick wins first"
+] %}
+{% set builder_max_length = 1000 %}
+{% set builder_temperature = 0.28 %}
+{% set builder_repetition_penalty = 1.05 %}
+{% include "templates/tools/prompt-builder-shell.jinja2" %}

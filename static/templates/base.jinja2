@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
@@ -17,18 +17,34 @@
 
     {% block headers %}
     {% endblock %}
+    {% include 'templates/shared/seo_head.jinja2' %}
+    {% include 'templates/shared/th_analytics.jinja2' %}
+    <link rel="preload" href="/static/fonts/sora-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/static/css/a11y-fixes.css?v=4">
+    <script>
+        (function () {
+            if ({{ 'true' if (request is defined and request and request.cookies.get('session_secret')) else 'false' }} || !window.fetch) return;
+            var noSession = true, nativeFetch = window.fetch.bind(window);
+            window.fetch = function (input, init) {
+                var method = ((init && init.method) || 'GET').toUpperCase();
+                if (method !== 'GET') noSession = false;
+                if (noSession && input === '/api/current-user' && !(init && init.headers)) {
+                    return Promise.resolve(new Response('{"detail":"Not authenticated"}', {status: 401, headers: {'Content-Type': 'application/json'}}));
+                }
+                return nativeFetch(input, init);
+            };
+        })();
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
+    <link rel="preload" href="/static/fonts/material-icons-subset.woff2?v=2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/static/css/material-icons-local.css?v=2">
+    <link rel="stylesheet" href="/static/css/material.cyan-pink.min.css?v=1"/>
 
-    <link rel="stylesheet" href="{{ static_url }}/css/article.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/site-redesign.css">
+    <link rel="stylesheet" href="/static/css/article.css?v=1">
+    <link rel="stylesheet" href="/static/css/tables.css?v=1">
+    <link rel="stylesheet" href="/static/css/site-redesign.css?v=14">
 
 
     {% block css %}
@@ -44,43 +60,126 @@
       window.STRIPE_PUBLISHABLE_KEY = 'pk_live_51KjJGaDtz2XsjQRO1wdSdz8zS4bXzXq0tJ2m7lzJLdFpGhOdmGzX8fWwO9hm3vHdVVbfQc0XLJlT8l6KZGHJdUdl00zLUOHnMy';
     </script>
 
+    <script>
+        (function () {
+            function relativeIndex(index, length) {
+                var number = Number(index) || 0;
+                var integer = number < 0 ? Math.ceil(number) : Math.floor(number);
+                return integer >= 0 ? integer : length + integer;
+            }
 
-    <script src="{{ static_url }}/libs/jquery-3.2.1.min.js"></script>
+            function at(index) {
+                if (this === null || this === undefined) {
+                    throw new TypeError('Array.prototype.at called on null or undefined');
+                }
+                var length = this.length >>> 0;
+                var position = relativeIndex(index, length);
+                return position < 0 || position >= length ? undefined : this[position];
+            }
+
+            if (!Array.prototype.at) {
+                Object.defineProperty(Array.prototype, 'at', {
+                    value: at,
+                    configurable: true,
+                    writable: true
+                });
+            }
+            if (!String.prototype.at) {
+                Object.defineProperty(String.prototype, 'at', {
+                    value: at,
+                    configurable: true,
+                    writable: true
+                });
+            }
+        })();
+    </script>
+
+    <script src="/static/js/frontend-error-logger.js?v=4"></script>
+
+    <script src="/static/libs/jquery-3.2.1.min.js"></script>
 
     <script>
         // User authentication - new system
         window.has_purchased = false;
-        
-        // Check authentication status on page load
-        checkAuthenticationStatus();
-        
-        async function checkAuthenticationStatus() {
-            try {
-                const response = await fetch('/api/current-user');
-                if (response.ok) {
-                    const userData = await response.json();
-                    // User is signed in
-                    window.currentUser = userData;
-                    $('.header-login-signup').hide();
-                    $('#log-out').show();
-                    
-                    if (userData.is_subscribed) {
-                        $('.header-subscribe').hide()
-                    } else {
-                        $('.header-subscribe').show()
-                    }
-                } else {
-                    // User is signed out
-                    window.currentUser = null;
-                    $('.header-login-signup').show();
-                    $('#log-out').hide();
-                    $('.header-subscribe').show();
-                }
-            } catch (error) {
-                console.log('Auth check error:', error);
-                window.currentUser = null;
+        window.skip_auth_hydration = {{ 'true' if skip_auth_hydration else 'false' }};
+
+        window.getSafeAuthReturnUrl = function (fallback) {
+            const defaultUrl = fallback === undefined ? '/playground' : fallback;
+            const candidate = new URLSearchParams(window.location.search).get('next');
+            if (!candidate || !candidate.startsWith('/') || candidate.startsWith('//')) {
+                return defaultUrl;
             }
-        }
+
+            try {
+                const parsed = new URL(candidate, window.location.origin);
+                const authPages = ['/login', '/signup', '/forgot-password', '/reset-password'];
+                if (parsed.origin !== window.location.origin || authPages.includes(parsed.pathname)) {
+                    return defaultUrl;
+                }
+                return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+            } catch (error) {
+                return defaultUrl;
+            }
+        };
+        
+	        // Check authentication status on page load for interactive browsers.
+	        if (!window.skip_auth_hydration) {
+	            checkAuthenticationStatus();
+	        } else {
+	            window.currentUser = null;
+	        }
+	        
+	        function setHeaderAuthState(isLoggedIn, userData) {
+	            const loggedOutAuth = document.querySelectorAll('.tg-header-auth--logged-out');
+	            const loggedInAuth = document.querySelectorAll('.tg-header-auth--logged-in');
+	            const loginLinks = document.querySelectorAll('.header-login-signup');
+	            const accountLinks = document.querySelectorAll('.header-account');
+
+	            loggedOutAuth.forEach(function (el) {
+	                const visibleDisplay = el.classList.contains('tg-header-drawer-auth') ? 'block' : 'inline-flex';
+	                el.style.display = isLoggedIn ? 'none' : visibleDisplay;
+	            });
+
+	            loggedInAuth.forEach(function (el) {
+	                const visibleDisplay = el.classList.contains('tg-header-drawer-auth') ? 'block' : 'inline-flex';
+	                el.style.display = isLoggedIn ? visibleDisplay : 'none';
+	            });
+
+	            loginLinks.forEach(function (el) {
+	                el.style.display = isLoggedIn ? 'none' : '';
+	            });
+
+	            accountLinks.forEach(function (el) {
+	                el.style.display = isLoggedIn ? '' : 'none';
+	            });
+
+	            document.querySelectorAll('[data-credit-balance]').forEach(function (el) {
+	                const cents = isLoggedIn && userData ? Number(userData.credit_balance_cents || userData.free_credits || 0) : 0;
+	                el.textContent = '$' + (Math.max(0, cents) / 100).toFixed(2);
+	            });
+
+	            window.currentUser = isLoggedIn ? userData : null;
+	        }
+
+	        async function checkAuthenticationStatus() {
+	            try {
+	                const response = await fetch('/api/current-user');
+	                if (response.ok) {
+	                    const userData = await response.json();
+	                    setHeaderAuthState(true, userData);
+	                    if (userData && userData.id) window.th?.('identify', String(userData.id));
+
+	                    if (['/login', '/signup'].includes(window.location.pathname)) {
+	                        window.location.replace(window.getSafeAuthReturnUrl('/playground'));
+	                    }
+	                } else {
+	                    setHeaderAuthState(false, null);
+	                }
+	            } catch (error) {
+	                console.log('Auth check error:', error);
+	                setHeaderAuthState(false, null);
+	            }
+	        }
 
         async function signout() {
             try {
@@ -215,19 +314,73 @@
 
 
     </script>
-    <script defer src="{{ static_url }}/js/material.min.js"></script>
-    <script src="https://js.stripe.com/v3/"></script>
-    <script src="{{ static_url }}/js/checkout-dialog.js"></script>
-    <script src="{{ static_url }}/js/subscription-modal.js"></script>
+    <script defer src="/static/js/material.min.js?v=2"></script>
+    <script defer src="/static/js/checkout-dialog.js?v=8"></script>
+    <script defer src="/static/js/subscription-modal.js?v=3"></script>
+    <script>
+        (function () {
+            function noop() {}
+
+            function createHighlightFallback() {
+                return {
+                    highlightAll: noop,
+                    highlightBlock: noop,
+                    highlightElement: noop
+                };
+            }
+
+            function patchHighlightJs(hljs) {
+                if (!hljs) {
+                    return hljs;
+                }
+                if (typeof hljs.highlightElement !== 'function' && typeof hljs.highlightBlock === 'function') {
+                    hljs.highlightElement = function (block) {
+                        hljs.highlightBlock(block);
+                    };
+                }
+                if (typeof hljs.highlightAll !== 'function') {
+                    hljs.highlightAll = function () {
+                        var blocks = document.querySelectorAll('pre code');
+                        for (var i = 0; i < blocks.length; i += 1) {
+                            if (typeof hljs.highlightElement === 'function') {
+                                hljs.highlightElement(blocks[i]);
+                            }
+                        }
+                    };
+                }
+                return hljs;
+            }
+
+            window.__tgPatchHighlightJs = patchHighlightJs;
+            if (window.hljs) {
+                patchHighlightJs(window.hljs);
+                return;
+            }
+            var currentHljs = createHighlightFallback();
+            try {
+                Object.defineProperty(window, 'hljs', {
+                    configurable: true,
+                    get: function () {
+                        return currentHljs;
+                    },
+                    set: function (value) {
+                        currentHljs = patchHighlightJs(value);
+                    }
+                });
+            } catch (error) {
+                window.hljs = currentHljs;
+            }
+        })();
+    </script>
 
     {#    <script src="{{ static_url }}/js/webutils.js"></script>#}
     {#    <script src="{{ static_url }}/js/templates/coins-table.js"></script>#}
     {#    <script defer src="{{ static_url }}/js/userauth.js"></script>#}
 
     <script>window.evangelTrackingCode = 'kKnIiYGs5FMjnZAA5y4wLczmBrLsiHDV';</script>
-    <script src="https://evangeler.com/js/evangeler-tracking.js"></script>
+    <script defer src="https://evangeler.com/js/evangeler-tracking.js"></script>
     <script>
-    (function() {
+    document.addEventListener('DOMContentLoaded', function() {
         var params = new URLSearchParams(window.location.search);
         if (params.get('sub') === '1') {
             var plan = params.get('plan') || 'monthly';
@@ -244,7 +397,7 @@
             url.searchParams.delete('plan');
             window.history.replaceState({}, '', url);
         }
-    })();
+    });
     </script>
 
     {% block js %}
@@ -273,5 +426,13 @@
     </main>
 
 </div>
+<script>
+    if (window.__tgPatchHighlightJs) {
+        window.__tgPatchHighlightJs(window.hljs);
+    }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/checkout-dialog.css">
+<link rel="stylesheet" href="/static/css/subscription-modal.css">
 </body>
 </html>

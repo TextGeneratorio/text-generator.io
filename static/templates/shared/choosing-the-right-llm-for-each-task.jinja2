@@ -1,0 +1,58 @@
+<link rel="stylesheet" href="/static/libs/styles/default.css">
+<script src="/static/libs/highlight.pack.js"></script>
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> &gt; <a href="/blog" title="Text Generator Blog">Blog</a> &gt; Choosing the Right LLM for Each Task
+            </div>
+            <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Choosing the Right LLM for Each Task","description":"A practical guide to matching model size, context window, and price to the job, with the Text Generator auto profiles that do the matching for you","datePublished":"2026-10-22","dateModified":"2026-10-22","mainEntityOfPage":"https://text-generator.io/blog/choosing-the-right-llm-for-each-task","author":{"@type":"Organization","name":"Text Generator"},"publisher":{"@type":"Organization","name":"Text Generator","url":"https://text-generator.io"}}</script>
+            <h3>Choosing the Right LLM for Each Task</h3>
+            <p>Picking one model for everything is simple, and it is also the quickest way to overspend or underdeliver. A better habit is to match each request to the smallest model that does the job well, and reserve the big models for the work that needs them.</p>
+            <h4>Start with the shape of the task</h4>
+            <ul>
+            <li><b>Formatting, classification, extraction:</b> short, well specified jobs. A fast, low cost model handles these reliably.</li>
+            <li><b>Chat and drafting:</b> a balanced model gives good tone and speed.</li>
+            <li><b>Coding:</b> small diffs suit mid size models. Architecture questions and hard debugging reward stronger reasoning.</li>
+            <li><b>Planning, math, hard decisions:</b> choose a reasoning model and give it room to think.</li>
+            <li><b>Images and screenshots:</b> choose a model with vision input.</li>
+            </ul>
+            <h4>Read the catalogue numbers</h4>
+            <p>Every model in our <a href="/models">catalogue</a> lists its context window and its price per million input and output tokens. For example, <code>gpt-4o-mini</code> is listed at $0.15 input and $0.60 output with a 128K window, while <code>gpt-5.4</code> is listed at $2.50 and $15.00 with a 1M window. Output tokens usually cost more than input tokens, so tasks that return short answers over long inputs are the cheapest to run.</p>
+            <h4>Let the auto profiles route for you</h4>
+            <p>Text Generator ships semantic auto models. Set the model name once and each request is routed by what it asks for:</p>
+            <ul>
+            <li><code>text-generator/auto</code> balances quality, speed, and cost.</li>
+            <li><code>text-generator/auto-fast</code> targets interactive assistants and quick agent loops.</li>
+            <li><code>text-generator/auto-cheap</code> targets formatting, classification, and simple edits.</li>
+            <li><code>text-generator/auto-code</code> routes coding prompts by complexity.</li>
+            <li><code>text-generator/auto-reasoning</code> picks the model and thinking level for hard problems.</li>
+            <li><code>text-generator/auto-vision</code> handles image understanding and OCR.</li>
+            </ul>
+            <pre><code class="language-python">from openai import OpenAI
+            
+            client = OpenAI(base_url="https://api.text-generator.io/v1", api_key=API_KEY)
+            r = client.chat.completions.create(
+                model="text-generator/auto-cheap",
+                messages=[{"role": "user", "content": "Label this ticket as billing, bug, or feature: 'My invoice shows two charges'"}],
+            )
+            print(r.choices[0].message.content)</code></pre>
+            <h4>A simple evaluation loop</h4>
+            <ol>
+            <li>Collect 20 real prompts from your product.</li>
+            <li>Run them through the cheap profile and the balanced profile.</li>
+            <li>Compare answers side by side and note where the cheaper model already meets your bar.</li>
+            <li>Move that task type to the cheaper profile and keep the stronger one for the rest.</li>
+            </ol>
+            <p>Repeat when new models arrive. Because the API is OpenAI compatible, switching is a one line change to the model name.</p>
+            <h4>Keep fallbacks in mind</h4>
+            <p>Catalogue entries list fallback models, so a request can continue on a similar model if a provider has trouble. Set a generous <code>max_tokens</code> for long outputs and log which model served each request, so your evaluation data stays current.</p>
+            <p>Browse the full list at <a href="/models">/models</a> and try a few profiles on your own prompts today.</p>
+
+            <a class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-color--primary mdl-color-text--white" href="/signup">Get started free</a>
+        </div>
+    </div>
+</main>
+<script>hljs.highlightAll();</script>

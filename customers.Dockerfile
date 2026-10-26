@@ -66,7 +66,6 @@ CMD ["pytest", "-v", "tests/unit"]
 
 FROM python-deps as release
 
-COPY appengine_config.py appengine_config.py
 COPY main.py main.py
 COPY questions/inference_server/inference_server.py inference_server.py
 COPY sellerinfo_faked.py sellerinfo.py

@@ -5,9 +5,7 @@ import sys
 # Optional colorama import for colored output
 try:
     from colorama import Fore, Style
-    from colorama import init as colorama_init
 
-    colorama_init()
     HAS_COLORAMA = True
 except ImportError:
     HAS_COLORAMA = False
@@ -60,7 +58,14 @@ def setup_logging(level: int = logging.INFO, use_cloud: bool = False) -> None:
     if root_logger.handlers:
         return
     root_logger.setLevel(level)
-    use_color = os.environ.get("COLOR_LOGS", "1") != "0" and HAS_COLORAMA
+    color_setting = os.environ.get("COLOR_LOGS")
+    color_forced = color_setting == "1"
+    color_disabled = color_setting == "0"
+    use_color = (
+        HAS_COLORAMA
+        and not color_disabled
+        and (color_forced or sys.stdout.isatty())
+    )
     fmt = "%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d - %(message)s"
     formatter_cls = ColorFormatter if use_color else logging.Formatter
     formatter = formatter_cls(fmt, "%Y-%m-%d %H:%M:%S")

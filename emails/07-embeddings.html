@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0f0f14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f0f14;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#18181f;border-radius:12px;overflow:hidden;border:1px solid #2a2a35;">
+
+<tr><td style="background:linear-gradient(135deg,#d97706,#f59e0b);padding:32px 40px;text-align:center;">
+  <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Day 18 · Embeddings</p>
+  <h1 style="margin:8px 0 0;color:#fff;font-size:24px;font-weight:700;">Semantic Search in 3 Lines of Code</h1>
+</td></tr>
+
+<tr><td style="padding:40px;">
+  <p style="color:#e2e2e8;font-size:16px;line-height:1.7;margin:0 0 24px;">
+    Turn text into <strong style="color:#fcd34d;">768-dimension vectors</strong> with the Embeddings API. Powered by <strong style="color:#fcd34d;">ModernBERT-base</strong>, it gives you production-ready embeddings for search, clustering, and RAG in a single POST request.
+  </p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+    <tr><td style="background-color:#1f1f2a;border-radius:8px;padding:16px 20px;border-left:3px solid #d97706;">
+      <p style="margin:0 0 4px;color:#fcd34d;font-size:14px;font-weight:600;">POST /api/v1/feature-extraction</p>
+      <p style="margin:0;color:#9999b0;font-size:14px;line-height:1.5;">Send text, get back a 768-dimensional embedding vector. Use it for similarity comparisons, clustering, or as input to your own ML models.</p>
+    </td></tr>
+  </table>
+
+  <p style="color:#fcd34d;font-size:13px;font-weight:600;margin:0 0 8px;">Python Example</p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+    <tr><td style="background-color:#1a1a24;border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:13px;color:#c4c4cc;line-height:1.6;">
+      <span style="color:#d97706;">import</span> requests<br>
+      <span style="color:#d97706;">import</span> numpy <span style="color:#d97706;">as</span> np<br><br>
+      <span style="color:#6b7280;"># Get embeddings for two texts</span><br>
+      <span style="color:#d97706;">def</span> embed(text):<br>
+      &nbsp;&nbsp;<span style="color:#d97706;">return</span> requests.post(<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#fcd34d;">"https://api.text-generator.io/api/v1/feature-extraction"</span>,<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;json={<span style="color:#fcd34d;">"text"</span>: text},<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;headers={<span style="color:#fcd34d;">"secret"</span>: <span style="color:#fcd34d;">"YOUR_SECRET"</span>}<br>
+      &nbsp;&nbsp;).json()<br><br>
+      a = np.array(embed(<span style="color:#fcd34d;">"How do I reset my password?"</span>))<br>
+      b = np.array(embed(<span style="color:#fcd34d;">"I forgot my login credentials"</span>))<br><br>
+      <span style="color:#6b7280;"># Cosine similarity</span><br>
+      similarity = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))<br>
+      <span style="color:#d97706;">print</span>(f<span style="color:#fcd34d;">"Similarity: {similarity:.3f}"</span>)&nbsp;&nbsp;<span style="color:#6b7280;"># ~0.92</span>
+    </td></tr>
+  </table>
+
+  <h2 style="color:#fcd34d;font-size:18px;margin:0 0 16px;">Use Cases</h2>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="padding:10px 16px;background-color:#291d0a;border-radius:6px;border:1px solid #78350f;">
+      <p style="margin:0;color:#fcd34d;font-size:14px;">Semantic search across documents and FAQs</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="padding:10px 16px;background-color:#291d0a;border-radius:6px;border:1px solid #78350f;">
+      <p style="margin:0;color:#fcd34d;font-size:14px;">Document clustering and topic detection</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="padding:10px 16px;background-color:#291d0a;border-radius:6px;border:1px solid #78350f;">
+      <p style="margin:0;color:#fcd34d;font-size:14px;">RAG pipelines — retrieve relevant context for LLMs</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+    <tr><td style="padding:10px 16px;background-color:#291d0a;border-radius:6px;border:1px solid #78350f;">
+      <p style="margin:0;color:#fcd34d;font-size:14px;">Duplicate detection and deduplication</p>
+    </td></tr>
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:30px;">
+    <tr><td style="padding:10px 16px;background-color:#291d0a;border-radius:6px;border:1px solid #78350f;">
+      <p style="margin:0;color:#fcd34d;font-size:14px;">Recommendation engines based on content similarity</p>
+    </td></tr>
+  </table>
+
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:10px 0 20px;">
+      <a href="https://text-generator.io/blog/embed-images-text-and-code-in-the-same-space" style="display:inline-block;background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:600;">Read: Embed Images, Text, and Code</a>
+    </td></tr>
+  </table>
+  <p style="color:#8888a0;font-size:14px;line-height:1.6;margin:0;">Next: summarization API — TL;DR any document.</p>
+</td></tr>
+
+<tr><td style="padding:24px 40px;border-top:1px solid #2a2a35;text-align:center;">
+  <p style="margin:0 0 8px;color:#55556a;font-size:13px;">
+    <a href="https://text-generator.io/blog" style="color:#d79f2a;text-decoration:none;">Blog</a> &nbsp;·&nbsp;
+    <a href="https://text-generator.io/docs/api" style="color:#d79f2a;text-decoration:none;">API Docs</a> &nbsp;·&nbsp;
+    <a href="{{.UnsubscribeURL}}" style="color:#d79f2a;text-decoration:none;">Unsubscribe</a>
+  </p>
+  <p style="margin:0;color:#44445a;font-size:12px;">Text Generator · by <a href="https://app.nz" style="color:#55556a;text-decoration:none;">Applied Science</a></p>
+  <p style="margin:4px 0 0;color:#44445a;font-size:11px;"><a href="https://text-generator.io" style="color:#55556a;text-decoration:none;">text-generator.io</a> · <a href="https://ebank.nz" style="color:#55556a;text-decoration:none;">ebank.nz art generator</a></p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

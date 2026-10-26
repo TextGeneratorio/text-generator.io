@@ -1,6 +1,6 @@
 <link rel="stylesheet"
-      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/styles/default.min.css">
-<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.1/highlight.min.js"></script>
+      href="/static/libs/styles/default.css">
+<script src="/static/libs/highlight.pack.js"></script>
 
 
 <script>
@@ -33,9 +33,9 @@
         // User is signed out.
         location.href = '/login'
       }
-    }, function (error) {
+    } catch (error) {
       console.log(error);
-    });
+    }
   };
 
   window.addEventListener('load', function () {

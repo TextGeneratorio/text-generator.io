@@ -1,0 +1,44 @@
+<link rel="stylesheet" href="/static/libs/styles/default.css">
+<script src="/static/libs/highlight.pack.js"></script>
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> &gt; <a href="/blog" title="Text Generator Blog">Blog</a> &gt; Text, Vision and Speech APIs in One Place
+            </div>
+            <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Text, Vision and Speech APIs in One Place","description":"Use Text Generator for chat, image understanding, embeddings, speech to text, and text to speech through OpenAI compatible endpoints","datePublished":"2026-10-22","dateModified":"2026-10-22","mainEntityOfPage":"https://text-generator.io/blog/text-vision-and-speech-apis-in-one-place","author":{"@type":"Organization","name":"Text Generator"},"publisher":{"@type":"Organization","name":"Text Generator","url":"https://text-generator.io"}}</script>
+            <h3>Text, Vision and Speech APIs in One Place</h3>
+            <p>Many products need more than text. A support tool reads screenshots, a note app transcribes voice, a reading app speaks articles aloud. Text Generator exposes these as familiar OpenAI style endpoints, so one client and one key cover them.</p>
+            <h4>Text: chat completions</h4>
+            <p>Call <code>/v1/chat/completions</code> with streaming if you want tokens as they arrive. Use an auto profile or name a model directly.</p>
+            <pre><code class="language-python">from openai import OpenAI
+            client = OpenAI(base_url="https://api.text-generator.io/v1", api_key=API_KEY)
+            r = client.chat.completions.create(model="text-generator/auto", messages=[{"role": "user", "content": "Draft a friendly release note"}])</code></pre>
+            <h4>Vision: images in the message</h4>
+            <p>Vision capable models accept images in the chat message. Use <code>text-generator/auto-vision</code> for OCR, screenshot questions, and image captioning. Send clear, well lit images and ask one specific question per request for the sharpest answers.</p>
+            <pre><code class="language-python">r = client.chat.completions.create(
+                model="text-generator/auto-vision",
+                messages=[{"role": "user", "content": [
+                    {"type": "text", "text": "Read the total from this receipt"},
+                    {"type": "image_url", "image_url": {"url": "https://example.com/receipt.jpg"}},
+                ]}],
+            )</code></pre>
+            <h4>Embeddings: search and clustering</h4>
+            <p><code>/v1/embeddings</code> turns text into vectors for semantic search, deduplication, and recommendations. Embed your documents once, store the vectors, and embed each query at request time.</p>
+            <h4>Speech to text</h4>
+            <p><code>/v1/audio/transcriptions</code> converts recordings to text. Trim silence at the start of a file and prefer a clean mono recording for steady accuracy. Read more in our <a href="/blog/cost-effective-speech-to-text-api">speech to text post</a>.</p>
+            <h4>Text to speech</h4>
+            <p><code>/v1/audio/speech</code> turns text into audio. The service catalogue lists App.nz TTS at $0.10 per audio minute and Pocket TTS at $0.06 per audio minute, with Pocket TTS offering 26 voices across six languages. Try voices in the browser at <a href="/text-to-speech">/text-to-speech</a>.</p>
+            <h4>Put them together</h4>
+            <p>A voice assistant is three calls: transcribe the user audio, send the text to a chat model, then speak the reply. If you prefer a single request, see the <a href="/blog/gemma4-multimodal-audio-api">multimodal audio API</a>, which accepts audio and returns text plus speech.</p>
+            <h4>Image generation too</h4>
+            <p>The same key reaches <code>/v1/images/generations</code>, listed at $0.003 per image for fast SDXL. Try it at <a href="/tools/text-to-image">/tools/text-to-image</a>.</p>
+            <p>Sign up, grab a key, and try each endpoint with one small request.</p>
+
+            <a class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-color--primary mdl-color-text--white" href="/signup">Get started free</a>
+        </div>
+    </div>
+</main>
+<script>hljs.highlightAll();</script>

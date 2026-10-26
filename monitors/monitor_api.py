@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 import fcntl
+import os
 import subprocess
+import sys
 import time
-import urllib.request
+from dataclasses import asdict
 from datetime import datetime, timezone
-from urllib.error import HTTPError, URLError
+from pathlib import Path
 
-URL_EXTERNAL = "https://api.text-generator.io/liveness_check"
-URL_LOCAL = "http://localhost:9080/liveness_check"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from monitoring import service_probe
+
+LOCAL_CHECK_LABEL = "compatibility worker on 127.0.0.1:9083"
+EXTERNAL_CHECK_LABEL = "https://api.text-generator.io contract endpoints"
 CHECK_INTERVAL = 300  # seconds
 FAIL_THRESHOLD = 2  # consecutive failures
 RESTART_COOLDOWN = 600  # seconds
@@ -22,17 +30,49 @@ def log(message: str) -> None:
     print(f"{ts} {message}")
 
 
-def check_endpoint(url: str, timeout: int = 10) -> bool:
-    try:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 Monitor"},
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status < 400
-    except (HTTPError, URLError, ValueError, TimeoutError) as e:
-        log(f"Error checking {url}: {e}")
-        return False
+def _format_failures(results: list[service_probe.ProbeResult]) -> str:
+    failures = [asdict(result) for result in results if not result.ok]
+    return "; ".join(
+        f"{item['name']}: {item['detail']}" for item in failures
+    ) or "unknown failure"
+
+
+def check_local_contracts() -> bool:
+    results = [
+        service_probe.probe_systemd_service("text-generator-inference.service", expected_port=9083),
+        service_probe.probe_feature_extraction(
+            "compat:feature-extraction",
+            "http://127.0.0.1:9083/api/v1/feature-extraction",
+        ),
+        service_probe.probe_openai_embeddings(
+            "compat:openai-embeddings",
+            "http://127.0.0.1:9083/v1/embeddings",
+        ),
+    ]
+    if all(result.ok for result in results):
+        return True
+    log(f"Local contract check failed: {_format_failures(results)}")
+    return False
+
+
+def check_external_contracts() -> bool:
+    secret = os.getenv("TEXTGEN_MONITOR_SECRET")
+    results = [
+        service_probe.probe_feature_extraction(
+            "production:feature-extraction",
+            "https://api.text-generator.io/api/v1/feature-extraction",
+            secret=secret,
+        ),
+        service_probe.probe_openai_embeddings(
+            "production:openai-embeddings",
+            "https://api.text-generator.io/v1/embeddings",
+            secret=secret,
+        ),
+    ]
+    if all(result.ok for result in results):
+        return True
+    log(f"External contract check failed: {_format_failures(results)}")
+    return False
 
 
 def restart_systemd_service(service_name: str) -> None:
@@ -78,14 +118,17 @@ def main():
     lock_fh = acquire_lock()
     if lock_fh is None:
         return
-    log(f"Starting monitor for {URL_EXTERNAL} (local {URL_LOCAL}), interval={CHECK_INTERVAL}s")
+    log(
+        f"Starting monitor for {EXTERNAL_CHECK_LABEL} "
+        f"(local {LOCAL_CHECK_LABEL}), interval={CHECK_INTERVAL}s"
+    )
     last_restart_inference = 0.0
     last_restart_cloudflared = 0.0
     local_failures = 0
     external_failures = 0
 
     while True:
-        local_ok = check_endpoint(URL_LOCAL)
+        local_ok = check_local_contracts()
         if not local_ok:
             local_failures += 1
             external_failures = 0
@@ -96,7 +139,7 @@ def main():
                 local_failures = 0
         else:
             local_failures = 0
-            external_ok = check_endpoint(URL_EXTERNAL)
+            external_ok = check_external_contracts()
             if external_ok:
                 external_failures = 0
                 log("LOCAL UP / EXTERNAL UP")

@@ -1,0 +1,68 @@
+<link rel="stylesheet"
+      href="/static/libs/styles/default.css">
+<script src="/static/libs/highlight.pack.js"></script>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/blog"
+                                                                           title="Text Generator Blog">Blog</a> > Kimi K3 API
+            </div>
+            <h3>Kimi K3: Moonshot's 2.8T-Parameter Open Model, Now in the API</h3>
+            <p>Moonshot AI released <b>Kimi K3</b> this week and it is available through the Text-Generator.io chat completions API as <code>kimi-k3</code>. It is the largest open-weights model released to date: <b>2.8 trillion total parameters</b> with a <b>1,048,576-token context window</b> and no length tiering.</p>
+
+            <h4>Why Kimi K3?</h4>
+            <ul>
+                <li>1M token context at one flat price -- entire codebases and document sets in a single request</li>
+                <li>Vision input and strong tool calling for agent workloads</li>
+                <li>Deep reasoning (currently fixed at max effort; more levels coming per Moonshot)</li>
+                <li>Open weights -- self-host later with no prompt rework</li>
+                <li>#1 debut on the Frontend Code Arena, ahead of Claude and GPT</li>
+            </ul>
+            <p>Pricing through the API is $3.00 per million input tokens and $15.00 per million output tokens, matching Moonshot's official rates.</p>
+
+            <h4>Using Kimi K3</h4>
+            <p>The endpoint is OpenAI-compatible, so existing clients only change the model name.</p>
+
+            <h5>Python</h5>
+            <pre><code class="language-python">from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.text-generator.io/v1",
+    api_key=API_KEY,
+)
+
+response = client.chat.completions.create(
+    model="kimi-k3",
+    messages=[{"role": "user", "content": "Review this 400-file repo and list the risky modules"}],
+    max_tokens=30000,
+)
+print(response.choices[0].message.content)</code></pre>
+
+            <h5>curl</h5>
+            <pre><code class="language-bash">curl https://api.text-generator.io/v1/chat/completions \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "kimi-k3", "messages": [{"role": "user", "content": "hello"}]}'</code></pre>
+
+            <p>The alias <code>kimi</code> also resolves to K3. Requests route to Moonshot's API directly with automatic failover to OpenRouter and Kimi K2.5, so one upstream outage never breaks your integration.</p>
+
+            <h4>One-shot SVG test</h4>
+            <p>Our standing benchmark for new models is a one-shot SVG drawing. K3 was asked for a pelican warrior riding a bicycle -- bronze helmet, spear, flat vector style -- in a single completion:</p>
+            <p><img src="https://openpaths.io/static/blog/pelican-svg/kimi-k3.svg" alt="Kimi K3 one-shot SVG: pelican warrior riding a bicycle" style="max-width:100%; border:1px solid #eee; border-radius:4px;"></p>
+            <p>Practical note: K3 truncates rather than compresses under tight output caps. It overran an 8K completion cap mid-path, then finished this scene cleanly in ~7K tokens when given a 30K budget. Set <code>max_tokens</code> generously for structured artifacts.</p>
+
+            <h4>Where it fits</h4>
+            <p>Use <code>kimi-k3</code> for long-context code review, multi-document analysis, and long-horizon tool-calling agents. For high-volume cheap generation keep using the fast tier models -- and let the auto router (<code>text-generator/auto</code>) pick per request.</p>
+
+            <a class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-color--primary mdl-color-text--white"
+               href="/signup">Get started free</a>
+
+        </div>
+    </div>
+</main>
+<script>hljs.highlightAll();</script>

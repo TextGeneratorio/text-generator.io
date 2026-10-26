@@ -1,5 +1,5 @@
 from time import time
-from typing import List, Optional
+from typing import Any, List, Optional, Union
 
 from fastapi import UploadFile
 from pydantic import BaseModel, root_validator
@@ -76,14 +76,16 @@ class GenerateParams(BaseModel):
 
     model: Optional[str] = None
     system_message: Optional[str] = None
+    system_prompt: Optional[str] = None
     enable_thinking: Optional[bool] = None
 
 
 class GenerateSpeechParams(BaseModel):
     text: str
     voice: str = "af"  # Default voice (50-50 mix of Bella & Sarah)
-    language: str = "en-us"  # Default to US English
+    language: str = "en"
     speed: float = 1.0
+    steps: int = 4
     volume: float = 1.0
     sample_rate: int = 24000  # Kokoro outputs 24kHz audio
 
@@ -100,10 +102,20 @@ class GenerateSpeechParams(BaseModel):
 
         legacy_to_voice = {
             "Male fast": "am_adam",
-            "Male default": "af",
+            "Male default": "am_michael",
             "Male slower": "bm_lewis",
             "Female 1": "af_bella",
             "Female 2": "af_sarah",
+            "BDL": "am_adam",
+            "BDL (male)": "am_adam",
+            "KSP": "am_michael",
+            "KSP (male)": "am_michael",
+            "RMS": "bm_lewis",
+            "RMS (male)": "bm_lewis",
+            "CLB": "af_bella",
+            "CLB (female)": "af_bella",
+            "SLT": "af_sarah",
+            "SLT (female)": "af_sarah",
         }
         values["voice"] = legacy_to_voice.get(speaker, speaker)
         return values
@@ -114,6 +126,8 @@ class OpenaiParams(BaseModel):
     n: int = 1
     best_of: int = 1  # unused
     echo: bool = False
+    system_message: Optional[str] = None
+    system_prompt: Optional[str] = None
 
     # stopping criteria
 
@@ -152,6 +166,7 @@ def map_to_generate_params(openai_params: OpenaiParams) -> GenerateParams:
         openai_params.top_k,
         openai_params.temperature,
     )
+    generate_params.system_message = openai_params.system_message or openai_params.system_prompt
     return generate_params
 
 
@@ -201,14 +216,33 @@ def map_to_openai_response(results, generate_params: GenerateParams):
     return response
 
 
+class ChatContentPart(BaseModel):
+    type: str
+    text: Optional[str] = None
+    url: Optional[str] = None
+    detail: Optional[str] = None
+    file_id: Optional[str] = None
+    file_data: Optional[str] = None
+    filename: Optional[str] = None
+    mime_type: Optional[str] = None
+    image_url: Optional[Union[str, dict[str, Any]]] = None
+    audio_url: Optional[Union[str, dict[str, Any]]] = None
+    video_url: Optional[Union[str, dict[str, Any]]] = None
+    input_audio: Optional[dict[str, Any]] = None
+    data: Optional[str] = None
+    format: Optional[str] = None
+
+
 class ChatMessage(BaseModel):
     role: str  # "system", "user", "assistant"
-    content: str
+    content: Union[str, List[ChatContentPart]]
 
 
 class ChatCompletionParams(BaseModel):
     model: str = "qwen3.5-4b"
     messages: List[ChatMessage]
+    system_message: Optional[str] = None
+    system_prompt: Optional[str] = None
     max_tokens: Optional[int] = 32768
     temperature: Optional[float] = 1.0
     top_p: Optional[float] = 1.0
@@ -217,6 +251,8 @@ class ChatCompletionParams(BaseModel):
     repetition_penalty: Optional[float] = 1.0
     stream: bool = False
     enable_thinking: Optional[bool] = True
+    thinking: Optional[dict[str, str]] = None
+    reasoning_effort: Optional[str] = None
     n: int = 1
 
 
@@ -273,6 +309,11 @@ class CreateCheckoutRequest(BaseModel):
     type: Optional[str] = "monthly"  # legacy todo rm me
     subscription_type: Optional[str] = "monthly"
     referral: Optional[str] = ""
+    quantity: Optional[int] = 1
+    return_url: Optional[str] = ""
+    surface: Optional[str] = ""
+    th_client_id: Optional[str] = ""
+    th_session_id: Optional[str] = ""
 
 
 def create_generate_params(

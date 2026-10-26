@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import storage
 
 from questions.logging_config import setup_logging
@@ -11,11 +12,19 @@ logger = logging.getLogger(__name__)
 from questions.utils import log_time
 
 
+class ModelDownloadUnavailable(RuntimeError):
+    pass
+
+
 def download_model(prefix, dl_dir):
     Path(dl_dir).mkdir(parents=True, exist_ok=True)
 
     bucket_name = "20-questions"
-    storage_client = storage.Client()
+    try:
+        storage_client = storage.Client()
+    except DefaultCredentialsError as exc:
+        logger.warning("Google Cloud credentials are unavailable while downloading model prefix %s", prefix)
+        raise ModelDownloadUnavailable("Model storage credentials are unavailable") from exc
     bucket = storage_client.get_bucket(bucket_name)
     blobs = bucket.list_blobs(prefix=prefix)  # Get list of files
     # e.g gs ://20-questions/gpt-neo-model.tar.gz

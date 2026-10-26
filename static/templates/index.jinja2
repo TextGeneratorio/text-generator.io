@@ -13,7 +13,7 @@
     <meta name="keywords" content="text generation, language generation, classification, text based machine learning, natural language generation">
     <meta property="og:title" content="{{ title }}">
     <meta property="og:url" content="{{ url }}">
-    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:image" content="https://text-generator.io/static/img/og-card.jpg">
     <meta property="og:description"
           content="{{ description }}">
     <meta property="og:type" content="website">
@@ -21,6 +21,10 @@
     <meta property="fb:admins" content="337972272904903">
 
 
+{% endblock %}
+
+{% block js %}
+    <script defer src="/static/js/homepage-code-tabs.js?v=1"></script>
 {% endblock %}
 
 {% block mainbody %}

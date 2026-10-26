@@ -160,6 +160,32 @@ function escapeHtml(unsafe) {
 }
 
 var secret = '';
+function parseQueryParams(search) {
+    var params = {};
+    var query = search || '';
+    if (query.charAt(0) === '?') {
+        query = query.slice(1);
+    }
+    if (!query) {
+        return params;
+    }
+    query.split('&').forEach(function (part) {
+        if (!part) {
+            return;
+        }
+        var separatorIndex = part.indexOf('=');
+        var key = separatorIndex === -1 ? part : part.slice(0, separatorIndex);
+        var value = separatorIndex === -1 ? '' : part.slice(separatorIndex + 1);
+        try {
+            key = decodeURIComponent(key.replace(/\+/g, ' '));
+            value = decodeURIComponent(value.replace(/\+/g, ' '));
+        } catch (error) {
+            return;
+        }
+        params[key] = value;
+    });
+    return params;
+}
 var setUrl = function () {
     // set the url to generate settings so users can share and come back to the same place
 
@@ -170,7 +196,7 @@ var setUrl = function () {
 
 }
 var setupFromUrl = function () {
-    const params = Object.fromEntries(new URLSearchParams(location.search));
+    var params = parseQueryParams(location.search);
     if (!params.text) {
         return;
     }
@@ -332,6 +358,29 @@ var presets = {
 
 var preset_names = Object.keys(presets);
 
+function hasSelect2() {
+    return typeof $ !== 'undefined' && !!($.fn && $.fn.select2);
+}
+
+function initializeSelect2(selector, options) {
+    if (hasSelect2()) {
+        $(selector).select2(options);
+    }
+}
+
+function getStopSequenceValues() {
+    if (hasSelect2()) {
+        return $('#select-stop-sequences').select2('data').map(function (value) {
+            return value.text;
+        });
+    }
+    var selectedValues = $('#select-stop-sequences').val();
+    if (!selectedValues) {
+        return [];
+    }
+    return Array.isArray(selectedValues) ? selectedValues : [selectedValues];
+}
+
 function setPreset(preset) {
     setTextUI(preset.text);
     setTextData(preset.text);
@@ -356,7 +405,7 @@ $(document).ready(function () {
         return '<option value="' + key + '">' + key + '</option>';
     });
     $('#preset').html(presetOptions);
-    $('#preset').select2({
+    initializeSelect2('#preset', {
         data: preset_names
     });
     // on change
@@ -400,10 +449,7 @@ var setMinProbability = function (value) {
 }
 var setStopSequences = function (value) {
     // split lines
-    values = $('#select-stop-sequences').select2('data');
-    values = values.map(function (value) {
-        return value.text;
-    });
+    var values = getStopSequenceValues();
     generationSettings['stop_sequences'] = values
     setUrl(generationSettings)
 }
@@ -611,12 +657,12 @@ function setupSubmitForm() {
         }
     })
 
-    $('#select-stop-sequences').select2({
+    initializeSelect2('#select-stop-sequences', {
         tags: true,
 
         placeholder: 'Multiple stop sequences allowed'
     })
-    $('#select-model').select2({
+    initializeSelect2('#select-model', {
         // tags: true,
         multiple: false,
         placeholder: 'Best'
@@ -903,4 +949,3 @@ window.addEventListener('load', function () {
     }
 });
 var csvUploaded;
-

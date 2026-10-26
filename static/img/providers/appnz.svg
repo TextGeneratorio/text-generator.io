@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="App.nz">
+  <rect width="64" height="64" rx="16" fill="#101828"/>
+  <path d="M16 18h32v8H16zm0 12h22v8H16zm0 12h32v8H16z" fill="#37d67a"/>
+  <path d="M42 30h6v8h-6z" fill="#f9fafb"/>
+</svg>

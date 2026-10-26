@@ -1,0 +1,599 @@
+<style>
+    .tg-keyword-app {
+        min-height: calc(100vh - 180px);
+        padding-bottom: 56px;
+    }
+
+    .tg-keyword-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+        gap: 24px;
+    }
+
+    .tg-keyword-panel {
+        border: 1px solid #dde6f0;
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.94));
+        box-shadow: 0 20px 54px rgba(16, 42, 67, 0.1);
+        overflow: hidden;
+    }
+
+    .tg-keyword-main {
+        display: flex;
+        flex-direction: column;
+        min-height: 760px;
+    }
+
+    .tg-keyword-header {
+        padding: 26px 28px 18px;
+        background:
+            radial-gradient(circle at top left, rgba(5, 150, 105, 0.24), transparent 32%),
+            linear-gradient(145deg, #064e3b 0%, #065f46 54%, #047857 100%);
+        color: #fff;
+    }
+
+    .tg-keyword-kicker {
+        margin: 0;
+        font: 700 0.78rem/1.2 'IBM Plex Mono', monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(255, 255, 255, 0.75);
+    }
+
+    .tg-keyword-title {
+        margin: 12px 0 10px;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+        color: #fff;
+    }
+
+    .tg-keyword-lead {
+        margin: 0;
+        max-width: 58ch;
+        color: rgba(232, 240, 249, 0.9);
+        line-height: 1.6;
+    }
+
+    .tg-keyword-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .tg-keyword-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #f7fbff;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+
+    .tg-keyword-body {
+        flex: 1;
+        padding: 24px;
+        background: linear-gradient(180deg, #f6f8fc, #eef3f8);
+        overflow-y: auto;
+    }
+
+    .tg-keyword-empty {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 38px 0 24px;
+        text-align: center;
+        color: #486581;
+    }
+
+    .tg-keyword-empty h3 {
+        margin: 0 0 12px;
+        color: #102a43;
+    }
+
+    .tg-keyword-suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .tg-keyword-suggestion {
+        border: 1px solid #cfd9e4;
+        border-radius: 999px;
+        background: #fff;
+        padding: 10px 14px;
+        color: #102a43;
+        cursor: pointer;
+        font: inherit;
+        transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+
+    .tg-keyword-suggestion:hover {
+        transform: translateY(-1px);
+        border-color: #059669;
+    }
+
+    .tg-keyword-input {
+        border-top: 1px solid #dde6f0;
+        background: #fff;
+        padding: 20px 24px 24px;
+    }
+
+    .tg-keyword-form {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .tg-keyword-form input[type="text"] {
+        flex: 1;
+        min-height: 48px;
+        border-radius: 999px;
+        border: 1px solid #cbd6e2;
+        padding: 0 20px;
+        box-sizing: border-box;
+        font: inherit;
+        color: #102a43;
+        background: #fbfdff;
+    }
+
+    .tg-keyword-form input[type="text"]:focus {
+        outline: none;
+        border-color: #059669;
+        box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12);
+    }
+
+    .tg-keyword-submit {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 48px;
+        border: none;
+        border-radius: 999px;
+        padding: 0 18px;
+        background: linear-gradient(135deg, #059669, #10b981);
+        color: #fff;
+        font: 700 0.95rem/1 'Sora', 'Segoe UI', sans-serif;
+        cursor: pointer;
+        box-shadow: 0 16px 34px rgba(5, 150, 105, 0.26);
+        white-space: nowrap;
+    }
+
+    .tg-keyword-submit[disabled] {
+        opacity: 0.7;
+        cursor: default;
+        box-shadow: none;
+    }
+
+    .tg-keyword-status {
+        color: #486581;
+        font-size: 0.88rem;
+        margin-top: 10px;
+    }
+
+    /* Results */
+    .tg-keyword-results {
+        display: grid;
+        gap: 18px;
+        max-width: 820px;
+    }
+
+    .tg-keyword-card {
+        border: 1px solid #dde6f0;
+        border-radius: 22px;
+        background: #fff;
+        padding: 20px 22px;
+        box-shadow: 0 8px 24px rgba(16, 42, 67, 0.06);
+    }
+
+    .tg-keyword-card h3 {
+        margin: 0 0 12px;
+        font-size: 1.05rem;
+        color: #102a43;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .tg-keyword-card h3 i {
+        color: #059669;
+        font-size: 1.2rem;
+    }
+
+    .tg-keyword-definition {
+        line-height: 1.7;
+        color: #334e68;
+    }
+
+    .tg-keyword-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tg-keyword-tag {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: #ecfdf5;
+        color: #065f46;
+        font-size: 0.88rem;
+        font-weight: 500;
+        border: 1px solid #a7f3d0;
+    }
+
+    .tg-keyword-tag--seo {
+        background: #eff6ff;
+        color: #1e40af;
+        border-color: #bfdbfe;
+    }
+
+    .tg-keyword-tag--related {
+        background: #fef3c7;
+        color: #92400e;
+        border-color: #fde68a;
+    }
+
+    .tg-keyword-wordnet-entry {
+        padding: 12px 0;
+        border-bottom: 1px solid #eef3f8;
+    }
+
+    .tg-keyword-wordnet-entry:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .tg-keyword-wordnet-pos {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: #e0f2fe;
+        color: #0369a1;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-left: 6px;
+    }
+
+    .tg-keyword-wordnet-def {
+        margin: 6px 0;
+        color: #334e68;
+        line-height: 1.6;
+    }
+
+    .tg-keyword-wordnet-meta {
+        font-size: 0.85rem;
+        color: #627d98;
+    }
+
+    .tg-keyword-glossary-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #eef3f8;
+    }
+
+    .tg-keyword-glossary-item:last-child {
+        border-bottom: none;
+    }
+
+    .tg-keyword-glossary-term {
+        font-weight: 700;
+        color: #102a43;
+    }
+
+    .tg-keyword-glossary-def {
+        color: #486581;
+        margin-top: 4px;
+        line-height: 1.55;
+    }
+
+    /* Sidebar */
+    .tg-keyword-sidebar {
+        padding: 24px;
+        display: grid;
+        gap: 18px;
+        align-content: start;
+    }
+
+    .tg-keyword-sidecard {
+        padding: 20px;
+        border-radius: 24px;
+        border: 1px solid #dde6f0;
+        background: #fff;
+        box-shadow: 0 14px 34px rgba(16, 42, 67, 0.08);
+    }
+
+    .tg-keyword-sidecard h3,
+    .tg-keyword-sidecard h4 {
+        margin-top: 0;
+        color: #102a43;
+    }
+
+    .tg-keyword-sidecard p,
+    .tg-keyword-sidecard li {
+        color: #486581;
+        line-height: 1.65;
+    }
+
+    .tg-keyword-sidecard ul {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    @media (max-width: 1040px) {
+        .tg-keyword-shell {
+            grid-template-columns: 1fr;
+        }
+
+        .tg-keyword-main {
+            min-height: auto;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .tg-keyword-header,
+        .tg-keyword-body,
+        .tg-keyword-input,
+        .tg-keyword-sidebar {
+            padding-left: 18px;
+            padding-right: 18px;
+        }
+
+        .tg-keyword-form {
+            flex-direction: column;
+        }
+
+        .tg-keyword-form input[type="text"],
+        .tg-keyword-submit {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content tg-keyword-app">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--12-col">
+            <section class="tg-keyword-shell">
+                <section class="tg-keyword-panel tg-keyword-main">
+                    <header class="tg-keyword-header">
+                        <p class="tg-keyword-kicker">SEO &amp; Linguistics</p>
+                        <h1 class="tg-keyword-title">Keyword &amp; Glossary Explorer</h1>
+                        <p class="tg-keyword-lead">
+                            Enter any topic to explore synonyms, related terms, SEO keywords,
+                            WordNet definitions, and AI-generated glossary entries.
+                        </p>
+                        <div class="tg-keyword-badges">
+                            <span class="tg-keyword-badge"><i class="material-icons" aria-hidden="true">menu_book</i> WordNet</span>
+                            <span class="tg-keyword-badge"><i class="material-icons" aria-hidden="true">hub</i> Embeddings</span>
+                            <span class="tg-keyword-badge"><i class="material-icons" aria-hidden="true">auto_awesome</i> AI-powered</span>
+                        </div>
+                    </header>
+
+                    <div class="tg-keyword-body" id="keyword-body">
+                        <div class="tg-keyword-empty" id="keyword-empty">
+                            <h3>Explore any topic's keyword universe</h3>
+                            <p>
+                                Get synonyms from WordNet, semantically related terms via embeddings,
+                                SEO keyword suggestions, glossary entries, and linguistic analysis.
+                            </p>
+                            <div class="tg-keyword-suggestions">
+                                <button type="button" class="tg-keyword-suggestion" data-suggestion="machine learning">machine learning</button>
+                                <button type="button" class="tg-keyword-suggestion" data-suggestion="sustainable energy">sustainable energy</button>
+                                <button type="button" class="tg-keyword-suggestion" data-suggestion="content marketing">content marketing</button>
+                                <button type="button" class="tg-keyword-suggestion" data-suggestion="blockchain">blockchain</button>
+                            </div>
+                        </div>
+                        <div class="tg-keyword-results" id="keyword-results" hidden></div>
+                    </div>
+
+                    <div class="tg-keyword-input">
+                        <form id="keyword-form" class="tg-keyword-form">
+                            <input
+                                type="text"
+                                id="keyword-input"
+                                placeholder="Enter a topic (e.g. &quot;machine learning&quot;, &quot;renewable energy&quot;, &quot;startup&quot;)"
+                                autocomplete="off"
+                            >
+                            <button type="submit" class="tg-keyword-submit" id="keyword-submit">
+                                <i class="material-icons" aria-hidden="true">search</i>
+                                Explore
+                            </button>
+                        </form>
+                        <div class="tg-keyword-status" id="keyword-status"></div>
+                    </div>
+                </section>
+
+                <aside class="tg-keyword-sidebar">
+                    <section class="tg-keyword-sidecard">
+                        <h3>How It Works</h3>
+                        <ul>
+                            <li><strong>WordNet</strong> provides dictionary definitions, synonyms, hypernyms, and hyponyms.</li>
+                            <li><strong>Embeddings</strong> find semantically related terms by walking the WordNet graph and ranking by vector similarity.</li>
+                            <li><strong>AI generation</strong> produces SEO keyword suggestions and glossary entries via language model.</li>
+                            <li><strong>NLTK</strong> provides stemming and lemmatization for linguistic analysis.</li>
+                        </ul>
+                    </section>
+
+                    <section class="tg-keyword-sidecard">
+                        <h4>Good Topics</h4>
+                        <p>Works best with single concepts or two-word phrases:</p>
+                        <ul>
+                            <li>Industry terms: <em>fintech</em>, <em>SaaS</em></li>
+                            <li>Academic topics: <em>photosynthesis</em>, <em>neural network</em></li>
+                            <li>Marketing concepts: <em>brand equity</em>, <em>conversion rate</em></li>
+                        </ul>
+                    </section>
+
+                    <section class="tg-keyword-sidecard">
+                        <h4>Use Cases</h4>
+                        <p>
+                            SEO content planning, topic research, glossary building,
+                            thesaurus exploration, and keyword brainstorming.
+                        </p>
+                    </section>
+                </aside>
+            </section>
+        </div>
+    </div>
+</main>
+
+<script>
+(function () {
+    const form = document.getElementById('keyword-form');
+    const input = document.getElementById('keyword-input');
+    const body = document.getElementById('keyword-body');
+    const empty = document.getElementById('keyword-empty');
+    const results = document.getElementById('keyword-results');
+    const status = document.getElementById('keyword-status');
+    const submit = document.getElementById('keyword-submit');
+    const suggestions = Array.from(document.querySelectorAll('[data-suggestion]'));
+
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function renderTags(items, cls) {
+        if (!items || !items.length) return '';
+        return '<div class="tg-keyword-tags">' +
+            items.map(function (t) { return '<span class="tg-keyword-tag ' + (cls || '') + '">' + esc(t) + '</span>'; }).join('') +
+            '</div>';
+    }
+
+    function renderDefinition(data) {
+        if (!data.topic_definition) return '';
+        return '<div class="tg-keyword-card">' +
+            '<h3><i class="material-icons">lightbulb</i> Definition</h3>' +
+            '<p class="tg-keyword-definition">' + esc(data.topic_definition) + '</p>' +
+            '</div>';
+    }
+
+    function renderSynonyms(data) {
+        if (!data.synonyms || !data.synonyms.length) return '';
+        return '<div class="tg-keyword-card">' +
+            '<h3><i class="material-icons">swap_horiz</i> Synonyms <small style="color:#627d98;font-weight:400;">(' + data.synonyms.length + ')</small></h3>' +
+            renderTags(data.synonyms) +
+            '</div>';
+    }
+
+    function renderRelated(data) {
+        if (!data.related_terms || !data.related_terms.length) return '';
+        return '<div class="tg-keyword-card">' +
+            '<h3><i class="material-icons">hub</i> Related Terms <small style="color:#627d98;font-weight:400;">(by embedding similarity)</small></h3>' +
+            renderTags(data.related_terms, 'tg-keyword-tag--related') +
+            '</div>';
+    }
+
+    function renderSeoKeywords(data) {
+        if (!data.seo_keywords || !data.seo_keywords.length) return '';
+        return '<div class="tg-keyword-card">' +
+            '<h3><i class="material-icons">trending_up</i> SEO Keywords <small style="color:#627d98;font-weight:400;">(' + data.seo_keywords.length + ')</small></h3>' +
+            renderTags(data.seo_keywords, 'tg-keyword-tag--seo') +
+            '</div>';
+    }
+
+    function renderWordNet(data) {
+        if (!data.wordnet_entries || !data.wordnet_entries.length) return '';
+        var html = '<div class="tg-keyword-card">' +
+            '<h3><i class="material-icons">menu_book</i> WordNet Entries</h3>';
+        data.wordnet_entries.forEach(function (e) {
+            html += '<div class="tg-keyword-wordnet-entry">' +
+                '<strong>' + esc(e.word) + '</strong>' +
+                '<span class="tg-keyword-wordnet-pos">' + esc(e.pos) + '</span>' +
+                '<p class="tg-keyword-wordnet-def">' + esc(e.definition) + '</p>';
+            var meta = [];
+            if (e.hypernyms && e.hypernyms.length) meta.push('<strong>Broader:</strong> ' + e.hypernyms.map(esc).join(', '));
+            if (e.hyponyms && e.hyponyms.length) meta.push('<strong>Narrower:</strong> ' + e.hyponyms.map(esc).join(', '));
+            if (e.examples && e.examples.length) meta.push('<strong>Examples:</strong> ' + e.examples.map(function(x){ return '<em>' + esc(x) + '</em>'; }).join('; '));
+            if (meta.length) html += '<div class="tg-keyword-wordnet-meta">' + meta.join(' &nbsp;|&nbsp; ') + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function renderGlossary(data) {
+        if (!data.glossary_entries || !data.glossary_entries.length) return '';
+        var html = '<div class="tg-keyword-card">' +
+            '<h3><i class="material-icons">article</i> Glossary</h3>';
+        data.glossary_entries.forEach(function (g) {
+            html += '<div class="tg-keyword-glossary-item">' +
+                '<div class="tg-keyword-glossary-term">' + esc(g.term) + '</div>' +
+                '<div class="tg-keyword-glossary-def">' + esc(g.definition) + '</div>' +
+                '</div>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function renderLinguistic(data) {
+        if ((!data.stems || !data.stems.length) && (!data.lemmas || !data.lemmas.length)) return '';
+        var html = '<div class="tg-keyword-card">' +
+            '<h3><i class="material-icons">translate</i> Linguistic Analysis</h3>';
+        if (data.stems && data.stems.length) html += '<p><strong>Stems:</strong> ' + data.stems.map(esc).join(', ') + '</p>';
+        if (data.lemmas && data.lemmas.length) html += '<p><strong>Lemmas:</strong> ' + data.lemmas.map(esc).join(', ') + '</p>';
+        html += '</div>';
+        return html;
+    }
+
+    function renderResults(data) {
+        empty.hidden = true;
+        results.hidden = false;
+        results.innerHTML =
+            '<h2 style="margin:0 0 12px;color:#102a43;letter-spacing:-0.03em;">' + esc(data.topic) + '</h2>' +
+            renderDefinition(data) +
+            renderSynonyms(data) +
+            renderRelated(data) +
+            renderSeoKeywords(data) +
+            renderWordNet(data) +
+            renderGlossary(data) +
+            renderLinguistic(data);
+    }
+
+    async function explore(topic) {
+        status.textContent = 'Exploring keywords for "' + topic + '"...';
+        submit.disabled = true;
+        input.disabled = true;
+
+        try {
+            var resp = await fetch('/api/tools/keyword-explorer/run', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({topic: topic})
+            });
+            var data = await resp.json().catch(function () { return {}; });
+            if (!resp.ok) throw new Error(data.detail || 'Keyword exploration failed.');
+            renderResults(data);
+            status.textContent = '';
+        } catch (err) {
+            status.textContent = err.message || 'Something went wrong.';
+        } finally {
+            submit.disabled = false;
+            input.disabled = false;
+            input.focus();
+        }
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var topic = input.value.trim();
+        if (!topic) { status.textContent = 'Enter a topic first.'; return; }
+        explore(topic);
+    });
+
+    suggestions.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            input.value = btn.dataset.suggestion || '';
+            input.focus();
+        });
+    });
+})();
+</script>

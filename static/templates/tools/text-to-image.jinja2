@@ -1,0 +1,44 @@
+<section class="tti-page">
+    <div class="tti-shell">
+        <nav class="tti-crumbs"><a href="/tools">Tools</a><i class="material-icons">chevron_right</i><span>Text to Image</span></nav>
+        <header class="tti-hero">
+            <div>
+                <span class="tti-kicker"><i></i> Netwrck first-party inference</span>
+                <h1>Turn a sentence into<br><span>a finished image.</span></h1>
+                <p>Fast Proteus SDXL generation through the open-source server at <code>images2.netwrck.com</code>. Pick a canvas, describe the shot, and generate.</p>
+            </div>
+            <div class="tti-provider-card"><img src="/static/img/providers/netwrck.svg" alt=""><div><small>Provider</small><strong>Netwrck · Fast SDXL</strong><span>API pricing: $0.003 per image on App.nz</span></div></div>
+        </header>
+
+        <div class="tti-workspace">
+            <form class="tti-compose" id="tti-form">
+                <label for="tti-prompt">Image prompt</label>
+                <div class="tti-prompt-wrap">
+                    <textarea id="tti-prompt" maxlength="2000" required>A quiet glass cabin in a misty pine forest at blue hour, warm interior light, cinematic architectural photography</textarea>
+                    <span id="tti-count">110 / 2000</span>
+                </div>
+                <div class="tti-starters" aria-label="Prompt starters">
+                    <button type="button" data-prompt="Editorial portrait of a ceramic artist in a sunlit studio, natural skin, 85mm photography">Portrait</button>
+                    <button type="button" data-prompt="A tiny floating tea shop above the clouds, whimsical storybook illustration, soft gouache texture">Illustration</button>
+                    <button type="button" data-prompt="Minimal product photograph of a translucent orange speaker on brushed steel, hard studio light">Product</button>
+                    <button type="button" data-prompt="Wide cinematic landscape of a coastal city after rain, neon reflected in wet streets, dusk">Cinematic</button>
+                </div>
+                <fieldset><legend>Canvas</legend><div class="tti-sizes">
+                    <label><input type="radio" name="size" value="1024x1024" checked><span><i class="tti-square"></i>Square<small>1024 × 1024</small></span></label>
+                    <label><input type="radio" name="size" value="1344x768"><span><i class="tti-landscape"></i>Landscape<small>1344 × 768</small></span></label>
+                    <label><input type="radio" name="size" value="768x1344"><span><i class="tti-portrait"></i>Portrait<small>768 × 1344</small></span></label>
+                </div></fieldset>
+                <button class="tti-generate" id="tti-generate" type="submit"><i class="material-icons">auto_awesome</i><span>Generate image</span><small>Fast SDXL</small></button>
+                <p class="tti-status" id="tti-status" aria-live="polite">Sign in to run first-party image generation.</p>
+            </form>
+
+            <section class="tti-preview" id="tti-preview" aria-label="Generated image preview">
+                <div class="tti-preview-empty" id="tti-empty"><span><i class="material-icons">image</i></span><strong>Your image will appear here</strong><p>1024px output · WebP · private prompt</p></div>
+                <img id="tti-image" alt="Generated image" hidden>
+                <div class="tti-preview-actions" id="tti-actions" hidden><a id="tti-open" target="_blank" rel="noopener">Open full image</a><span>Netwrck · Fast SDXL</span></div>
+            </section>
+        </div>
+    </div>
+</section>
+<link rel="stylesheet" href="/static/css/text-to-image.css?v=1">
+<script defer src="/static/js/text-to-image.js?v=2"></script>

@@ -1,0 +1,174 @@
+{% extends 'templates/base.jinja2' %}
+
+{% block headers %}
+    {% set title = 'Sitemap - Text Generator' -%}
+    {% set description = 'Browse key Text Generator pages, tools, API documentation, model pages, and prompt resources.' -%}
+
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <meta name="description" content="{{ description }}">
+    <meta name="keywords" content="text generator sitemap, AI tools, API documentation, AI prompts, AI models">
+    <meta property="og:title" content="{{ title }}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="https://text-generator.io/static/img/og-card.jpg">
+    <meta property="og:description" content="{{ description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Text Generator">
+{% endblock %}
+
+{% block css %}
+    <style>
+        .tg-sitemap {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 72px 20px;
+        }
+
+        .tg-sitemap h1 {
+            margin: 0 0 12px;
+            color: #101828;
+            font-size: 42px;
+            line-height: 1.12;
+            font-weight: 800;
+        }
+
+        .tg-sitemap-intro {
+            max-width: 720px;
+            margin: 0 0 36px;
+            color: #475467;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .tg-sitemap-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .tg-sitemap-section {
+            border: 1px solid #e4e7ec;
+            border-radius: 8px;
+            padding: 22px;
+            background: #fff;
+        }
+
+        .tg-sitemap-section h2 {
+            margin: 0 0 16px;
+            color: #182230;
+            font-size: 18px;
+            line-height: 1.3;
+            font-weight: 700;
+        }
+
+        .tg-sitemap-section ul {
+            display: grid;
+            gap: 10px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .tg-sitemap-section a {
+            color: #155eef;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .tg-sitemap-section a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 840px) {
+            .tg-sitemap {
+                padding: 48px 18px;
+            }
+
+            .tg-sitemap h1 {
+                font-size: 34px;
+            }
+
+            .tg-sitemap-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block mainbody %}
+    <main class="tg-sitemap">
+        <h1>Text Generator Sitemap</h1>
+        <p class="tg-sitemap-intro">Find the main product pages, API resources, model catalog pages, tools, and prompt directories available on Text Generator.</p>
+
+        <div class="tg-sitemap-grid">
+            <section class="tg-sitemap-section">
+                <h2>Product</h2>
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/about">About</a></li>
+                    <li><a href="/how-it-works">How it works</a></li>
+                    <li><a href="/self-hosting">Self hosting</a></li>
+                    <li><a href="/subscribe">Subscribe</a></li>
+                </ul>
+            </section>
+
+            <section class="tg-sitemap-section">
+                <h2>API</h2>
+                <ul>
+                    <li><a href="/docs">Documentation</a></li>
+                    <li><a href="/playground">Playground</a></li>
+                    <li><a href="/text-to-speech">Text to speech</a></li>
+                    <li><a href="/speech-to-text">Speech to text</a></li>
+                    <li><a href="/voice-chat">Voice chat</a></li>
+                    <li><a href="/swagger-docs">Swagger docs</a></li>
+                </ul>
+            </section>
+
+            <section class="tg-sitemap-section">
+                <h2>Catalogs</h2>
+                <ul>
+                    <li><a href="/models">Models</a></li>
+                    <li><a href="/providers">Providers</a></li>
+                    <li><a href="/prompts">Prompts</a></li>
+                    <li><a href="/prompts/sitemap">Prompt sitemap</a></li>
+                    <li><a href="/use-cases">Use cases</a></li>
+                    <li><a href="/blog">Blog</a></li>
+                </ul>
+            </section>
+
+            <section class="tg-sitemap-section">
+                <h2>Tools</h2>
+                <ul>
+                    <li><a href="/tools">Tools index</a></li>
+                    <li><a href="/tools/domain-generator">Domain generator</a></li>
+                    <li><a href="/tools/prompt-optimizer">Prompt optimizer</a></li>
+                    <li><a href="/tools/deep-researcher">Deep researcher</a></li>
+                    <li><a href="/tools/text-to-image">Text to image</a></li>
+                    <li><a href="/tools/ux-seo-review">UX SEO review</a></li>
+                </ul>
+            </section>
+
+            <section class="tg-sitemap-section">
+                <h2>Account</h2>
+                <ul>
+                    <li><a href="/login">Login</a></li>
+                    <li><a href="/signup">Sign up</a></li>
+                    <li><a href="/account">Account</a></li>
+                    <li><a href="/forgot-password">Forgot password</a></li>
+                    <li><a href="/terms">Terms</a></li>
+                    <li><a href="/privacy">Privacy</a></li>
+                </ul>
+            </section>
+
+            <section class="tg-sitemap-section">
+                <h2>Machine Readable</h2>
+                <ul>
+                    <li><a href="/sitemap.xml">XML sitemap</a></li>
+                    <li><a href="/static/openapi.json">OpenAPI JSON</a></li>
+                    <li><a href="/robots.txt">Robots</a></li>
+                    <li><a href="/contact">Contact</a></li>
+                </ul>
+            </section>
+        </div>
+    </main>
+{% endblock %}

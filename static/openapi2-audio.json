@@ -568,10 +568,36 @@
             "title": "Text",
             "type": "string"
           },
+          "voice": {
+            "title": "Voice",
+            "type": "string",
+            "default": "af",
+            "description": "Kokoro voice name, or Supertonic voice M1-M5/F1-F5"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string",
+            "enum": ["en", "ko", "ja", "ar", "bg", "cs", "da", "de", "el", "es", "et", "fi", "fr", "hi", "hr", "hu", "id", "it", "lt", "lv", "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "tr", "uk", "vi"],
+            "default": "en",
+            "description": "Supertonic language code; Kokoro derives language from the voice"
+          },
+          "speed": {
+            "title": "Speed",
+            "type": "number",
+            "default": 1.0,
+            "description": "Speech speed multiplier"
+          },
+          "steps": {
+            "title": "Steps",
+            "type": "integer",
+            "default": 4,
+            "description": "Supertonic synthesis steps"
+          },
           "speaker": {
             "title": "Speaker",
             "type": "string",
-            "default": "Female 1"
+            "default": "Female 1",
+            "description": "Legacy speaker field"
           }
         }
       },

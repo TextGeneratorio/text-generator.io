@@ -1,8 +1,0 @@
-indexes:
-
-- kind: Document
-  properties:
-  - name: user_id
-  - name: updated
-    direction: desc
-

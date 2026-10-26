@@ -36,24 +36,25 @@ class TestPricingPage:
         assert "setupSubscriptionToggle" in response.text
 
     def test_subscribe_page_contains_form(self):
-        """Test that the pricing page contains the checkout form"""
+        """Test that the pricing page exposes the checkout entry point.
+
+        The inline POST form was replaced by the checkout dialog
+        (static/js/checkout-dialog.js -> /create-checkout-session-embedded).
+        """
         response = client.get("/subscribe")
         assert response.status_code == 200
 
-        # Check for form elements
-        assert 'action="/create-checkout-session"' in response.text
-        assert 'name="type"' in response.text
-        assert 'name="uid"' in response.text
-        assert 'name="secret"' in response.text
+        assert 'id="checkout-button"' in response.text
+        assert 'onclick="openCheckoutDialog()"' in response.text
+        assert "checkout-dialog.js" in response.text
 
     def test_subscribe_page_default_values(self):
-        """Test that the pricing page has correct default values"""
+        """Test that the pricing page defaults to annual billing."""
         response = client.get("/subscribe")
         assert response.status_code == 200
 
-        # Check default values
-        assert 'value="annual"' in response.text  # Default type should be annual
-        # Note: Specific prices are configurable and may change, so we don't test exact amounts
+        # Toggle is checked by default and drives the annual pricing display.
+        assert 'class="subscription-toggle" checked' in response.text
         assert "USD" in response.text  # Should show some USD pricing
         assert "Annually" in response.text  # Default should show annual period
 

@@ -28,7 +28,7 @@ import requests
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    handlers=[logging.StreamHandler(sys.stderr)],
 )
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,17 @@ BASE_URL = os.getenv("E2E_BASE_URL", "https://text-generator.io")
 TEST_EMAIL_PREFIX = "e2e-test-"
 TEST_EMAIL_DOMAIN = "@test.text-generator.io"
 TEST_PASSWORD = "E2ETestPassword123!"
+_SHIM = os.path.expanduser("~/.local/monitor-bin/codex")  # local codex -> stock -> deepseek-flash -> muse
+CODEX_LOCAL = os.environ.get("CODEX_LOCAL", _SHIM if os.path.isfile(_SHIM) else "/home/administrator/code/codex/codex-rs/target/release/codex")
+CODEX_CMD = [
+    CODEX_LOCAL,
+    "exec",
+    "--yolo3",
+    "-m",
+    "gpt-6.1-sol",
+    "--config",
+    "model_reasoning_effort=medium",
+]
 
 
 class AuthFlowTest:
@@ -196,6 +207,9 @@ class AuthFlowTest:
             # Login with deleted account should fail with 401 or create a new account
             # If it creates new account (200/303), that's actually fine for this test
             self.log_result("Verify Deleted", True, f"Login attempt returned {response.status_code}")
+            if response.status_code in [200, 303]:
+                # /api/login auto-creates accounts; remove the recreated one so the run leaves no residue
+                new_session.post(f"{self.base_url}/api/delete-account")
             return True
         except Exception as e:
             self.log_result("Verify Deleted", False, str(e))
@@ -262,8 +276,8 @@ class AuthFlowTest:
 
 
 def trigger_claude_fix(summary: dict):
-    """Trigger Claude agent to fix failing tests."""
-    logger.info("Triggering Claude agent to investigate and fix issues...")
+    """Trigger Codex agent to fix failing tests."""
+    logger.info("Triggering Codex agent to investigate and fix issues...")
 
     # Build error context
     failed_steps = [r for r in summary["results"] if not r["success"]]
@@ -284,34 +298,34 @@ Please investigate the failing endpoints and fix any issues. The test flow is:
 5. Access account (/api/get-user/stripe-usage)
 6. Delete account (/api/delete-account)
 
-Check the supervisor logs with: sudo supervisorctl tail -500 text-generator-site
-Then investigate and fix the relevant code in main.py.
+Check the logs with: tail -200 mainserver.log and /var/log/supervisor/text-generator-site*.log
+Then investigate and fix the relevant code in main.py and redeploy with: sudo -n systemctl restart text-generator-site.service
 """
 
-    # Run claude code with the prompt
+    # Run codex with the prompt
     try:
         result = subprocess.run(
-            ["claude", "-p", prompt],
+            [*CODEX_CMD, prompt],
             cwd="/nvme0n1-disk/code/text-generator.io",
             capture_output=True,
             text=True,
             timeout=300,
         )
-        logger.info(f"Claude agent output:\n{result.stdout}")
+        logger.info(f"Codex agent output:\n{result.stdout}")
         if result.returncode != 0:
-            logger.error(f"Claude agent error:\n{result.stderr}")
+            logger.error(f"Codex agent error:\n{result.stderr}")
     except subprocess.TimeoutExpired:
-        logger.error("Claude agent timed out after 5 minutes")
+        logger.error("Codex agent timed out after 5 minutes")
     except FileNotFoundError:
-        logger.error("Claude CLI not found. Install with: npm install -g @anthropic/claude-code")
+        logger.error(f"Codex CLI not found: {CODEX_LOCAL}")
     except Exception as e:
-        logger.error(f"Error running Claude agent: {e}")
+        logger.error(f"Error running Codex agent: {e}")
 
 
 def main():
     parser = argparse.ArgumentParser(description="E2E Auth Flow Monitor")
     parser.add_argument("--base-url", default=BASE_URL, help="Base URL to test against")
-    parser.add_argument("--auto-fix", action="store_true", help="Trigger Claude agent to fix issues")
+    parser.add_argument("--auto-fix", action="store_true", help="Trigger Codex agent to fix issues")
     parser.add_argument("--json", action="store_true", help="Output results as JSON")
     args = parser.parse_args()
 

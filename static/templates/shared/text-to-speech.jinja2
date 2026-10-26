@@ -1,268 +1,65 @@
-<!DOCTYPE html>
-<html>
+<section class="tts-studio" data-textgen-api="{{ inference_server_url }}">
+    <div class="tts-studio__shell">
+        <nav class="tts-breadcrumbs"><a href="/tools">Tools</a><i class="material-icons">chevron_right</i><span>Text to Speech</span></nav>
 
-<head>
-	<title>{{ title }}</title>
-	<style>
-		body {
-			font-family: sans-serif;
-		}
+        <header class="tts-studio__hero">
+            <div>
+                <span class="tts-eyebrow"><i></i> First-party voice studio</span>
+                <h1>Give your words<br><span>a real voice.</span></h1>
+                <p>Write with instant on-device typeahead, audition distinct voices, and generate production-ready speech. App.nz routes bill your Text Generator credit balance.</p>
+                <div class="tts-hero-meta"><span><i class="material-icons">bolt</i>Local autocomplete</span><span><i class="material-icons">lock</i>Drafts stay in your browser</span><span><i class="material-icons">graphic_eq</i>Four speech routes</span></div>
+            </div>
+            <aside class="tts-route-card">
+                <div class="tts-route-card__top"><span><i></i> Route ready</span><small>OpenAI compatible</small></div>
+                <div class="tts-route-card__line"><img src="/static/img/text-generator-brain.png" alt=""><div><small>Default route</small><strong>Kokoro · af_nicole</strong></div><i class="material-icons">arrow_forward</i></div>
+                <code>POST /api/v1/generate_speech</code>
+            </aside>
+        </header>
 
-		.demo-ribbon {
-			width: 100%;
-			height: 40vh;
-			background-color: #3F51B5;
-			flex-shrink: 0;
-		}
+        <main class="tts-studio__workspace">
+            <section class="tts-compose" aria-label="Speech composer">
+                <div class="tts-section-heading"><div><span>01</span><div><strong>Write the script</strong><small>Autocomplete runs against a local frequency index.</small></div></div><button id="tts-example" type="button">Use example</button></div>
+                <div class="tts-editor">
+                    <textarea id="tts-text" rows="7" maxlength="5000" autocomplete="off" spellcheck="true" aria-autocomplete="list" aria-controls="tts-typeahead" aria-expanded="false">Welcome to Text Generator. One API gives your application a fast, natural voice.</textarea>
+                    <div class="tts-typeahead" id="tts-typeahead" role="listbox" hidden></div>
+                    <footer><span><i class="material-icons">auto_awesome</i> Local typeahead</span><span id="tts-character-count">82 / 5000</span></footer>
+                </div>
 
-		.demo-main {
-			margin-top: -35vh;
-			flex-shrink: 0;
-		}
+                <div class="tts-section-heading tts-section-heading--route"><div><span>02</span><div><strong>Choose a route</strong><small>Switch models without rebuilding the request.</small></div></div><div class="tts-credit-chip"><span>Balance <strong id="tts-credit-balance">$0.00</strong></span><button id="tts-topup" type="button">Top up</button></div></div>
+                <div class="tts-model-grid" id="tts-model-grid">
+                    <label><input type="radio" name="tts-model" value="kokoro" checked><span><b>Text Generator</b><strong>Kokoro</strong><small>Fast English speech</small></span></label>
+                    <label><input type="radio" name="tts-model" value="supertonic"><span><b>Text Generator</b><strong>Supertonic</strong><small>Multilingual speech</small></span></label>
+                    <label><input type="radio" name="tts-model" value="appnz-tts"><span><b>App.nz</b><strong>App.nz TTS</strong><small>$0.10 / min · TG credits</small></span></label>
+                    <label><input type="radio" name="tts-model" value="pocket-tts"><span><b>App.nz</b><strong>Pocket TTS</strong><small>$0.06 / min · TG credits</small></span></label>
+                </div>
 
-		.demo-container {
-			max-width: 1600px;
-			width: calc(100% - 16px);
-			margin: 0 auto;
-		}
+                <div class="tts-controls">
+                    <label><span>Voice</span><select id="tts-voice"></select></label>
+                    <label><span>Language</span><select id="tts-language">
+                        <option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="hi">Hindi</option><option value="ar">Arabic</option>
+                    </select></label>
+                    <label><span>Speed <output id="tts-speed-value">1.0×</output></span><input id="tts-speed" type="range" min="0.6" max="1.6" step="0.1" value="1"></label>
+                </div>
 
-		.demo-content {
-			border-radius: 2px;
-			padding: 40px 56px;
-			margin-bottom: 80px;
-		}
+                <button class="tts-generate" id="tts-generate" type="button"><span class="tts-generate__icon"><i class="material-icons">play_arrow</i></span><span><strong>Generate speech</strong><small id="tts-generate-route">Text Generator · Kokoro</small></span><i class="material-icons">arrow_forward</i></button>
+                <p class="tts-status" id="tts-status" aria-live="polite">Sign in to generate with your Text Generator account.</p>
+            </section>
 
-		.tts-container {
-			max-width: 600px;
-			margin: 0 auto;
-		}
+            <aside class="tts-output" aria-label="Speech result">
+                <div class="tts-output__chrome"><span><i></i><i></i><i></i></span><strong>Voice preview</strong><small id="tts-route-status">Ready</small></div>
+                <div class="tts-voice-orb" id="tts-voice-orb"><span><i class="material-icons">graphic_eq</i></span><div class="tts-wave" aria-hidden="true">{% for i in range(24) %}<i style="--i:{{ i }}"></i>{% endfor %}</div></div>
+                <div class="tts-now-playing"><small>Selected voice</small><strong id="tts-now-voice">af_nicole</strong><span id="tts-now-model">Kokoro · Text Generator</span></div>
+                <audio id="tts-audio" controls preload="none"></audio>
+                <div class="tts-output__facts"><span><small>Format</small><strong id="tts-format">WAV</strong></span><span><small>Processing</small><strong id="tts-processing">Local draft</strong></span><span><small>Billing</small><strong id="tts-billing">Account usage</strong></span></div>
+            </aside>
+        </main>
 
-		.tts-field {
-			margin: 1rem 0;
-		}
-
-		.mdl-button {
-			margin: 16px 0;
-		}
-
-		.demo-crumbs {
-			margin-bottom: 20px;
-		}
-
-		.demo-crumbs a {
-			color: #666;
-			text-decoration: none;
-		}
-
-		.code-examples {
-			display: none;
-			margin-top: 20px;
-			padding: 20px;
-			background: #f5f5f5;
-			border-radius: 4px;
-		}
-
-		pre {
-			white-space: pre-wrap;
-			word-wrap: break-word;
-		}
-	</style>
-</head>
-
-<body>
-	<div class="demo-ribbon"></div>
-	<main class="demo-main mdl-layout__content">
-		<div class="demo-container mdl-grid">
-			<div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
-			<div
-				class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
-				<div class="demo-crumbs mdl-color-text--grey-500">
-					<a href="/" title="Text Generator">Text Generator</a> > Text-to-Speech Generator API
-				</div>
-
-				<div class="tts-container">
-					<h1>Text-to-Speech Generator API</h1>
-					<p>Enter text, select voice, choose speed, and click "Generate Speech".</p>
-
-					<div class="tts-field">
-						<label for="textInput">Text to Synthesize:</label><br />
-						<textarea id="textInput" rows="3" style="width:100%;" class="mdl-textfield__input"
-							placeholder="Enter text here..." autofocus>Hey hows it going</textarea>
-					</div>
-
-					<div class="tts-field">
-						<label for="voiceSelect">Voice:</label>
-						<select id="voiceSelect" class="mdl-textfield__input">
-							<option value="af_nicole" selected>af_nicole</option>
-							<option value="af_bella">af_bella</option>
-							<option value="af_sarah">af_sarah</option>
-							<option value="am_adam">am_adam</option>
-							<option value="am_michael">am_michael</option>
-							<option value="bf_emma">bf_emma</option>
-							<option value="bf_isabella">bf_isabella</option>
-							<option value="bm_george">bm_george</option>
-							<option value="bm_lewis">bm_lewis</option>
-							<option value="af_sky">af_sky</option>
-						</select>
-					</div>
-
-					<div class="tts-field">
-						<label for="speed">Speed:</label>
-						<input type="range" id="speed" min="0.5" max="2.0" step="0.1" value="1.0" />
-						<span id="speedValue">1.0</span>
-					</div>
-
-					<button id="generateBtn"
-						class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Generate Speech</button>
-					<button id="showCodeBtn" class="mdl-button mdl-js-button mdl-button--raised">Show Code
-						Examples</button>
-					<br /><br />
-					<audio id="audioPlayer" controls></audio>
-
-					<div id="codeExamples" class="code-examples">
-						<h3>Code Examples</h3>
-
-						<h4>cURL</h4>
-						<pre><code>curl -X POST "https://api.text-generator.io/api/v1/generate_speech" \
--H "Content-Type: application/json" \
--H "secret: YOUR_API_KEY" \
--d '{
-  "text": "Hello world",
-  "voice": "af_nicole",
-  "speed": 1.0
-}'</code></pre>
-
-						<h4>JavaScript</h4>
-						<pre><code>const response = await fetch('https://api.text-generator.io/api/v1/generate_speech', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'secret': 'YOUR_API_KEY'
-  },
-  body: JSON.stringify({
-    text: 'Hello world',
-    voice: 'af_nicole', 
-    speed: 1.0
-  })
-});</code></pre>
-
-						<h4>Python</h4>
-						<pre><code>import requests
-import json
-
-url = "https://api.text-generator.io/api/v1/generate_speech"
-headers = {
-    "Content-Type": "application/json",
-    "secret": "YOUR_API_KEY"
-}
-data = {
-    "text": "Hello world",
-    "voice": "af_nicole",
-    "speed": 1.0
-}
-
-response = requests.post(url, headers=headers, json=data)</code></pre>
-					</div>
-				</div>
-			</div>
-		</div>
-
-<section style="max-width:900px;margin:24px auto;padding:24px;text-align:center;background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);">
-    <h3 style="margin-top:0;">Build this into your product</h3>
-    <p>Unlimited speech, text and vision API access from $9.99/month.</p>
-    <a href="/signup" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent">Create Free Account</a>
-    <a href="/subscribe" class="mdl-button mdl-js-button">See Pricing</a>
+        <section class="tts-api-panel">
+            <div><span class="tts-eyebrow tts-eyebrow--dark"><i></i> Copy-ready API</span><h2>The same voice, in your app.</h2><p>The code updates with the selected route. All routes bill Text Generator credits at $0.01 each; App.nz speech is proxied and metered through your account.</p></div>
+            <div class="tts-code-card">
+                <div class="tts-code-tabs" role="tablist"><button class="is-active" data-tts-code="curl" type="button">cURL</button><button data-tts-code="javascript" type="button">JavaScript</button><button data-tts-code="python" type="button">Python</button><span id="tts-code-provider">Text Generator</span></div>
+                <pre><code id="tts-code"></code></pre>
+            </div>
+        </section>
+    </div>
 </section>
-	</main>
-
-	<script>
-		const textEl = document.getElementById("textInput");
-		const voiceEl = document.getElementById("voiceSelect");
-		const speedEl = document.getElementById("speed");
-		const speedValueEl = document.getElementById("speedValue");
-		const generateBtn = document.getElementById("generateBtn");
-		const audioPlayer = document.getElementById("audioPlayer");
-		const showCodeBtn = document.getElementById("showCodeBtn");
-		const codeExamples = document.getElementById("codeExamples");
-
-		let secret = null;
-
-		// Get secret from PostgreSQL authentication
-		async function checkAuthAndGetSecret() {
-			try {
-				const response = await fetch('/api/current-user');
-				if (response.ok) {
-					const user = await response.json();
-					secret = user.secret;
-					// Update code examples with actual secret
-					const codeBlocks = document.querySelectorAll('pre code');
-					codeBlocks.forEach(block => {
-						block.textContent = block.textContent.replace('YOUR_API_KEY', secret);
-					});
-				}
-			} catch (error) {
-				console.log('User not authenticated');
-			}
-		}
-		
-		// Get user secret on page load
-		checkAuthAndGetSecret();
-
-		speedEl.addEventListener("input", () => {
-			speedValueEl.textContent = speedEl.value;
-		});
-
-		showCodeBtn.addEventListener("click", () => {
-			codeExamples.style.display = codeExamples.style.display === "none" ? "block" : "none";
-		});
-
-		generateBtn.addEventListener("click", async () => {
-			const text = textEl.value;
-			const voice = voiceEl.value;
-			const speed = speedEl.value;
-
-			if (!text.trim()) {
-				alert("Please enter some text");
-				return;
-			}
-
-			try {
-				const headers = {
-					"Content-Type": "application/json"
-				};
-
-				if (secret) {
-					headers["secret"] = secret;
-				}
-				else {
-					alert("Please sign in to generate speech");
-					return;
-				}
-				const baseAPIUrl = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
-					? 'http://localhost:9080'
-					: 'https://api.text-generator.io';
-
-				const response = await fetch(`${baseAPIUrl}/api/v1/generate_speech`, {
-					method: "POST",
-					headers: headers,
-					body: JSON.stringify({ text, voice, speed: parseFloat(speed) }),
-				});
-
-				if (!response.ok) {
-					alert("Failed to generate speech!");
-					return;
-				}
-
-				const blob = await response.blob();
-				const url = URL.createObjectURL(blob);
-				audioPlayer.src = url;
-				audioPlayer.play();
-			} catch (err) {
-				console.error(err);
-				alert("Error fetching speech audio");
-			}
-		});
-	</script>
-</body>
-
-</html>

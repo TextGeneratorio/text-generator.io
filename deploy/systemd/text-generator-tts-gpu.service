@@ -1,0 +1,28 @@
+[Unit]
+Description=Text Generator GPU TTS sidecar (Kokoro + Supertonic) for :9083
+After=network-online.target
+
+[Service]
+Type=simple
+User=administrator
+WorkingDirectory=/nvme0n1-disk/code/text-generator.io
+Environment=PATH=/nvme0n1-disk/code/text-generator.io/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/nvme0n1-disk/code/text-generator.io
+Environment=PYTHONUNBUFFERED=1
+Environment=CUDA_VISIBLE_DEVICES=0
+Environment=TTS_GPU_PORT=9085
+Environment=TTS_GPU_CONCURRENCY=2
+Environment=TTS_GPU_VRAM_CAP_GB=1.5
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+Environment=TTS_GPU_ORT_MEM_GB=0.75
+ExecStart=/nvme0n1-disk/code/text-generator.io/.venv/bin/python -m questions.inference_server.tts_gpu_server
+Restart=always
+RestartSec=5
+Nice=-5
+TimeoutStopSec=15
+MemoryMax=8G
+StandardOutput=append:/var/log/supervisor/text-generator-tts-gpu.log
+StandardError=append:/var/log/supervisor/text-generator-tts-gpu.log
+
+[Install]
+WantedBy=multi-user.target

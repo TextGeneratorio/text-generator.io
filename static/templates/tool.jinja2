@@ -1,19 +1,27 @@
 {% extends 'templates/base.jinja2' %}
 
+{% set meta_description = tool_description or (tool_name ~ " prompt builder and workflow tool from Text Generator.") %}
+{% set meta_keywords = tool_keywords or tool_name %}
+{% set tool_slug = tool_url.rsplit("/", 1)[-1] %}
+{% set seo_image = "https://text-generator.io/static/img/og/tools/" ~ tool_slug ~ ".jpg" %}
+{% set seo_app_name = tool_name %}
+{% set seo_app_description = meta_description %}
+
 {% block headers %}
     <meta charset="utf-8">
     <title>{{ tool_name }} - Text Generator Tools</title>
-    <meta name="description" content="{{ tool_description }}">
+    <meta name="description" content="{{ meta_description }}">
 
-    <meta name="keywords" content="{{ tool_keywords }}">
+    <meta name="keywords" content="{{ meta_keywords }}">
     <meta property="og:title" content="{{ tool_name }} - Text Generator Tools">
-    <meta property="og:url" content="{{ tool_url }}">
-    <meta property="og:image" content="{{ static_url }}/{{ tool_image }}">
-    <meta property="og:description" content="{{ tool_description }}">
+    <meta property="og:url" content="https://text-generator.io{{ tool_url }}">
+    <meta property="og:image" content="{{ seo_image }}">
+    <meta property="og:description" content="{{ meta_description }}">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Text Generator Tools">
 {% endblock %}
 
 {% block mainbody %}
     {% include tooltemplate %}
+    {% include 'templates/shared/share_bar.jinja2' %}
 {% endblock %}

@@ -1,0 +1,149 @@
+{
+  "campaign": "new_user_onboarding",
+  "description": "20-email drip campaign for new Text Generator users over 90 days",
+  "from_email": "lee.penkman@netwrck.com",
+  "from_name": "Text Generator",
+  "base_url": "https://text-generator.io",
+  "emails": [
+    {
+      "id": 1,
+      "delay_days": 0,
+      "subject": "Welcome to Text Generator — Your AI API is Ready",
+      "template": "01-welcome.html",
+      "description": "Welcome email with platform overview and first API call"
+    },
+    {
+      "id": 2,
+      "delay_days": 1,
+      "subject": "Your First API Call in 30 Seconds",
+      "template": "02-first-api-call.html",
+      "description": "Quick start guide with code examples in Python, JS, and cURL"
+    },
+    {
+      "id": 3,
+      "delay_days": 3,
+      "subject": "Drop-In OpenAI Replacement — One Line Change",
+      "template": "03-openai-compatible.html",
+      "description": "OpenAI-compatible API endpoint for easy migration"
+    },
+    {
+      "id": 4,
+      "delay_days": 7,
+      "subject": "Text-to-Speech API: 7 Natural Voices, One Endpoint",
+      "template": "04-text-to-speech.html",
+      "description": "Kokoro TTS with multiple voices and streaming"
+    },
+    {
+      "id": 5,
+      "delay_days": 10,
+      "subject": "Speech-to-Text API — 8x Cheaper Than Google Cloud",
+      "template": "05-speech-to-text.html",
+      "description": "Gemma multimodal STT for transcription and audio extraction"
+    },
+    {
+      "id": 6,
+      "delay_days": 14,
+      "subject": "Image Captioning API: Understand Any Image Instantly",
+      "template": "06-image-captioning.html",
+      "description": "Microsoft GIT-based image captioning for vision workflows"
+    },
+    {
+      "id": 7,
+      "delay_days": 18,
+      "subject": "Embeddings API: Semantic Search in 3 Lines of Code",
+      "template": "07-embeddings.html",
+      "description": "ModernBERT embeddings for search, clustering, and RAG"
+    },
+    {
+      "id": 8,
+      "delay_days": 21,
+      "subject": "Summarization API: TL;DR Any Document",
+      "template": "08-summarization.html",
+      "description": "Text summarization with configurable max length"
+    },
+    {
+      "id": 9,
+      "delay_days": 25,
+      "subject": "Deep Researcher: AI That Crawls the Web For You",
+      "template": "09-deep-researcher.html",
+      "description": "Web-grounded research agent with citations"
+    },
+    {
+      "id": 10,
+      "delay_days": 28,
+      "subject": "AI Text Editor: Write With AI Autocomplete",
+      "template": "10-ai-editor.html",
+      "description": "WYSIWYG editor with inline AI suggestions"
+    },
+    {
+      "id": 11,
+      "delay_days": 35,
+      "subject": "Prompt Optimizer: Make Every Prompt 10x Better",
+      "template": "11-prompt-optimizer.html",
+      "description": "Iterative prompt improvement using Claude"
+    },
+    {
+      "id": 12,
+      "delay_days": 40,
+      "subject": "SEO Tools: Keyword Explorer & Content Gap Finder",
+      "template": "12-seo-tools.html",
+      "description": "Keyword research, glossaries, and content gap analysis"
+    },
+    {
+      "id": 13,
+      "delay_days": 45,
+      "subject": "Competitor Teardown & Offer Generator",
+      "template": "13-competitor-tools.html",
+      "description": "AI-powered competitive analysis and offer creation"
+    },
+    {
+      "id": 14,
+      "delay_days": 50,
+      "subject": "Bulk Processing: Generate 1000 Texts in One Call",
+      "template": "14-bulk-batch.html",
+      "description": "Batch and bulk generation for high-volume workflows"
+    },
+    {
+      "id": 15,
+      "delay_days": 55,
+      "subject": "Self-Host Text Generator on Your Own Servers",
+      "template": "15-self-hosting.html",
+      "description": "Self-hosting guide for full control and privacy"
+    },
+    {
+      "id": 16,
+      "delay_days": 60,
+      "subject": "BYOK: Bring Your Own API Keys for Max Savings",
+      "template": "16-byok.html",
+      "description": "Bring Your Own Key support for OpenAI, Anthropic, Google"
+    },
+    {
+      "id": 17,
+      "delay_days": 65,
+      "subject": "1000+ Prompt Templates — Ready to Use",
+      "template": "17-prompt-directory.html",
+      "description": "Searchable prompt directory with categories and models"
+    },
+    {
+      "id": 18,
+      "delay_days": 70,
+      "subject": "Blog Highlights: Cost Savings, New Models & Tips",
+      "template": "18-blog-roundup.html",
+      "description": "Best blog posts about cost savings, techniques, and updates"
+    },
+    {
+      "id": 19,
+      "delay_days": 80,
+      "subject": "Discord Bot & Integrations: AI Everywhere",
+      "template": "19-integrations.html",
+      "description": "Discord bot, API integrations, and workflow automation"
+    },
+    {
+      "id": 20,
+      "delay_days": 90,
+      "subject": "Power User Guide: Tips, Tricks & What's Next",
+      "template": "20-power-user.html",
+      "description": "Advanced tips, model selection, and upcoming features"
+    }
+  ]
+}

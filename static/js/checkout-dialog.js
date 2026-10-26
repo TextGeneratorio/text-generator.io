@@ -1,10 +1,4 @@
 // Checkout Dialog with Embedded Stripe Checkout
-const CHECKOUT_PRICING = {
-    monthly: '$9.99',
-    annual: '$99.99',
-    savingsLabel: 'save 17%',
-};
-
 class CheckoutDialog {
     constructor() {
         this.modal = null;
@@ -13,9 +7,10 @@ class CheckoutDialog {
         this.stripe = null;
         this.elements = null;
         this.embeddedCheckout = null;
+        this.stripeLoadPromise = null;
         this.subscriptionType = 'monthly';
-        this.offerType = 'plan';
-        this.allowCreditChoice = window.location.pathname === '/playground';
+        this.quantity = 1;
+        this.returnUrl = '/playground';
         this.init();
     }
 
@@ -24,19 +19,85 @@ class CheckoutDialog {
         if (document.getElementById('checkout-dialog')) {
             return;
         }
-
-        // Initialize Stripe
-        this.initStripe();
         
         // Create modal HTML
         this.createModal();
         this.bindEvents();
     }
 
-    initStripe() {
+    canInitializeStripe() {
+        const hostname = window.location.hostname;
+        return window.location.protocol === 'https:' ||
+            hostname === 'localhost' ||
+            hostname === '127.0.0.1' ||
+            hostname === '::1' ||
+            hostname === '[::1]';
+    }
+
+    loadStripeScript() {
+        if (typeof Stripe === 'function') {
+            return Promise.resolve();
+        }
+        if (this.stripeLoadPromise) {
+            return this.stripeLoadPromise;
+        }
+
+        this.stripeLoadPromise = new Promise((resolve, reject) => {
+            const existingScript = document.querySelector('script[src="https://js.stripe.com/v3/"]');
+            if (existingScript) {
+                existingScript.addEventListener('load', () => resolve(), { once: true });
+                existingScript.addEventListener('error', () => reject(new Error('Stripe.js failed to load')), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://js.stripe.com/v3/';
+            script.async = true;
+            script.addEventListener('load', () => resolve(), { once: true });
+            script.addEventListener('error', () => reject(new Error('Stripe.js failed to load')), { once: true });
+            document.head.appendChild(script);
+        }).catch((error) => {
+            this.stripeLoadPromise = null;
+            throw error;
+        });
+
+        return this.stripeLoadPromise;
+    }
+
+    async initStripe() {
+        if (this.stripe) {
+            return true;
+        }
+
+        if (!this.canInitializeStripe()) {
+            this.stripeErrorMessage = 'Secure checkout is only available on https://text-generator.io.';
+            return false;
+        }
+
+        try {
+            await this.loadStripeScript();
+        } catch (error) {
+            console.error('Error loading Stripe:', error);
+            this.stripeErrorMessage = 'Payment checkout failed to load. Please try again.';
+            return false;
+        }
+
+        if (typeof Stripe !== 'function') {
+            this.stripeErrorMessage = 'Payment checkout is unavailable. Please try again.';
+            return false;
+        }
+
         // Get Stripe publishable key from the page (should be set by the backend)
         const stripeKey = window.STRIPE_PUBLISHABLE_KEY || 'pk_live_51KjJGaDtz2XsjQRO1wdSdz8zS4bXzXq0tJ2m7lzJLdFpGhOdmGzX8fWwO9hm3vHdVVbfQc0XLJlT8l6KZGHJdUdl00zLUOHnMy';
-        this.stripe = Stripe(stripeKey);
+        try {
+            this.stripe = Stripe(stripeKey);
+            this.stripeErrorMessage = null;
+            return true;
+        } catch (error) {
+            console.error('Error initializing Stripe:', error);
+            this.stripeErrorMessage = 'Payment checkout failed to initialize. Please try again.';
+            return false;
+        }
     }
 
     createModal() {
@@ -50,41 +111,22 @@ class CheckoutDialog {
         const modalHTML = `
             <div id="checkout-dialog" class="checkout-dialog" style="display: none;">
                 <div class="checkout-dialog-content">
-                    <button class="checkout-dialog-close" onclick="window.checkoutDialog && window.checkoutDialog.close()">×</button>
+                    <button type="button" class="checkout-dialog-close" aria-label="Close checkout dialog" onclick="window.checkoutDialog && window.checkoutDialog.close()">×</button>
                     
                     <div class="checkout-dialog-header">
-                        <h2 class="checkout-dialog-title">Cloud AI Text Generator</h2>
-                        <p class="checkout-dialog-subtitle">Start instantly with our most popular plan.</p>
-                        <div class="checkout-price-highlight" role="status" aria-live="polite">
-                            <span class="checkout-price-value">${CHECKOUT_PRICING.monthly}</span>
-                            <span class="checkout-price-period">/month</span>
-                            <span class="checkout-price-note">or ${CHECKOUT_PRICING.annual}/year (${CHECKOUT_PRICING.savingsLabel})</span>
+                        <div class="checkout-dialog-brand">
+                            <div class="checkout-dialog-logo">
+                                <img src="/static/img/tg-logo-96.webp" alt="Text Generator" width="32" height="32" loading="lazy" decoding="async">
+                            </div>
+                            <div>
+                                <p class="checkout-dialog-kicker">Text Generator</p>
+                                <h2 class="checkout-dialog-title">Cloud AI Text Generator</h2>
+                            </div>
                         </div>
-                        <div class="checkout-pricing-toggle" role="radiogroup" aria-label="Billing period">
-                            <label class="checkout-toggle-label">
-                                <input type="radio" name="pricing" value="monthly" checked>
-                                <span class="checkout-toggle-text">Monthly · ${CHECKOUT_PRICING.monthly}/mo</span>
-                            </label>
-                            <label class="checkout-toggle-label">
-                                <input type="radio" name="pricing" value="annual">
-                                <span class="checkout-toggle-text">Annual · ${CHECKOUT_PRICING.annual}/yr</span>
-                            </label>
-                        </div>
-                        <div class="checkout-offer-chooser" id="checkout-offer-chooser" style="display: none;">
-                            <button type="button" class="checkout-offer-btn is-active" data-offer="plan">Add a plan</button>
-                            <button type="button" class="checkout-offer-btn" data-offer="credits">Add API credits</button>
-                        </div>
+                        <p class="checkout-dialog-subtitle">Complete your subscription and return to your current page.</p>
                     </div>
 
                     <div class="checkout-dialog-body">
-                        <div id="checkout-credits-panel" class="checkout-credits-panel" style="display: none;">
-                            <h3>API credits</h3>
-                            <p>Need pay-as-you-go API credits instead of a recurring plan?</p>
-                            <div class="checkout-credits-actions">
-                                <a class="checkout-btn checkout-btn-secondary" href="/contact">Contact support for credits</a>
-                                <button type="button" class="checkout-btn" id="checkout-switch-plan-btn">Use subscription plan</button>
-                            </div>
-                        </div>
                         <div id="checkout-container">
                             <div class="checkout-loading">
                                 <div class="checkout-spinner"></div>
@@ -124,17 +166,6 @@ class CheckoutDialog {
                 }
             }
         });
-
-        document.addEventListener('click', (e) => {
-            const offerBtn = e.target.closest('.checkout-offer-btn');
-            if (offerBtn) {
-                this.setOfferType(offerBtn.dataset.offer || 'plan');
-            }
-
-            if (e.target.id === 'checkout-switch-plan-btn') {
-                this.setOfferType('plan');
-            }
-        });
     }
 
     async getCurrentUser() {
@@ -153,18 +184,26 @@ class CheckoutDialog {
     }
 
     async loadCheckout() {
-        if (this.offerType === 'credits') {
-            this.renderCreditsState();
+        if (!(await this.initStripe())) {
+            this.showError(this.stripeErrorMessage || 'Payment checkout is unavailable. Please try again.');
             return;
         }
 
         const user = await this.getCurrentUser();
         if (!user) {
-            this.showSignupPrompt();
+            const next = encodeURIComponent(getCheckoutReturnUrl());
+            const checkoutContainer = document.getElementById('checkout-container');
+            checkoutContainer.innerHTML = `
+                <div class="checkout-error">
+                    <p>Create a free account to subscribe</p>
+                    <a href="/signup?next=${next}" class="checkout-btn" onclick="window.th?.('track', 'paywall_signup_clicked', { surface: '${checkoutSurface()}' })">Sign up</a>
+                    <a href="/login?next=${next}">Log in</a>
+                </div>
+            `;
             return;
         }
 
-        if (user.is_subscribed) {
+        if (this.subscriptionType !== 'credits' && user.is_subscribed) {
             this.showError('You already have an active subscription');
             return;
         }
@@ -180,7 +219,12 @@ class CheckoutDialog {
                     secret: user.secret || '',
                     email: user.email,
                     subscription_type: this.subscriptionType,
-                    referral: ''
+                    return_url: this.returnUrl,
+                    referral: '',
+                    quantity: this.quantity,
+                    surface: checkoutSurface(),
+                    th_client_id: thStorageValue('th_cid'),
+                    th_session_id: thStorageValue('th_sid')
                 })
             });
 
@@ -189,6 +233,7 @@ class CheckoutDialog {
             }
 
             const { clientSecret } = await response.json();
+            window.th?.('track', 'begin_checkout', { plan: this.subscriptionType, quantity: this.quantity, surface: checkoutSurface() });
             
             // Clear previous checkout if it exists
             if (this.embeddedCheckout) {
@@ -211,37 +256,6 @@ class CheckoutDialog {
         }
     }
 
-    showSignupPrompt() {
-        const checkoutContainer = document.getElementById('checkout-container');
-        checkoutContainer.innerHTML = `
-            <div class="checkout-error">
-                <p>Create a free account to subscribe — it takes 10 seconds.</p>
-                <button onclick="window.checkoutDialog.handleSignupClick()" class="checkout-btn">Create Free Account</button>
-                <p style="margin-top:8px;font-size:13px;">Already have an account?
-                    <a href="#" onclick="window.checkoutDialog.handleLoginClick(); return false;">Log in</a>
-                </p>
-            </div>
-        `;
-    }
-
-    handleSignupClick() {
-        if (typeof window.showSignupModal === 'function') {
-            this.close();
-            window.showSignupModal();
-        } else {
-            window.location.href = '/signup?next=' + encodeURIComponent(window.location.pathname + '#subscribe');
-        }
-    }
-
-    handleLoginClick() {
-        if (typeof window.showLoginModal === 'function') {
-            this.close();
-            window.showLoginModal();
-        } else {
-            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + '#subscribe');
-        }
-    }
-
     showError(message) {
         const checkoutContainer = document.getElementById('checkout-container');
         checkoutContainer.innerHTML = `
@@ -252,54 +266,13 @@ class CheckoutDialog {
         `;
     }
 
-    renderCreditsState() {
-        const checkoutContainer = document.getElementById('checkout-container');
-        if (checkoutContainer) {
-            checkoutContainer.innerHTML = '';
-        }
-
-        const creditsPanel = document.getElementById('checkout-credits-panel');
-        if (creditsPanel) {
-            creditsPanel.style.display = 'block';
-        }
-    }
-
-    setOfferType(offerType = 'plan') {
-        this.offerType = offerType;
-        const buttons = document.querySelectorAll('.checkout-offer-btn');
-        buttons.forEach((btn) => {
-            btn.classList.toggle('is-active', btn.dataset.offer === offerType);
-        });
-
-        const creditsPanel = document.getElementById('checkout-credits-panel');
-        if (creditsPanel) {
-            creditsPanel.style.display = offerType === 'credits' ? 'block' : 'none';
-        }
-
-        const checkoutContainer = document.getElementById('checkout-container');
-        if (checkoutContainer) {
-            checkoutContainer.style.display = offerType === 'credits' ? 'none' : 'block';
-        }
-
-        if (this.isOpen && offerType === 'plan') {
-            this.loadCheckout();
-        } else if (this.isOpen && offerType === 'credits') {
-            this.renderCreditsState();
-        }
-    }
-
     async show() {
         if (this.modal) {
-            const offerChooser = document.getElementById('checkout-offer-chooser');
-            if (offerChooser) {
-                offerChooser.style.display = this.allowCreditChoice ? 'flex' : 'none';
-            }
-
             this.modal.style.display = 'flex';
             this.modal.classList.add('show');
             this.isOpen = true;
             document.body.style.overflow = 'hidden';
-            this.setOfferType(this.allowCreditChoice ? this.offerType : 'plan');
+            window.th?.('track', 'paywall_open', { surface: checkoutSurface(), plan: this.subscriptionType });
             
             // Load checkout when modal is shown
             await this.loadCheckout();
@@ -325,6 +298,27 @@ class CheckoutDialog {
 // Create global instance when DOM is ready
 let checkoutDialog;
 
+function checkoutSurface() {
+    const path = (window.location.pathname || '/').replace(/^\/+|\/+$/g, '');
+    return path ? path.replace(/[^a-z0-9]+/gi, '_').toLowerCase() : 'home';
+}
+
+function thStorageValue(key) {
+    try {
+        return localStorage.getItem(key) || '';
+    } catch (error) {
+        return '';
+    }
+}
+
+function getCheckoutReturnUrl() {
+    const currentPath = `${window.location.pathname || '/'}${window.location.search || ''}${window.location.hash || ''}`;
+    if (currentPath === '/' || currentPath === '/login' || currentPath === '/signup' || currentPath === '/forgot-password') {
+        return '/playground';
+    }
+    return currentPath;
+}
+
 function initCheckoutDialog() {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
@@ -341,7 +335,7 @@ function initCheckoutDialog() {
 initCheckoutDialog();
 
 // Helper function for easy access
-async function showCheckoutDialog(subscriptionType = 'monthly') {
+async function showCheckoutDialog(subscriptionType = 'monthly', quantity = null) {
     if (!checkoutDialog) {
         console.warn('CheckoutDialog not initialized yet, waiting...');
         // Wait for initialization
@@ -356,7 +350,21 @@ async function showCheckoutDialog(subscriptionType = 'monthly') {
         }
     }
     checkoutDialog.subscriptionType = subscriptionType;
-    checkoutDialog.offerType = window.location.pathname === '/playground' ? checkoutDialog.offerType : 'plan';
+    checkoutDialog.returnUrl = getCheckoutReturnUrl();
+    checkoutDialog.quantity = 1;
+    if (subscriptionType === 'credits') {
+        if (quantity != null && quantity !== '') {
+            const parsedQuantity = parseInt(quantity, 10);
+            checkoutDialog.quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 100;
+        } else {
+            const requestedQuantity = window.prompt('How many 1 cent credits do you want to buy?', '100');
+            if (requestedQuantity === null) {
+                return;
+            }
+            const parsedQuantity = parseInt(requestedQuantity, 10);
+            checkoutDialog.quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 100;
+        }
+    }
     // Update radio button selection
     const radioBtn = document.querySelector(`input[name="pricing"][value="${subscriptionType}"]`);
     if (radioBtn) {
@@ -364,8 +372,6 @@ async function showCheckoutDialog(subscriptionType = 'monthly') {
     }
     await checkoutDialog.show();
 }
-
-window.showCheckoutDialog = showCheckoutDialog;
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {

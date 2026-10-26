@@ -1,8 +1,8 @@
 import logging
 import re
-import traceback
 from io import BytesIO
 from typing import FrozenSet
+from urllib.parse import urlparse
 
 import bs4
 import cachetools
@@ -127,6 +127,15 @@ def cached_request_get(url):
     return session.get(url, timeout=3)
 
 
+def normalize_fetch_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme in {"http", "https"}:
+        return url
+    if parsed.scheme:
+        return ""
+    return f"https://{url}"
+
+
 model_to_swap = None
 
 
@@ -138,26 +147,30 @@ def get_titles_from_urls(urls: FrozenSet[str], long_description=False):  # todo 
     futures = []
     urls = list(urls)[:10]
     for url in urls:
-        futures.append(cached_request_get(url))
+        fetch_url = normalize_fetch_url(url)
+        if not fetch_url:
+            futures.append((url, None))
+            continue
+        futures.append((url, cached_request_get(fetch_url)))
     titles = []
-    for future in futures:
+    for url, future in futures:
         try:
+            if future is None:
+                titles.append(None)
+                continue
             response = future.result()
+            content_type = response.headers.get("Content-Type", "")
             # if its text/html
-            if (
-                response.status_code == 200
-                and "text/html" in response.headers["Content-Type"]
-                or "text/html" in response.headers["content-type"]
-            ):
+            if response.status_code == 200 and "text/html" in content_type:
                 title = get_title_from_html(response.text, long_description)
                 titles.append(title)
             # if its an image use azure captioning to get text
-            elif response.status_code == 200 and response.headers["Content-Type"] in image_mime_types:
+            elif response.status_code == 200 and content_type in image_mime_types:
                 with log_time("image captioning"):
                     title = get_caption_for_image_response(response)
 
                 titles.append(title)
-            elif response.status_code == 200 and response.headers["Content-Type"] in audio_mime_types:
+            elif response.status_code == 200 and content_type in audio_mime_types:
                 # todo audio analysis
                 # failed
                 titles.append(None)
@@ -166,9 +179,7 @@ def get_titles_from_urls(urls: FrozenSet[str], long_description=False):  # todo 
                 titles.append(None)
 
         except Exception as e:
-            logger.error(e)
-            # traceback
-            traceback.print_exc()
+            logger.warning("Failed to enrich URL %s: %s", url, e)
             titles.append(None)
             continue
     return titles

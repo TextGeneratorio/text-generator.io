@@ -183,8 +183,8 @@
 }
 
 .playground-label {
-    margin: 28px 50px 10px 0px;
-    font-size: 16px;
+    margin: 16px 24px 6px 0;
+    font-size: 15px;
     text-align: left;
 }
 
@@ -212,7 +212,7 @@
 .playground-content {
     border-radius: 2px;
     padding: 20px;
-    margin-bottom: 80px;
+    margin-bottom: 32px;
 }
 
 .pricing-content {
@@ -864,4 +864,45 @@ footer a {
     transform: translate(-43px, -28px);
     position: absolute;
     text-align: left;
+}
+
+@media (max-width: 839px) {
+    .playground-tooltip,
+    .examples-tooltip {
+        min-width: 0 !important;
+        max-width: calc(100vw - 32px) !important;
+    }
+    .mdl-dialog {
+        width: calc(100vw - 16px);
+        max-width: none;
+    }
+    .demo-content {
+        padding: 16px;
+        margin-bottom: 32px;
+    }
+    .playground-content {
+        padding: 14px;
+        margin-bottom: 16px;
+    }
+    .note,
+    #drop-area {
+        width: auto;
+        max-width: 100%;
+        margin-left: 12px;
+        margin-right: 12px;
+    }
+    .mdl-mega-footer {
+        min-height: auto;
+        padding: 24px 16px;
+    }
+    .demo-container {
+        width: calc(100% - 8px);
+    }
+    .hero-trusted-carousel,
+    .carousel-container {
+        height: 140px;
+    }
+    .demo-header .mdl-layout__header-row {
+        padding-left: 16px;
+    }
 }

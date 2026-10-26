@@ -1,0 +1,17 @@
+{%- set _seo_path = request.url.path if request is defined and request else '/' -%}
+{%- set _seo_url = 'https://text-generator.io' ~ _seo_path -%}
+{%- set _seo_image = seo_image | default('https://text-generator.io/static/img/og-card.jpg') -%}
+    {% if not skip_canonical | default(false) %}<link rel="canonical" href="{{ _seo_url }}">{% endif %}
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="{{ _seo_image }}">
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@graph":[
+      {"@type":"Organization","@id":"https://text-generator.io/#org","name":"Text Generator","url":"https://text-generator.io/","logo":"https://text-generator.io/static/img/brain-generated256.png","sameAs":["https://github.com/TextGeneratorio/text-generator.io"]},
+      {"@type":"WebSite","@id":"https://text-generator.io/#site","name":"Text Generator","url":"https://text-generator.io/","publisher":{"@id":"https://text-generator.io/#org"}}
+      {%- if seo_app_name is defined and seo_app_name %},
+      {"@type":"WebApplication","name":{{ seo_app_name | tojson }},"url":{{ _seo_url | tojson }},"description":{{ (seo_app_description | default('')) | tojson }},"applicationCategory":"BusinessApplication","operatingSystem":"Web","publisher":{"@id":"https://text-generator.io/#org"}}
+      {%- endif %}
+    ]}
+    </script>

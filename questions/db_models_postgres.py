@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, create_engine, text
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.sql import func
@@ -46,7 +46,7 @@ else:
 def create_engine_with_testing():
     """Create database engine and test the connection."""
     try:
-        engine = create_engine(DATABASE_URL)
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
         # Test the connection
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -70,7 +70,7 @@ try:
     engine = create_engine_with_testing()
 except Exception as e:
     print(f"⚠️  Using basic engine configuration: {e}")
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -97,6 +97,12 @@ class User(Base):
     free_credits = Column(Integer, default=0)
     charges_monthly = Column(Integer, default=0)
     num_self_hosted_instances = Column(Integer, default=0)
+
+    # Email preferences
+    email_unsubscribed = Column(Boolean, default=False)
+    email_unsubscribe_token = Column(String, nullable=True, unique=True)
+    drip_email_sent = Column(Integer, default=0)  # last drip email index sent
+    drip_email_last_sent_at = Column(DateTime, nullable=True)
 
     # Legacy fields
     cookie_user = Column(Integer, nullable=True)
@@ -131,6 +137,18 @@ class User(Base):
             "created": self.created.isoformat() if self.created else None,
             "updated": self.updated.isoformat() if self.updated else None,
         }
+
+
+class StripeCreditEvent(Base):
+    """Durable idempotency boundary for Stripe credit webhooks."""
+
+    __tablename__ = "stripe_credit_events"
+
+    event_id = Column(String, primary_key=True)
+    checkout_session_id = Column(String, nullable=False, unique=True)
+    stripe_id = Column(String, nullable=False)
+    credits_cents = Column(Integer, nullable=False)
+    created = Column(DateTime, default=func.now(), nullable=False)
 
 
 class Document(Base):
@@ -358,6 +376,236 @@ def get_db_session_sync():
     Remember to close the session when done.
     """
     return SessionLocal()
+
+
+class UserAPIKey(Base):
+    """BYOK - users store their own provider API keys, encrypted at rest."""
+
+    __tablename__ = "user_api_keys"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    provider = Column(String, nullable=False)  # 'openai', 'anthropic', 'google', etc.
+    encrypted_key = Column(Text, nullable=False)  # Fernet-encrypted API key
+    key_prefix = Column(String, nullable=True)  # e.g. 'sk-...abc' for display
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_used_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", backref="api_keys")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "provider": self.provider,
+            "key_prefix": self.key_prefix,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+        }
+
+
+class AgentSkill(Base):
+    """User-created or bundled procedural skills (markdown-based)."""
+
+    __tablename__ = "agent_skills"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    category = Column(String, nullable=True, index=True)
+    content = Column(Text, nullable=False)  # Full SKILL.md content
+    version = Column(String, default="1.0.0")
+    author = Column(String, nullable=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)  # None for bundled
+    is_public = Column(Boolean, default=False)
+    is_bundled = Column(Boolean, default=False)
+    usage_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    metadata_json = Column(JSON, nullable=True)  # Tags, related skills, etc.
+
+    user = relationship("User", backref="skills")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category,
+            "content": self.content,
+            "version": self.version,
+            "author": self.author,
+            "user_id": self.user_id,
+            "is_public": self.is_public,
+            "is_bundled": self.is_bundled,
+            "usage_count": self.usage_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "metadata": self.metadata_json,
+        }
+
+
+class CronJob(Base):
+    """Scheduled agent tasks that run on a cron schedule."""
+
+    __tablename__ = "cron_jobs"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    prompt = Column(Text, nullable=False)  # What the agent should do
+    schedule = Column(String, nullable=False)  # Cron expression or interval
+    schedule_type = Column(String, nullable=False)  # 'cron', 'interval', 'once'
+    is_active = Column(Boolean, default=True)
+    skill_ids = Column(JSON, nullable=True)  # Skills to load for this job
+    tool_ids = Column(JSON, nullable=True)  # Tools to enable for this job
+    max_iterations = Column(Integer, default=10)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_run_at = Column(DateTime, nullable=True)
+    next_run_at = Column(DateTime, nullable=True)
+    run_count = Column(Integer, default=0)
+    last_output = Column(Text, nullable=True)
+    last_error = Column(Text, nullable=True)
+
+    user = relationship("User", backref="cron_jobs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "prompt": self.prompt,
+            "schedule": self.schedule,
+            "schedule_type": self.schedule_type,
+            "is_active": self.is_active,
+            "skill_ids": self.skill_ids,
+            "tool_ids": self.tool_ids,
+            "max_iterations": self.max_iterations,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_run_at": self.last_run_at.isoformat() if self.last_run_at else None,
+            "next_run_at": self.next_run_at.isoformat() if self.next_run_at else None,
+            "run_count": self.run_count,
+        }
+
+
+class BatchJob(Base):
+    """Batch processing jobs for multiple prompts."""
+
+    __tablename__ = "batch_jobs"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    status = Column(String, default="pending")  # pending, running, completed, failed
+    total_prompts = Column(Integer, default=0)
+    completed_prompts = Column(Integer, default=0)
+    failed_prompts = Column(Integer, default=0)
+    results = Column(JSON, nullable=True)
+    errors = Column(JSON, nullable=True)
+    model = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+    completed_at = Column(DateTime, nullable=True)
+    estimated_cost_usd = Column(Float, nullable=True)
+
+    user = relationship("User", backref="batch_jobs")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "status": self.status,
+            "total_prompts": self.total_prompts,
+            "completed_prompts": self.completed_prompts,
+            "failed_prompts": self.failed_prompts,
+            "results": self.results,
+            "model": self.model,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "estimated_cost_usd": self.estimated_cost_usd,
+        }
+
+
+class TokenUsage(Base):
+    """Per-request token API ledger (cost basis vs charge, in millionths of a cent)."""
+
+    __tablename__ = "token_usage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stripe_id = Column(String, nullable=False, index=True)
+    user_id = Column(String, nullable=True)
+    model = Column(String, nullable=False)
+    lane = Column(String, nullable=False)
+    tier = Column(String, nullable=False)
+    prompt_tokens = Column(Integer, nullable=False, default=0)
+    completion_tokens = Column(Integer, nullable=False, default=0)
+    cost_micro = Column(Integer, nullable=False, default=0)
+    charge_micro = Column(Integer, nullable=False, default=0)
+    billed_micro = Column(Integer, nullable=False, default=0)
+    created = Column(DateTime, default=func.now(), nullable=False, index=True)
+
+
+class TokenAccrual(Base):
+    """Sub-cent carry so per-token charges never round up per call."""
+
+    __tablename__ = "token_accruals"
+
+    stripe_id = Column(String, primary_key=True)
+    micro = Column(Integer, nullable=False, default=0)
+
+
+class RetentionOffer(Base):
+    """One row per (customer, kind); the unique key is the once-per-customer guard."""
+
+    __tablename__ = "retention_offers"
+    __table_args__ = (UniqueConstraint("stripe_id", "kind", name="uq_retention_offer_customer_kind"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stripe_id = Column(String, nullable=False, index=True)
+    user_id = Column(String, nullable=True)
+    kind = Column(String, nullable=False)
+    created = Column(DateTime, default=func.now(), nullable=False)
+
+
+class CancellationSurvey(Base):
+    __tablename__ = "cancellation_surveys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=True, index=True)
+    email = Column(String, nullable=False)
+    stripe_id = Column(String, nullable=False, index=True)
+    subscription_id = Column(String, nullable=True)
+    reason = Column(String, nullable=False)
+    details = Column(Text, nullable=True)
+    offer_shown = Column(String, nullable=True)
+    cancel_at = Column(DateTime, nullable=True)
+    created = Column(DateTime, default=func.now(), nullable=False)
+    winback_sent = Column(Integer, nullable=False, default=0)
+    winback_last_sent_at = Column(DateTime, nullable=True)
+    winback_stopped = Column(Boolean, nullable=False, default=False)
+    source = Column(String, nullable=False, default="app", server_default="app")
+    __table_args__ = (UniqueConstraint("subscription_id", name="uq_cancellation_survey_subscription"),)
+
+
+class EmailOptout(Base):
+    __tablename__ = "email_optouts"
+
+    email = Column(String, primary_key=True)
+    created = Column(DateTime, default=func.now(), nullable=False)
+
+
+class WinbackSend(Base):
+    __tablename__ = "winback_sends"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, nullable=False)
+    step = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="sending")
+    claimed_at = Column(DateTime, nullable=False)
+    sent_at = Column(DateTime, nullable=True)
+    __table_args__ = (UniqueConstraint("email", "step", name="uq_winback_send_email_step"),)
 
 
 # Create tables

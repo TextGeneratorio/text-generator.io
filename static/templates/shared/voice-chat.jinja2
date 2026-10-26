@@ -1,0 +1,334 @@
+<style>
+    .vc-wrap { max-width: 860px; margin: 0 auto; padding: 16px; font-family: sans-serif; }
+    .vc-crumbs { color: #888; margin-bottom: 12px; font-size: 14px; }
+    .vc-crumbs a { color: #888; text-decoration: none; }
+    .vc-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .vc-head h1 { margin: 0; }
+    .vc-settings { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; align-items: flex-end; }
+    .vc-settings label { display: block; font-size: 12px; color: #666; margin-bottom: 2px; }
+    .vc-settings select, .vc-settings input[type=range] { font-size: 14px; }
+    .vc-thread {
+        min-height: 280px; max-height: 56vh; overflow-y: auto;
+        background: #f6f7fb; border: 1px solid #e4e7f2; border-radius: 12px;
+        padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .vc-empty { color: #9aa0b4; text-align: center; margin: auto; font-size: 15px; }
+    .vc-msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; line-height: 1.4; word-wrap: break-word; }
+    .vc-msg.user { align-self: flex-end; background: linear-gradient(135deg,#3F51B5,#5c6bc0); color: #fff; border-bottom-right-radius: 4px; }
+    .vc-msg.assistant { align-self: flex-start; background: #fff; color: #1f2333; border: 1px solid #e4e7f2; border-bottom-left-radius: 4px; }
+    .vc-msg.pending { opacity: 0.6; font-style: italic; }
+    .vc-role { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; opacity: .7; margin-bottom: 4px; }
+    .vc-audio { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .vc-play { border: none; background: #3F51B5; color: #fff; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .vc-wave { width: 100%; height: 40px; display: block; }
+    .vc-controls { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 18px; }
+    .vc-mic {
+        width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
+        background: linear-gradient(135deg,#3F51B5,#5c6bc0); color: #fff; font-size: 34px;
+        display: flex; align-items: center; justify-content: center; transition: transform .08s, box-shadow .2s;
+        box-shadow: 0 4px 14px rgba(63,81,181,.35); user-select: none; touch-action: none;
+    }
+    .vc-mic:active { transform: scale(.94); }
+    .vc-mic.recording { background: linear-gradient(135deg,#e53935,#ff7043); box-shadow: 0 0 0 8px rgba(229,57,53,.18); animation: vc-pulse 1.2s infinite; }
+    .vc-mic.busy { background: #9aa0b4; cursor: wait; }
+    @keyframes vc-pulse { 0%,100%{ box-shadow: 0 0 0 6px rgba(229,57,53,.15);} 50%{ box-shadow: 0 0 0 14px rgba(229,57,53,.05);} }
+    .vc-live { width: 100%; max-width: 420px; height: 56px; display: none; }
+    .vc-live.active { display: block; }
+    .vc-hint { color: #888; font-size: 13px; min-height: 18px; }
+    .vc-bar { display: flex; gap: 10px; }
+    .vc-textbtn { background: none; border: none; color: #3F51B5; cursor: pointer; font-size: 13px; }
+    .vc-code { display: none; margin-top: 20px; padding: 16px; background: #1e1e2e; color: #e0e0e0; border-radius: 8px; }
+    .vc-code pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; }
+</style>
+
+<div class="vc-wrap">
+    <div class="vc-crumbs"><a href="/" title="Text Generator">Text Generator</a> &gt; Voice Chat</div>
+    <div class="vc-head">
+        <h1>Voice Chat</h1>
+        <button id="vcClear" class="vc-textbtn">Clear conversation</button>
+    </div>
+    <p>Hold the mic and talk. Your speech is transcribed, answered by Gemma, and spoken back with a Supertonic voice. Replies autoplay.</p>
+
+    <div class="vc-settings">
+        <div>
+            <label for="vcVoice">Voice</label>
+            <select id="vcVoice">
+                <optgroup label="Supertonic (multilingual)">
+                    <option value="F1" selected>F1 (female)</option>
+                    <option value="F2">F2</option>
+                    <option value="F3">F3</option>
+                    <option value="F4">F4</option>
+                    <option value="F5">F5</option>
+                    <option value="M1">M1 (male)</option>
+                    <option value="M2">M2</option>
+                    <option value="M3">M3</option>
+                    <option value="M4">M4</option>
+                    <option value="M5">M5</option>
+                </optgroup>
+                <optgroup label="Kokoro (English)">
+                    <option value="af_nicole">af_nicole</option>
+                    <option value="af_bella">af_bella</option>
+                    <option value="am_adam">am_adam</option>
+                    <option value="bm_george">bm_george</option>
+                </optgroup>
+            </select>
+        </div>
+        <div>
+            <label for="vcLang">Language</label>
+            <select id="vcLang">
+                <option value="en" selected>English</option>
+                <option value="ko">Korean</option>
+                <option value="ja">Japanese</option>
+                <option value="de">German</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="hi">Hindi</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="ru">Russian</option>
+                <option value="zh">Chinese</option>
+            </select>
+        </div>
+        <div>
+            <label for="vcSpeed">Speed <span id="vcSpeedVal">1.0</span></label>
+            <input type="range" id="vcSpeed" min="0.5" max="2.0" step="0.1" value="1.0">
+        </div>
+        <div>
+            <label><input type="checkbox" id="vcAutoplay" checked> Autoplay replies</label>
+        </div>
+    </div>
+
+    <div id="vcThread" class="vc-thread">
+        <div class="vc-empty" id="vcEmpty">Your conversation will appear here.</div>
+    </div>
+
+    <div class="vc-controls">
+        <canvas id="vcLive" class="vc-live" width="420" height="56"></canvas>
+        <button id="vcMic" class="vc-mic" title="Hold to talk">&#127908;</button>
+        <div id="vcHint" class="vc-hint">Hold the button (or press and hold Space) to talk.</div>
+        <div class="vc-bar">
+            <button id="vcCodeBtn" class="vc-textbtn">Show API example</button>
+        </div>
+    </div>
+
+    <div id="vcCode" class="vc-code">
+        <pre><code>curl -X POST "https://api.text-generator.io/api/v1/voice-chat" \
+-H "secret: YOUR_API_KEY" \
+-F "audio_file=@turn.wav" \
+-F 'history=[{"role":"user","content":"hi"},{"role":"assistant","content":"hello!"}]' \
+-F "voice=F1" -F "language=en" -F "speed=1.0"
+# -> {"user_text": "...", "reply_text": "...", "audio_base64": "...", "audio_sample_rate": 24000}</code></pre>
+    </div>
+</div>
+
+<script>
+(function () {
+    const $ = (id) => document.getElementById(id);
+    const thread = $('vcThread'), emptyEl = $('vcEmpty'), micBtn = $('vcMic'), hintEl = $('vcHint');
+    const voiceEl = $('vcVoice'), langEl = $('vcLang'), speedEl = $('vcSpeed'), speedValEl = $('vcSpeedVal');
+    const autoplayEl = $('vcAutoplay'), liveCanvas = $('vcLive');
+    const baseAPIUrl = (location.hostname.includes('localhost') || location.hostname.includes('127.0.0.1'))
+        ? 'http://localhost:9080' : 'https://api.text-generator.io';
+
+    let secret = null;
+    let history = [];
+    let mediaRecorder, audioChunks = [], stream, audioCtx, analyser, rafId, recording = false, busy = false;
+
+    fetch('/api/current-user').then(r => r.ok ? r.json() : null).then(u => { if (u) secret = u.secret; }).catch(() => {});
+
+    speedEl.addEventListener('input', () => { speedValEl.textContent = speedEl.value; });
+    $('vcCodeBtn').addEventListener('click', () => {
+        const c = $('vcCode'); c.style.display = c.style.display === 'block' ? 'none' : 'block';
+    });
+    $('vcClear').addEventListener('click', () => {
+        history = []; thread.innerHTML = ''; thread.appendChild(emptyEl); emptyEl.style.display = '';
+    });
+
+    function setHint(t) { hintEl.textContent = t; }
+
+    function addMessage(role, text, opts = {}) {
+        emptyEl.style.display = 'none';
+        const el = document.createElement('div');
+        el.className = 'vc-msg ' + role + (opts.pending ? ' pending' : '');
+        const r = document.createElement('div'); r.className = 'vc-role'; r.textContent = role === 'user' ? 'You' : 'Assistant';
+        const body = document.createElement('div'); body.className = 'vc-body'; body.textContent = text;
+        el.appendChild(r); el.appendChild(body);
+        thread.appendChild(el);
+        thread.scrollTop = thread.scrollHeight;
+        return el;
+    }
+
+    // ---- recording ----
+    async function startRecording() {
+        if (recording || busy) return;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            setHint('Microphone access denied.'); return;
+        }
+        recording = true;
+        micBtn.classList.add('recording');
+        setHint('Listening… release to send.');
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.addEventListener('dataavailable', e => audioChunks.push(e.data));
+        mediaRecorder.addEventListener('stop', onRecordingStop);
+        mediaRecorder.start();
+        startLiveWave(stream);
+    }
+
+    function stopRecording() {
+        if (!recording) return;
+        recording = false;
+        micBtn.classList.remove('recording');
+        stopLiveWave();
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    }
+
+    async function onRecordingStop() {
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        if (blob.size < 800) { setHint('Too short — hold longer and speak.'); return; }
+        await sendTurn(blob);
+    }
+
+    async function sendTurn(blob) {
+        busy = true; micBtn.classList.add('busy'); micBtn.disabled = true;
+        setHint('Thinking…');
+        const userEl = addMessage('user', 'Transcribing…', { pending: true });
+
+        const fd = new FormData();
+        fd.append('audio_file', new File([blob], 'turn.webm', { type: 'audio/webm' }));
+        fd.append('history', JSON.stringify(history));
+        fd.append('voice', voiceEl.value);
+        fd.append('language', langEl.value);
+        fd.append('speed', speedEl.value);
+
+        try {
+            const resp = await fetch(`${baseAPIUrl}/api/v1/voice-chat`, {
+                method: 'POST', headers: secret ? { secret } : {}, body: fd,
+            });
+            if (!resp.ok) {
+                const msg = resp.status === 401 ? 'Please sign in / subscribe to chat.' : ('Error ' + resp.status);
+                userEl.querySelector('.vc-body').textContent = '(failed)';
+                userEl.classList.remove('pending'); setHint(msg); return;
+            }
+            const data = await resp.json();
+            userEl.classList.remove('pending');
+            userEl.querySelector('.vc-body').textContent = data.user_text || '(no speech detected)';
+            history.push({ role: 'user', content: data.user_text || '' });
+
+            const aEl = addMessage('assistant', data.reply_text || '');
+            history.push({ role: 'assistant', content: data.reply_text || '' });
+            if (data.audio_base64) attachAudio(aEl, data.audio_base64);
+            setHint('Hold the button (or Space) to reply.');
+        } catch (e) {
+            userEl.querySelector('.vc-body').textContent = '(network error)';
+            userEl.classList.remove('pending'); setHint('Network error.');
+        } finally {
+            busy = false; micBtn.classList.remove('busy'); micBtn.disabled = false;
+        }
+    }
+
+    // ---- live input waveform ----
+    function startLiveWave(stream) {
+        liveCanvas.classList.add('active');
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        src.connect(analyser);
+        const buf = new Uint8Array(analyser.fftSize);
+        const ctx = liveCanvas.getContext('2d');
+        const W = liveCanvas.width, H = liveCanvas.height;
+        const draw = () => {
+            rafId = requestAnimationFrame(draw);
+            analyser.getByteTimeDomainData(buf);
+            ctx.clearRect(0, 0, W, H);
+            ctx.lineWidth = 2; ctx.strokeStyle = '#e53935'; ctx.beginPath();
+            const slice = W / buf.length;
+            for (let i = 0; i < buf.length; i++) {
+                const v = buf[i] / 128.0, y = v * H / 2, x = i * slice;
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        };
+        draw();
+    }
+
+    function stopLiveWave() {
+        if (rafId) cancelAnimationFrame(rafId);
+        liveCanvas.classList.remove('active');
+        liveCanvas.getContext('2d').clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+        if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+    }
+
+    // ---- result waveform + playback ----
+    function b64ToBytes(b64) {
+        const bin = atob(b64), len = bin.length, bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+    }
+
+    function attachAudio(msgEl, b64) {
+        const bytes = b64ToBytes(b64);
+        const blob = new Blob([bytes], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+
+        const wrap = document.createElement('div'); wrap.className = 'vc-audio';
+        const play = document.createElement('button'); play.className = 'vc-play'; play.innerHTML = '&#9658;';
+        const canvas = document.createElement('canvas'); canvas.className = 'vc-wave'; canvas.width = 480; canvas.height = 40;
+        wrap.appendChild(play); wrap.appendChild(canvas); msgEl.appendChild(wrap);
+
+        let peaks = null, progress = 0, playing = false;
+        const ctx = canvas.getContext('2d');
+        function render() {
+            const W = canvas.width, H = canvas.height; ctx.clearRect(0, 0, W, H);
+            if (!peaks) return;
+            const n = peaks.length, bw = W / n;
+            for (let i = 0; i < n; i++) {
+                const h = Math.max(2, peaks[i] * H);
+                ctx.fillStyle = (i / n) <= progress ? '#3F51B5' : '#c2c8e0';
+                ctx.fillRect(i * bw, (H - h) / 2, Math.max(1, bw - 1), h);
+            }
+        }
+        // decode to peaks
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        ac.decodeAudioData(bytes.buffer.slice(0)).then(audioBuf => {
+            const data = audioBuf.getChannelData(0), N = 96, block = Math.floor(data.length / N);
+            peaks = new Array(N).fill(0);
+            for (let i = 0; i < N; i++) {
+                let max = 0;
+                for (let j = 0; j < block; j++) { const v = Math.abs(data[i * block + j] || 0); if (v > max) max = v; }
+                peaks[i] = max;
+            }
+            render(); ac.close().catch(() => {});
+        }).catch(() => { ac.close().catch(() => {}); });
+
+        play.addEventListener('click', () => { playing ? audio.pause() : audio.play(); });
+        audio.addEventListener('play', () => { playing = true; play.innerHTML = '&#10074;&#10074;'; });
+        audio.addEventListener('pause', () => { playing = false; play.innerHTML = '&#9658;'; });
+        audio.addEventListener('ended', () => { progress = 0; render(); });
+        audio.addEventListener('timeupdate', () => { if (audio.duration) { progress = audio.currentTime / audio.duration; render(); } });
+
+        if (autoplayEl.checked) audio.play().catch(() => {});
+    }
+
+    // ---- input bindings: hold to talk ----
+    micBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); startRecording(); });
+    micBtn.addEventListener('pointerup', (e) => { e.preventDefault(); stopRecording(); });
+    micBtn.addEventListener('pointerleave', () => { if (recording) stopRecording(); });
+    micBtn.addEventListener('pointercancel', () => { if (recording) stopRecording(); });
+
+    let spaceDown = false;
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !spaceDown && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') {
+            spaceDown = true; e.preventDefault(); startRecording();
+        }
+    });
+    document.addEventListener('keyup', (e) => {
+        if (e.code === 'Space' && spaceDown) { spaceDown = false; e.preventDefault(); stopRecording(); }
+    });
+})();
+</script>

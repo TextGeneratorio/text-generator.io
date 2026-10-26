@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WER benchmark for ASR (Parakeet) inference server."""
+"""WER benchmark for Gemma-backed ASR inference server."""
 import argparse
 import json
 import os

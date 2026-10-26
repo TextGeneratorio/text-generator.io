@@ -1,0 +1,26 @@
+[Unit]
+Description=Text Generator Inference Monitor with Claude Auto-Fix Agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=administrator
+WorkingDirectory=/nvme0n1-disk/code/text-generator.io
+Environment=PATH=/home/administrator/.bun/bin:/nvme0n1-disk/code/text-generator.io/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/home/administrator
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/nvme0n1-disk/code/text-generator.io/.venv/bin/python /nvme0n1-disk/code/text-generator.io/monitors/monitor_inference_agent.py
+Restart=on-failure
+RestartSec=60
+TimeoutStopSec=30
+KillMode=control-group
+MemoryAccounting=yes
+MemoryHigh=2G
+MemoryMax=4G
+OOMScoreAdjust=400
+StandardOutput=append:/var/log/supervisor/text-generator-monitor-inference-agent.log
+StandardError=append:/var/log/supervisor/text-generator-monitor-inference-agent-error.log
+
+[Install]
+WantedBy=multi-user.target

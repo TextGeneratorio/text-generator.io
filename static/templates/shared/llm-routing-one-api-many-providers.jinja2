@@ -1,0 +1,45 @@
+<link rel="stylesheet" href="/static/libs/styles/default.css">
+<script src="/static/libs/highlight.pack.js"></script>
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--2-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--8-col">
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> &gt; <a href="/blog" title="Text Generator Blog">Blog</a> &gt; LLM Routing: One API Key for Many Providers
+            </div>
+            <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"LLM Routing: One API Key for Many Providers","description":"How a single OpenAI compatible endpoint can reach OpenAI, Anthropic, Google, xAI, DeepSeek, Moonshot and more, with fallbacks and one bill","datePublished":"2026-10-22","dateModified":"2026-10-22","mainEntityOfPage":"https://text-generator.io/blog/llm-routing-one-api-many-providers","author":{"@type":"Organization","name":"Text Generator"},"publisher":{"@type":"Organization","name":"Text Generator","url":"https://text-generator.io"}}</script>
+            <h3>LLM Routing: One API Key for Many Providers</h3>
+            <p>Every model provider has its own SDK, key, billing page, and rate limits. A router gives you one front door instead. You send an OpenAI style request, name a model, and the router handles the rest.</p>
+            <h4>What you get with one endpoint</h4>
+            <ul>
+            <li><b>One client library.</b> Point any OpenAI SDK at <code>https://api.text-generator.io/v1</code> and call <code>/v1/chat/completions</code>.</li>
+            <li><b>Many providers.</b> The <a href="/providers">provider catalogue</a> includes OpenAI, Anthropic, Google, xAI, Moonshot AI, DeepSeek, Mistral, Groq, OpenRouter, Together, MiniMax, Z.AI, NVIDIA, Fireworks, and Nous Research.</li>
+            <li><b>One bill.</b> Usage is metered in one place, so comparing models on cost is easy.</li>
+            <li><b>Fallbacks.</b> Models list alternates, for instance Kimi K3 can continue on an OpenRouter route or Kimi K2.5 if the primary route is unavailable.</li>
+            </ul>
+            <h4>Switching models is a string change</h4>
+            <pre><code class="language-bash">curl https://api.text-generator.io/v1/chat/completions \
+              -H "Authorization: Bearer $API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{"model": "kimi-k3", "messages": [{"role": "user", "content": "Summarize this changelog"}]}'</code></pre>
+            <p>Change <code>kimi-k3</code> to <code>gpt-5.4</code>, <code>deepseek-chat</code>, or <code>gemini-2.5-flash</code> and the same request shape works. Aliases such as <code>kimi</code> and <code>luna</code> are available for convenience.</p>
+            <h4>Routing patterns that work well</h4>
+            <ol>
+            <li><b>Default to an auto profile.</b> Use <code>text-generator/auto</code> for general traffic and let the router choose.</li>
+            <li><b>Pin a model for regression tests.</b> Fixed names give repeatable comparisons.</li>
+            <li><b>Split by task.</b> Send extraction to <code>auto-cheap</code>, coding to <code>auto-code</code>, screenshots to <code>auto-vision</code>.</li>
+            <li><b>Route long documents to long windows.</b> Several catalogue models offer 1M tokens of context.</li>
+            <li><b>Record the model per request</b> so you can trace quality or cost changes.</li>
+            </ol>
+            <h4>Bring your own keys</h4>
+            <p>If you already hold provider keys, the platform supports bringing them, which lets you keep existing provider agreements while using one interface. See the <a href="/docs">docs</a> for setup.</p>
+            <h4>Discover models programmatically</h4>
+            <p>The catalogue is available as JSON at <code>/api/models</code> and <code>/api/providers</code>, so your own tools can list available models, context sizes, and prices without scraping a page.</p>
+            <p>Create a key, send one request, then change the model name and compare the results. It takes a couple of minutes.</p>
+
+            <a class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--raised mdl-color--primary mdl-color-text--white" href="/signup">Get started free</a>
+        </div>
+    </div>
+</main>
+<script>hljs.highlightAll();</script>

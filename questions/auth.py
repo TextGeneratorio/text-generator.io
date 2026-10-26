@@ -1,6 +1,7 @@
 import os
 import secrets
 import string
+from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt
@@ -10,8 +11,9 @@ from sqlalchemy.orm import Session
 from .db_models_postgres import User, get_db
 
 # Configuration
-BCRYPT_ROUNDS = 12
+BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
 BCRYPT_PEPPER = os.getenv("BCRYPT_PEPPER", "")
+SESSION_COOKIE_MAX_AGE_SECONDS = int(os.getenv("SESSION_COOKIE_MAX_AGE_SECONDS", str(10 * 365 * 24 * 60 * 60)))
 
 
 def hash_password(password: str) -> str:
@@ -94,19 +96,18 @@ def login_or_create_user(email: str, password: str, db: Session) -> User:
     return user
 
 
-# Session management (simple in-memory for now, could be Redis later)
-session_dict = {}
-
-
 def set_session_for_user(user: User):
-    """Store user session."""
-    if user:
-        session_dict[user.secret] = user
+    """Compatibility hook for older call sites.
+
+    Sessions are backed by the persisted user secret, so we avoid caching
+    request-scoped SQLAlchemy objects across requests.
+    """
+    return None
 
 
 def get_user_from_session(secret: str) -> Optional[User]:
-    """Get user from session by secret."""
-    return session_dict.get(secret)
+    """Compatibility hook for older call sites."""
+    return None
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
@@ -123,16 +124,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optiona
     if not secret:
         return None
 
-    # First try from memory cache
-    user = get_user_from_session(secret)
-    if user:
-        return user
-
-    # Fallback to database lookup
+    # Look up every request so the returned ORM object is bound to this request's DB session.
     user = User.get_by_secret(db, secret)
-    if user:
-        set_session_for_user(user)
-
     return user
 
 
@@ -142,3 +135,37 @@ def require_auth(request: Request, db: Session = Depends(get_db)) -> User:
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user
+
+
+# Password reset tokens: token -> {"email": str, "expires": datetime}
+password_reset_tokens: dict = {}
+
+
+def create_password_reset_token(email: str, db: Session) -> Optional[str]:
+    """Generate a reset token for the given email. Returns None if user not found."""
+    user = User.get_by_email(db, email)
+    if not user:
+        return None
+    token = generate_random_string(48)
+    password_reset_tokens[token] = {
+        "email": email,
+        "expires": datetime.utcnow() + timedelta(hours=1),
+    }
+    return token
+
+
+def validate_and_consume_reset_token(token: str, new_password: str, db: Session) -> bool:
+    """Validate token, update password, and consume (delete) the token. Returns True on success."""
+    entry = password_reset_tokens.get(token)
+    if not entry:
+        return False
+    if datetime.utcnow() > entry["expires"]:
+        del password_reset_tokens[token]
+        return False
+    user = User.get_by_email(db, entry["email"])
+    if not user:
+        return False
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    del password_reset_tokens[token]
+    return True

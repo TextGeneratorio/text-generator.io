@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#0f0f14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f0f14;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#18181f;border-radius:12px;overflow:hidden;border:1px solid #2a2a35;">
+<tr><td style="background:linear-gradient(135deg,#0284c7,#38bdf8);padding:32px 40px;text-align:center;">
+  <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Day 2 · Pay as you go</p>
+  <h1 style="margin:8px 0 0;color:#fff;font-size:24px;font-weight:700;">Your API key still works, no plan needed</h1>
+</td></tr>
+<tr><td style="padding:40px;">
+  <p style="color:#e2e2e8;font-size:16px;line-height:1.7;margin:0 0 20px;">Hi {{.Name}},</p>
+  <p style="color:#c4c4cc;font-size:15px;line-height:1.7;margin:0 0 16px;">Your subscription has ended, but you do not have to leave the API behind. Text Generator now bills the API per token from prepaid credits, so you only pay for what you send.</p>
+  <ul style="color:#c4c4cc;font-size:15px;line-height:1.8;margin:0 0 16px;padding-left:20px;">
+    <li>Top up credits on your account page; auto-topup can refill a saved card when your balance dips below a threshold you choose.</li>
+    <li>Volume tiers: the more you prepay in a 90 day window, the lower your per-token rate, up to 8% off at the top tier.</li>
+    <li>Same OpenAI-compatible endpoint: <code style="background:#1a1a24;padding:2px 6px;border-radius:4px;color:#7dd3fc;">base_url=https://api.text-generator.io/v1</code> with your existing secret.</li>
+  </ul>
+  <p style="color:#c4c4cc;font-size:15px;line-height:1.7;margin:0 0 16px;">Per-model input and output prices per 1M tokens are listed on the models page.</p>
+
+  <table cellpadding="0" cellspacing="0" style="margin:28px 0 8px;"><tr><td style="background:#0284c7;border-radius:8px;">
+    <a href="https://text-generator.io/account" style="display:inline-block;padding:14px 28px;color:#fff;font-size:15px;font-weight:600;text-decoration:none;">Add credits</a>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:20px 40px 32px;border-top:1px solid #2a2a35;">
+  <p style="margin:0;color:#8b8b96;font-size:12px;line-height:1.6;">You are receiving this because you cancelled your Text Generator subscription ({{.Email}}). <a href="{{.UnsubscribeURL}}" style="color:#7dd3fc;">Unsubscribe</a></p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

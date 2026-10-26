@@ -1,11 +1,5 @@
 // Subscription Modal JavaScript
 if (typeof window.SubscriptionModal === 'undefined') {
-const SUBSCRIPTION_MODAL_PRICING = {
-    monthly: '$9.99/mo',
-    annual: '$99.99/year',
-    savingsLabel: 'save 17%',
-};
-
 window.SubscriptionModal = class SubscriptionModal {
     constructor() {
         this.modal = null;
@@ -37,17 +31,25 @@ window.SubscriptionModal = class SubscriptionModal {
         const modalHTML = `
             <div id="subscription-modal" class="subscription-modal" style="display: none;">
                 <div class="subscription-modal-content">
-                    <button class="subscription-modal-close" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">×</button>
+                    <button type="button" class="subscription-modal-close" aria-label="Close subscription dialog" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">×</button>
                     
                     <div class="subscription-modal-header">
-                        <h2 class="subscription-modal-title">Subscription Required</h2>
+                        <div class="subscription-modal-brand">
+                            <div class="subscription-modal-logo">
+                                <img src="/static/img/tg-logo-96.webp" alt="Text Generator" width="32" height="32" loading="lazy" decoding="async">
+                            </div>
+                            <div>
+                                <p class="subscription-modal-kicker">Text Generator</p>
+                                <h2 class="subscription-modal-title">Subscription Required</h2>
+                            </div>
+                        </div>
                         <p class="subscription-modal-subtitle">You need an active subscription to use advanced AI features</p>
                     </div>
 
                     <div class="subscription-modal-body">
                         <div class="subscription-pricing">
-                            <div class="subscription-price">${SUBSCRIPTION_MODAL_PRICING.monthly}</div>
-                            <div class="subscription-period">or ${SUBSCRIPTION_MODAL_PRICING.annual} (${SUBSCRIPTION_MODAL_PRICING.savingsLabel})</div>
+                            <div class="subscription-price">$19.00</div>
+                            <div class="subscription-period">per month</div>
                         </div>
 
                         <ul class="subscription-features">
@@ -90,8 +92,7 @@ window.SubscriptionModal = class SubscriptionModal {
                         </ul>
 
                         <div class="subscription-modal-actions">
-                            <button class="subscription-btn subscription-btn-primary" type="button" data-subscription-action="plan">Add plan with checkout</button>
-                            <button class="subscription-btn subscription-btn-secondary" type="button" data-subscription-action="credits">Add API credits</button>
+                            <button type="button" class="subscription-btn subscription-btn-primary mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect" onclick="if(window.subscriptionModal) window.subscriptionModal.close(); if(window.showCheckoutDialog) showCheckoutDialog('monthly');">Subscribe Now</button>
                             <button class="subscription-btn subscription-btn-secondary" onclick="if(window.subscriptionModal) window.subscriptionModal.close()">Maybe Later</button>
                         </div>
                     </div>
@@ -117,7 +118,7 @@ window.SubscriptionModal = class SubscriptionModal {
                 }
 
                 .subscription-modal-content {
-                    background: linear-gradient(135deg, #fff 0%, #fef7f7 100%);
+                    background: linear-gradient(135deg, #fff9ef 0%, #fff3dd 100%);
                     border-radius: 16px;
                     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
                     max-width: 480px;
@@ -125,7 +126,7 @@ window.SubscriptionModal = class SubscriptionModal {
                     max-height: 90vh;
                     overflow-y: auto;
                     position: relative;
-                    border: 1px solid rgba(255, 182, 193, 0.3);
+                    border: 1px solid rgba(245, 158, 11, 0.22);
                 }
 
                 .subscription-modal-close {
@@ -137,8 +138,8 @@ window.SubscriptionModal = class SubscriptionModal {
                     font-size: 24px;
                     cursor: pointer;
                     color: #666;
-                    width: 32px;
-                    height: 32px;
+                    width: 40px;
+                    height: 40px;
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
@@ -147,24 +148,57 @@ window.SubscriptionModal = class SubscriptionModal {
                 }
 
                 .subscription-modal-close:hover {
-                    background: rgba(255, 182, 193, 0.2);
+                    background: rgba(245, 158, 11, 0.14);
                     color: #333;
+                }
+
+                .subscription-modal-close:focus-visible {
+                    outline: 3px solid rgba(234, 88, 12, 0.3);
+                    outline-offset: 1px;
                 }
 
                 .subscription-modal-header {
                     text-align: center;
-                    padding: 32px 32px 16px;
-                    background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A  50%, #FF6347 100%);
-                    background-clip: text;
-                    -webkit-background-clip: text;
-                    color: transparent;
+                    padding: 30px 32px 16px;
+                }
+
+                .subscription-modal-brand {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 10px;
+                    text-align: left;
+                }
+
+                .subscription-modal-logo {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 13px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: linear-gradient(135deg, #f59e0b, #ea580c);
+                    box-shadow: 0 12px 24px rgba(234, 88, 12, 0.22);
+                    flex-shrink: 0;
+                }
+
+                .subscription-modal-logo img {
+                    display: block;
+                }
+
+                .subscription-modal-kicker {
+                    margin: 0 0 4px;
+                    font: 700 0.72rem/1 'IBM Plex Mono', monospace;
+                    text-transform: uppercase;
+                    letter-spacing: 0.12em;
+                    color: #c2410c;
                 }
 
                 .subscription-modal-title {
                     font-size: 28px;
                     font-weight: 700;
-                    margin: 0 0 8px;
-                    background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 50%, #FF6347 100%);
+                    margin: 0;
+                    background: linear-gradient(135deg, #c2410c 0%, #f59e0b 52%, #fbbf24 100%);
                     background-clip: text;
                     -webkit-background-clip: text;
                     color: transparent;
@@ -172,7 +206,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 .subscription-modal-subtitle {
                     font-size: 16px;
-                    color: #666;
+                    color: #7c5b43;
                     margin: 0;
                     font-weight: 400;
                 }
@@ -185,15 +219,15 @@ window.SubscriptionModal = class SubscriptionModal {
                     text-align: center;
                     margin: 24px 0 32px;
                     padding: 20px;
-                    background: linear-gradient(135deg, rgba(255, 182, 193, 0.1) 0%, rgba(255, 160, 122, 0.1) 100%);
+                    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.12) 100%);
                     border-radius: 12px;
-                    border: 1px solid rgba(255, 182, 193, 0.3);
+                    border: 1px solid rgba(245, 158, 11, 0.22);
                 }
 
                 .subscription-price {
                     font-size: 36px;
                     font-weight: 700;
-                    background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 50%, #FF6347 100%);
+                    background: linear-gradient(135deg, #c2410c 0%, #f59e0b 52%, #fbbf24 100%);
                     background-clip: text;
                     -webkit-background-clip: text;
                     color: transparent;
@@ -202,7 +236,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 .subscription-period {
                     font-size: 16px;
-                    color: #666;
+                    color: #7c5b43;
                     font-weight: 500;
                 }
 
@@ -217,8 +251,8 @@ window.SubscriptionModal = class SubscriptionModal {
                     align-items: center;
                     padding: 12px 0;
                     font-size: 15px;
-                    color: #333;
-                    border-bottom: 1px solid rgba(255, 182, 193, 0.2);
+                    color: #3b2a1f;
+                    border-bottom: 1px solid rgba(245, 158, 11, 0.16);
                 }
 
                 .subscription-feature:last-child {
@@ -229,7 +263,7 @@ window.SubscriptionModal = class SubscriptionModal {
                     width: 20px;
                     height: 20px;
                     margin-right: 12px;
-                    color: #FF6347;
+                    color: #ea580c;
                     flex-shrink: 0;
                 }
 
@@ -241,6 +275,7 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 .subscription-btn {
                     padding: 16px 24px;
+                    font-family: inherit;
                     border-radius: 12px;
                     font-size: 16px;
                     font-weight: 600;
@@ -253,29 +288,29 @@ window.SubscriptionModal = class SubscriptionModal {
                 }
 
                 .subscription-btn-primary {
-                    background: linear-gradient(90deg, #d79f2a, #d34675);
+                    background: linear-gradient(90deg, #ea580c, #f59e0b);
                     color: white;
-                    box-shadow: 0 4px 15px rgba(215, 159, 42, 0.4);
+                    box-shadow: 0 4px 15px rgba(234, 88, 12, 0.28);
                     transition: all 0.2s ease;
                 }
 
                 .subscription-btn-primary:hover {
-                    background: linear-gradient(90deg, #c48d24, #c23e67);
+                    background: linear-gradient(90deg, #c2410c, #d97706);
                     transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(215, 159, 42, 0.5);
+                    box-shadow: 0 6px 20px rgba(234, 88, 12, 0.36);
                     text-decoration: none;
                     color: white;
                 }
 
                 .subscription-btn-secondary {
-                    background: rgba(255, 182, 193, 0.1);
-                    color: #666;
-                    border: 1px solid rgba(255, 182, 193, 0.3);
+                    background: #fff1e6;
+                    color: #9a3412;
+                    border: 1px solid rgba(245, 158, 11, 0.16);
                 }
 
                 .subscription-btn-secondary:hover {
-                    background: rgba(255, 182, 193, 0.2);
-                    color: #333;
+                    background: #fde8d8;
+                    color: #7c2d12;
                 }
 
                 .subscription-modal.show {
@@ -285,8 +320,16 @@ window.SubscriptionModal = class SubscriptionModal {
 
                 @media (max-width: 600px) {
                     .subscription-modal-content {
-                        margin: 20px;
-                        width: calc(100% - 40px);
+                        width: calc(100% - 16px);
+                        max-height: calc(100dvh - 16px);
+                        margin: 0;
+                    }
+
+                    .subscription-modal-close {
+                        top: 8px;
+                        right: 8px;
+                        width: 44px;
+                        height: 44px;
                     }
                     
                     .subscription-modal-header,
@@ -309,6 +352,10 @@ window.SubscriptionModal = class SubscriptionModal {
         document.head.insertAdjacentHTML('beforeend', styles);
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         this.modal = document.getElementById('subscription-modal');
+
+        if (typeof componentHandler !== 'undefined') {
+            componentHandler.upgradeAllRegistered();
+        }
     }
 
     bindEvents() {
@@ -323,36 +370,6 @@ window.SubscriptionModal = class SubscriptionModal {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.isOpen) {
                 this.close();
-            }
-        });
-
-        document.addEventListener('click', async (e) => {
-            const actionButton = e.target.closest('[data-subscription-action]');
-            if (!actionButton) {
-                return;
-            }
-
-            const action = actionButton.dataset.subscriptionAction;
-            if (action === 'plan') {
-                this.close();
-                if (window.showCheckoutDialog) {
-                    await window.showCheckoutDialog('monthly');
-                } else {
-                    window.location.href = '/subscribe';
-                }
-                return;
-            }
-
-            if (action === 'credits') {
-                this.close();
-                if (window.showCheckoutDialog) {
-                    if (window.checkoutDialog) {
-                        window.checkoutDialog.offerType = 'credits';
-                    }
-                    await window.showCheckoutDialog('monthly');
-                } else {
-                    window.location.href = '/contact';
-                }
             }
         });
     }
@@ -400,6 +417,7 @@ window.SubscriptionModal = class SubscriptionModal {
             this.modal.classList.add('show');
             this.isOpen = true;
             document.body.style.overflow = 'hidden';
+            window.th?.('track', 'paywall_open', { surface: 'subscription_modal' });
         }
     }
 
@@ -434,7 +452,7 @@ if (typeof window.subscriptionModal === 'undefined') {
     initSubscriptionModal();
 
     // Helper function for easy access
-    window.requireSubscription = async function(action = 'access this feature') {
+    window.requireSubscription = window.requireSubscription || async function(action = 'access this feature') {
         if (!window.subscriptionModal) {
             console.warn('SubscriptionModal not initialized yet');
             return false;
@@ -443,7 +461,7 @@ if (typeof window.subscriptionModal === 'undefined') {
     };
 
     // Helper function to check if user is subscribed
-    window.isUserSubscribed = async function() {
+    window.isUserSubscribed = window.isUserSubscribed || async function() {
         if (!window.subscriptionModal) {
             console.warn('SubscriptionModal not initialized yet');
             return false;

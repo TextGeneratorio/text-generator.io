@@ -1,0 +1,67 @@
+{% set builder_title = "Competitor Teardown" %}
+{% set builder_kicker = "Marketing Research" %}
+{% set builder_intro = "Assemble a reusable teardown prompt for positioning, offers, CTAs, and copy angles. Paste competitor URLs, homepage snippets, or quick notes, then send the brief into the playground." %}
+{% set builder_prompt_opening = "Act like a senior growth strategist running a competitor teardown for a founder or marketer. Compare the business with the competitor set, extract messaging patterns, and suggest angles that are easier to win with." %}
+{% set builder_system_message = "You are a senior growth strategist. Be concrete, commercial, and concise. Pull out positioning, offers, proof, objections, and CTA patterns. When URLs or snippets are provided, treat them as source context. Do not write fluff." %}
+{% set builder_note = "This page builds the request. The final generation happens in the playground, which keeps the new tools light-weight and easy to iterate." %}
+{% set builder_fields = [
+    {
+        "id": "your-business",
+        "label": "Your business or product",
+        "prompt_label": "Your business",
+        "type": "text",
+        "value": "AI bookkeeping for construction firms",
+        "placeholder": "Short product or company description",
+        "help": "Describe what you sell in one line."
+    },
+    {
+        "id": "your-audience",
+        "label": "Target audience",
+        "prompt_label": "Audience",
+        "type": "text",
+        "value": "US construction company owners with 5-50 employees",
+        "placeholder": "Who you want to win",
+        "help": "Keep it specific enough that the positioning can sharpen."
+    },
+    {
+        "id": "your-site",
+        "label": "Your site or messaging notes",
+        "prompt_label": "Your site or notes",
+        "type": "textarea",
+        "rows": 4,
+        "value": "Site: https://example.com\nCore promise: close the books faster with less admin work.\nCurrent homepage headline: Bookkeeping built for modern builders.",
+        "placeholder": "Paste your homepage copy, URL, or internal notes",
+        "help": "URLs are useful, but copied snippets work too."
+    },
+    {
+        "id": "competitors",
+        "label": "Competitor URLs or notes",
+        "prompt_label": "Competitors",
+        "type": "textarea",
+        "rows": 6,
+        "value": "https://competitor-one.com\nhttps://competitor-two.com\nCompetitor three positions around flat-fee bookkeeping plus tax support.",
+        "placeholder": "One competitor per line, or paste bullet notes",
+        "help": "Mix URLs with notes if some competitors are private or hard to crawl."
+    },
+    {
+        "id": "goal",
+        "label": "What you want out of the teardown",
+        "prompt_label": "Business goal",
+        "type": "text",
+        "value": "Sharpen the homepage angle and find paid ad hooks that feel different",
+        "placeholder": "What decision should the analysis help with?",
+        "help": "This steers the recommendations toward landing pages, ads, email, or pricing."
+    }
+] %}
+{% set builder_deliverables = [
+    "A positioning snapshot for your business versus the competitor set",
+    "Offer and pricing clues the competitors signal",
+    "Messaging themes, proof patterns, and CTA patterns that repeat",
+    "Gaps or angles the competitors are leaving open",
+    "Three homepage headline directions you could test",
+    "Three paid ad or outbound hooks that sound distinct"
+] %}
+{% set builder_max_length = 900 %}
+{% set builder_temperature = 0.3 %}
+{% set builder_repetition_penalty = 1.06 %}
+{% include "templates/tools/prompt-builder-shell.jinja2" %}

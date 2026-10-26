@@ -1,4 +1,5 @@
 import re
+import threading
 
 import numpy as np
 import phonemizer
@@ -120,12 +121,14 @@ phonemizers = dict(
     a=phonemizer.backend.EspeakBackend(language="en-us", preserve_punctuation=True, with_stress=True),
     b=phonemizer.backend.EspeakBackend(language="en-gb", preserve_punctuation=True, with_stress=True),
 )
+_phonemizer_locks = {lang: threading.Lock() for lang in phonemizers}
 
 
 def phonemize(text, lang, norm=True):
     if norm:
         text = normalize_text(text)
-    ps = phonemizers[lang].phonemize([text])
+    with _phonemizer_locks[lang]:
+        ps = phonemizers[lang].phonemize([text])
     ps = ps[0] if ps else ""
     # https://en.wiktionary.org/wiki/kokoro#English
     ps = ps.replace("kəkˈoːɹoʊ", "kˈoʊkəɹoʊ").replace("kəkˈɔːɹəʊ", "kˈəʊkəɹəʊ")

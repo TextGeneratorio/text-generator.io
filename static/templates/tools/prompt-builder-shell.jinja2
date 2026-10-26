@@ -1,0 +1,330 @@
+<style>
+    .tg-builder {
+        padding-bottom: 48px;
+    }
+
+    .tg-builder-hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-start;
+        margin-bottom: 28px;
+    }
+
+    .tg-builder-kicker {
+        margin: 0 0 8px;
+        font-size: 0.78rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #0b7285;
+        font-weight: 700;
+    }
+
+    .tg-builder-title {
+        margin: 0 0 12px;
+        font-size: 2.1rem;
+        line-height: 1.12;
+        color: #102a43;
+    }
+
+    .tg-builder-intro {
+        margin: 0;
+        max-width: 720px;
+        color: #486581;
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+
+    .tg-builder-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #e0f2fe, #cffafe);
+        color: #0f172a;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .tg-builder-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        gap: 24px;
+    }
+
+    .tg-builder-panel {
+        padding: 24px;
+        border-radius: 22px;
+        border: 1px solid #d9e2ec;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        box-shadow: 0 20px 50px rgba(16, 42, 67, 0.08);
+    }
+
+    .tg-builder-panel h5 {
+        margin: 0 0 16px;
+        color: #102a43;
+    }
+
+    .tg-builder-field {
+        margin-bottom: 16px;
+    }
+
+    .tg-builder-field label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+        color: #243b53;
+    }
+
+    .tg-builder-field small {
+        display: block;
+        margin-top: 6px;
+        color: #627d98;
+        line-height: 1.45;
+    }
+
+    .tg-builder-field input,
+    .tg-builder-field textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid #bcccdc;
+        box-sizing: border-box;
+        font: inherit;
+        color: #102a43;
+        background: #fff;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .tg-builder-field input:focus,
+    .tg-builder-field textarea:focus {
+        outline: none;
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.14);
+    }
+
+    .tg-builder-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    .tg-builder-status {
+        min-height: 20px;
+        margin-top: 12px;
+        color: #0b7285;
+        font-size: 0.92rem;
+    }
+
+    .tg-builder-note {
+        margin: 18px 0 0;
+        color: #627d98;
+        line-height: 1.55;
+    }
+
+    .tg-builder-list {
+        margin: 0 0 20px;
+        padding-left: 20px;
+        color: #334e68;
+        line-height: 1.65;
+    }
+
+    .tg-builder-output {
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid #d9e2ec;
+        background: #0f172a;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.6;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 0.9rem;
+        max-height: 360px;
+        overflow: auto;
+    }
+
+    @media (max-width: 900px) {
+        .tg-builder-hero,
+        .tg-builder-grid {
+            display: block;
+        }
+
+        .tg-builder-chip {
+            margin-top: 16px;
+        }
+
+        .tg-builder-panel + .tg-builder-panel {
+            margin-top: 20px;
+        }
+
+        .tg-builder-title {
+            font-size: 1.8rem;
+        }
+    }
+</style>
+
+<div class="demo-ribbon"></div>
+<main class="demo-main mdl-layout mdl-layout__content tg-builder">
+    <div class="demo-container mdl-grid">
+        <div class="mdl-cell mdl-cell--1-col mdl-cell--hide-tablet mdl-cell--hide-phone"></div>
+        <div class="demo-content mdl-color--white mdl-shadow--4dp content mdl-color-text--grey-800 mdl-cell mdl-cell--10-col">
+            <div class="demo-crumbs mdl-color-text--grey-500">
+                <a href="/" title="Text Generator">Text Generator</a> > <a href="/tools" title="Tools">Tools</a> > {{ builder_title }}
+            </div>
+
+            <div class="tg-builder-hero">
+                <div>
+                    <p class="tg-builder-kicker">{{ builder_kicker or "Prompt Builder" }}</p>
+                    <h1 class="tg-builder-title">{{ builder_title }}</h1>
+                    <p class="tg-builder-intro">{{ builder_intro }}</p>
+                </div>
+                <div class="tg-builder-chip">Prebuild prompt -> Playground</div>
+            </div>
+
+            <div class="tg-builder-grid">
+                <section class="tg-builder-panel">
+                    <h5>Inputs</h5>
+                    {% for field in builder_fields %}
+                        <div class="tg-builder-field">
+                            <label for="{{ field.id }}">{{ field.label }}</label>
+                            {% if field.type == "textarea" %}
+                                <textarea
+                                    id="{{ field.id }}"
+                                    data-builder-field
+                                    data-label="{{ field.prompt_label or field.label }}"
+                                    rows="{{ field.rows or 4 }}"
+                                    placeholder="{{ field.placeholder or '' }}"
+                                >{{- field.value or '' -}}</textarea>
+                            {% else %}
+                                <input
+                                    id="{{ field.id }}"
+                                    data-builder-field
+                                    data-label="{{ field.prompt_label or field.label }}"
+                                    type="{{ field.type or 'text' }}"
+                                    value="{{ field.value or '' }}"
+                                    placeholder="{{ field.placeholder or '' }}"
+                                >
+                            {% endif %}
+                            {% if field.help %}
+                                <small>{{ field.help }}</small>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
+                    <div class="tg-builder-actions">
+                        <button id="builder-copy-button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
+                            Copy Prompt
+                        </button>
+                        <button id="builder-open-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--accent mdl-js-ripple-effect">
+                            Open In Playground
+                        </button>
+                    </div>
+                    <div id="builder-status" class="tg-builder-status"></div>
+
+                    {% if builder_note %}
+                        <p class="tg-builder-note">{{ builder_note }}</p>
+                    {% endif %}
+                </section>
+
+                <section class="tg-builder-panel">
+                    <h5>What this asks for</h5>
+                    <ul id="builder-deliverables" class="tg-builder-list">
+                        {% for deliverable in builder_deliverables %}
+                            <li>{{ deliverable }}</li>
+                        {% endfor %}
+                    </ul>
+
+                    <h5>System Message</h5>
+                    <pre id="builder-system-output" class="tg-builder-output"></pre>
+
+                    <h5 style="margin-top: 18px;">Prompt</h5>
+                    <pre id="builder-prompt-output" class="tg-builder-output"></pre>
+                </section>
+            </div>
+        </div>
+    </div>
+</main>
+
+<textarea id="builder-system-template" hidden>{{ builder_system_message }}</textarea>
+<textarea id="builder-prompt-opening" hidden>{{ builder_prompt_opening }}</textarea>
+
+<script>
+    (function () {
+        const fieldNodes = Array.from(document.querySelectorAll('[data-builder-field]'));
+        const deliverables = Array.from(document.querySelectorAll('#builder-deliverables li')).map(function (item) {
+            return item.textContent.trim();
+        });
+        const systemTemplate = document.getElementById('builder-system-template').value.trim();
+        const promptOpening = document.getElementById('builder-prompt-opening').value.trim();
+        const promptOutput = document.getElementById('builder-prompt-output');
+        const systemOutput = document.getElementById('builder-system-output');
+        const statusNode = document.getElementById('builder-status');
+
+        function buildPrompt() {
+            const lines = [promptOpening, ""];
+
+            fieldNodes.forEach(function (field) {
+                const label = field.dataset.label;
+                const value = field.value.trim();
+                lines.push(label + ":");
+                lines.push(value || "Not provided.");
+                lines.push("");
+            });
+
+            lines.push("Return:");
+            deliverables.forEach(function (item, index) {
+                lines.push((index + 1) + ". " + item);
+            });
+            lines.push("");
+            lines.push("Keep the answer concrete, structured, and ready to use.");
+
+            return lines.join("\n");
+        }
+
+        function playgroundUrl() {
+            const params = new URLSearchParams({
+                text: buildPrompt(),
+                system_message: systemTemplate,
+                model: "{{ builder_model or 'best' }}",
+                max_length: "{{ builder_max_length or 700 }}",
+                max_sentences: "0",
+                top_p: "{{ builder_top_p or 0.9 }}",
+                top_k: "{{ builder_top_k or 40 }}",
+                temperature: "{{ builder_temperature or 0.35 }}",
+                repetition_penalty: "{{ builder_repetition_penalty or 1.08 }}",
+                enable_thinking: "{{ 'true' if builder_enable_thinking else 'false' }}",
+            });
+            return "/playground?" + params.toString();
+        }
+
+        function render() {
+            systemOutput.textContent = systemTemplate;
+            promptOutput.textContent = buildPrompt();
+        }
+
+        fieldNodes.forEach(function (field) {
+            field.addEventListener('input', render);
+        });
+
+        document.getElementById('builder-copy-button').addEventListener('click', async function () {
+            const prompt = buildPrompt();
+            const bundled = "System message:\n" + systemTemplate + "\n\nPrompt:\n" + prompt;
+
+            try {
+                await navigator.clipboard.writeText(bundled);
+                statusNode.textContent = "Prompt copied.";
+            } catch (error) {
+                statusNode.textContent = "Copy failed. You can still select the prompt manually.";
+            }
+        });
+
+        document.getElementById('builder-open-button').addEventListener('click', function () {
+            window.location.href = playgroundUrl();
+        });
+
+        render();
+    })();
+</script>

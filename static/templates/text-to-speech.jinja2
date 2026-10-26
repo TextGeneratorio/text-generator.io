@@ -2,18 +2,18 @@
 
 {% block headers %}
 
-    {% set title = 'Text To Speech - Text Generator' -%}
-    {% set description = 'Learn how to use Afforddable Text To Speech.' -%}
+    {% set title = 'Text to Speech Studio - Fast AI Voice Generator' -%}
+    {% set description = 'Generate natural speech with Kokoro, Supertonic, App.nz TTS, and Pocket TTS using fast local autocomplete and copy-ready API examples.' -%}
 
     <meta charset="utf-8">
     <title>{{ title }}</title>
     <meta name="description"
           content="{{ description }}">
 
-    <meta name="keywords" content="text generation, realistic text generation, text autocomplete, language generator, docs">
+    <meta name="keywords" content="text to speech, AI voice generator, TTS API, Kokoro, Supertonic, App.nz TTS, Pocket TTS">
     <meta property="og:title" content="{{ title }}">
     <meta property="og:url" content="{{ url }}">
-    <meta property="og:image" content="{{ static_url }}/img/brain-generated256.png">
+    <meta property="og:image" content="https://text-generator.io/static/img/og-card.jpg">
     <meta property="og:description"
           content="{{ description }}">
     <meta property="og:type" content="website">
@@ -22,8 +22,15 @@
 
 {% endblock %}
 
+{% block css %}
+    <link rel="stylesheet" href="/static/css/text-to-speech-studio.css?v=2">
+{% endblock %}
+
+{% block js %}
+    <script defer src="/static/js/tts-autocomplete-words.js?v=1"></script>
+    <script defer src="/static/js/text-to-speech-studio.js?v=4"></script>
+{% endblock %}
+
 {% block mainbody %}
     {% include "/templates/shared/text-to-speech.jinja2" %}
 {% endblock %}
-
-
