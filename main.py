@@ -669,12 +669,11 @@ async def static_cache_headers(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path
     if path.startswith("/static/") and response.status_code == 200 and "cache-control" not in response.headers:
-        if "v" in request.query_params:
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        elif path.startswith("/static/libs/") or path.endswith((".woff2", ".woff", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".mp3")):
-            response.headers["Cache-Control"] = "public, max-age=2592000, stale-while-revalidate=86400"
-        else:
-            response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=86400"
+        # edge caches for a month and is purged by ./deploy.sh; browsers revalidate quickly so URLs need no version strings
+        browser_ttl = 2592000 if path.startswith("/static/libs/") or path.endswith(
+            (".woff2", ".woff", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".mp3")
+        ) else 600
+        response.headers["Cache-Control"] = f"public, max-age={browser_ttl}, s-maxage=2592000, stale-while-revalidate=86400"
     return response
 
 
