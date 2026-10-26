@@ -1,0 +1,23 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated, benchmark, and local-only artifacts are not source credentials."
+paths = [
+  '''^visual_bench/''',
+  '''^visualbench/''',
+  '''^profiles/''',
+  '''^tmp/''',
+  '''^static/audio/''',
+  '''^static/img/''',
+  '''^static/templates/base\.jinja2$''',
+  '''^CLAUDE\.md$''',
+  '''^models/multi-model-server/''',
+  '''^questions/audio_server/audio_server\.py$''',
+  '''^scripts/regenerate_use_cases\.py$''',
+  '''^sellerinfo\.py$''',
+  '''^sellerinfo\.pyc$''',
+  '''^__pycache__/''',
+  '''^secrets/google-credentials\.json$''',
+  '''^chromews\.zip$''',
+]

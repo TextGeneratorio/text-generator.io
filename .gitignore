@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 migration.log
 data.db
 user_migration.log
@@ -62,3 +64,14 @@ monitors/monitor_site.log
 onnxtests/
 wer_results.json
 visual_bench/
+visualbench
+
+# Large local model and media artifacts
+*.safetensors
+*.ckpt
+*.pth
+*.onnx
+*.bin
+*.mp4
+*.webm
+*.zip

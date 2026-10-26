@@ -13,7 +13,7 @@ sys.path.insert(0, ".")
 from scripts.use_cases_to_generate import use_cases
 
 SERVER_URL = "http://localhost:9080/api/v1/generate"
-SECRET = "DjbkCN1iAYnz4oj28QqOEORl84jKSeUT"
+SECRET = os.environ.get("TEXT_GENERATOR_SECRET", "")
 
 
 def make_request(use_case, retries=0):

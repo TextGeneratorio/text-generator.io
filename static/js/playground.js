@@ -49,8 +49,23 @@
     var setUrl = function () {
         // set the url to generate settings so users can share and come back to the same place
 
+        // Only persist generation controls in the share URL.  In particular, never
+        // serialize system_message: older clients could feed the current URL back
+        // into that field on every change, producing an exponentially growing URL.
+        var shareableKeys = [
+            'text', 'number_of_results', 'max_length', 'max_sentences',
+            'min_probability', 'stop_sequences', 'top_p', 'top_k',
+            'temperature', 'repetition_penalty', 'seed', 'model',
+            'enable_thinking'
+        ];
+        var shareableSettings = {};
+        shareableKeys.forEach(function (key) {
+            if (generationSettings[key] !== undefined && generationSettings[key] !== null) {
+                shareableSettings[key] = generationSettings[key];
+            }
+        });
         // change location to generationSettings url params
-        var urlParams = new URLSearchParams(generationSettings);
+        var urlParams = new URLSearchParams(shareableSettings);
         history.replaceState(null, null, '/playground?' + urlParams.toString());
 
 
@@ -84,6 +99,8 @@
             "temperature": nanDefault(parseFloat(params.temperature), presets['Example use cases'].temperature),
             "repetition_penalty": nanDefault(parseFloat(params.repetition_penalty), presets['Example use cases'].repetition_penalty),
             "seed": nanDefault(parseInt(params.seed), presets['Example use cases'].seed),
+            "model": params.model || 'best',
+            "enable_thinking": params.enable_thinking === 'true',
         }
         setPreset(generationSettings);
     }
@@ -513,12 +530,18 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                 return false;
             }
             
+            // The editor is initialized asynchronously; pressing Enter before
+            // CodeMirror is ready must not throw and break the form handler.
+            if (!editor || typeof editor.getValue !== 'function') {
+                showError({error: 'Editor is still loading. Please try again in a moment.'}, 'Playground is still loading');
+                return false;
+            }
             var text = editor.getValue();
             setTextData(text);
 
             $('#loading-progress').show();
 
-            $('#playground-play').attr('disabled');
+            $('#playground-play').attr('disabled', true);
             fetch('https://api.text-generator.io/api/v1/generate', {
                 method: 'POST',
                 headers: {
@@ -537,6 +560,9 @@ fetch('https://api.text-generator.io/api/v1/feature-extraction', {
                     showError(response.text(), response.status + ' - ' + response.statusText);
                 }
             }).then(function (data) {
+                if (!data) {
+                    return;
+                }
                 showResult(data)
                 // if editor hasn't changed write results to codemirror
                 if (editor.getValue() === text) {

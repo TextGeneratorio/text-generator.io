@@ -32,11 +32,11 @@ assert TextGenPipeline is not None  # needed to override
 
 # pip install google-api-python-client google-cloud-storage google-auth-httplib2 google-auth-oauthlib
 
-FACEBOOK_APP_ID = "138831849632195"
-FACEBOOK_APP_SECRET = "93986c9cdd240540f70efaea56a9e3f2"
+FACEBOOK_APP_ID = os.environ.get("FACEBOOK_APP_ID", "")
+FACEBOOK_APP_SECRET = os.environ.get("FACEBOOK_APP_SECRET", "")
 
 config = {}
-config["webapp2_extras.sessions"] = dict(secret_key="93986c9cdd240540f70efaea56a9e3f2")
+config["webapp2_extras.sessions"] = dict(secret_key=os.environ.get("SESSION_SECRET", "change-me-in-env"))
 
 templates = Jinja2Templates(directory=".")
 
