@@ -612,6 +612,21 @@ async def redirect_domain(request: Request, call_next):
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+
+@app.middleware("http")
+async def static_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/") and response.status_code == 200 and "cache-control" not in response.headers:
+        if "v" in request.query_params:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        elif path.startswith("/static/libs/") or path.endswith((".woff2", ".woff", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".mp3")):
+            response.headers["Cache-Control"] = "public, max-age=2592000, stale-while-revalidate=86400"
+        else:
+            response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=86400"
+    return response
+
+
 # app.add_middleware(HTTPSRedirectMiddleware)
 
 

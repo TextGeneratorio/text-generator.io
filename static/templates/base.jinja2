@@ -36,14 +36,13 @@
         })();
     </script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="{{ static_url }}/css/material.cyan-pink.min.css"/>
+    <link rel="preload" href="/static/fonts/material-icons-subset.woff2?v=2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/static/css/material-icons-local.css?v=2">
+    <link rel="stylesheet" href="/static/css/material.cyan-pink.min.css?v=1"/>
 
-    <link rel="stylesheet" href="{{ static_url }}/css/article.css">
-    <link rel="stylesheet" href="{{ static_url }}/css/tables.css">
-    <link rel="stylesheet" href="/static/css/site-redesign.css?v=11">
+    <link rel="stylesheet" href="/static/css/article.css?v=1">
+    <link rel="stylesheet" href="/static/css/tables.css?v=1">
+    <link rel="stylesheet" href="/static/css/site-redesign.css?v=12">
 
 
     {% block css %}
@@ -265,9 +264,9 @@
     {#    <script defer src="{{ static_url }}/js/userauth.js"></script>#}
 
     <script>window.evangelTrackingCode = 'kKnIiYGs5FMjnZAA5y4wLczmBrLsiHDV';</script>
-    <script src="https://evangeler.com/js/evangeler-tracking.js"></script>
+    <script defer src="https://evangeler.com/js/evangeler-tracking.js"></script>
     <script>
-    (function() {
+    document.addEventListener('DOMContentLoaded', function() {
         var params = new URLSearchParams(window.location.search);
         if (params.get('sub') === '1') {
             var plan = params.get('plan') || 'monthly';
@@ -284,7 +283,7 @@
             url.searchParams.delete('plan');
             window.history.replaceState({}, '', url);
         }
-    })();
+    });
     </script>
 
     {% block js %}
@@ -315,7 +314,7 @@
 </div>
 <script src="/static/js/highlight-compat.js?v=1"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=optional" rel="stylesheet">
-<link rel="stylesheet" href="{{ static_url }}/css/checkout-dialog.css">
-<link rel="stylesheet" href="{{ static_url }}/css/subscription-modal.css">
+<link rel="stylesheet" href="/static/css/checkout-dialog.css">
+<link rel="stylesheet" href="/static/css/subscription-modal.css">
 </body>
 </html>

@@ -37,7 +37,7 @@
 .tg-section h2,
 .tg-section h3,
 .tg-section h4,
-.tg-site-footer h4 {
+.tg-site-footer h3 {
     margin: 0;
     color: var(--tg-ink);
     letter-spacing: -0.02em;
@@ -713,7 +713,7 @@
     border-radius: 8px;
 }
 
-.tg-site-footer h4 {
+.tg-site-footer h3 {
     color: #fff;
     font-size: 0.95rem;
     margin-bottom: 12px;
