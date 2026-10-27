@@ -61,6 +61,8 @@ def trim_edge_silence(
     sample_rate: int = 24000,
     threshold: int = 64,
     max_trim_ms: int = 120,
+    lead: bool = True,
+    trail: bool = True,
 ) -> np.ndarray:
     """Trim leading/trailing near-silence, capped by *max_trim_ms* per side."""
     if audio.size == 0 or max_trim_ms <= 0:
@@ -77,8 +79,8 @@ def trim_edge_silence(
 
     leading_silence = int(voiced_indices[0])
     trailing_silence = int((audio.size - 1) - voiced_indices[-1])
-    trim_start = min(leading_silence, max_trim_samples)
-    trim_end = min(trailing_silence, max_trim_samples)
+    trim_start = min(leading_silence, max_trim_samples) if lead else 0
+    trim_end = min(trailing_silence, max_trim_samples) if trail else 0
 
     end_index = audio.size - trim_end
     if end_index <= trim_start:
@@ -146,15 +148,22 @@ def optimize_tts_audio_for_speed(
     internal_silence_min_ms: int = 250,
     internal_silence_keep_ms: int = 80,
     threshold: int = 64,
+    lead: bool = True,
+    trail: bool = True,
 ) -> np.ndarray:
-    """Apply conservative, intelligibility-safe post-processing to reduce audio length."""
+    """Apply conservative, intelligibility-safe post-processing to reduce audio length.
+
+    lead/trail limit edge trimming to one side, for streamed chunks (first chunk: lead, last chunk: trail).
+    """
     optimized = audio
-    if trim_edges:
+    if trim_edges and (lead or trail):
         optimized = trim_edge_silence(
             optimized,
             sample_rate=sample_rate,
             threshold=threshold,
             max_trim_ms=edge_trim_ms,
+            lead=lead,
+            trail=trail,
         )
     if compress_internal:
         optimized = compress_internal_silence(

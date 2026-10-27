@@ -4,7 +4,8 @@ from pathlib import Path
 
 # Load only the text-normalization helpers from kokoro.py to avoid heavy deps
 lines = Path("questions/inference_server/kokoro.py").read_text().splitlines()
-code = "\n".join([l for l in lines[0:96] if "phonemizer" not in l and "torch" not in l])
+end = next(i for i, l in enumerate(lines) if l.startswith("def get_vocab"))
+code = "\n".join([l for l in lines[0:end] if "phonemizer" not in l and "torch" not in l])
 mod = types.ModuleType("kokoro_utils")
 exec(code, mod.__dict__)
 

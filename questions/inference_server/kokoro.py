@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 
@@ -147,14 +148,63 @@ def length_to_mask(lengths):
     return mask
 
 
+# Autocast policy. bf16/fp16: whole model under autocast (bf16 was the old default). fp32: none.
+# dec-fp16/dec-bf16: text/duration/F0 stages in fp32, decoder under autocast. On a 3090, 122 chars:
+# bf16 123 ms, fp32 84 ms, dec-fp16 71 ms. bf16 durations drift from fp32 (mel L1 0.77); dec-fp16 stays
+# at 39 dB SNR / mel L1 0.011 vs fp32 with the same seed (seed-to-seed noise is mel L1 ~0.065).
+KOKORO_PRECISION = os.environ.get("KOKORO_PRECISION", "dec-fp16").strip().lower()
+# Optional fixed RNG seed per forward (the decoder's sine/noise source is random); for parity tests
+KOKORO_SEED = os.environ.get("KOKORO_SEED")
+# Sentence segmentation: segment 1 is short so the first audio is ready early
+KOKORO_SEGMENT = os.environ.get("KOKORO_SEGMENT", "1").strip().lower() in {"1", "true", "yes", "on"}
+SEG_FIRST_MIN_CHARS = int(os.environ.get("KOKORO_SEG_FIRST_MIN_CHARS", "30"))
+SEG_FIRST_MAX_CHARS = int(os.environ.get("KOKORO_SEG_FIRST_MAX_CHARS", "120"))
+SEG_MAX_CHARS = int(os.environ.get("KOKORO_SEG_MAX_CHARS", "400"))
+MAX_TOKENS = 510
+
+
+_AC_DTYPES = {"bf16": torch.bfloat16, "fp16": torch.float16}
+
+
+def _autocast(device, stage, mode):
+    if mode.startswith("dec-"):
+        mode = mode[4:] if stage == "dec" else "fp32"
+    dtype = _AC_DTYPES.get(mode)
+    return torch.amp.autocast(device_type="cuda", dtype=dtype or torch.bfloat16, enabled=device.type == "cuda" and dtype is not None)
+
+
+def fold_weight_norm(model):
+    """Bake weight_norm (g * v/|v|) into plain weights once instead of recomputing it every forward; bit-identical."""
+    from torch.nn.utils import remove_weight_norm
+
+    n = 0
+    for part in model.values():
+        for mod in part.modules():
+            if hasattr(mod, "weight_g") and hasattr(mod, "weight_v"):
+                remove_weight_norm(mod)
+                n += 1
+    return n
+
+
 @torch.inference_mode()
-def forward(model, tokens, ref_s, speed):
+def forward(model, tokens, ref_s, speed, seed=None):
+    out = _forward(model, tokens, ref_s, speed, seed, KOKORO_PRECISION)
+    if KOKORO_PRECISION != "fp32" and not np.isfinite(out).all():
+        # fp16 overflow guard: redo this segment in fp32
+        out = _forward(model, tokens, ref_s, speed, seed, "fp32")
+    return out
+
+
+def _forward(model, tokens, ref_s, speed, seed, precision):
     device = ref_s.device
+    seed = KOKORO_SEED if seed is None else seed
+    if seed is not None:
+        torch.manual_seed(int(seed))
     tokens = torch.tensor([[0, *tokens, 0]], dtype=torch.long, device=device)
     input_lengths = torch.tensor([tokens.shape[-1]], dtype=torch.long, device=device)
     text_mask = length_to_mask(input_lengths)
 
-    with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=device.type == "cuda"):
+    with _autocast(device, "enc", precision):
         bert_dur = model.bert(tokens, attention_mask=(~text_mask).int())
         d_en = model.bert_encoder(bert_dur).transpose(-1, -2)
         s = ref_s[:, 128:]
@@ -177,6 +227,7 @@ def forward(model, tokens, ref_s, speed):
         F0_pred, N_pred = model.predictor.F0Ntrain(en, s)
         t_en = model.text_encoder(tokens, input_lengths, text_mask)
         asr = t_en @ pred_aln_trg.unsqueeze(0)
+    with _autocast(device, "dec", precision):
         out = model.decoder(asr, F0_pred, N_pred, ref_s[:, :128])
     return out.squeeze().cpu().numpy()
 
@@ -218,6 +269,62 @@ def compile_model(model, mode="reduce-overhead", dynamic=True):
     return model
 
 
+_SENT_END = re.compile(r'[.!?\u2026]+["\u00bb\u201d\')\]]*\s+|\s*\n+\s*')
+_CLAUSE_END = re.compile(r"[,;:\u2014\u2013]\s+")
+
+
+def split_sentences(text):
+    out, start = [], 0
+    for m in _SENT_END.finditer(text):
+        out.append(text[start : m.end()].strip())
+        start = m.end()
+    out.append(text[start:].strip())
+    return [s for s in out if s]
+
+
+def split_segments(text):
+    """Normalized text -> segments. Segment 1 is the first sentence (or clause), the rest are sentence groups."""
+    sents = split_sentences(text)
+    if not sents:
+        return []
+    first, i = sents[0], 1
+    while len(first) < SEG_FIRST_MIN_CHARS and i < len(sents):
+        first, i = first + " " + sents[i], i + 1
+    rest = sents[i:]
+    if len(first) > SEG_FIRST_MAX_CHARS:
+        cut = next((m.end() for m in _CLAUSE_END.finditer(first) if SEG_FIRST_MIN_CHARS <= m.start() < len(first) - SEG_FIRST_MIN_CHARS), None)
+        if cut is not None:
+            rest = [first[cut:].strip()] + rest
+            first = first[:cut].strip()
+    segs, cur = [first], ""
+    for s in rest:
+        if cur and len(cur) + 1 + len(s) > SEG_MAX_CHARS:
+            segs.append(cur)
+            cur = s
+        else:
+            cur = f"{cur} {s}" if cur else s
+    if cur:
+        segs.append(cur)
+    return segs
+
+
+def generate_stream(model, text, voicepack, lang="a", speed=1, seed=None):
+    """Yield (audio, is_last) per forward pass. Non-streamed output is the concatenation of these chunks."""
+    if KOKORO_SEGMENT:
+        segs = split_segments(normalize_text(text))
+    else:
+        segs = [text]
+    toks = (t for t in (tokenize(phonemize(seg, lang, norm=not KOKORO_SEGMENT)) for seg in segs) if t)
+    cur = next(toks, None)
+    while cur is not None:
+        nxt = next(toks, None)  # one segment of lookahead so is_last is exact even if a trailing segment is empty
+        n = (len(cur) + MAX_TOKENS - 1) // MAX_TOKENS
+        for i in range(n):
+            win = cur[i * MAX_TOKENS : (i + 1) * MAX_TOKENS]
+            yield forward(model, win, voicepack[len(win)], speed, seed=seed), nxt is None and i == n - 1
+        cur = nxt
+
+
 def generate(model, text, voicepack, lang="a", speed=1, ps=None):
     ps = ps or phonemize(text, lang)
     tokens = tokenize(ps)
@@ -233,16 +340,7 @@ def generate(model, text, voicepack, lang="a", speed=1, ps=None):
 
 
 def generate_full(model, text, voicepack, lang="a", speed=1, ps=None):
-    ps = ps or phonemize(text, lang)
-    tokens = tokenize(ps)
-    if not tokens:
+    outs = [a for a, _ in generate_stream(model, text, voicepack, lang=lang, speed=speed)]
+    if not outs:
         return None
-    outs = []
-    loop_count = len(tokens) // 510 + (1 if len(tokens) % 510 != 0 else 0)
-    for i in range(loop_count):
-        ref_s = voicepack[len(tokens[i * 510 : (i + 1) * 510])]
-        out = forward(model, tokens[i * 510 : (i + 1) * 510], ref_s, speed)
-        outs.append(out)
-    outs = np.concatenate(outs)
-    ps = "".join(next(k for k, v in VOCAB.items() if i == v) for i in tokens)
-    return outs, ps
+    return np.concatenate(outs), ps or ""

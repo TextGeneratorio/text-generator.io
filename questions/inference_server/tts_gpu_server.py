@@ -21,7 +21,8 @@ os.environ.setdefault("MIN_FREE_VRAM_GB", "0")
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from starlette.concurrency import iterate_in_threadpool
 from pydantic import BaseModel
 
 from questions.inference_server import inference_server as srv
@@ -190,6 +191,67 @@ async def synth(p: SynthParams):
             raise HTTPException(503, "gpu tts failed")
     logger.info("synth voice=%s chars=%d audio=%.1fs took=%.3fs", p.voice, len(p.text), len(audio) / rate, time.time() - t)
     return Response(audio.tobytes(), media_type="application/octet-stream", headers={"X-Sample-Rate": str(rate)})
+
+
+def _stream_chunks(p):
+    """Sync generator of float32 PCM bytes per segment; OOM before the first chunk falls back to a whole retry."""
+    t = time.time()
+    n, rate = 0, 24000
+    first = None
+    it = srv.audio_process_stream(p.text, p.voice, p.speed, language=p.language, steps=p.steps)
+    try:
+        for rate, audio in it:
+            if first is None:
+                first = time.time() - t
+            n += audio.size
+            yield rate, audio.astype(np.float32, copy=False).tobytes()
+    except Exception as exc:
+        if n or "out of memory" not in str(exc).lower():
+            raise
+        _stats["oom"] += 1
+        logger.warning("stream OOM voice=%s; queueing at vram broker", p.voice)
+        rate, audio = _synth_after_oom(p.text, p.voice, p.speed, p.language, p.steps)
+        first = time.time() - t
+        n = audio.size
+        yield rate, audio.tobytes()
+    logger.info("stream voice=%s chars=%d audio=%.1fs first=%.3fs took=%.3fs", p.voice, len(p.text), n / rate, first or 0, time.time() - t)
+
+
+async def _next_chunk(gen):
+    # The GPU slot is held per segment, so a long stream never blocks another request's first chunk.
+    async with _sem:
+        return await gen.__anext__()
+
+
+@app.post("/synth_stream")
+async def synth_stream(p: SynthParams):
+    """Chunked float32 PCM; the first chunk (first sentence) is sent as soon as it is synthesized."""
+    gen = iterate_in_threadpool(_stream_chunks(p))
+    try:
+        rate, head = await _next_chunk(gen)
+    except StopAsyncIteration:
+        raise HTTPException(400, "Speech input could not be tokenized for the selected voice.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        logger.warning("stream failed voice=%s: %s", p.voice, exc)
+        _free_cuda()
+        raise HTTPException(503, "gpu tts failed")
+
+    async def body():
+        yield head
+        while True:
+            try:
+                _, chunk = await _next_chunk(gen)
+            except StopAsyncIteration:
+                return
+            except Exception as exc:
+                logger.warning("stream aborted voice=%s: %s", p.voice, exc)
+                _free_cuda()
+                raise
+            yield chunk
+
+    return StreamingResponse(body(), media_type="application/octet-stream", headers={"X-Sample-Rate": str(rate)})
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@ from starlette.responses import (
     JSONResponse,
     RedirectResponse,
     Response,
+    StreamingResponse,
 )
 
 from questions.audio_server.audio_dl import request_get
@@ -1265,7 +1266,25 @@ def maybe_autotopup_safe(stripe_id):
         logger.warning("autotopup failed: %s", exc)
 
 
+def _is_internal_credential(secret) -> bool:
+    """Service-to-service credentials (our own secret, the netwrck partner secret, scoped service keys) are not users."""
+    if not secret:
+        return False
+    if secret == sellerinfo.TEXT_GENERATOR_SECRET or (NETWRCK_PARTNER_SECRET and secret == NETWRCK_PARTNER_SECRET):
+        return True
+    from .subscriber_verify import service_key_tier
+
+    return bool(service_key_tier(secret))
+
+
+def _should_track_usage(request: Request, secret) -> bool:
+    return "X-Rapid-API-Key" not in request.headers and not API_KEY and not _is_internal_credential(secret)
+
+
 def track_stripe_request_usage(secret, quantity: int):
+    # Internal callers have no user row: the lookup always failed and logged an error on every call.
+    if not secret or _is_internal_credential(secret):
+        return
     # Validate user subscription status without metering usage
     # get the current user
     existing_user = session_dict.get(secret)
@@ -2572,7 +2591,7 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-def _optimize_generated_audio(audio: np.ndarray, sample_rate: int = 24000) -> np.ndarray:
+def _optimize_generated_audio(audio: np.ndarray, sample_rate: int = 24000, lead: bool = True, trail: bool = True) -> np.ndarray:
     trim_edges = _env_flag("TTS_TRIM_EDGE_SILENCE", True)
     compress_internal = _env_flag("TTS_COMPRESS_INTERNAL_SILENCE", False)
     if not trim_edges and not compress_internal:
@@ -2587,6 +2606,8 @@ def _optimize_generated_audio(audio: np.ndarray, sample_rate: int = 24000) -> np
         internal_silence_min_ms=max(_env_int("TTS_INTERNAL_SILENCE_MIN_MS", 250), 0),
         internal_silence_keep_ms=max(_env_int("TTS_INTERNAL_SILENCE_KEEP_MS", 80), 0),
         threshold=max(_env_int("TTS_SILENCE_THRESHOLD", 64), 1),
+        lead=lead,
+        trail=trail,
     )
 
 
@@ -2686,8 +2707,14 @@ def load_speechgen_model():
         # Compile BERT for faster inference (optional, controlled by env var)
         # NOTE: Disabled by default - torch.compile causes CUDA graph assertion errors
         # with dynamic input sizes. Enable with KOKORO_COMPILE=1 if needed for benchmarks.
+        # torch.compile of the decoder (2026-10, torch 2.9) was -20..-30% but moved the output 2.7x beyond
+        # seed-to-seed noise (mel L1 0.18 vs 0.065) and needs ~30 s warmup, so it stays off.
         if os.environ.get("KOKORO_COMPILE", "0") == "1" and device == "cuda":
             speechgen_model = compile_model(speechgen_model)
+        if os.environ.get("KOKORO_FOLD_WEIGHT_NORM", "1") == "1":
+            from questions.inference_server.kokoro import fold_weight_norm
+
+            fold_weight_norm(speechgen_model)
 
         # Load voice packs
         speech_voicepacks = {}
@@ -2986,6 +3013,61 @@ def _tts_gpu_synthesize(text, voice, speed, language, steps):
     return rate, np.frombuffer(resp.content, dtype=np.float32)
 
 
+def _tts_gpu_stream(text, voice, speed, language, steps):
+    """Open a streamed sidecar request: (rate, iterator of float32 chunks), or None to fall back."""
+    global _tts_gpu_down_until, _tts_gpu_session
+    if not TTS_GPU_URL or time.time() < _tts_gpu_down_until:
+        return None
+    import requests
+
+    if _tts_gpu_session is None:
+        _tts_gpu_session = requests.Session()
+    timeout = TTS_GPU_TIMEOUT_BASE + TTS_GPU_TIMEOUT_PER_CHAR * len(text)
+    try:
+        resp = _tts_gpu_session.post(
+            f"{TTS_GPU_URL}/synth_stream",
+            json={"text": text, "voice": voice, "speed": speed, "language": language, "steps": steps},
+            timeout=(1.0, timeout),
+            stream=True,
+        )
+    except Exception as exc:
+        _tts_gpu_down_until = time.time() + TTS_GPU_COOLDOWN_SECONDS
+        logger.warning("GPU TTS stream unavailable (%s); CPU for %.0fs", type(exc).__name__, TTS_GPU_COOLDOWN_SECONDS)
+        return None
+    if resp.status_code != 200:
+        try:
+            if resp.status_code == 400:
+                raise ValueError(resp.json().get("detail", "invalid speech request"))
+            logger.warning("GPU TTS stream status %s; falling back", resp.status_code)
+            return None
+        finally:
+            resp.close()
+    rate = int(resp.headers.get("X-Sample-Rate", "24000"))
+
+    def chunks():
+        buf = b""
+        try:
+            for part in resp.iter_content(chunk_size=None):
+                buf += part
+                n = len(buf) - len(buf) % 4
+                if n:
+                    yield np.frombuffer(buf[:n], dtype=np.float32)
+                    buf = buf[n:]
+        finally:
+            resp.close()
+
+    return rate, chunks()
+
+
+def tts_synthesize_stream(text, voice, speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
+    """(rate, iterator of float32 chunks): the GPU sidecar stream, else tts_synthesize as a single chunk."""
+    result = _tts_gpu_stream(text, voice, speed, language, steps)
+    if result is not None:
+        return result
+    rate, audio = tts_synthesize(text, voice, speed, language=language, steps=steps)
+    return rate, iter([np.asarray(audio, dtype=np.float32).reshape(-1)])
+
+
 def tts_synthesize(text, voice, speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
     """GPU sidecar -> local engine -> fast fallback voice. Raises ValueError only for bad input."""
     t0 = time.time()
@@ -3077,10 +3159,8 @@ async def generate_speech(
 
     headers = {"Content-Disposition": "attachment; filename=audio.wav"}
     # (16000, speech)
-    if "X-Rapid-API-Key" not in request.headers:
-        # todo fix
-        if not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
-            background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
+    if _should_track_usage(request, secret):
+        background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
     return Response(wav, media_type="audio/wav", headers=headers, background=background_tasks)
     # return Response(wav, media_type="audio/wav")
 
@@ -3112,6 +3192,12 @@ class OpenAISpeechParams(BaseModel):
     speed: Optional[float] = 1.0
     language: Optional[str] = "en"
     steps: Optional[int] = SUPERTONIC_DEFAULT_STEPS
+    # Chunked audio (wav/pcm only): the first sentence is sent as soon as it is synthesized.
+    stream: Optional[bool] = False
+    stream_format: Optional[str] = None
+
+
+_STREAMABLE_FORMATS = {"wav", "pcm"}
 
 
 def _resample(audio_np, rate: int, target: int):
@@ -3147,6 +3233,35 @@ def _encode_audio(audio_np, rate: int, fmt: str):
         sf.write(buf, audio_np, rate, format="WAV", subtype="PCM_16")
         media = "audio/wav"
     return buf.getvalue(), media
+
+
+def _pcm16_chunk(audio_np, rate: int, fmt: str) -> bytes:
+    """int16 bytes for one chunk, converted exactly like _encode_audio does for the whole waveform."""
+    audio_np = np.clip(np.asarray(audio_np, dtype=np.float32), -1.0, 1.0)
+    if fmt == "pcm":
+        pcm = _resample(audio_np, rate, 24000)
+        return (np.clip(pcm, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
+    buf = BytesIO()
+    sf.write(buf, audio_np, rate, format="RAW", subtype="PCM_16")
+    return buf.getvalue()
+
+
+def _wav_stream_header(rate: int) -> bytes:
+    import struct
+
+    unknown = 0xFFFFFFFF
+    return b"RIFF" + struct.pack("<I", unknown) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) + b"data" + struct.pack("<I", unknown)
+
+
+def _speech_stream_body(rate: int, chunks, fmt: str, voice: str, chars: int, t0: float):
+    if fmt == "wav":
+        yield _wav_stream_header(rate)
+    first = None
+    for chunk in chunks:
+        if first is None:
+            first = time.time() - t0
+        yield _pcm16_chunk(chunk, rate, fmt)
+    logger.info("tts stream voice=%s chars=%d first=%.3fs took=%.2fs", voice, chars, first or 0.0, time.time() - t0)
 
 
 def _synthesize_openai_speech_response(
@@ -3236,6 +3351,30 @@ async def openai_audio_speech(
     voice = _OPENAI_VOICE_MAP.get(voice.lower(), voice)
     if is_appnz and not (is_supertonic_voice_request(voice) or KOKORO_LEGACY_VOICE_ALIASES.get(voice.lower(), voice) in KOKORO_VOICES):
         voice = TTS_FALLBACK_VOICE
+    fmt = (params.response_format or "wav").lower()
+    if (params.stream or (params.stream_format or "").lower() == "audio") and fmt in _STREAMABLE_FORMATS:
+        t0 = time.time()
+        try:
+            rate, chunks = await _run_tts(
+                tts_synthesize_stream,
+                text,
+                voice,
+                params.speed or 1.0,
+                params.language or "en",
+                params.steps or SUPERTONIC_DEFAULT_STEPS,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            logger.exception("audio/speech stream failed for voice=%s", voice)
+            raise HTTPException(status_code=500, detail="Speech synthesis failed")
+        if _should_track_usage(request, secret):
+            background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
+        return StreamingResponse(
+            _speech_stream_body(rate, chunks, fmt, voice, len(text), t0),
+            media_type=_SPEECH_FORMATS[fmt][0],
+            background=background_tasks,
+        )
     try:
         data, media = await _run_tts(
             _synthesize_openai_speech_response,
@@ -3251,7 +3390,7 @@ async def openai_audio_speech(
     except Exception:
         logger.exception("audio/speech failed for voice=%s", voice)
         raise HTTPException(status_code=500, detail="Speech synthesis failed")
-    if "X-Rapid-API-Key" not in request.headers and not API_KEY and secret != sellerinfo.TEXT_GENERATOR_SECRET:
+    if _should_track_usage(request, secret):
         background_tasks.add_task(track_stripe_request_usage, secret=secret, quantity=1)
     return Response(data, media_type=media, background=background_tasks)
 
@@ -3338,6 +3477,26 @@ def audio_process(text, voice="af_nicole", speed=1.0, language="en", steps=SUPER
     # audio_stretched = (audio_float * 32767.0).astype(np.int16)
 
     return (24000, audio)
+
+
+def audio_process_stream(text, voice="af_nicole", speed=1.0, language="en", steps=SUPERTONIC_DEFAULT_STEPS):
+    """Yield (rate, float32 chunk) as each Kokoro segment finishes; the concatenation matches audio_process."""
+    if len(text.strip()) == 0:
+        return
+    if is_supertonic_voice_request(voice):
+        rate, audio = supertonic_audio_process(text, voice=voice, speed=speed, language=language, steps=steps)
+        yield rate, np.asarray(audio, dtype=np.float32).reshape(-1)
+        return
+    model, voicepacks = _get_model_cache().add_or_get("speech_model", load_speechgen_model)
+    voice = normalize_kokoro_voice(voice, voicepacks)
+    from questions.inference_server.kokoro import generate_stream
+
+    first = True
+    for audio, last in generate_stream(model, text, voicepacks[voice], lang=voice[0], speed=speed):
+        yield 24000, _optimize_generated_audio(audio, sample_rate=24000, lead=first, trail=last)
+        first = False
+    if first:
+        raise ValueError("Speech input could not be tokenized for the selected voice.")
 
 
 class ImageCaptionParams(BaseModel):
