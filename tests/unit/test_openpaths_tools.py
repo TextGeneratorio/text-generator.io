@@ -44,7 +44,7 @@ def test_catalog_ids_unique_and_tools_registered():
 
 def test_generate_image_posts_to_openpaths():
     s = Session(Resp({"data": [{"url": "https://x/y.png"}]}))
-    assert op.generate_image(op.image_model("flux-schnell"), "a cat", "1024x1024", session=s) == "https://x/y.png"
+    assert op.generate_image(op.image_model("zimage"), "a cat", "1024x1024", session=s) == "https://x/y.png"
     url, kw = s.calls[0]
     assert url.endswith("/images/generations") and kw["json"]["aspect_ratio"] == "1:1"
     assert kw["headers"]["Authorization"] == "Bearer k"
@@ -54,7 +54,7 @@ def test_video_job_states_and_errors():
     assert op.video_job("j", session=Session(Resp({"status": "completed", "result": {"video_url": "https://v"}}))) == {"status": "completed", "video_url": "https://v"}
     assert op.video_job("j", session=Session(Resp({"status": "queued"})))["status"] == "running"
     with pytest.raises(op.OpenPathsError):
-        op.generate_image(op.image_model("flux-schnell"), "x", "1024x1024", session=Session(Resp({"error": {"message": "no"}}, ok=False, status_code=400)))
+        op.generate_image(op.image_model("zimage"), "x", "1024x1024", session=Session(Resp({"error": {"message": "no"}}, ok=False, status_code=400)))
 
 
 def test_missing_key_is_503(monkeypatch):

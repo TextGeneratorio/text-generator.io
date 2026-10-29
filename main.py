@@ -1472,7 +1472,7 @@ async def text_to_speech_tool_generate(
 
 class OpenPathsImageRequest(BaseModel):
     prompt: str
-    model: str = "flux-schnell"
+    model: str = "zimage"
     size: str = "1024x1024"
 
 

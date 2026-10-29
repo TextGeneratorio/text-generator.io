@@ -36,13 +36,10 @@ class MediaModel:
 
 
 IMAGE_MODELS: tuple[MediaModel, ...] = (
-    MediaModel("flux-schnell", "FLUX Schnell", "image", "text", 0.003, note="Fastest, cheapest drafts"),
     MediaModel("zimage", "Z-Image", "image", "text", 0.007, note="Fast photoreal"),
     MediaModel("grok-imagine-image", "Grok Imagine", "image", "text", 0.02, note="xAI, strong prompt following"),
-    MediaModel("flux-dev", "FLUX Dev", "image", "text", 0.025, note="Open FLUX quality"),
     MediaModel("qwen-image-3.0", "Qwen Image 3.0", "image", "text", 0.03, note="Great text rendering"),
     MediaModel("gemini-nano-banana-2.1", "Nano Banana 2.1", "image", "text", 0.0336, note="Google Gemini image"),
-    MediaModel("flux-pro", "FLUX Pro", "image", "text", 0.04, note="Highest FLUX quality"),
     MediaModel("gpt-image-2", "GPT Image 2", "image", "text", 0.211, note="OpenAI flagship"),
 )
 
@@ -255,7 +252,8 @@ def generate_image(model: MediaModel, prompt: str, size: str, session=requests) 
     if data.get("url"):
         return data["url"]
     if data.get("b64_json"):
-        return "data:image/png;base64," + data["b64_json"]
+        mime = "image/jpeg" if data["b64_json"].startswith("/9j/") else "image/png"
+        return f"data:{mime};base64," + data["b64_json"]
     raise OpenPathsError("The model returned no image.")
 
 

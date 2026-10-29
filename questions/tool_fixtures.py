@@ -397,7 +397,7 @@ from questions import openpaths_tools as _op  # noqa: E402
 
 tools_fixtures["ai-image-studio"] = {
     "name": "AI Image Studio",
-    "description": "Generate images with FLUX, Qwen Image, Nano Banana, Grok Imagine and GPT Image - pick the model, pay per image.",
+    "description": "Generate images with Z-Image, Qwen Image, Nano Banana, Grok Imagine and GPT Image - pick the model, pay per image.",
     "keywords": "ai image generator, flux, qwen image, nano banana, gpt image, text to image, pay per image",
     "url": "/tools/ai-image-studio",
     "image": "img/text-generator-brain.png",
