@@ -307,3 +307,14 @@ def test_openapi_json_uses_cached_spec_when_static_file_is_invalid(tmp_path, mon
 
     assert response.status_code == 200
     assert response.json() == cached_spec
+
+
+def test_openpaths_tool_pages_and_models_api():
+    for slug in ("ai-image-studio", "ai-video-studio", "ai-summarizer"):
+        response = client.get(f"/tools/{slug}")
+        assert response.status_code == 200
+        assert 'id="opt-root"' in response.text
+    models = client.get("/api/tools/openpaths/models").json()
+    assert models["images"] and models["videos"] and "ai-summarizer" in models["tools"]
+    assert client.post("/api/tools/openpaths/image", json={"prompt": "x"}).status_code == 401
+    assert "AI Video Studio" in client.get("/tools").text

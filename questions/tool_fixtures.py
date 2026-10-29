@@ -390,3 +390,34 @@ print(f"Caption: {result['caption']}")""",
         "workflow_key": "keyword-glossary-explorer",
     },
 }
+
+
+# Credit-billed image, video and LLM tools backed by OpenPaths (see openpaths_tools.py).
+from questions import openpaths_tools as _op  # noqa: E402
+
+tools_fixtures["ai-image-studio"] = {
+    "name": "AI Image Studio",
+    "description": "Generate images with FLUX, Qwen Image, Nano Banana, Grok Imagine and GPT Image - pick the model, pay per image.",
+    "keywords": "ai image generator, flux, qwen image, nano banana, gpt image, text to image, pay per image",
+    "url": "/tools/ai-image-studio",
+    "image": "img/text-generator-brain.png",
+    "icon": "palette", "label": "Images", "accent": "#2563eb", "accent_soft": "rgba(37, 99, 235, 0.14)",
+}
+tools_fixtures["ai-video-studio"] = {
+    "name": "AI Video Studio",
+    "description": "Text to video and image to video with Wan 3.0, Kling 4.0, Seedance 2.0, Veo 3.1, Grok Imagine and MiniMax H3.",
+    "keywords": "ai video generator, text to video, image to video, kling, seedance, veo, wan, minimax",
+    "url": "/tools/ai-video-studio",
+    "image": "img/text-generator-brain.png",
+    "icon": "movie", "label": "Video", "accent": "#dc2626", "accent_soft": "rgba(220, 38, 38, 0.14)",
+}
+for _slug, _tool in _op.LLM_TOOLS.items():
+    tools_fixtures[_slug] = {
+        "name": _tool["name"],
+        "description": _tool["description"],
+        "keywords": _tool["keywords"],
+        "url": f"/tools/{_slug}",
+        "image": "img/text-generator-brain.png",
+        "icon": _tool["icon"], "label": _tool["label"], "accent": _tool["accent"],
+        "accent_soft": _tool["accent"] + "24",
+    }

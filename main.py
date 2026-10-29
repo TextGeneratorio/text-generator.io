@@ -44,7 +44,7 @@ from starlette.requests import ClientDisconnect
 from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
-from questions import blog_fixtures, doc_fixtures, fixtures, prompt_fixtures, prompt_search, tool_fixtures
+from questions import blog_fixtures, doc_fixtures, fixtures, openpaths_tools, prompt_fixtures, prompt_search, tool_fixtures
 from questions.deep_research import DeepResearchError, run_deep_research
 from questions.domain_search import (
     DEFAULT_DOMAIN_IDEAS,
@@ -213,7 +213,7 @@ OPENPATHS_API_BASE = os.environ.get("OPENPATHS_API_BASE", "https://openpaths.io/
 OPENPATHS_API_KEY = os.environ.get("OPENPATHS_API_KEY", "")
 OPENPATHS_ROUTER_MODELS = [
     model.strip()
-    for model in os.environ.get("OPENPATHS_ROUTER_MODELS", "openai-chat-latest,anthropic-opus-latest").split(",")
+    for model in os.environ.get("OPENPATHS_ROUTER_MODELS", "deepseek-v4-flash,claude-haiku-5-5").split(",")
     if model.strip()
 ]
 
@@ -1468,6 +1468,183 @@ async def text_to_speech_tool_generate(
             "X-Credit-Balance": str(balance_after),
         },
     )
+
+
+class OpenPathsImageRequest(BaseModel):
+    prompt: str
+    model: str = "flux-schnell"
+    size: str = "1024x1024"
+
+
+class OpenPathsVideoRequest(BaseModel):
+    prompt: str
+    model: str = "wan-3.0-text-to-video"
+    seconds: int = 5
+    aspect_ratio: str = "16:9"
+    image_url: str = ""
+
+
+class OpenPathsChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class OpenPathsChatRequest(BaseModel):
+    tool: str = ""
+    model: str = ""
+    messages: List[OpenPathsChatMessage] = Field(default_factory=list)
+    max_tokens: int = 1500
+
+
+def _openpaths_charge(user, cents: int, db: Session, *, free_for_subscribers: bool = False) -> int:
+    """Charge credit cents for an OpenPaths tool run; returns the balance after."""
+    from questions.subscription_utils import check_user_subscription
+
+    if free_for_subscribers and check_user_subscription(user):
+        return get_stripe_credit_balance_cents(user.stripe_id) if user.stripe_id else 0
+    if not user.stripe_id:
+        raise HTTPException(status_code=402, detail="Buy API credits at https://text-generator.io/account")
+    current = get_stripe_credit_balance_cents(user.stripe_id)
+    if current < cents:
+        raise HTTPException(status_code=402, detail=f"Insufficient credits: this run costs {cents}. Top up at /account.")
+    new_balance = set_stripe_credit_balance_cents(user.stripe_id, current - cents)
+    try:
+        user.free_credits = new_balance
+        db.commit()
+    except Exception:
+        pass
+    maybe_autotopup(user.stripe_id)
+    return new_balance
+
+
+def _openpaths_refund(user, cents: int, db: Session) -> None:
+    if cents <= 0 or not user.stripe_id:
+        return
+    try:
+        set_stripe_credit_balance_cents(user.stripe_id, get_stripe_credit_balance_cents(user.stripe_id) + cents)
+    except Exception as exc:
+        logger.error("OpenPaths tool refund failed for user %s (%s credits): %s", user.id, cents, exc)
+
+
+def _openpaths_user(request: Request, db: Session, action: str):
+    user = get_current_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail=f"Log in to {action}.")
+    return user
+
+
+def _openpaths_call(fn, *args):
+    try:
+        return fn(*args)
+    except openpaths_tools.OpenPathsError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc))
+
+
+@app.get("/api/tools/openpaths/models")
+async def openpaths_tool_models():
+    return openpaths_tools.catalog()
+
+
+@app.post("/api/tools/openpaths/image")
+async def openpaths_image_tool(request: Request, payload: OpenPathsImageRequest, db: Session = Depends(get_db)):
+    user = _openpaths_user(request, db, "generate images")
+    model = openpaths_tools.image_model(payload.model)
+    prompt = payload.prompt.strip()
+    if not model:
+        raise HTTPException(status_code=400, detail="Unsupported image model.")
+    if not prompt or len(prompt) > 2000:
+        raise HTTPException(status_code=400, detail="Write a prompt of up to 2,000 characters.")
+    if payload.size not in openpaths_tools.IMAGE_SIZES:
+        raise HTTPException(status_code=400, detail="Unsupported image size.")
+    cents = openpaths_tools.image_credits(model)
+    _openpaths_charge(user, cents, db)
+    try:
+        url = await asyncio.to_thread(_openpaths_call, openpaths_tools.generate_image, model, prompt, payload.size)
+    except HTTPException:
+        _openpaths_refund(user, cents, db)
+        raise
+    return {"image_url": url, "model": model.id, "size": payload.size, "credits_charged": cents}
+
+
+@app.post("/api/tools/openpaths/video")
+async def openpaths_video_tool(request: Request, payload: OpenPathsVideoRequest, db: Session = Depends(get_db)):
+    user = _openpaths_user(request, db, "generate videos")
+    model = openpaths_tools.video_model(payload.model)
+    prompt = payload.prompt.strip()
+    if not model:
+        raise HTTPException(status_code=400, detail="Unsupported video model.")
+    if not prompt or len(prompt) > 2000:
+        raise HTTPException(status_code=400, detail="Write a prompt of up to 2,000 characters.")
+    if not 2 <= payload.seconds <= openpaths_tools.MAX_VIDEO_SECONDS:
+        raise HTTPException(status_code=400, detail=f"Choose 2-{openpaths_tools.MAX_VIDEO_SECONDS} seconds.")
+    if payload.aspect_ratio not in openpaths_tools.VIDEO_ASPECTS:
+        raise HTTPException(status_code=400, detail="Unsupported aspect ratio.")
+    image_url = payload.image_url.strip()
+    if model.mode == "image" and not image_url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="This model needs a public https image URL to animate.")
+    cents = openpaths_tools.video_credits(model, payload.seconds)
+    balance = _openpaths_charge(user, cents, db)
+    try:
+        job_id = await asyncio.to_thread(
+            _openpaths_call, openpaths_tools.start_video, model, prompt, payload.seconds, payload.aspect_ratio, image_url
+        )
+    except HTTPException:
+        _openpaths_refund(user, cents, db)
+        raise
+    openpaths_tools.VIDEO_LEDGER.add(job_id, user.id, cents)
+    return {"job_id": job_id, "credits_charged": cents, "credit_balance_cents": balance}
+
+
+@app.get("/api/tools/openpaths/video/{job_id}")
+async def openpaths_video_status(request: Request, job_id: str, db: Session = Depends(get_db)):
+    user = _openpaths_user(request, db, "check video jobs")
+    entry = openpaths_tools.VIDEO_LEDGER.get(job_id)
+    if not entry or entry["user"] != user.id:
+        raise HTTPException(status_code=404, detail="Video job not found.")
+    result = await asyncio.to_thread(_openpaths_call, openpaths_tools.video_job, job_id)
+    if result["status"] == "failed" and not entry["refunded"]:
+        entry["refunded"] = True
+        _openpaths_refund(user, entry["credits"], db)
+        result["refunded_credits"] = entry["credits"]
+    return result
+
+
+@app.post("/api/tools/openpaths/chat")
+async def openpaths_chat_tool(request: Request, payload: OpenPathsChatRequest, db: Session = Depends(get_db)):
+    user = _openpaths_user(request, db, "use this tool")
+    preset = openpaths_tools.LLM_TOOLS.get(payload.tool)
+    if not preset:
+        raise HTTPException(status_code=400, detail="Unknown tool.")
+    model = openpaths_tools.chat_model(payload.model or preset["default_model"])
+    if not model:
+        raise HTTPException(status_code=400, detail="Unsupported model.")
+    messages = [{"role": m.role, "content": m.content} for m in payload.messages[-12:] if m.role in ("user", "assistant")]
+    chars = sum(len(m["content"]) for m in messages)
+    if not messages or messages[-1]["role"] != "user" or not messages[-1]["content"].strip():
+        raise HTTPException(status_code=400, detail="Write something first.")
+    if chars > 40000:
+        raise HTTPException(status_code=400, detail="Keep the input under 40,000 characters.")
+    max_tokens = max(100, min(int(payload.max_tokens), 4000))
+    free = model.id != "claude-opus-5"
+    from questions.subscription_utils import check_user_subscription
+
+    billed = not (free and check_user_subscription(user))
+    reserve = openpaths_tools.chat_reserve_credits(model, chars, max_tokens)
+    _openpaths_charge(user, reserve, db, free_for_subscribers=free)
+    try:
+        text, usage = await asyncio.to_thread(
+            _openpaths_call, openpaths_tools.chat, model, preset["system"], messages, max_tokens
+        )
+    except HTTPException:
+        if billed:
+            _openpaths_refund(user, reserve, db)
+        raise
+    actual = openpaths_tools.chat_actual_credits(model, usage)
+    charged = reserve if billed else 0
+    if billed and actual < reserve:
+        _openpaths_refund(user, reserve - actual, db)
+        charged = actual
+    return {"text": text, "model": model.id, "credits_charged": charged}
 
 
 class DeepResearchMessage(BaseModel):
@@ -3188,7 +3365,7 @@ async def generate_long_text(
     secret: Union[str, None] = Header(default=None),
 ):
     """
-    Generate longer text through the provider router (defaults to GPT-5.6 Luna).
+    Generate longer text through the provider router (defaults to DeepSeek V4 Flash).
     This is optimized for longer, more creative text generation
     """
     validation_result = validate_generate_params(generate_params)
@@ -3253,7 +3430,7 @@ async def generate_large_text(
 ):
     """
     Generate large amounts of text through the provider router.
-    Accepts a model parameter naming any catalogue model; defaults to GPT-5.6 Luna.
+    Accepts a model parameter naming any catalogue model; defaults to DeepSeek V4 Flash.
     """
     validation_result = validate_generate_params(generate_params)
     if validation_result:
