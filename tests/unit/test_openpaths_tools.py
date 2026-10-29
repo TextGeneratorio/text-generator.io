@@ -25,7 +25,7 @@ class Session:
 
 @pytest.fixture(autouse=True)
 def key(monkeypatch):
-    monkeypatch.setenv("OPENPATHS_API_KEY", "k")
+    monkeypatch.setattr(op, "openpaths_key", lambda: "k")
 
 
 def test_credits_apply_markup_and_minimum():
@@ -58,7 +58,7 @@ def test_video_job_states_and_errors():
 
 
 def test_missing_key_is_503(monkeypatch):
-    monkeypatch.delenv("OPENPATHS_API_KEY")
+    monkeypatch.setattr(op, "openpaths_key", lambda: "")
     with pytest.raises(op.OpenPathsError) as e:
         op.chat(op.chat_model("deepseek-v4-flash"), "s", [], 100, session=Session(Resp({})))
     assert e.value.status == 503
