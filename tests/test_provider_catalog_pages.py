@@ -46,8 +46,9 @@ def test_provider_directory_and_detail_pages_render():
     assert "Every serious AI provider" in directory.text
     assert "/providers/anthropic" in directory.text
     assert detail.status_code == 200
-    assert "Claude Sonnet" in detail.text
-    assert "/models/claude-sonnet-latest" in detail.text
+    assert "Claude Haiku 5.5" in detail.text
+    assert "/models/claude-haiku-5-5" in detail.text
+    assert "Claude Sonnet" not in detail.text
 
 
 def test_first_party_providers_publish_callable_services():

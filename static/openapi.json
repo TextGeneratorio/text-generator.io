@@ -300,7 +300,7 @@
     },
     "/api/v1/generate-large": {
       "post": {
-        "summary": "Generate large text with Claude",
+        "summary": "Generate large text with DeepSeek V4 Flash",
         "operationId": "generate_large_route_api_v1_generate_large_post",
         "parameters": [
           {
@@ -334,7 +334,7 @@
                 "example": [
                   {
                     "generated_text": "Once upon a time there was a magical kingdom where dreams came true. The people lived in harmony with nature and with each other.",
-                    "model": "gpt-5.6-luna"
+                    "model": "deepseek-v4-flash"
                   }
                 ]
               }

@@ -2162,14 +2162,14 @@ class TextGeneratorDocs {
     const dialogContent = document.createElement('div');
     dialogContent.className = 'tgdocs-generate-dialog-content';
     
-    // Add title and description based on whether Claude is enabled
+    // Add title and description based on whether bulk generation is enabled
     const title = document.createElement('h3');
-    title.textContent = this.useClaudeForBulk ? 'Generate Content with Claude' : 'Generate Content';
+    title.textContent = this.useClaudeForBulk ? 'Generate Content with DeepSeek Flash' : 'Generate Content';
     dialogContent.appendChild(title);
-    
+
     const description = document.createElement('p');
     if (this.useClaudeForBulk) {
-      description.innerHTML = 'Enter a prompt below to generate high-quality content using Claude.<br>The AI will continue writing from your prompt.';
+      description.innerHTML = 'Enter a prompt below to generate high-quality content using DeepSeek V4 Flash.<br>The AI will continue writing from your prompt.';
     } else {
       description.textContent = 'Enter a prompt below to generate content. The AI will continue writing from your prompt.';
     }
@@ -2198,11 +2198,11 @@ class TextGeneratorDocs {
     
     dialogContent.appendChild(promptTextarea);
     
-    // Add model indicator if using Claude
+    // Add model indicator if using bulk generation
     if (this.useClaudeForBulk) {
       const modelIndicator = document.createElement('div');
       modelIndicator.className = 'tgdocs-model-indicator';
-      modelIndicator.innerHTML = '<span class="model-badge">Claude</span> Powered by Anthropic\'s advanced AI model';
+      modelIndicator.innerHTML = '<span class="model-badge">DeepSeek Flash</span> Powered by DeepSeek V4 Flash';
       dialogContent.appendChild(modelIndicator);
     }
     
@@ -2945,16 +2945,16 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
   const savedSelection = this.editor ? this.editor.getSelection() : null;
   
   try {
-    // Determine if we should use Claude for this generation
+    // Determine if we should use bulk generation for this request
     const useClaudeForThisRequest = isBulkGeneration && this.useClaudeForBulk;
     
     let data = null;
     
     if (useClaudeForThisRequest) {
-      // Use Claude API for bulk generation
-      this.updateSaveStatus('Using Claude for high-quality generation');
+      // Use the large-text endpoint for bulk generation
+      this.updateSaveStatus('Using DeepSeek V4 Flash for high-quality generation');
       
-      // Generate content using the Claude API endpoint
+      // Generate content using the large-text endpoint
       const response = await fetch('/api/v1/generate-large', {
         method: 'POST',
         headers: {
@@ -2973,13 +2973,13 @@ TextGeneratorDocs.prototype.insertLLMResponse = async function(prompt, isBulkGen
           temperature: 0.8,
           repetition_penalty: 1.17,
           seed: 0,
-          model: "gpt-5.6-luna"
+          model: "deepseek-v4-flash"
         })
       });
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Claude API Error (${response.status}): ${errorText}`);
+        console.error(`Large-text generation error (${response.status}): ${errorText}`);
         this.updateSaveStatus(`Generation failed: ${response.status} error`);
         return;
       }

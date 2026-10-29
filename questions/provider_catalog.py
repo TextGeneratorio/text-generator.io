@@ -109,10 +109,10 @@ PROVIDERS: tuple[ProviderDefinition, ...] = (
 
 MODELS: tuple[ModelDefinition, ...] = (
     # Text Generator semantic auto-router profiles.
-    ModelDefinition("text-generator/auto", "Auto", "google", "gemini-3.5-flash", "Semantic routing across providers for a strong quality, speed, and cost balance.", "1M", 1.50, 9.00, ("auto", "chat", "vision", "tools"), ("auto", "auto-chat", "auto-text"), ("gpt-5.4-mini", "claude-sonnet-latest", "deepseek-chat"), "balanced"),
-    ModelDefinition("text-generator/auto-fast", "Auto Fast", "deepseek", "deepseek-chat", "Low-latency routing for interactive assistants, extraction, and quick agent loops.", "128K", 0.14, 0.28, ("auto", "fast", "chat"), ("auto-fast",), ("gemini-2.5-flash", "gpt-4o-mini"), "fast"),
+    ModelDefinition("text-generator/auto", "Auto", "google", "gemini-3.5-flash", "Semantic routing across providers for a strong quality, speed, and cost balance.", "1M", 1.50, 9.00, ("auto", "chat", "vision", "tools"), ("auto", "auto-chat", "auto-text"), ("gpt-5.4-mini", "deepseek-v4-flash", "claude-haiku-5-5"), "balanced"),
+    ModelDefinition("text-generator/auto-fast", "Auto Fast", "deepseek", "deepseek-flash", "Low-latency routing for interactive assistants, extraction, and quick agent loops.", "1M", 0.30, 1.20, ("auto", "fast", "chat"), ("auto-fast",), ("deepseek-chat", "gemini-2.5-flash", "gpt-4o-mini"), "fast"),
     ModelDefinition("text-generator/auto-cheap", "Auto Cheap", "google", "gemini-2.5-flash", "Lowest-cost suitable routing for formatting, classification, extraction, and simple edits.", "1M", 0.20, 1.25, ("auto", "low-cost", "chat"), ("auto-cheap", "auto-easy"), ("gpt-4o-mini", "llama-3.1-8b-instant"), "cheap"),
-    ModelDefinition("text-generator/auto-code", "Auto Code", "openai", "gpt-5.4-mini", "Routes coding prompts by complexity, from small diffs through architecture and debugging.", "400K", 0.75, 4.50, ("auto", "code", "tools", "reasoning"), ("auto-code",), ("claude-sonnet-latest", "codestral-latest", "deepseek-reasoner"), "code"),
+    ModelDefinition("text-generator/auto-code", "Auto Code", "openai", "gpt-5.4-mini", "Routes coding prompts by complexity, from small diffs through architecture and debugging.", "400K", 0.75, 4.50, ("auto", "code", "tools", "reasoning"), ("auto-code",), ("claude-haiku-5-5", "codestral-latest", "deepseek-reasoner"), "code"),
     ModelDefinition("text-generator/auto-reasoning", "Auto Reasoning", "openai", "gpt-5.4-mini", "Automatic model and thinking-level selection for planning, math, and hard decisions.", "400K", 0.75, 4.50, ("auto", "reasoning", "tools"), ("auto-reasoning", "auto-think", "autothink"), ("claude-opus-latest", "deepseek-reasoner", "gemini-2.5-pro"), "reasoning"),
     ModelDefinition("text-generator/auto-vision", "Auto Vision", "google", "gemini-2.5-flash", "Image understanding and OCR routed for latency, resolution, and task complexity.", "1M", 0.30, 2.50, ("auto", "vision", "ocr"), ("auto-vision",), ("gpt-4o", "pixtral-large-latest"), "vision"),
 
@@ -127,8 +127,7 @@ MODELS: tuple[ModelDefinition, ...] = (
     ModelDefinition("claude-opus-latest", "Claude Opus", "anthropic", "claude-opus-5", "Anthropic flagship for long-horizon reasoning, agentic coding, and knowledge work.", "1M", 5.00, 25.00, ("reasoning", "code", "vision", "tools"), ("claude", "claude-opus", "opus"), ("claude-opus-4-8", "or/claude-opus", "gpt-5.4")),
     ModelDefinition("claude-opus-5", "Claude Opus 5", "anthropic", "claude-opus-5", "Latest Claude Opus. Deep reasoning, agentic coding, and 1M-token context.", "1M", 5.00, 25.00, ("reasoning", "code", "vision", "tools"), ("opus-5",), ("claude-opus-4-8", "or/claude-opus")),
     ModelDefinition("claude-opus-4-8", "Claude Opus 4.8", "anthropic", "claude-opus-4-8", "Previous-generation Claude Opus for reasoning and long-horizon agentic work.", "1M", 5.00, 25.00, ("reasoning", "code", "vision", "tools"), ("opus-4.8",), ("or/claude-opus", "gpt-5.4")),
-    ModelDefinition("claude-sonnet-latest", "Claude Sonnet", "anthropic", "claude-sonnet-5", "High-quality coding, analysis, and agentic work at balanced cost.", "1M", 3.00, 15.00, ("reasoning", "code", "vision", "tools"), ("claude-sonnet", "sonnet"), ("or/claude-sonnet", "gpt-5.4-mini")),
-    ModelDefinition("claude-haiku", "Claude Haiku", "anthropic", "claude-haiku-4-5", "Fast Claude model for lightweight conversational tasks.", "200K", 1.00, 5.00, ("fast", "chat", "vision"), (), ("gemini-2.5-flash",)),
+    ModelDefinition("claude-haiku-5-5", "Claude Haiku 5.5", "anthropic", "claude-haiku-5-5", "Fast, low-cost Claude model for high-volume chat, writing, coding, and vision.", "1M", 0.10, 0.50, ("fast", "chat", "code", "vision", "tools"), ("claude-haiku", "claude-haiku-latest", "haiku", "haiku-5.5", "haiku-5-5", "haiku55"), ("deepseek-v4-flash", "gemini-2.5-flash")),
 
     ModelDefinition("gemini-2.5-pro", "Gemini 2.5 Pro", "google", "gemini-2.5-pro", "Long-context multimodal reasoning from Google.", "1M", 1.25, 10.00, ("reasoning", "code", "vision", "tools"), ("gemini", "gemini-latest"), ("or/gemini-pro", "gpt-4o")),
     ModelDefinition("gemini-2.5-flash", "Gemini 2.5 Flash", "google", "gemini-2.5-flash", "Low-latency multimodal model for high-throughput applications.", "1M", 0.30, 2.50, ("fast", "vision", "tools"), (), ("gpt-4o-mini",)),
@@ -145,6 +144,9 @@ MODELS: tuple[ModelDefinition, ...] = (
     # catalogue has one rate, so use the peak V4-Flash rate to avoid
     # undercharging during peak hours while keeping vision at V4-Flash pricing.
     ModelDefinition("deepseek-v4-flash-vision-exp", "DeepSeek V4 Flash Vision Exp", "deepseek", "deepseek-v4-flash-vision-exp", "Experimental DeepSeek V4 Flash vision model for mixed text and image input, including base64 URLs, external URLs, and Files API parts.", "1M", 0.44, 1.32, ("fast", "chat", "code", "reasoning", "vision"), ("deepseek-vision", "deepseek-v4-vision-exp")),
+    # DeepSeek V4.1 Flash bills peak and off-peak. The catalogue has one rate
+    # per model, so list the peak rate to avoid undercharging peak traffic.
+    ModelDefinition("deepseek-v4-flash", "DeepSeek V4 Flash", "deepseek", "deepseek-flash", "Direct DeepSeek V4.1 Flash text model for fast chat, writing, and coding.", "1M", 0.30, 1.20, ("fast", "chat", "writing", "code", "tools"), ("deepseek-flash", "deepseek-v4", "deepseek-v4.1-flash", "deepseek-v4-flash-1017", "deepseek-v4.1-flash-1017")),
 
     ModelDefinition("mistral-large-latest", "Mistral Large", "mistral", "mistral-large-latest", "Mistral's flagship general and reasoning model.", "128K", 2.00, 6.00, ("chat", "reasoning", "tools")),
     ModelDefinition("mistral-small-latest", "Mistral Small", "mistral", "mistral-small-latest", "Fast and efficient general-purpose model.", "128K", 0.10, 0.30, ("fast", "chat", "tools")),
@@ -155,7 +157,6 @@ MODELS: tuple[ModelDefinition, ...] = (
     ModelDefinition("llama-3.1-8b-instant", "Llama 3.1 8B Instant", "groq", "llama-3.1-8b-instant", "Very low-latency chat and extraction.", "128K", 0.05, 0.08, ("fast", "low-cost")),
 
     ModelDefinition("or/gpt-5.4", "GPT-5.4 via OpenRouter", "openrouter", "openai/gpt-5.4", "Alternate OpenRouter path to GPT-5.4.", "1M", 2.50, 15.00, ("reasoning", "code", "fallback")),
-    ModelDefinition("or/claude-sonnet", "Claude Sonnet via OpenRouter", "openrouter", "anthropic/claude-sonnet-5", "Alternate OpenRouter path to Claude Sonnet.", "1M", 3.00, 15.00, ("reasoning", "code", "fallback")),
     ModelDefinition("or/claude-opus", "Claude Opus via OpenRouter", "openrouter", "anthropic/claude-opus-5", "Alternate OpenRouter path to Claude Opus.", "1M", 5.00, 25.00, ("reasoning", "fallback")),
     ModelDefinition("or/gemini-pro", "Gemini Pro via OpenRouter", "openrouter", "google/gemini-2.5-pro", "Alternate OpenRouter path to Gemini Pro.", "1M", 1.25, 10.00, ("vision", "reasoning", "fallback")),
     ModelDefinition("or/deepseek-chat", "DeepSeek via OpenRouter", "openrouter", "deepseek/deepseek-chat", "Alternate OpenRouter path to DeepSeek.", "128K", 0.27, 1.10, ("chat", "fallback")),
