@@ -13,6 +13,9 @@ from .db_models_postgres import User, get_db
 # Configuration
 BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
 BCRYPT_PEPPER = os.getenv("BCRYPT_PEPPER", "")
+# Previous pepper, kept during rotation so existing hashes still verify and get
+# transparently re-peppered on next successful login. Leave empty once migrated.
+BCRYPT_PEPPER_OLD = os.getenv("BCRYPT_PEPPER_OLD", "")
 SESSION_COOKIE_MAX_AGE_SECONDS = int(os.getenv("SESSION_COOKIE_MAX_AGE_SECONDS", str(10 * 365 * 24 * 60 * 60)))
 
 
@@ -23,10 +26,17 @@ def hash_password(password: str) -> str:
     return hashed.decode("utf-8")
 
 
+def _checkpw(password: str, pepper: str, password_hash: str) -> bool:
+    return bcrypt.checkpw((password + pepper).encode("utf-8"), password_hash.encode("utf-8"))
+
+
 def verify_password(password: str, password_hash: str) -> bool:
-    """Verify a password against its hash."""
-    password_peppered = password + BCRYPT_PEPPER
-    return bcrypt.checkpw(password_peppered.encode("utf-8"), password_hash.encode("utf-8"))
+    """Verify a password against its hash (current pepper, then old during rotation)."""
+    if _checkpw(password, BCRYPT_PEPPER, password_hash):
+        return True
+    if BCRYPT_PEPPER_OLD and _checkpw(password, BCRYPT_PEPPER_OLD, password_hash):
+        return True
+    return False
 
 
 def generate_random_string(length: int = 32) -> str:
@@ -51,6 +61,15 @@ def authenticate_user(email: str, password: str, db: Session) -> Optional[User]:
 
     if not verify_password(password, user.password_hash):
         return None
+
+    # Transparent re-pepper: if the stored hash verifies only under the old
+    # pepper, rewrite it under the current pepper on this successful login.
+    if BCRYPT_PEPPER_OLD and not _checkpw(password, BCRYPT_PEPPER, user.password_hash):
+        user.password_hash = hash_password(password)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
 
     return user
 
