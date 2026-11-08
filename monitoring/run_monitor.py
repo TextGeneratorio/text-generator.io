@@ -35,9 +35,9 @@ CODEX_CMD = [
     "exec",
     "--yolo3",
     "-m",
-    "gpt-6.1-sol",
+    "gpt-6.1-terra",
     "--config",
-    "model_reasoning_effort=medium",
+    "model_reasoning_effort=high",
 ]
 
 logging.basicConfig(

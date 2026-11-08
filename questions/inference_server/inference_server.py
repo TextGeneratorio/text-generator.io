@@ -819,6 +819,44 @@ def _caption_image_bytes(*args, **kwargs):
     return caption_image_bytes(*args, **kwargs)
 
 
+_UNDECODABLE_IMAGE_MARKERS = (
+    "UnidentifiedImageError",
+    "cannot identify image file",
+    "could not be decoded",
+    "did not contain a valid image",
+    "DecompressionBombError",
+)
+
+
+def _raise_for_backend_client_error(response) -> None:
+    """Relay a control-plane rejection of the caller's own input as a 4xx.
+
+    The scheduler answers 4xx when the request itself is wrong (undecodable
+    image, missing field, oversized payload). Mapping every non-2xx into 502
+    blamed the backend and turned client mistakes into gateway 5xx.
+
+    Older scheduler builds raise on an undecodable image *before* the
+    validation layer can classify it, so the same client mistake arrives as a
+    500 whose detail names the decode error. Recognise that shape too: a
+    corrupt upload must never be reported as a backend outage.
+    """
+    status = getattr(response, "status_code", 0)
+    try:
+        detail = response.json().get("detail")
+    except Exception:
+        detail = None
+    if 400 <= status < 500:
+        if not isinstance(detail, str) or not detail:
+            detail = f"image caption request rejected ({status})"
+        raise HTTPException(status_code=400, detail=detail)
+    if status >= 500 and isinstance(detail, str) and any(
+        marker in detail for marker in _UNDECODABLE_IMAGE_MARKERS
+    ):
+        raise HTTPException(
+            status_code=400, detail="image could not be decoded"
+        )
+
+
 def _caption_image_via_omniserve(image_bytes: bytes, *, fast_mode: bool) -> str:
     """Run Git-base through the shared OmniServe control plane.
 
@@ -842,6 +880,7 @@ def _caption_image_via_omniserve(image_bytes: bytes, *, fast_mode: bool) -> str:
             timeout=IMAGE_CAPTION_BACKEND_TIMEOUT,
         )
         omniserve_paywall.raise_for_upstream(response)
+        _raise_for_backend_client_error(response)
         response.raise_for_status()
         body = response.json()
         data = body.get("data") if isinstance(body, dict) else None

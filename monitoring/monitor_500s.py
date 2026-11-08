@@ -40,9 +40,9 @@ CODEX_CMD = [
     "exec",
     "--yolo3",
     "-m",
-    os.getenv("TEXTGEN_MONITOR_CODEX_MODEL", "gpt-6.1-sol"),
+    os.getenv("TEXTGEN_MONITOR_CODEX_MODEL", "gpt-6.1-terra"),
     "--config",
-    "model_reasoning_effort=medium",
+    "model_reasoning_effort=high",
 ]
 
 DEFAULT_LOG_SOURCES = [
