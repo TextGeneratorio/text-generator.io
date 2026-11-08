@@ -1,0 +1,31 @@
+<main style="max-width:760px;margin:auto;padding:24px"><article>
+<h1>Test an AI API across text, vision and speech before rollout</h1>
+<p>Testing a multimodal API means treating text, images, audio, latency, and failure recovery as separate product paths, even when one provider bundles them. A useful rollout test is not a single impressive demo; it is a repeatable checklist that can run on a clean environment and explain every outcome. Start with fixtures, assumptions, privacy limits, and rollback points so results say something about your workload rather than your prompt luck.</p>
+<h2>Define the contract before comparing providers</h2>
+<p>Write a short contract for each modality. State input limits, expected output shape, forbidden outputs, maximum latency, retry count, and fallback behavior. Keep it tied to tasks your users actually perform, such as summarizing a support email, extracting fields from a photographed receipt, or transcribing a short voicemail. Mark requirements as must-pass, should-pass, or informational so a failed cosmetic detail does not block a reliable core feature.</p>
+<h2>Build fixtures for each modality</h2>
+<p>Use immutable fixtures that include normal, messy, empty, near-duplicate, and adversarial cases. Store hashes, source type, expected checks, and owner. For text, include ambiguous language, long inputs, and unsupported requests. For images, include glare, cropped subjects, handwriting, and redacted personal documents. For speech, include noise, overlapping speakers if relevant, short clips, and strong accents. Label examples that are invented for testing so nobody mistakes them for real customer data.</p>
+<h2>Verify stated capabilities with reversible checks</h2>
+<p>Do not trust broad capability statements. Test each required behavior with explicit acceptance criteria: can the model return valid structured output, identify missing information, abstain, or handle an image and audio clip together? A capability check should be reversible and low-risk, using fixture data with known expected properties. If a feature is optional on launch day, separate it from the must-pass contract and track it as an enhancement.</p>
+<h2>Measure latency with explicit timestamps</h2>
+<p>Client-side timestamps are usually more useful than provider-reported ones because they include network and queue time. Record start, first byte, first token or word, and completion for every modality. Repeat runs at different times and load levels, but keep the number bounded and agreed in advance. Compare distributions, not single fast runs, and note when an endpoint has variable latency so your user experience can hide or expose it.</p>
+<h2>Use private data safely</h2>
+<p>Test data may include confidential records, so assume it is sensitive until proven otherwise. Use synthetic or approved fixtures, mask identifiers, and store files with the same access controls as production. Avoid sending real customer data to external systems during evaluation. Keep raw audio and images out of logs, and review retention rules before saving payloads for debugging.</p>
+<h2>Bound retries and partial failures</h2>
+<p>Retries should have a clear budget and reason. Retry only on transient transport errors, timeouts, and malformed recoverable responses; do not retry deterministic contract failures. Add jitter, a maximum attempt count, and a stop condition when cost or latency exceeds the plan. If partial results can be useful, define how to present them without implying completeness.</p>
+<h2>Add rollback gates before launch</h2>
+<p>Before rollout, decide what failure rate is acceptable and who can pause release. Gate on must-pass fixtures, median and tail latency, privacy review, and successful fallback behavior. Keep a rollback path tested in advance, including cached results, queued retries, or manual review. Document unresolved risks so support and engineering see the same picture.</p>
+<h2>Checklist</h2><ul>
+<li>Write modality-specific contract requirements and classify each as must-pass, should-pass, or informational.</li>
+<li>Build an immutable fixture suite with normal, messy, empty, near-duplicate, and boundary cases for text, images, and audio.</li>
+<li>Run capability checks with reversible, low-risk tasks and expected properties rather than demos.</li>
+<li>Record client-controlled start, first-byte, streaming-progress, and completion timestamps for every modality.</li>
+<li>Set retry budgets, privacy controls, fallback behavior, and launch gates before production traffic.</li>
+</ul>
+<h2>Takeaway</h2>
+<p>A multimodal rollout is safer when tests separate contract, capability, latency, privacy, and recovery. Evidence from work on effective harnesses for long-running agents supports making sustained tasks reproducible and observable rather than relying on one impressive run. The goal is not to prove a model is universally smart, but to know which behavior your product can rely on this month.</p>
+<h2>Further Reading</h2><ul>
+<li><a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Anthropic: effective harnesses for long-running agents</a></li>
+</ul>
+<p><a href="https://text-generator.io/">Explore Text Generator</a></p>
+</article></main>

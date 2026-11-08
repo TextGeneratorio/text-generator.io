@@ -89,4 +89,9 @@ blogs = {
         "description": "Use Text Generator for chat, image understanding, embeddings, speech to text, and text to speech through OpenAI compatible endpoints",
         "keywords": "speech to text API, text to speech API, vision API, embeddings API, chat completions, OpenAI compatible, Machine Learning",
     },
+    "multimodal-api-test-checklist": {
+        "title": "Test an AI API across text, vision and speech before rollout",
+        "description": "A practical plan for fixture-driven AI API tests across text, vision, and speech, with latency checks, privacy controls, retries, and rollback.",
+        "keywords": "testing, text, vision, speech",
+    },
 }
