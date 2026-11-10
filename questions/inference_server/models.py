@@ -74,7 +74,6 @@ class TextEncoder(nn.Module):
         input_lengths = input_lengths.cpu().numpy()
         x = nn.utils.rnn.pack_padded_sequence(x, input_lengths, batch_first=True, enforce_sorted=False)
 
-        self.lstm.flatten_parameters()
         x, _ = self.lstm(x)
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
 
@@ -93,7 +92,6 @@ class TextEncoder(nn.Module):
         x = x.transpose(1, 2)
         x = self.cnn(x)
         x = x.transpose(1, 2)
-        self.lstm.flatten_parameters()
         x, _ = self.lstm(x)
         return x
 
@@ -219,7 +217,6 @@ class ProsodyPredictor(nn.Module):
 
         m = m.to(text_lengths.device).unsqueeze(1)
 
-        self.lstm.flatten_parameters()
         x, _ = self.lstm(x)
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
 
@@ -291,7 +288,6 @@ class DurationEncoder(nn.Module):
             else:
                 x = x.transpose(-1, -2)
                 x = nn.utils.rnn.pack_padded_sequence(x, input_lengths, batch_first=True, enforce_sorted=False)
-                block.flatten_parameters()
                 x, _ = block(x)
                 x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
                 x = F.dropout(x, p=self.dropout, training=self.training)
@@ -374,4 +370,16 @@ def build_model(path, device):
         except:
             state_dict = {k[7:]: v for k, v in state_dict.items()}
             model[key].load_state_dict(state_dict, strict=False)
+    prepare_for_inference(model)
     return model
+
+
+def prepare_for_inference(model):
+    for part in model.values():
+        for m in part.modules():
+            try:
+                nn.utils.remove_weight_norm(m)
+            except (ValueError, AttributeError):
+                pass
+            if isinstance(m, nn.RNNBase):
+                m.flatten_parameters()
