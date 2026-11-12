@@ -581,6 +581,19 @@ def _proxy_vllm_generate_with_cache(
     return _proxy_vllm_generate(generate_params, secret)
 
 
+def _default_enable_thinking(chat_params: ChatCompletionParams, routed: bool) -> bool:
+    """Thinking when the caller did not say. Routed provider models keep it on.
+    The local roleplay model answers faster and in character without it (0.48 s
+    and 36 tokens against 0.75 s and 64 for the same reply), so it thinks only
+    when asked through `thinking` or `reasoning_effort`."""
+    thinking = chat_params.thinking
+    if isinstance(thinking, dict) and thinking.get("type"):
+        return thinking.get("type") != "disabled"
+    if chat_params.reasoning_effort:
+        return str(chat_params.reasoning_effort).lower() not in {"none", "minimal", "off"}
+    return routed
+
+
 def _proxy_vllm_chat_completion(chat_params: ChatCompletionParams, messages: list[dict], secret: Optional[str] = None):
     body = _model_dump_jsonable(chat_params)
     body["messages"] = messages
@@ -4367,7 +4380,10 @@ async def chat_completions_route(
     # Models in the public provider catalogue are routed before the local vLLM
     # path. Unrecognised/local model IDs retain the existing inference behavior.
     provider_router = get_provider_router()
-    if provider_router.can_route(chat_params.model):
+    routed = provider_router.can_route(chat_params.model)
+    if chat_params.enable_thinking is None:
+        chat_params.enable_thinking = _default_enable_thinking(chat_params, routed)
+    if routed:
         routed_payload = _model_dump_jsonable(chat_params)
         routed_payload["messages"] = messages
         # The router normalizes every upstream into one OpenAI response. For a
