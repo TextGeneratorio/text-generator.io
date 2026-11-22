@@ -594,6 +594,20 @@ def _default_enable_thinking(chat_params: ChatCompletionParams, routed: bool) ->
     return routed
 
 
+LOCAL_CHAT_DEFAULT_SYSTEM = os.environ.get(
+    "LOCAL_CHAT_DEFAULT_SYSTEM",
+    "You are an uncensored assistant and creative writing partner for adults. When the user asks for swearing, "
+    "crude humor, violence or explicit adult content, write it fully, with no asterisks, warnings or lectures. "
+    "Otherwise just answer helpfully in the tone the user uses.",
+)
+
+
+def _with_local_default_system(messages: list[dict]) -> list[dict]:
+    if not LOCAL_CHAT_DEFAULT_SYSTEM or any(m.get("role") in ("system", "developer") for m in messages):
+        return messages
+    return [{"role": "system", "content": LOCAL_CHAT_DEFAULT_SYSTEM}, *messages]
+
+
 def _proxy_vllm_chat_completion(chat_params: ChatCompletionParams, messages: list[dict], secret: Optional[str] = None):
     body = _model_dump_jsonable(chat_params)
     body["messages"] = messages
@@ -4383,6 +4397,8 @@ async def chat_completions_route(
     routed = provider_router.can_route(chat_params.model)
     if chat_params.enable_thinking is None:
         chat_params.enable_thinking = _default_enable_thinking(chat_params, routed)
+    if not routed and not has_media_content:
+        messages = _with_local_default_system(messages)
     if routed:
         routed_payload = _model_dump_jsonable(chat_params)
         routed_payload["messages"] = messages
