@@ -250,7 +250,7 @@ class ChatCompletionParams(BaseModel):
     presence_penalty: Optional[float] = 0.0
     repetition_penalty: Optional[float] = 1.0
     stream: bool = False
-    enable_thinking: Optional[bool] = True
+    enable_thinking: Optional[bool] = None
     thinking: Optional[dict[str, str]] = None
     reasoning_effort: Optional[str] = None
     n: int = 1

@@ -45,6 +45,7 @@ from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
 from questions import blog_fixtures, doc_fixtures, fixtures, openpaths_tools, prompt_fixtures, prompt_search, tool_fixtures
+from questions.seo_pages import build_sitemap_xml, router as seo_router
 from questions.deep_research import DeepResearchError, run_deep_research
 from questions.domain_search import (
     DEFAULT_DOMAIN_IDEAS,
@@ -3201,6 +3202,7 @@ async def bulk_text_generator(request: Request):
 from questions.share_results import get_share as _get_share
 from questions.share_results import router as share_router
 
+app.include_router(seo_router)
 app.include_router(share_router)
 
 from questions.cancel_flow import router as cancel_flow_router
@@ -3225,20 +3227,17 @@ async def shared_result_page(request: Request, share_id: str):
 @app.get("/robots.txt", include_in_schema=False)
 async def robots_txt():
     return Response(
-        "User-agent: *\nAllow: /\nDisallow: /account\nDisallow: /api/\n\nSitemap: https://text-generator.io/sitemap.xml\n",
+        "User-agent: *\nAllow: /\nDisallow: /account\nDisallow: /api/\n\nSitemap: https://text-generator.io/sitemap.xml\n# LLMs: https://text-generator.io/llms.txt\n",
         media_type="text/plain",
     )
 
 
 @app.get("/sitemap.xml")
-async def sitemap_xml(request: Request, response: Response):
-    response.headers["Content-Type"] = "text/xml; charset=utf-8"
-
-    base_vars = get_base_template_vars(request)
-    base_vars.update({})
-    return templates.TemplateResponse(
-        "templates/sitemap.xml.jinja2",
-        base_vars,
+async def sitemap_xml(request: Request):
+    return Response(
+        build_sitemap_xml(),
+        media_type="application/xml",
+        headers={"Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"},
     )
 
 
@@ -3252,7 +3251,7 @@ app.router.routes = [
 
 @app.get("/openapi.json")
 async def openapi(request: Request):
-    return JSONResponse(load_openapi_spec())
+    return JSONResponse(load_openapi_spec(), headers={"Cache-Control": "public, max-age=3600, s-maxage=86400"})
 
 
 @app.get("/file{file_path:path}")

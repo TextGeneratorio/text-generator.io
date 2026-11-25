@@ -2,6 +2,9 @@
 {%- set _seo_url = 'https://text-generator.io' ~ _seo_path -%}
 {%- set _seo_image = seo_image | default('https://text-generator.io/static/img/og-card.jpg') -%}
     {% if not skip_canonical | default(false) %}<link rel="canonical" href="{{ _seo_url }}">{% endif %}
+    <link rel="alternate" type="application/json" title="OpenAPI" href="https://text-generator.io/openapi.json">
+    <link rel="alternate" type="text/plain" title="llms.txt" href="https://text-generator.io/llms.txt">
+    <link rel="api-catalog" href="https://text-generator.io/.well-known/api-catalog">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">

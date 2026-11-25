@@ -591,3 +591,14 @@ def test_build_multimodal_generation_kwargs_adds_compile_config(monkeypatch):
     assert kwargs["compile_config"].backend == "inductor"
     assert kwargs["compile_config"].mode == "reduce-overhead"
     assert kwargs["compile_config"].dynamic is True
+
+
+def test_local_chat_gets_default_system_only_when_none_given(monkeypatch):
+    user = [{"role": "user", "content": "hi"}]
+    out = inference_server._with_local_default_system(user)
+    assert out[0] == {"role": "system", "content": inference_server.LOCAL_CHAT_DEFAULT_SYSTEM}
+    assert out[1:] == user
+    own = [{"role": "system", "content": "You are Luna."}, *user]
+    assert inference_server._with_local_default_system(own) is own
+    monkeypatch.setattr(inference_server, "LOCAL_CHAT_DEFAULT_SYSTEM", "")
+    assert inference_server._with_local_default_system(user) is user

@@ -40,7 +40,7 @@ CODEX_CMD = [
     "exec",
     "--yolo3",
     "-m",
-    os.getenv("TEXTGEN_MONITOR_CODEX_MODEL", "gpt-6.1-terra"),
+    os.getenv("TEXTGEN_MONITOR_CODEX_MODEL", "gpt-6.2-sol"),
     "--config",
     "model_reasoning_effort=high",
 ]

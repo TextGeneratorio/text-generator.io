@@ -1,0 +1,18 @@
+{% extends 'templates/base.jinja2' %}
+{% block headers %}
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ page_description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ page_description }}">
+<script type="application/ld+json">{{ jsonld | safe }}</script>
+{% endblock %}
+{% block mainbody %}
+<main style="max-width:880px;margin:28px auto;padding:0 16px;line-height:1.6;color:#0f172a">
+<h1 style="font-size:2rem">Guides and comparisons</h1>
+<h2>Guides</h2>
+<ul>{% for s, t, d in guides %}<li><a href="/guides/{{ s }}">{{ t }}</a> - {{ d }}</li>{% endfor %}</ul>
+<h2>Comparisons</h2>
+<ul>{% for s, t, d in comparisons %}<li><a href="/compare/{{ s }}">{{ t }}</a> - {{ d }}</li>{% endfor %}</ul>
+<p><a href="/agents">Agents guide</a> | <a href="/models">Models</a> | <a href="/docs">Docs</a> | <a href="/llms.txt">llms.txt</a></p>
+</main>
+{% endblock %}

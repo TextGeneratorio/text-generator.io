@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 
@@ -13,6 +14,10 @@ if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
     if hasattr(torch.backends.cuda, 'enable_flash_sdp'):
         torch.backends.cuda.enable_flash_sdp(True)
+
+_AUTOCAST = os.environ.get("KOKORO_AUTOCAST", "0") == "1"
+_LONG_TOKENS = int(os.environ.get("KOKORO_LONG_TOKENS", "160"))
+_long_lock = threading.Lock()
 
 # Cache for compiled models
 _compiled_models = {}
@@ -147,14 +152,21 @@ def length_to_mask(lengths):
     return mask
 
 
-@torch.inference_mode()
 def forward(model, tokens, ref_s, speed):
+    if len(tokens) > _LONG_TOKENS:
+        with _long_lock:
+            return _forward(model, tokens, ref_s, speed)
+    return _forward(model, tokens, ref_s, speed)
+
+
+@torch.inference_mode()
+def _forward(model, tokens, ref_s, speed):
     device = ref_s.device
     tokens = torch.tensor([[0, *tokens, 0]], dtype=torch.long, device=device)
     input_lengths = torch.tensor([tokens.shape[-1]], dtype=torch.long, device=device)
     text_mask = length_to_mask(input_lengths)
 
-    with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=device.type == "cuda"):
+    with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=_AUTOCAST and device.type == "cuda"):
         bert_dur = model.bert(tokens, attention_mask=(~text_mask).int())
         d_en = model.bert_encoder(bert_dur).transpose(-1, -2)
         s = ref_s[:, 128:]

@@ -34,9 +34,9 @@ CODEX_CMD = [
     "exec",
     "--dangerously-bypass-approvals-and-sandbox",
     "-m",
-    "gpt-6-sol",
+    "gpt-6.2-sol",
     "--config",
-    "model_reasoning_effort=high",
+    "model_reasoning_effort=medium",
 ]
 
 URL_LOCAL = "http://localhost:9083/liveness_check"
