@@ -349,7 +349,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 import sellerinfo
 
-from questions import omniserve_paywall
+from questions import omniserve_paywall, textgen_auth
 
 app = FastAPI(
     openapi_url="/static/openapi.json",
@@ -3316,11 +3316,53 @@ def _safe_json(response):
         return None
 
 
+def _site_textgen_subscriber(credential: str):
+    """'sub'/'paid' for a paying text-generator.io account, False for a known free account, None if unknown."""
+    if not USE_POSTGRES:
+        raise RuntimeError("postgres unavailable")
+    from questions.db_models_postgres import SessionLocal
+    from questions.db_models_postgres import User as UserPG
+    from questions.subscription_utils import check_user_subscription
+
+    db = SessionLocal()
+    try:
+        user = UserPG.get_by_secret(db, credential)
+    finally:
+        db.close()
+    if not user:
+        return None
+    if check_user_subscription(user):
+        return "sub"
+    if get_stripe_credit_balance_cents(user.stripe_id) >= 1:
+        return "paid"
+    return False
+
+
+def _site_paid_check(credential: str):
+    # Same verifier (and cache) the omniserve-native gate uses: service keys, text-generator.io
+    # subscribers/credit holders, plus netwrck/cutedsl subscribers when their DSNs are configured.
+    from questions.inference_server.subscriber_verify import verify_credential
+
+    status = verify_credential(credential, _site_textgen_subscriber).get("status")
+    if status == 200:
+        return "paid"
+    if status == 402:
+        return False
+    if status == 401:
+        return None
+    return "error"
+
+
 @app.post("/api/v1/generate")
 async def generate_text_proxy(
     generate_params: GenerateParams,
+    request: Request,
     secret: Union[str, None] = Header(default=None),
 ):
+    # This proxy calls omniserve-native over loopback without relay headers, so the gateway
+    # treats it as internal and skips its own auth gate: the site has to gate it here.
+    decision = await asyncio.to_thread(textgen_auth.gate, request, "site:/api/v1/generate", _site_paid_check)
+    textgen_auth.clamp_max_length(generate_params, decision)
     headers = {}
     if secret:
         headers["secret"] = secret
