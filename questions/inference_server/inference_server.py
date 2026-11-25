@@ -2458,7 +2458,7 @@ class OpenAIEmbeddingParams(BaseModel):
 @app.post("/v1/embeddings")
 async def openai_embeddings(
     params: OpenAIEmbeddingParams,
-    request: Request,
+    request: Request = None,
     secret: Union[str, None] = Header(default=None),
 ):
     """OpenAI-compatible access to OmniServe's lightweight embedding model."""
