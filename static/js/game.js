@@ -6,7 +6,8 @@ function randomString(length) {
         text += possible.charAt(Math.floor(Math.random() * possible.length));
     return text;
 }
-var api_base_url = "https://api.text-generator.io/api/v1/generate"
+// same-origin: served by the text-generator.io free tier (Origin allowlist + rate limit)
+var api_base_url = "/api/v1/generate"
 $(function () {
     "use strict";
     window.questionsgame = {};
@@ -74,8 +75,7 @@ Adam:`;
                 fetch(api_base_url, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        "X-Rapid-API-Key": "YHWEFVNWHXIWNGVSH"
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(data),
                 })

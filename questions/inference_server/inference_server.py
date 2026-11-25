@@ -75,7 +75,7 @@ import stripe
 
 import sellerinfo
 
-from questions import omniserve_paywall
+from questions import omniserve_paywall, textgen_auth
 
 app = FastAPI(
     openapi_url="/openapi.json",
@@ -2444,6 +2444,7 @@ async def feature_extraction(
     request: Request,
     secret: Union[str, None] = Header(default=None),
 ):
+    await _textgen_auth_gate(request, "/api/v1/feature-extraction")
     return await _run_feature_extraction(feature_extract_params, secret=secret)
 
 
@@ -2457,9 +2458,11 @@ class OpenAIEmbeddingParams(BaseModel):
 @app.post("/v1/embeddings")
 async def openai_embeddings(
     params: OpenAIEmbeddingParams,
+    request: Request,
     secret: Union[str, None] = Header(default=None),
 ):
     """OpenAI-compatible access to OmniServe's lightweight embedding model."""
+    await _textgen_auth_gate(request, "/v1/embeddings")
     if not _is_vllm_text_backend_enabled():
         raise HTTPException(status_code=503, detail="Embedding backend is not configured")
     return await asyncio.to_thread(
@@ -2481,6 +2484,7 @@ async def feature_extraction(
     # slow warmup on new servers
     # model = MODEL_CACHE.add_or_get("text_model", load_pipelines_and_model)
     # daemon.join()
+    await _textgen_auth_gate(request, "/api/v1/summarization")
     text = await _run_gpu_bound(
         _get_extractive_summary,
         summarization_params.text, _get_model_cache(), max_length=summarization_params.max_length or 0
@@ -2617,6 +2621,35 @@ def request_authorized(request: Request, secret):
     # netwrck/ebank and cutedsl subscribers reach these workers through the
     # omniserve-native gate, which already required a paid account.
     return bool(secret) and verify_credential(secret).get("status") == 200
+
+
+def _compat_paid_check(credential):
+    """textgen_auth paid_check for this worker: partner/service keys, then the shared subscriber verifier."""
+    from .subscriber_verify import service_key_tier, verify_credential
+
+    if credential in {NETWRCK_PARTNER_SECRET, NETWRCK_IMAGE_CAPTION_SECRET} - {None, ""}:
+        return "service"
+    if service_key_tier(credential) or (API_KEY and credential == API_KEY):
+        return "service"
+    status = verify_credential(credential, _textgen_subscriber).get("status")
+    if status == 200:
+        return "paid"
+    if status == 402:
+        return False
+    if status == 401:
+        return None
+    return "error"
+
+
+async def _textgen_auth_gate(request: Request, endpoint: str):
+    """TEXTGEN_AUTH_MODE gate for money-costing routes. Loopback callers without relay headers
+    (the site proxy, monitors, co-located services) are internal, matching omniserve-native."""
+    if request is None:
+        return None
+    return await asyncio.to_thread(
+        textgen_auth.gate, request, endpoint, _compat_paid_check,
+        allow_internal_peer=True, allow_free_tier=False,
+    )
 
 
 def image_caption_secret_authorized(request: Request, secret):
@@ -4049,12 +4082,9 @@ async def generate_route(
     # print(tokenizer.model_max_length)
     # model.config.max_length = tokenizer.model_max_length
 
-    # with log_time("authorize"):
-    #     if not request_authorized(request, secret):
-    #         return HTTPException(
-    #             status_code=401, detail="Please subscribe at https://text-generator.io/subscribe first"
-    #         )
-    # todo validate api key and user
+    # Auth was commented out in 2023 ("TMP rm auth", 57aacf3) because the check listed every Stripe
+    # subscription per request. It is now cached and staged behind TEXTGEN_AUTH_MODE.
+    await _textgen_auth_gate(request, "/api/v1/generate")
     inference_result = await _run_text_generate(generate_params, _get_model_cache(), secret=secret)
     return inference_result
 
@@ -4198,6 +4228,7 @@ async def autocomplete_route(
     validation_result = validate_generate_params(generate_params)
     if validation_result:
         raise HTTPException(status_code=400, detail=validation_result)
+    await _textgen_auth_gate(request, "/api/v1/autocomplete")
 
     sem = _get_autocomplete_sem()
     # Load-shed autocomplete callers separately from the shared GPU queue. The
@@ -4254,6 +4285,7 @@ async def generate_route_bulk(
     # print(model.config.max_length)
     # print(tokenizer.model_max_length)
     # model.config.max_length = tokenizer.model_max_length
+    await _textgen_auth_gate(request, "/api/v1/generate-bulk")
     model_cache = _get_model_cache()
     if not _is_vllm_text_backend_enabled():
         model_cache.add_or_get("text_model", lambda: _load_pipelines_and_model(weights_path_tgz))
