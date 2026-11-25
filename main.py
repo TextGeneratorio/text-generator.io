@@ -3411,12 +3411,12 @@ async def generate_long_text(
     """
     validation_result = validate_generate_params(generate_params)
     if validation_result:
-        return HTTPException(status_code=400, detail=validation_result)
+        raise HTTPException(status_code=400, detail=validation_result)
 
     # Authorize the request with enhanced subscription validation
     if request:
         if not request_authorized_with_subscription_validation(request, secret):
-            return HTTPException(
+            raise HTTPException(
                 status_code=401,
                 detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required.",
             )
@@ -3445,7 +3445,7 @@ Important instructions:
                 stop_sequences=generate_params.stop_sequences,
             )
         except ToolAIError as exc:
-            return HTTPException(status_code=503, detail=str(exc))
+            raise HTTPException(status_code=503, detail=str(exc))
 
         # Format the response to match the standard API format
         result = [
@@ -3458,9 +3458,11 @@ Important instructions:
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error generating long text: {e}")
-        return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
 
 
 @app.post("/api/v1/generate-large", include_in_schema=False)
@@ -3475,12 +3477,12 @@ async def generate_large_text(
     """
     validation_result = validate_generate_params(generate_params)
     if validation_result:
-        return HTTPException(status_code=400, detail=validation_result)
+        raise HTTPException(status_code=400, detail=validation_result)
 
     # Authorize the request with enhanced subscription validation
     if request:
         if not request_authorized_with_subscription_validation(request, secret):
-            return HTTPException(
+            raise HTTPException(
                 status_code=401,
                 detail="Please subscribe at https://text-generator.io/subscribe first. Active subscription with valid backend validation required.",
             )
@@ -3491,7 +3493,7 @@ async def generate_large_text(
 
         # Validate that prompt has content after stripping
         if not prompt or len(prompt.strip()) < 2:
-            return HTTPException(
+            raise HTTPException(
                 status_code=400, detail="Text is too short or empty after processing. Please provide more content."
             )
 
@@ -3521,16 +3523,18 @@ Important instructions:
                 stop_sequences=generate_params.stop_sequences,
             )
         except ToolAIError as exc:
-            return HTTPException(status_code=503, detail=str(exc))
+            raise HTTPException(status_code=503, detail=str(exc))
 
         # Format the response to match the standard API format
         result = [{"generated_text": prompt + generated.text, "finished_reason": "length", "model": generated.model}]
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error generating large text: {e}")
-        return HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating text: {str(e)}")
 
 
 class OptimizePromptParams(BaseModel):
