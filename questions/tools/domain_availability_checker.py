@@ -13,7 +13,7 @@ import re
 import aiohttp
 import requests
 
-from questions.ai_wrapper import generate_with_claude
+from questions.ai_wrapper import generate_with_deepseek
 
 
 def is_domain_name(domain):
@@ -94,7 +94,7 @@ Each domain name should be on a new line and include only the domain name itself
 Be creative and consider different TLDs (Top Level Domains) beyond just .com.
 Ensure each suggestion is a valid domain name format."""
 
-    response = await generate_with_claude(prompt, prefill=current_ideas)
+    response = await generate_with_deepseek(prompt, prefill=current_ideas)
 
     # Process the response to extract valid domain names
     domains = set()

@@ -40,7 +40,7 @@ def test_normalize_domain(value, expected):
     assert domain_search.normalize_domain(value) == expected
 
 
-def test_generation_uses_deepseek_chat_and_json_schema():
+def test_generation_uses_deepseek_flash_and_json_schema():
     model_output = {
         "candidates": [
             {"domain": "HelixSignal.com", "why": "Science plus insight", "strategy": "Compound", "score": 91},
@@ -51,7 +51,7 @@ def test_generation_uses_deepseek_chat_and_json_schema():
 
     def fake_query(prompt, schema, **kwargs):
         captured.update(prompt=prompt, schema=schema, kwargs=kwargs)
-        return SimpleNamespace(data=model_output, model="deepseek-chat", provider="deepseek")
+        return SimpleNamespace(data=model_output, model="deepseek-v4-flash", provider="deepseek")
 
     result = domain_search.generate_domain_candidates(
         domain_search.DEFAULT_DOMAIN_SEARCH_PROMPT,
@@ -64,7 +64,7 @@ def test_generation_uses_deepseek_chat_and_json_schema():
     )
 
     assert result == [{"domain": "helixsignal.com", "why": "Science plus insight", "strategy": "Compound", "score": 91}]
-    assert captured["kwargs"]["model"] == "deepseek-chat"
+    assert captured["kwargs"]["model"] == "deepseek-v4-flash"
     assert captured["kwargs"]["temperature"] == 0.8
     assert captured["schema"]["additionalProperties"] is False
     assert "twohelixes.com" in captured["prompt"]
@@ -110,7 +110,7 @@ def test_run_domain_search_includes_seed_ideas_on_first_wave(monkeypatch):
         "twohelixes.com",
         "helixsignal.com",
     ]
-    assert result["model"] == "deepseek-chat"
+    assert result["model"] == "deepseek-v4-flash"
     assert result["available"] == 4
     assert result["fallback"] is False
 

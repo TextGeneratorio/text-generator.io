@@ -24,7 +24,7 @@ def test_query_tool_json_routes_to_deepseek_and_parses_fenced_json(monkeypatch):
         system_message="Be concise.",
     )
 
-    assert captured["model"] == "deepseek-chat"
+    assert captured["model"] == "deepseek-v4-flash"
     assert captured["response_format"] == {"type": "json_object"}
     assert result.data == {"value": "ready"}
     assert result.provider == "openrouter"

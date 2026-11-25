@@ -1,0 +1,14 @@
+.opt-page{padding:32px 16px}
+.opt-shell{max-width:760px;margin:0 auto}
+.opt-crumbs{font-size:14px;opacity:.7;margin-bottom:8px}
+.opt-lead{opacity:.8;margin:0 0 20px}
+.opt-form{display:flex;flex-direction:column;gap:8px}
+.opt-form label{font-weight:600;font-size:14px}
+.opt-form select,.opt-form input,.opt-form textarea{padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;background:#fff;color:#0f172a}
+.opt-row{display:flex;gap:16px;flex-wrap:wrap}
+.opt-form button{padding:12px 18px;border:0;border-radius:8px;background:#c2410c;color:#fff;font-weight:700;cursor:pointer}
+.opt-form button:disabled{opacity:.6;cursor:wait}
+.opt-status{font-size:14px;margin:0}.opt-status.is-error{color:#b91c1c}
+.opt-out{margin-top:20px}
+.opt-out img,.opt-out video{max-width:100%;border-radius:12px}
+.opt-out pre{white-space:pre-wrap;background:#f1f5f9;color:#0f172a;padding:16px;border-radius:12px}

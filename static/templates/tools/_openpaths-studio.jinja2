@@ -1,0 +1,30 @@
+<section class="opt-page" id="opt-root" data-kind="{{ op_kind }}" data-tool="{{ op_tool|default('') }}">
+    <div class="opt-shell">
+        <nav class="opt-crumbs"><a href="/tools">Tools</a> / <span>{{ tool_name }}</span></nav>
+        <h1>{{ tool_name }}</h1>
+        <p class="opt-lead">{{ tool_description }}</p>
+        <form class="opt-form" id="opt-form">
+            <label for="opt-model">Model</label>
+            <select id="opt-model"></select>
+            <small id="opt-model-note"></small>
+            {% if op_kind == 'video' %}
+            <div class="opt-row">
+                <label>Seconds <input id="opt-seconds" type="number" min="2" max="10" value="5"></label>
+                <label>Aspect <select id="opt-aspect"><option>16:9</option><option>9:16</option><option>1:1</option></select></label>
+            </div>
+            <label for="opt-image" id="opt-image-label" hidden>Image URL to animate (public https)</label>
+            <input id="opt-image" type="url" placeholder="https://..." hidden>
+            {% elif op_kind == 'image' %}
+            <label for="opt-size">Canvas</label>
+            <select id="opt-size"><option value="1024x1024">Square 1024x1024</option><option value="1344x768">Landscape 1344x768</option><option value="768x1344">Portrait 768x1344</option></select>
+            {% endif %}
+            <label for="opt-prompt">{% if op_kind == 'chat' %}Input{% else %}Prompt{% endif %}</label>
+            <textarea id="opt-prompt" rows="{% if op_kind == 'chat' %}9{% else %}5{% endif %}" maxlength="40000" required></textarea>
+            <button type="submit" id="opt-go"></button>
+            <p class="opt-status" id="opt-status" aria-live="polite">Pay-as-you-go credits. Log in to run.</p>
+        </form>
+        <div class="opt-out" id="opt-out" hidden></div>
+    </div>
+</section>
+<link rel="stylesheet" href="/static/css/openpaths-tools.css?v=1">
+<script defer src="/static/js/openpaths-tools.js?v=1"></script>

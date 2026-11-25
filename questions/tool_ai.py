@@ -11,11 +11,12 @@ from typing import Any
 from questions.provider_router import ProviderRoutingError, get_provider_router
 
 
-DEFAULT_TOOL_MODEL = "deepseek-chat"
+DEFAULT_TOOL_MODEL = "deepseek-v4-flash"
 
-# Default for plain text continuation endpoints. Routed through the provider
-# router, so a caller can still name any catalogue model (including Claude).
-DEFAULT_TEXT_MODEL = "gpt-5.6-luna"
+# Default for plain text continuation endpoints. Routed directly to DeepSeek so
+# writing traffic does not depend on an Anthropic or OpenRouter key. Callers can
+# still name any catalogue model.
+DEFAULT_TEXT_MODEL = "deepseek-v4-flash"
 
 
 class ToolAIError(RuntimeError):

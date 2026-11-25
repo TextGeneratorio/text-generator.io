@@ -28,7 +28,7 @@ def db():
 
 
 def test_every_lane_tier_clears_margin_floor():
-    for model in ("gemma-roleplay-v2", "gpt-5.6-luna", "claude-sonnet-latest", "llama-3.1-8b-instant", "text-generator/auto-cheap"):
+    for model in ("gemma-roleplay-v2", "gpt-5.6-luna", "claude-haiku-5-5", "deepseek-v4-flash", "llama-3.1-8b-instant", "text-generator/auto-cheap"):
         for lane in (tp.lane_for(model), tp.LANE_LOCAL, tp.LANE_RUNPOD, tp.LANE_OPENROUTER):
             if lane in (tp.LANE_LOCAL, tp.LANE_RUNPOD) and tp.resolve_model(model):
                 continue

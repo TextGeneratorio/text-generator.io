@@ -27,8 +27,8 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
       MAX_TYPING_HISTORY: 100,
       TYPING_TIMEOUT_MS: 2000,
       
-      // Claude API settings
-      DEFAULT_MODEL: "gpt-5.6-luna",
+      // Bulk generation settings
+      DEFAULT_MODEL: "deepseek-v4-flash",
       CLAUDE_MAX_TOKENS: 5999,
       CLAUDE_TEMPERATURE: 0.8,
       
@@ -884,14 +884,14 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
     const savedSelection = this.editor ? this.editor.getSelection() : null;
     
     try {
-      // Determine if we should use Claude for this generation
+      // Determine if we should use bulk generation for this request
       const useClaudeForThisRequest = isBulkGeneration && this.useClaudeForBulk;
       
       let generatedText = '';
       
       if (useClaudeForThisRequest) {
-        // Use Claude API for bulk generation
-        this.updateSaveStatus('Using Claude for high-quality generation...');
+        // Use the large-text endpoint for bulk generation
+        this.updateSaveStatus('Using DeepSeek V4 Flash for high-quality generation...');
         
         // Determine the correct API endpoint based on hostname
         const isLocal = window.location.hostname.includes('localhost') || 
@@ -901,7 +901,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
             '/api/v1/generate-large' : 
             'https://api.text-generator.io/api/v1/generate-large';
         
-        // Generate content using the Claude API endpoint
+        // Generate content using the large-text endpoint
         const response = await fetch(largeGenerateEndpoint, {
           method: 'POST',
           headers: {
@@ -926,7 +926,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Claude API Error (${response.status}): ${errorText}`);
+          console.error(`Large-text generation error (${response.status}): ${errorText}`);
           this.updateSaveStatus(`Generation failed: ${response.status} error`);
           return;
         }
@@ -935,7 +935,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
         
         // If no data or empty array, return null
         if (!data || !Array.isArray(data) || data.length === 0) {
-          console.warn('Empty or invalid response from Claude API');
+          console.warn('Empty or invalid response from the large-text endpoint');
           this.updateSaveStatus('Generation received empty response');
           return;
         }
@@ -1583,7 +1583,7 @@ class EnhancedTextGeneratorDocs extends TextGeneratorDocs {
 
       this.updateSaveStatus('Rewriting document...');
 
-      // Determine the API endpoint (always use Claude for rewriting for better quality)
+      // Determine the API endpoint (use the large-text route for rewriting)
       const isLocal = window.location.hostname.includes('localhost') || 
                      window.location.hostname.includes('127.0.0.1') || 
                      window.location.hostname.includes('0.0.0.0');
@@ -1647,7 +1647,7 @@ And finally also output the full text again if its used, as we are doing a full 
       // The API might return the original prompt + generation, or just the generation.
       // We want *only* the rewritten content.
       // Assuming the structure returns { generated_text: "... rewritten content ..." }
-      // Claude might prepend the original text, so we need to be careful.
+      // The model might prepend the original text, so we need to be careful.
       // Since the system prompt asks *only* for the rewritten content, we hope it complies.
       let rewrittenText = data[0].generated_text;
       
@@ -1700,7 +1700,7 @@ And finally also output the full text again if its used, as we are doing a full 
 
       this.updateSaveStatus('Autowriting...');
 
-      // Determine the API endpoint (Claude for better continuation)
+      // Determine the API endpoint (large-text route for continuation)
       const isLocal = window.location.hostname.includes('localhost') || 
                      window.location.hostname.includes('127.0.0.1') || 
                      window.location.hostname.includes('0.0.0.0');

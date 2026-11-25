@@ -32,13 +32,15 @@ def test_catalog_resolves_auto_alias_and_exposes_openai_list():
     ids = {item["id"] for item in payload["data"]}
     assert payload["object"] == "list"
     assert "text-generator/auto" in ids
-    assert "claude-sonnet-latest" in ids
+    assert "claude-haiku-5-5" in ids
+    assert "deepseek-v4-flash" in ids
 
 
 def test_usage_cost_is_model_priced_and_rounded_to_whole_cents():
     assert usage_cost_cents("gpt-4o-mini", {"prompt_tokens": 1, "completion_tokens": 1}) == 1
     assert usage_cost_cents("gpt-4o-mini", {"prompt_tokens": 1_000_000, "completion_tokens": 0}) == 15
-    assert usage_cost_cents("claude-sonnet-latest", {"input_tokens": 10_000, "output_tokens": 1_000}) == 5
+    assert usage_cost_cents("claude-haiku-5-5", {"input_tokens": 10_000, "output_tokens": 1_000}) == 1
+    assert usage_cost_cents("deepseek-v4-flash", {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000}) == 150
     assert usage_cost_cents(
         "deepseek-v4-flash-vision-exp",
         {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000},
@@ -53,6 +55,16 @@ def test_deepseek_v4_flash_vision_exp_is_direct_and_v4_flash_priced():
     assert model.provider_model_id == "deepseek-v4-flash-vision-exp"
     assert "vision" in model.tags
     assert model.fallback_models == ()
+
+
+def test_deepseek_v4_flash_is_direct_and_resolves_v41_aliases():
+    model = resolve_model("deepseek-v4-flash")
+
+    assert model is not None
+    assert model.provider == "deepseek"
+    assert model.provider_model_id == "deepseek-flash"
+    assert model.fallback_models == ()
+    assert resolve_model("deepseek-v4.1-flash").id == "deepseek-v4-flash"
 
 
 def test_chat_request_model_preserves_deepseek_vision_and_files_parts():
@@ -190,7 +202,7 @@ def test_anthropic_response_is_normalized(monkeypatch):
     router = ProviderRouter(session=session)
 
     result = router.chat_completion({
-        "model": "claude-sonnet-latest",
+        "model": "claude-haiku-5-5",
         "messages": [
             {"role": "system", "content": "Be concise"},
             {"role": "user", "content": "Hello"},

@@ -2,13 +2,13 @@ import pytest
 
 pytestmark = [pytest.mark.integration, pytest.mark.internet]
 
-from questions.ai_wrapper import generate_with_claude
+from questions.ai_wrapper import generate_with_deepseek
 
 
 @pytest.mark.asyncio
-async def test_generate_with_claude():
+async def test_generate_with_deepseek():
     prompt = "What is the capital of France?"
-    response = await generate_with_claude(prompt)
+    response = await generate_with_deepseek(prompt)
 
     assert response is not None
     assert isinstance(response, str)

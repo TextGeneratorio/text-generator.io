@@ -1,0 +1,39 @@
+{% extends 'templates/base.jinja2' %}
+{% block headers %}
+<title>{{ page_title }}</title>
+<meta name="description" content="{{ page_description }}">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ page_description }}">
+<meta property="og:url" content="https://text-generator.io{{ page_path }}">
+<meta property="og:type" content="article">
+<script type="application/ld+json">{{ jsonld | safe }}</script>
+{% endblock %}
+{% block mainbody %}
+<main style="max-width:880px;margin:28px auto;padding:0 16px;line-height:1.6;color:#0f172a">
+<nav aria-label="Breadcrumb" style="font-size:.9rem"><a href="/">Home</a> / <a href="{{ section_path }}">{{ section }}</a></nav>
+<h1 style="font-size:2rem;line-height:1.2;margin:12px 0">{{ page.h1 }}</h1>
+<p>{{ page.intro }}</p>
+{% if page.points %}<ul>{% for p in page.points %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
+{% if page.rows %}
+<table style="width:100%;border-collapse:collapse;margin:16px 0">
+<thead><tr><th style="text-align:left;padding:8px;border-bottom:2px solid #cbd5e1">Feature</th><th style="text-align:left;padding:8px;border-bottom:2px solid #cbd5e1">Other</th><th style="text-align:left;padding:8px;border-bottom:2px solid #cbd5e1">Text Generator</th></tr></thead>
+<tbody>{% for a, b, c in page.rows %}<tr><td style="padding:8px;border-bottom:1px solid #e2e8f0">{{ a }}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0">{{ b }}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0">{{ c }}</td></tr>{% endfor %}</tbody></table>
+{% if page.note %}<p><em>{{ page.note }}</em></p>{% endif %}
+{% endif %}
+{% if model %}<p>Model <code>{{ model.id }}</code>: {{ model.context_window }} context, ${{ '%g' % model.input_price }} input / ${{ '%g' % model.output_price }} output per 1M tokens. <a href="/models/{{ model.id }}">Model details</a></p>{% endif %}
+<h2>Quick start</h2>
+<h3>curl</h3><pre style="overflow:auto;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px"><code>{{ curl }}</code></pre>
+<h3>Python</h3><pre style="overflow:auto;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px"><code>{{ py }}</code></pre>
+<h3>JavaScript</h3><pre style="overflow:auto;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px"><code>{{ js }}</code></pre>
+<h2>Pricing</h2>
+<p>{{ pricing }} <a href="/subscribe">See pricing</a></p>
+<h2>FAQ</h2>
+{% for q, a in faq %}<h3>{{ q }}</h3><p>{{ a }}</p>{% endfor %}
+<h2>Related</h2>
+<ul>
+{% for s, t in related_guides %}<li><a href="/guides/{{ s }}">{{ t }}</a></li>{% endfor %}
+{% for s, t in related_compare %}<li><a href="/compare/{{ s }}">{{ t }}</a></li>{% endfor %}
+<li><a href="/models">Model catalogue</a></li><li><a href="/docs">API docs</a></li><li><a href="/playground">Playground</a></li><li><a href="/agents">Agents guide</a></li><li><a href="/llms.txt">llms.txt</a></li>
+</ul>
+</main>
+{% endblock %}

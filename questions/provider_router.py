@@ -29,13 +29,13 @@ AUTO_ROUTE_ENTRIES: dict[str, tuple[tuple[str, str], ...]] = {
     "balanced": (
         ("quick fact lookup classification extraction formatting translation summary simple question", "gemini-2.5-flash"),
         ("implement feature endpoint api integration database backend code refactor", "gpt-5.4-mini"),
-        ("code review security architecture authentication complex debugging", "claude-sonnet-latest"),
+        ("code review security architecture authentication complex debugging", "claude-haiku-5-5"),
         ("mathematics proof difficult reasoning planning strategy multi-step analysis", "deepseek-reasoner"),
         ("image screenshot chart document OCR visual understanding", "gemini-2.5-pro"),
-        ("friendly conversation writing marketing email brainstorm general chat", "deepseek-chat"),
+        ("friendly conversation writing marketing email brainstorm general chat", "deepseek-v4-flash"),
     ),
     "fast": (
-        ("instant assistant conversation short response extract classify format", "deepseek-chat"),
+        ("instant assistant conversation short response extract classify format", "deepseek-v4-flash"),
         ("vision OCR screenshot quick image caption", "gemini-2.5-flash"),
         ("tiny code edit regex shell command git configuration", "gpt-4o-mini"),
     ),
@@ -47,7 +47,7 @@ AUTO_ROUTE_ENTRIES: dict[str, tuple[tuple[str, str], ...]] = {
     "code": (
         ("small edit boilerplate test regex config shell git", "gpt-4o-mini"),
         ("feature endpoint database integration refactor debug", "gpt-5.4-mini"),
-        ("review security architecture authentication distributed system", "claude-sonnet-latest"),
+        ("review security architecture authentication distributed system", "claude-haiku-5-5"),
         ("code completion repository programming implementation", "codestral-latest"),
         ("hard algorithm proof performance concurrency", "deepseek-reasoner"),
     ),
